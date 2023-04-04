@@ -4218,7 +4218,7 @@ computeFinalContext schema cache =
     let
         projectContext : projectContext
         projectContext =
-            getMostAppropriateFunctionContent schema.initialProjectContext [ cache.dependencies, cache.readme, cache.elmJson ]
+            findInitialInputContext schema.initialProjectContext [ cache.dependencies, cache.readme, cache.elmJson ]
 
         traversalAndFolder : TraversalAndFolder projectContext moduleContext
         traversalAndFolder =
@@ -5358,7 +5358,7 @@ createProjectVisitor schema hidden maybeVisitor possibleInputContexts computeCon
                     let
                         inputContext : projectContext
                         inputContext =
-                            getMostAppropriateFunctionContent schema.initialProjectContext possibleInputContexts
+                            findInitialInputContext schema.initialProjectContext possibleInputContexts
 
                         inputContextHash : ContextHash projectContext
                         inputContextHash =
@@ -5423,7 +5423,7 @@ createDependenciesVisitor schema { exceptions } raise cache { allVisitor, direct
                     let
                         inputContext : projectContext
                         inputContext =
-                            getMostAppropriateFunctionContent schema.initialProjectContext [ cache.readme, cache.elmJson ]
+                            findInitialInputContext schema.initialProjectContext [ cache.readme, cache.elmJson ]
 
                         inputContextHash : ContextHash projectContext
                         inputContextHash =
@@ -5478,8 +5478,8 @@ createDependenciesVisitor schema { exceptions } raise cache { allVisitor, direct
                 )
 
 
-getMostAppropriateFunctionContent : projectContext -> List (Maybe (Cache.EntryMaybe error projectContext)) -> projectContext
-getMostAppropriateFunctionContent defaultContext possibleInputContexts =
+findInitialInputContext : projectContext -> List (Maybe (Cache.EntryMaybe error projectContext)) -> projectContext
+findInitialInputContext defaultContext possibleInputContexts =
     case possibleInputContexts of
         [] ->
             defaultContext
@@ -5488,7 +5488,7 @@ getMostAppropriateFunctionContent defaultContext possibleInputContexts =
             Cache.outputContextMaybe cacheEntry
 
         Nothing :: rest ->
-            getMostAppropriateFunctionContent defaultContext rest
+            findInitialInputContext defaultContext rest
 
 
 createFinalProjectEvaluationVisitor :
@@ -5622,7 +5622,7 @@ createModuleVisitorFromProjectVisitorHelp schema exceptions raise hidden travers
         let
             initialProjectContext : projectContext
             initialProjectContext =
-                getMostAppropriateFunctionContent schema.initialProjectContext [ hidden.cache.dependencies, hidden.cache.readme, hidden.cache.elmJson ]
+                findInitialInputContext schema.initialProjectContext [ hidden.cache.dependencies, hidden.cache.readme, hidden.cache.elmJson ]
 
             inputProjectContext : projectContext
             inputProjectContext =
