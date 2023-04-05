@@ -5294,47 +5294,43 @@ type alias RuleProjectVisitorOperations t =
 
 
 createRuleProjectVisitor : ProjectRuleSchemaData projectContext moduleContext -> ValidProject -> ChangeableRuleData -> ProjectRuleCache projectContext -> RuleProjectVisitor
-createRuleProjectVisitor schema project ruleData cache =
-    If.create RuleProjectVisitor
-        (\raise hidden -> projectRuleImplementation schema raise hidden)
-        { cache = removeUnknownModulesFromInitialCache project cache
+createRuleProjectVisitor schema initialProject ruleData initialCache =
+    let
+        raise : { cache : ProjectRuleCache projectContext, ruleData : ChangeableRuleData } -> RuleProjectVisitor
+        raise ({ cache } as hidden) =
+            let
+                raiseCache : ProjectRuleCache projectContext -> RuleProjectVisitor
+                raiseCache newCache =
+                    raise { cache = newCache, ruleData = hidden.ruleData }
+            in
+            RuleProjectVisitor
+                { elmJsonVisitor = createProjectVisitor schema hidden schema.elmJsonVisitor [] ValidProject.elmJsonHash .elmJson (\entry -> raiseCache { cache | elmJson = Just entry })
+                , readmeVisitor = createProjectVisitor schema hidden schema.readmeVisitor [ cache.elmJson ] ValidProject.readmeHash .readme (\entry -> raiseCache { cache | readme = Just entry })
+                , dependenciesVisitor = createDependenciesVisitor schema hidden.ruleData raiseCache cache { allVisitor = schema.dependenciesVisitor, directVisitor = schema.directDependenciesVisitor }
+                , createModuleVisitorFromProjectVisitor = createModuleVisitorFromProjectVisitor schema hidden.ruleData.exceptions raiseCache hidden
+                , finalProjectEvaluation = createFinalProjectEvaluationVisitor schema hidden.ruleData raiseCache cache
+                , dataExtractVisitor = createDataExtractVisitor schema raiseCache cache
+                , getErrorsForModule = \filePath -> getErrorsForModule cache filePath
+
+                -- TODO This is called at the wrong moment: This contains the state of the project with fixes that haven't been applied.
+                , getErrors = \() -> errorsFromCache (finalCacheMarker schema.name hidden.ruleData.ruleId cache)
+                , backToRule =
+                    \() ->
+                        Rule
+                            { name = schema.name
+                            , id = hidden.ruleData.ruleId
+                            , exceptions = hidden.ruleData.exceptions
+                            , requestedData = hidden.ruleData.requestedData
+                            , providesFixes = schema.providesFixes
+                            , ruleProjectVisitor = Ok (\newProject newRuleData -> createRuleProjectVisitor schema newProject newRuleData cache)
+                            }
+                , requestedData = hidden.ruleData.requestedData
+                }
+    in
+    raise
+        { cache = removeUnknownModulesFromInitialCache initialProject initialCache
         , ruleData = ruleData
         }
-
-
-projectRuleImplementation :
-    ProjectRuleSchemaData projectContext moduleContext
-    -> (RuleProjectVisitorHidden projectContext -> RuleProjectVisitor)
-    -> RuleProjectVisitorHidden projectContext
-    -> RuleProjectVisitorOperations RuleProjectVisitor
-projectRuleImplementation schema baseRaise ({ cache } as hidden) =
-    let
-        raiseCache : ProjectRuleCache projectContext -> RuleProjectVisitor
-        raiseCache newCache =
-            baseRaise { cache = newCache, ruleData = hidden.ruleData }
-    in
-    { elmJsonVisitor = createProjectVisitor schema hidden schema.elmJsonVisitor [] ValidProject.elmJsonHash .elmJson (\entry -> raiseCache { cache | elmJson = Just entry })
-    , readmeVisitor = createProjectVisitor schema hidden schema.readmeVisitor [ cache.elmJson ] ValidProject.readmeHash .readme (\entry -> raiseCache { cache | readme = Just entry })
-    , dependenciesVisitor = createDependenciesVisitor schema hidden.ruleData raiseCache cache { allVisitor = schema.dependenciesVisitor, directVisitor = schema.directDependenciesVisitor }
-    , createModuleVisitorFromProjectVisitor = createModuleVisitorFromProjectVisitor schema hidden.ruleData.exceptions raiseCache hidden
-    , finalProjectEvaluation = createFinalProjectEvaluationVisitor schema hidden.ruleData raiseCache cache
-    , dataExtractVisitor = createDataExtractVisitor schema raiseCache cache
-    , getErrorsForModule = \filePath -> getErrorsForModule cache filePath
-
-    -- TODO This is called at the wrong moment: This contains the state of the project with fixes that haven't been applied.
-    , getErrors = \() -> errorsFromCache (finalCacheMarker schema.name hidden.ruleData.ruleId cache)
-    , backToRule =
-        \() ->
-            Rule
-                { name = schema.name
-                , id = hidden.ruleData.ruleId
-                , exceptions = hidden.ruleData.exceptions
-                , requestedData = hidden.ruleData.requestedData
-                , providesFixes = schema.providesFixes
-                , ruleProjectVisitor = Ok (\project ruleData -> createRuleProjectVisitor schema project ruleData cache)
-                }
-    , requestedData = hidden.ruleData.requestedData
-    }
 
 
 createProjectVisitor :
