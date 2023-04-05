@@ -117,7 +117,7 @@ compute moduleName module_ project =
 
         cacheKey : ProjectCache.ModuleCacheKey
         cacheKey =
-            { imported = imported, source = ProjectModule.source module_ }
+            { imported = imported, contentHash = ProjectModule.contentHash module_ }
 
         computeLookupTableForModule : () -> ( ModuleNameLookupTable, Dict ModuleName Elm.Docs.Module )
         computeLookupTableForModule () =

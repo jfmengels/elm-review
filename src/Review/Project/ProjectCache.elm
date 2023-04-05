@@ -3,6 +3,7 @@ module Review.Project.ProjectCache exposing (ModuleCacheKey, ProjectCache, empty
 import Dict exposing (Dict)
 import Elm.Docs
 import Elm.Syntax.ModuleName exposing (ModuleName)
+import Review.Cache.ContentHash exposing (ContentHash)
 import Review.ModuleNameLookupTable exposing (ModuleNameLookupTable)
 
 
@@ -15,7 +16,7 @@ type alias ProjectCache =
 
 type alias ModuleCacheKey =
     { imported : Dict ModuleName Elm.Docs.Module
-    , source : String
+    , contentHash : ContentHash
     }
 
 
