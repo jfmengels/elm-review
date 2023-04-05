@@ -5694,11 +5694,7 @@ createModuleVisitorFromProjectVisitorHelp schema exceptions raise hidden travers
                                 in
                                 raise { cache | moduleContexts = Dict.insert availableData.filePath cacheEntry cache.moduleContexts }
                         in
-                        If.create RuleModuleVisitor
-                            (\ruleModuleVisitorRaise ruleModuleVisitorHidden ->
-                                moduleRuleImplementation moduleRuleSchema ruleData toRuleProjectVisitor ruleModuleVisitorRaise ruleModuleVisitorHidden
-                            )
-                            ( [], initialContext )
+                        createRuleModuleVisitor moduleRuleSchema ruleData toRuleProjectVisitor initialContext
                     )
 
 
