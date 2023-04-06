@@ -104,7 +104,7 @@ compute moduleName module_ project =
 
         computeLookupTableForModule : () -> ( ModuleNameLookupTable, ValidProject )
         computeLookupTableForModule () =
-            compute2
+            computeHelp
                 { implicitImports = implicitImports
                 , contentHash = ProjectModule.contentHash module_
                 }
@@ -124,8 +124,8 @@ compute moduleName module_ project =
             computeLookupTableForModule ()
 
 
-compute2 : ProjectCache.ModuleCacheKey -> ModuleName -> OpaqueProjectModule -> ValidProject -> ( ModuleNameLookupTable, ValidProject )
-compute2 cacheKey moduleName module_ project =
+computeHelp : ProjectCache.ModuleCacheKey -> ModuleName -> OpaqueProjectModule -> ValidProject -> ( ModuleNameLookupTable, ValidProject )
+computeHelp cacheKey moduleName module_ project =
     let
         projectCache : ProjectCache
         projectCache =
