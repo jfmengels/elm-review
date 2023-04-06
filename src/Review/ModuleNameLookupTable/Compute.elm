@@ -308,28 +308,21 @@ visitExpressions node context =
 preludeModuleDocs : Dict ModuleName Elm.Docs.Module -> Dict ModuleName Elm.Docs.Module
 preludeModuleDocs deps =
     List.foldl
-        (\node acc -> computeImportedModulesDocsForPrelude deps node acc)
+        (\(Node _ import_) acc ->
+            let
+                importedModuleName : ModuleName
+                importedModuleName =
+                    Node.value import_.moduleName
+            in
+            case Dict.get importedModuleName deps of
+                Just importedModule ->
+                    Dict.insert importedModuleName importedModule acc
+
+                Nothing ->
+                    acc
+        )
         Dict.empty
         elmCorePrelude
-
-
-computeImportedModulesDocsForPrelude :
-    Dict ModuleName Elm.Docs.Module
-    -> Node Import
-    -> Dict ModuleName Elm.Docs.Module
-    -> Dict ModuleName Elm.Docs.Module
-computeImportedModulesDocsForPrelude deps (Node _ import_) accImported =
-    let
-        importedModuleName : ModuleName
-        importedModuleName =
-            Node.value import_.moduleName
-    in
-    case Dict.get importedModuleName deps of
-        Just importedModule ->
-            Dict.insert importedModuleName importedModule accImported
-
-        Nothing ->
-            accImported
 
 
 elmCorePrelude : List (Node Import)
