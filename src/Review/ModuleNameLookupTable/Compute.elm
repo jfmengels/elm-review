@@ -110,9 +110,12 @@ compute moduleName module_ project =
         moduleAst =
             ProjectModule.ast module_
 
-        importedImplicitly : List ( ElementType, String )
+        importedImplicitly : Dict String ElementType
         importedImplicitly =
-            []
+            List.foldl
+                (\node acc -> computeImplicitlyImportedElements projectCache.modules node acc)
+                Dict.empty
+                moduleAst.imports
 
         ( imported, projectCacheWithComputedImports ) =
             List.foldl
@@ -172,8 +175,8 @@ compute moduleName module_ project =
 
 
 type ElementType
-    = Value String
-    | Type String
+    = Value
+    | Type
 
 
 computeOnlyModuleDocs :
@@ -215,6 +218,51 @@ computeOnlyModuleDocs moduleName module_ modulesByModuleName deps projectCache =
             Dict.insert moduleName moduleDocs projectCacheWithComputedImports.modules
     in
     ( moduleDocs, { projectCache | modules = modules } )
+
+
+computeImplicitlyImportedElements :
+    Dict ModuleName Elm.Docs.Module
+    -> Node Import
+    -> Dict String ElementType
+    -> Dict String ElementType
+computeImplicitlyImportedElements modules (Node _ import_) acc =
+    case import_.exposingList of
+        Nothing ->
+            acc
+
+        Just (Node _ (Exposing.Explicit list)) ->
+            case Dict.get (Node.value import_.moduleName) modules of
+                Just moduleDocs ->
+                    List.foldl
+                        (\node subAcc ->
+                            case Node.value node of
+                                Exposing.TypeExpose { name } ->
+                                    case ListExtra.find (\union -> union.name == name) moduleDocs.unions of
+                                        Just union ->
+                                            List.foldl
+                                                (\( tagName, _ ) subSubAcc -> Dict.insert tagName Type subSubAcc)
+                                                subAcc
+                                                union.tags
+
+                                        Nothing ->
+                                            subAcc
+
+                                _ ->
+                                    subAcc
+                        )
+                        acc
+                        list
+
+                Nothing ->
+                    acc
+
+        Just (Node _ (Exposing.All _)) ->
+            case Dict.get (Node.value import_.moduleName) modules of
+                Just moduleDocs ->
+                    acc
+
+                Nothing ->
+                    acc
 
 
 computeImportedModulesDocs :
