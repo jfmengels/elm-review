@@ -244,6 +244,11 @@ computeImplicitlyImportedElements modules (Node _ import_) acc =
 
 collectExplicit : Elm.Docs.Module -> List (Node TopLevelExpose) -> List ProjectCache.ImportedElementType -> List ProjectCache.ImportedElementType
 collectExplicit moduleDocs list acc =
+    let
+        moduleName : List String
+        moduleName =
+            String.split "." moduleDocs.name
+    in
     List.foldl
         (\node subAcc ->
             case Node.value node of
