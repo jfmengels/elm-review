@@ -110,6 +110,18 @@ compute moduleName module_ project =
         moduleAst =
             ProjectModule.ast module_
 
+        {- This will be used as the cache key in terms of the imports.
+           Since we assume that the code will be compiling at every stage, the only thing that causes the
+           lookup table for a given module to be recomputed, are:
+           1) Whether the module itself has changed (because the position of elements might have changed)
+           2) Whether the dependencies have changed, in which case we in practice nuke the cache because that's easier and it's a rare case.
+           3) If the exposed elements of the module's imports have changed.
+
+           This data is about 3). In practice and because of how this algorithm is computed,
+           if we have `import A exposing (a, b, C, D(..))`, then only a change to D's constructors
+           can cause the lookup table to be different. So we only need to store the names of the elements that were
+           imported "implicitly", though `exposing (..)` or `exposing (D(..))`.
+        -}
         implicitImports : Dict String (List ProjectCache.ImportedElementType)
         implicitImports =
             List.foldl
