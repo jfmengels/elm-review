@@ -27,6 +27,7 @@ type OpaqueProjectModule
     = OpaqueProjectModule
         { path : String
         , source : String
+        , moduleName : ModuleName
         , ast : Elm.Syntax.File.File
         , contentHash : ContentHash
         , isInSourceDirectories : Bool
@@ -45,6 +46,10 @@ create params =
         { path = params.path
         , source = params.source
         , ast = sanitizeModule params.ast
+        , moduleName =
+            params.ast.moduleDefinition
+                |> Node.value
+                |> Elm.Syntax.Module.moduleName
         , contentHash = ContentHash.hash params.source
         , isInSourceDirectories = params.isInSourceDirectories
         }
@@ -79,10 +84,8 @@ ast (OpaqueProjectModule module_) =
 
 
 moduleName : OpaqueProjectModule -> ModuleName
-moduleName module_ =
-    (ast module_).moduleDefinition
-        |> Node.value
-        |> Elm.Syntax.Module.moduleName
+moduleName (OpaqueProjectModule module_) =
+    module_.moduleName
 
 
 contentHash : OpaqueProjectModule -> ContentHash
@@ -104,6 +107,7 @@ type alias ProjectModule =
     { path : String
     , source : String
     , ast : Elm.Syntax.File.File
+    , moduleName : ModuleName
     , contentHash : ContentHash
     , isInSourceDirectories : Bool
     }
