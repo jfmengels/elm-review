@@ -1,4 +1,4 @@
-module Review.Project.ProjectCache exposing (ModuleCacheKey, ProjectCache, empty)
+module Review.Project.ProjectCache exposing (ElementType(..), ModuleCacheKey, ProjectCache, empty)
 
 import Dict exposing (Dict)
 import Elm.Docs
@@ -18,6 +18,11 @@ type alias ModuleCacheKey =
     { imported : Dict ModuleName Elm.Docs.Module
     , contentHash : ContentHash
     }
+
+
+type ElementType
+    = Value
+    | Type
 
 
 empty : ProjectCache

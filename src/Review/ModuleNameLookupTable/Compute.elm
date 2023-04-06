@@ -110,7 +110,7 @@ compute moduleName module_ project =
         moduleAst =
             ProjectModule.ast module_
 
-        importedImplicitly : Dict String ElementType
+        importedImplicitly : Dict String ProjectCache.ElementType
         importedImplicitly =
             List.foldl
                 (\node acc -> computeImplicitlyImportedElements projectCache.modules node acc)
@@ -174,11 +174,6 @@ compute moduleName module_ project =
     ( lookupTable, ValidProject.updateProjectCache newProjectCache project )
 
 
-type ElementType
-    = Value
-    | Type
-
-
 computeOnlyModuleDocs :
     ModuleName
     -> OpaqueProjectModule
@@ -223,8 +218,8 @@ computeOnlyModuleDocs moduleName module_ modulesByModuleName deps projectCache =
 computeImplicitlyImportedElements :
     Dict ModuleName Elm.Docs.Module
     -> Node Import
-    -> Dict String ElementType
-    -> Dict String ElementType
+    -> Dict String ProjectCache.ElementType
+    -> Dict String ProjectCache.ElementType
 computeImplicitlyImportedElements modules (Node _ import_) acc =
     case import_.exposingList of
         Nothing ->
@@ -240,7 +235,7 @@ computeImplicitlyImportedElements modules (Node _ import_) acc =
                                     case ListExtra.find (\union -> union.name == name) moduleDocs.unions of
                                         Just union ->
                                             List.foldl
-                                                (\( tagName, _ ) subSubAcc -> Dict.insert tagName Type subSubAcc)
+                                                (\( tagName, _ ) subSubAcc -> Dict.insert tagName ProjectCache.Type subSubAcc)
                                                 subAcc
                                                 union.tags
 
