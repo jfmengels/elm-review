@@ -102,7 +102,7 @@ parse ((Project p) as project) =
                 case Graph.checkAcyclic graph of
                     Err edge ->
                         ImportCycle.findCycle graph edge
-                            |> List.filterMap (\path -> Dict.get path p.modules |> Maybe.map getModuleName)
+                            |> List.filterMap (\path -> Dict.get path p.modules |> Maybe.map ProjectModule.moduleName)
                             |> InvalidProjectError.ImportCycleError
                             |> Err
 
@@ -181,7 +181,7 @@ computeModulesByModuleName : Dict a OpaqueProjectModule -> Dict ModuleName Opaqu
 computeModulesByModuleName modules =
     Dict.foldl
         (\_ module_ acc ->
-            Dict.insert (getModuleName module_) module_ acc
+            Dict.insert (ProjectModule.moduleName module_) module_ acc
         )
         Dict.empty
         modules
@@ -197,7 +197,7 @@ duplicateModuleNames visitedModules projectModules =
             let
                 moduleName : ModuleName
                 moduleName =
-                    getModuleName projectModule
+                    ProjectModule.moduleName projectModule
 
                 projectModulePath : String
                 projectModulePath =
@@ -216,7 +216,7 @@ duplicateModuleNames visitedModules projectModules =
                             path
                                 :: projectModulePath
                                 :: (restOfModules
-                                        |> List.filter (\p -> getModuleName p == moduleName)
+                                        |> List.filter (\p -> ProjectModule.moduleName p == moduleName)
                                         |> List.map ProjectModule.path
                                    )
                         }
@@ -231,7 +231,7 @@ buildModuleGraph mods =
                 (\_ module_ ( index, dict ) ->
                     ( index + 1
                     , Dict.insert
-                        (getModuleName module_)
+                        (ProjectModule.moduleName module_)
                         index
                         dict
                     )
@@ -257,7 +257,7 @@ buildModuleGraph mods =
                             nodesAndEdges
                                 (\moduleName -> Dict.get moduleName moduleIds)
                                 module_
-                                (getModuleId <| getModuleName module_)
+                                (getModuleId <| ProjectModule.moduleName module_)
                     in
                     ( moduleNode :: resNodes, modulesEdges ++ resEdges )
                 )
@@ -283,13 +283,6 @@ importedModules : OpaqueProjectModule -> List ModuleName
 importedModules module_ =
     (ProjectModule.ast module_).imports
         |> List.map (Node.value >> .moduleName >> Node.value)
-
-
-getModuleName : OpaqueProjectModule -> ModuleName
-getModuleName module_ =
-    (ProjectModule.ast module_).moduleDefinition
-        |> Node.value
-        |> Elm.Syntax.Module.moduleName
 
 
 

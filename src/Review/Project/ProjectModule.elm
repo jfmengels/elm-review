@@ -1,6 +1,6 @@
 module Review.Project.ProjectModule exposing
     ( OpaqueProjectModule, create
-    , path, source, ast, contentHash, isInSourceDirectories
+    , path, source, ast, contentHash, moduleName, isInSourceDirectories
     , setIsInSourceDirectories
     , ProjectModule, toRecord
     )
@@ -9,7 +9,7 @@ module Review.Project.ProjectModule exposing
 
 @docs OpaqueProjectModule, create
 
-@docs path, source, ast, contentHash, isInSourceDirectories
+@docs path, source, ast, contentHash, moduleName, isInSourceDirectories
 @docs setIsInSourceDirectories
 
 @docs ProjectModule, toRecord
@@ -17,7 +17,9 @@ module Review.Project.ProjectModule exposing
 -}
 
 import Elm.Syntax.File
-import Elm.Syntax.Node exposing (Node(..))
+import Elm.Syntax.Module
+import Elm.Syntax.ModuleName exposing (ModuleName)
+import Elm.Syntax.Node as Node exposing (Node(..))
 import Review.Cache.ContentHash as ContentHash exposing (ContentHash)
 
 
@@ -74,6 +76,13 @@ source (OpaqueProjectModule module_) =
 ast : OpaqueProjectModule -> Elm.Syntax.File.File
 ast (OpaqueProjectModule module_) =
     module_.ast
+
+
+moduleName : OpaqueProjectModule -> ModuleName
+moduleName module_ =
+    (ast module_).moduleDefinition
+        |> Node.value
+        |> Elm.Syntax.Module.moduleName
 
 
 contentHash : OpaqueProjectModule -> ContentHash
