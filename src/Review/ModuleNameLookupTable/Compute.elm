@@ -234,10 +234,7 @@ computeImplicitlyImportedElements modules (Node _ import_) acc =
                                 Exposing.TypeExpose { name } ->
                                     case ListExtra.find (\union -> union.name == name) moduleDocs.unions of
                                         Just union ->
-                                            List.foldl
-                                                (\( tagName, _ ) subSubAcc -> Dict.insert tagName ProjectCache.Value subSubAcc)
-                                                subAcc
-                                                union.tags
+                                            insertConstructors union.tags subAcc
 
                                         Nothing ->
                                             subAcc
