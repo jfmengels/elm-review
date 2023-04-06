@@ -4699,7 +4699,7 @@ computeModuleWithRuleVisitors params inputRuleModuleVisitors filePath (Requested
 
         moduleName : ModuleName
         moduleName =
-            Node.value (moduleNameNode ast.moduleDefinition)
+            ProjectModule.moduleName params.module_
 
         ( moduleNameLookupTable, newProject ) =
             -- TODO If the file has changed, then compute the module docs anyway.
