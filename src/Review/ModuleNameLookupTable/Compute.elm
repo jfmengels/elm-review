@@ -239,25 +239,6 @@ computeImportedModulesDocs modulesByModuleName deps (Node _ import_) ( accImport
                             ( accImported, accProjectCache )
 
 
-computeImportedModulesDocsForPrelude :
-    Dict ModuleName Elm.Docs.Module
-    -> Node Import
-    -> Dict ModuleName Elm.Docs.Module
-    -> Dict ModuleName Elm.Docs.Module
-computeImportedModulesDocsForPrelude deps (Node _ import_) accImported =
-    let
-        importedModuleName : ModuleName
-        importedModuleName =
-            Node.value import_.moduleName
-    in
-    case Dict.get importedModuleName deps of
-        Just importedModule ->
-            Dict.insert importedModuleName importedModule accImported
-
-        Nothing ->
-            accImported
-
-
 computeDependencies : ValidProject -> Dict ModuleName Elm.Docs.Module
 computeDependencies project =
     project
@@ -330,6 +311,25 @@ preludeModuleDocs deps =
         (\node acc -> computeImportedModulesDocsForPrelude deps node acc)
         Dict.empty
         elmCorePrelude
+
+
+computeImportedModulesDocsForPrelude :
+    Dict ModuleName Elm.Docs.Module
+    -> Node Import
+    -> Dict ModuleName Elm.Docs.Module
+    -> Dict ModuleName Elm.Docs.Module
+computeImportedModulesDocsForPrelude deps (Node _ import_) accImported =
+    let
+        importedModuleName : ModuleName
+        importedModuleName =
+            Node.value import_.moduleName
+    in
+    case Dict.get importedModuleName deps of
+        Just importedModule ->
+            Dict.insert importedModuleName importedModule accImported
+
+        Nothing ->
+            accImported
 
 
 elmCorePrelude : List (Node Import)
