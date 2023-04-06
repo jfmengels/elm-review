@@ -144,7 +144,7 @@ compute moduleName module_ project =
         ( lookupTable, modules ) =
             case Dict.get moduleName projectCacheWithComputedImports.lookupTables of
                 Just cache ->
-                    if cache.key == cacheKey then
+                    if cache.key.contentHash == cacheKey.contentHash && cache.key.imported == cacheKey.imported then
                         ( cache.lookupTable, projectCacheWithComputedImports.modules )
 
                     else
