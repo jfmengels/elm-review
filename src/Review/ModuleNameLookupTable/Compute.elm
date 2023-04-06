@@ -112,8 +112,8 @@ compute moduleName module_ project =
         ( imported, projectCacheWithComputedImports ) =
             List.foldl
                 (\node acc -> computeImportedModulesDocs modulesByModuleName deps node acc)
-                ( Dict.empty, projectCache )
-                (elmCorePrelude ++ moduleAst.imports)
+                (preludeModuleDocs modulesByModuleName deps projectCache)
+                moduleAst.imports
 
         cacheKey : ProjectCache.ModuleCacheKey
         cacheKey =
@@ -178,8 +178,8 @@ computeOnlyModuleDocs moduleName module_ modulesByModuleName deps projectCache =
         ( imported, projectCacheWithComputedImports ) =
             List.foldl
                 (\node acc -> computeImportedModulesDocs modulesByModuleName deps node acc)
-                ( Dict.empty, projectCache )
-                (elmCorePrelude ++ moduleAst.imports)
+                (preludeModuleDocs modulesByModuleName deps projectCache)
+                moduleAst.imports
 
         moduleContext : Context
         moduleContext =
@@ -303,6 +303,14 @@ visitExpressions node context =
            )
         |> popScopeExit node
         |> expressionExitVisitor node
+
+
+preludeModuleDocs : Dict ModuleName OpaqueProjectModule -> Dict ModuleName Elm.Docs.Module -> ProjectCache -> ( Dict ModuleName Elm.Docs.Module, ProjectCache )
+preludeModuleDocs modulesByModuleName deps projectCache =
+    List.foldl
+        (\node acc -> computeImportedModulesDocs modulesByModuleName deps node acc)
+        ( Dict.empty, projectCache )
+        elmCorePrelude
 
 
 elmCorePrelude : List (Node Import)
