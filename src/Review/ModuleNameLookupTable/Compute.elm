@@ -101,22 +101,9 @@ compute moduleName module_ project =
                 (\node acc -> computeImplicitlyImportedElements projectCache.modules node acc)
                 Dict.empty
                 (ProjectModule.ast module_).imports
-    in
-    case Dict.get moduleName projectCache.lookupTables of
-        Just cache ->
-            if cache.key.contentHash == ProjectModule.contentHash module_ && cache.key.implicitImports == implicitImports then
-                ( cache.lookupTable, project )
 
-            else
-                compute2
-                    { implicitImports = implicitImports
-                    , contentHash = ProjectModule.contentHash module_
-                    }
-                    moduleName
-                    module_
-                    project
-
-        Nothing ->
+        computeLookupTableForModule : () -> ( ModuleNameLookupTable, ValidProject )
+        computeLookupTableForModule () =
             compute2
                 { implicitImports = implicitImports
                 , contentHash = ProjectModule.contentHash module_
@@ -124,6 +111,17 @@ compute moduleName module_ project =
                 moduleName
                 module_
                 project
+    in
+    case Dict.get moduleName projectCache.lookupTables of
+        Just cache ->
+            if cache.key.contentHash == ProjectModule.contentHash module_ && cache.key.implicitImports == implicitImports then
+                ( cache.lookupTable, project )
+
+            else
+                computeLookupTableForModule ()
+
+        Nothing ->
+            computeLookupTableForModule ()
 
 
 compute2 : ProjectCache.ModuleCacheKey -> ModuleName -> OpaqueProjectModule -> ValidProject -> ( ModuleNameLookupTable, ValidProject )
