@@ -110,8 +110,8 @@ compute moduleName module_ project =
         moduleAst =
             ProjectModule.ast module_
 
-        importedImplicitly : Dict String (List ProjectCache.ImportedElementType)
-        importedImplicitly =
+        implicitImports : Dict String (List ProjectCache.ImportedElementType)
+        implicitImports =
             List.foldl
                 (\node acc -> computeImplicitlyImportedElements projectCache.modules node acc)
                 Dict.empty
@@ -147,7 +147,7 @@ compute moduleName module_ project =
         ( lookupTable, modules ) =
             case Dict.get moduleName projectCacheWithComputedImports.lookupTables of
                 Just cache ->
-                    if cache.key.contentHash == ProjectModule.contentHash module_ && cache.key.imported == imported then
+                    if cache.key.contentHash == ProjectModule.contentHash module_ && cache.key.implicitImports == implicitImports then
                         ( cache.lookupTable, projectCacheWithComputedImports.modules )
 
                     else
@@ -163,7 +163,7 @@ compute moduleName module_ project =
             , lookupTables =
                 Dict.insert moduleName
                     { key =
-                        { imported = imported
+                        { implicitImports = implicitImports
                         , contentHash = ProjectModule.contentHash module_
                         }
                     , lookupTable = lookupTable

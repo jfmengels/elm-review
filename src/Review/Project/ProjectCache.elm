@@ -15,7 +15,7 @@ type alias ProjectCache =
 
 
 type alias ModuleCacheKey =
-    { imported : Dict ModuleName Elm.Docs.Module
+    { implicitImports : Dict String (List ImportedElementType)
     , contentHash : ContentHash
     }
 
