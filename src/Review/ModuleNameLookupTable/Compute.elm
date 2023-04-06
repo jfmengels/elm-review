@@ -18,6 +18,7 @@ import Elm.Syntax.Type
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
 import Elm.Type
 import NonEmpty exposing (NonEmpty)
+import Review.Cache.ContentHash exposing (ContentHash)
 import Review.ModuleNameLookupTable.Internal as ModuleNameLookupTableInternal exposing (ModuleNameLookupTable)
 import Review.Project.Dependency
 import Review.Project.ProjectCache as ProjectCache exposing (ProjectCache)
@@ -82,9 +83,9 @@ compute moduleName module_ project =
         projectCache =
             ValidProject.projectCache project
 
-        elmJsonRaw : Maybe String
-        elmJsonRaw =
-            Maybe.map .raw (ValidProject.elmJson project)
+        elmJsonContentHash : Maybe ContentHash
+        elmJsonContentHash =
+            ValidProject.elmJsonHash project
 
         deps : Dict ModuleName Elm.Docs.Module
         deps =
@@ -92,7 +93,7 @@ compute moduleName module_ project =
             -- avoid outdated results
             case projectCache.dependenciesModules of
                 Just cache ->
-                    if elmJsonRaw == cache.elmJsonRaw then
+                    if elmJsonContentHash == cache.elmJsonContentHash then
                         cache.deps
 
                     else
@@ -154,7 +155,7 @@ compute moduleName module_ project =
 
         newProjectCache : ProjectCache
         newProjectCache =
-            { dependenciesModules = Just { elmJsonRaw = elmJsonRaw, deps = deps }
+            { dependenciesModules = Just { elmJsonContentHash = elmJsonContentHash, deps = deps }
             , modules = modules
             , lookupTables = Dict.insert moduleName { key = cacheKey, lookupTable = lookupTable } projectCacheWithComputedImports.lookupTables
             }

@@ -8,7 +8,7 @@ import Review.ModuleNameLookupTable exposing (ModuleNameLookupTable)
 
 
 type alias ProjectCache =
-    { dependenciesModules : Maybe { elmJsonRaw : Maybe String, deps : Dict ModuleName Elm.Docs.Module }
+    { dependenciesModules : Maybe { elmJsonContentHash : Maybe ContentHash, deps : Dict ModuleName Elm.Docs.Module }
     , modules : Dict ModuleName Elm.Docs.Module
     , lookupTables : Dict ModuleName { key : ModuleCacheKey, lookupTable : ModuleNameLookupTable }
     }
