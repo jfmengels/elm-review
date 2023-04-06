@@ -110,11 +110,11 @@ compute moduleName module_ project =
         moduleAst =
             ProjectModule.ast module_
 
-        importedImplicitly : List ProjectCache.ImportedElementType
+        importedImplicitly : Dict ModuleName (List ProjectCache.ImportedElementType)
         importedImplicitly =
             List.foldl
                 (\node acc -> computeImplicitlyImportedElements projectCache.modules node acc)
-                []
+                Dict.empty
                 moduleAst.imports
 
         ( imported, projectCacheWithComputedImports ) =
@@ -218,8 +218,8 @@ computeOnlyModuleDocs moduleName module_ modulesByModuleName deps projectCache =
 computeImplicitlyImportedElements :
     Dict ModuleName Elm.Docs.Module
     -> Node Import
-    -> List ProjectCache.ImportedElementType
-    -> List ProjectCache.ImportedElementType
+    -> Dict ModuleName (List ProjectCache.ImportedElementType)
+    -> Dict ModuleName (List ProjectCache.ImportedElementType)
 computeImplicitlyImportedElements modules (Node _ import_) acc =
     case import_.exposingList of
         Nothing ->
@@ -242,37 +242,50 @@ computeImplicitlyImportedElements modules (Node _ import_) acc =
                     acc
 
 
-collectExplicit : Elm.Docs.Module -> List (Node TopLevelExpose) -> List ProjectCache.ImportedElementType -> List ProjectCache.ImportedElementType
+collectExplicit : Elm.Docs.Module -> List (Node TopLevelExpose) -> Dict ModuleName (List ProjectCache.ImportedElementType) -> Dict ModuleName (List ProjectCache.ImportedElementType)
 collectExplicit moduleDocs list acc =
     let
         moduleName : List String
         moduleName =
             String.split "." moduleDocs.name
-    in
-    List.foldl
-        (\node subAcc ->
-            case Node.value node of
-                Exposing.TypeExpose { name } ->
-                    case ListExtra.find (\union -> union.name == name) moduleDocs.unions of
-                        Just union ->
-                            insertConstructors union.tags subAcc
 
-                        Nothing ->
+        importedConstructors : List ProjectCache.ImportedElementType
+        importedConstructors =
+            List.foldl
+                (\node subAcc ->
+                    case Node.value node of
+                        Exposing.TypeExpose { name } ->
+                            case ListExtra.find (\union -> union.name == name) moduleDocs.unions of
+                                Just union ->
+                                    insertConstructors union.tags subAcc
+
+                                Nothing ->
+                                    subAcc
+
+                        _ ->
                             subAcc
+                )
+                []
+                list
+    in
+    Dict.insert moduleName importedConstructors acc
 
-                _ ->
-                    subAcc
-        )
-        acc
-        list
 
-
-collectAllExposed : Elm.Docs.Module -> List ProjectCache.ImportedElementType -> List ProjectCache.ImportedElementType
+collectAllExposed : Elm.Docs.Module -> Dict ModuleName (List ProjectCache.ImportedElementType) -> Dict ModuleName (List ProjectCache.ImportedElementType)
 collectAllExposed moduleDocs acc =
-    acc
-        |> collectAllValues moduleDocs.values
-        |> collectAllAliases moduleDocs.aliases
-        |> collectAllTypes moduleDocs.unions
+    let
+        moduleName : List String
+        moduleName =
+            String.split "." moduleDocs.name
+
+        importedElements : List ProjectCache.ImportedElementType
+        importedElements =
+            []
+                |> collectAllValues moduleDocs.values
+                |> collectAllAliases moduleDocs.aliases
+                |> collectAllTypes moduleDocs.unions
+    in
+    Dict.insert moduleName importedElements acc
 
 
 collectAllValues : List Elm.Docs.Value -> List ProjectCache.ImportedElementType -> List ProjectCache.ImportedElementType
