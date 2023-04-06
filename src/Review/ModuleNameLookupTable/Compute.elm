@@ -110,11 +110,11 @@ compute moduleName module_ project =
         moduleAst =
             ProjectModule.ast module_
 
-        importedImplicitly : Dict String ProjectCache.ImportedElementType
+        importedImplicitly : List ProjectCache.ImportedElementType
         importedImplicitly =
             List.foldl
                 (\node acc -> computeImplicitlyImportedElements projectCache.modules node acc)
-                Dict.empty
+                []
                 moduleAst.imports
 
         ( imported, projectCacheWithComputedImports ) =
@@ -218,8 +218,8 @@ computeOnlyModuleDocs moduleName module_ modulesByModuleName deps projectCache =
 computeImplicitlyImportedElements :
     Dict ModuleName Elm.Docs.Module
     -> Node Import
-    -> Dict String ProjectCache.ImportedElementType
-    -> Dict String ProjectCache.ImportedElementType
+    -> List ProjectCache.ImportedElementType
+    -> List ProjectCache.ImportedElementType
 computeImplicitlyImportedElements modules (Node _ import_) acc =
     case import_.exposingList of
         Nothing ->
@@ -257,7 +257,7 @@ computeImplicitlyImportedElements modules (Node _ import_) acc =
                     acc
 
 
-collectAllExposed : Elm.Docs.Module -> Dict String ProjectCache.ImportedElementType -> Dict String ProjectCache.ImportedElementType
+collectAllExposed : Elm.Docs.Module -> List ProjectCache.ImportedElementType -> List ProjectCache.ImportedElementType
 collectAllExposed moduleDocs acc =
     acc
         |> collectAllValues moduleDocs.values
@@ -265,45 +265,43 @@ collectAllExposed moduleDocs acc =
         |> collectAllTypes moduleDocs.unions
 
 
-collectAllValues : List Elm.Docs.Value -> Dict String ProjectCache.ImportedElementType -> Dict String ProjectCache.ImportedElementType
+collectAllValues : List Elm.Docs.Value -> List ProjectCache.ImportedElementType -> List ProjectCache.ImportedElementType
 collectAllValues values acc =
     List.foldl
-        (\{ name } subAcc -> Dict.insert name (ProjectCache.Value name) subAcc)
+        (\{ name } subAcc -> ProjectCache.Value name :: subAcc)
         acc
         values
 
 
-collectAllAliases : List Elm.Docs.Alias -> Dict String ProjectCache.ImportedElementType -> Dict String ProjectCache.ImportedElementType
+collectAllAliases : List Elm.Docs.Alias -> List ProjectCache.ImportedElementType -> List ProjectCache.ImportedElementType
 collectAllAliases values acc =
     List.foldl
         (\{ name, tipe } subAcc ->
-            Dict.insert
-                name
-                (ProjectCache.Type name)
-                (case tipe of
-                    Elm.Type.Record _ Nothing ->
-                        Dict.insert name (ProjectCache.Value name) subAcc
+            ProjectCache.Type name
+                :: (case tipe of
+                        Elm.Type.Record _ Nothing ->
+                            ProjectCache.Value name :: subAcc
 
-                    _ ->
-                        subAcc
-                )
+                        _ ->
+                            subAcc
+                   )
         )
         acc
         values
 
 
-collectAllTypes : List Elm.Docs.Union -> Dict String ProjectCache.ImportedElementType -> Dict String ProjectCache.ImportedElementType
+collectAllTypes : List Elm.Docs.Union -> List ProjectCache.ImportedElementType -> List ProjectCache.ImportedElementType
 collectAllTypes unions acc =
     List.foldl
-        (\union subAcc -> Dict.insert union.name (ProjectCache.Type union.name) (insertConstructors union.tags subAcc))
+        (\union subAcc -> ProjectCache.Type union.name :: insertConstructors union.tags subAcc)
         acc
         unions
 
 
-insertConstructors : List ( String, a ) -> Dict String ProjectCache.ImportedElementType -> Dict String ProjectCache.ImportedElementType
+insertConstructors : List ( String, a ) -> List ProjectCache.ImportedElementType -> List ProjectCache.ImportedElementType
 insertConstructors tags acc =
     List.foldl
-        (\( tagName, _ ) subSubAcc -> Dict.insert tagName (ProjectCache.Value tagName) subSubAcc)
+        (\( tagName, _ ) subSubAcc -> ProjectCache.Value tagName :: subSubAcc)
         acc
         tags
 
