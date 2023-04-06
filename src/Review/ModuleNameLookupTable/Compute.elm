@@ -110,7 +110,7 @@ compute moduleName module_ project =
         moduleAst =
             ProjectModule.ast module_
 
-        importedImplicitly : Dict ModuleName (List ProjectCache.ImportedElementType)
+        importedImplicitly : Dict String (List ProjectCache.ImportedElementType)
         importedImplicitly =
             List.foldl
                 (\node acc -> computeImplicitlyImportedElements projectCache.modules node acc)
@@ -218,8 +218,8 @@ computeOnlyModuleDocs moduleName module_ modulesByModuleName deps projectCache =
 computeImplicitlyImportedElements :
     Dict ModuleName Elm.Docs.Module
     -> Node Import
-    -> Dict ModuleName (List ProjectCache.ImportedElementType)
-    -> Dict ModuleName (List ProjectCache.ImportedElementType)
+    -> Dict String (List ProjectCache.ImportedElementType)
+    -> Dict String (List ProjectCache.ImportedElementType)
 computeImplicitlyImportedElements modules (Node _ import_) acc =
     case import_.exposingList of
         Nothing ->
@@ -242,13 +242,9 @@ computeImplicitlyImportedElements modules (Node _ import_) acc =
                     acc
 
 
-collectExplicit : Elm.Docs.Module -> List (Node TopLevelExpose) -> Dict ModuleName (List ProjectCache.ImportedElementType) -> Dict ModuleName (List ProjectCache.ImportedElementType)
+collectExplicit : Elm.Docs.Module -> List (Node TopLevelExpose) -> Dict String (List ProjectCache.ImportedElementType) -> Dict String (List ProjectCache.ImportedElementType)
 collectExplicit moduleDocs list acc =
     let
-        moduleName : List String
-        moduleName =
-            String.split "." moduleDocs.name
-
         importedConstructors : List ProjectCache.ImportedElementType
         importedConstructors =
             List.foldl
@@ -268,16 +264,12 @@ collectExplicit moduleDocs list acc =
                 []
                 list
     in
-    Dict.insert moduleName importedConstructors acc
+    Dict.insert moduleDocs.name importedConstructors acc
 
 
-collectAllExposed : Elm.Docs.Module -> Dict ModuleName (List ProjectCache.ImportedElementType) -> Dict ModuleName (List ProjectCache.ImportedElementType)
+collectAllExposed : Elm.Docs.Module -> Dict String (List ProjectCache.ImportedElementType) -> Dict String (List ProjectCache.ImportedElementType)
 collectAllExposed moduleDocs acc =
     let
-        moduleName : List String
-        moduleName =
-            String.split "." moduleDocs.name
-
         importedElements : List ProjectCache.ImportedElementType
         importedElements =
             []
@@ -285,7 +277,7 @@ collectAllExposed moduleDocs acc =
                 |> collectAllAliases moduleDocs.aliases
                 |> collectAllTypes moduleDocs.unions
     in
-    Dict.insert moduleName importedElements acc
+    Dict.insert moduleDocs.name importedElements acc
 
 
 collectAllValues : List Elm.Docs.Value -> List ProjectCache.ImportedElementType -> List ProjectCache.ImportedElementType
