@@ -251,17 +251,12 @@ computeImportedModulesDocsForPrelude modulesByModuleName deps (Node _ import_) (
         importedModuleName =
             Node.value import_.moduleName
     in
-    case Dict.get importedModuleName accProjectCache.modules of
+    case Dict.get importedModuleName deps of
         Just importedModule ->
             ( Dict.insert importedModuleName importedModule accImported, accProjectCache )
 
         Nothing ->
-            case Dict.get importedModuleName deps of
-                Just importedModule ->
-                    ( Dict.insert importedModuleName importedModule accImported, accProjectCache )
-
-                Nothing ->
-                    ( accImported, accProjectCache )
+            ( accImported, accProjectCache )
 
 
 computeDependencies : ValidProject -> Dict ModuleName Elm.Docs.Module
