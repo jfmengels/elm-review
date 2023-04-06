@@ -83,6 +83,60 @@ compute moduleName module_ project =
         projectCache =
             ValidProject.projectCache project
 
+        {- This will be used as the cache key in terms of the imports.
+           Since we assume that the code will be compiling at every stage, the only thing that causes the
+           lookup table for a given module to be recomputed, are:
+           1) Whether the module itself has changed (because the position of elements might have changed)
+           2) Whether the dependencies have changed, in which case we in practice nuke the cache because that's easier and it's a rare case.
+           3) If the exposed elements of the module's imports have changed.
+
+           This data is about 3). In practice and because of how this algorithm is computed,
+           if we have `import A exposing (a, b, C, D(..))`, then only a change to D's constructors
+           can cause the lookup table to be different. So we only need to store the names of the elements that were
+           imported "implicitly", though `exposing (..)` or `exposing (D(..))`.
+        -}
+        implicitImports : Dict String (List ProjectCache.ImportedElementType)
+        implicitImports =
+            List.foldl
+                (\node acc -> computeImplicitlyImportedElements projectCache.modules node acc)
+                Dict.empty
+                (ProjectModule.ast module_).imports
+    in
+    case Dict.get moduleName projectCache.lookupTables of
+        Just cache ->
+            if cache.key.contentHash == ProjectModule.contentHash module_ && cache.key.implicitImports == implicitImports then
+                ( cache.lookupTable, project )
+
+            else
+                compute2
+                    { implicitImports = implicitImports
+                    , contentHash = ProjectModule.contentHash module_
+                    }
+                    moduleName
+                    module_
+                    project
+
+        Nothing ->
+            compute2
+                { implicitImports = implicitImports
+                , contentHash = ProjectModule.contentHash module_
+                }
+                moduleName
+                module_
+                project
+
+
+compute2 : ProjectCache.ModuleCacheKey -> ModuleName -> OpaqueProjectModule -> ValidProject -> ( ModuleNameLookupTable, ValidProject )
+compute2 cacheKey moduleName module_ project =
+    let
+        projectCache : ProjectCache
+        projectCache =
+            ValidProject.projectCache project
+
+        moduleAst : Elm.Syntax.File.File
+        moduleAst =
+            ProjectModule.ast module_
+
         elmJsonContentHash : Maybe ContentHash
         elmJsonContentHash =
             ValidProject.elmJsonHash project
@@ -105,29 +159,6 @@ compute moduleName module_ project =
         modulesByModuleName : Dict ModuleName OpaqueProjectModule
         modulesByModuleName =
             ValidProject.modulesByModuleName project
-
-        moduleAst : Elm.Syntax.File.File
-        moduleAst =
-            ProjectModule.ast module_
-
-        {- This will be used as the cache key in terms of the imports.
-           Since we assume that the code will be compiling at every stage, the only thing that causes the
-           lookup table for a given module to be recomputed, are:
-           1) Whether the module itself has changed (because the position of elements might have changed)
-           2) Whether the dependencies have changed, in which case we in practice nuke the cache because that's easier and it's a rare case.
-           3) If the exposed elements of the module's imports have changed.
-
-           This data is about 3). In practice and because of how this algorithm is computed,
-           if we have `import A exposing (a, b, C, D(..))`, then only a change to D's constructors
-           can cause the lookup table to be different. So we only need to store the names of the elements that were
-           imported "implicitly", though `exposing (..)` or `exposing (D(..))`.
-        -}
-        implicitImports : Dict String (List ProjectCache.ImportedElementType)
-        implicitImports =
-            List.foldl
-                (\node acc -> computeImplicitlyImportedElements projectCache.modules node acc)
-                Dict.empty
-                moduleAst.imports
 
         ( imported, projectCacheWithComputedImports ) =
             List.foldl
@@ -157,16 +188,7 @@ compute moduleName module_ project =
             )
 
         ( lookupTable, modules ) =
-            case Dict.get moduleName projectCacheWithComputedImports.lookupTables of
-                Just cache ->
-                    if cache.key.contentHash == ProjectModule.contentHash module_ && cache.key.implicitImports == implicitImports then
-                        ( cache.lookupTable, projectCacheWithComputedImports.modules )
-
-                    else
-                        computeLookupTableForModule ()
-
-                Nothing ->
-                    computeLookupTableForModule ()
+            computeLookupTableForModule ()
 
         newProjectCache : ProjectCache
         newProjectCache =
@@ -174,10 +196,7 @@ compute moduleName module_ project =
             , modules = modules
             , lookupTables =
                 Dict.insert moduleName
-                    { key =
-                        { implicitImports = implicitImports
-                        , contentHash = ProjectModule.contentHash module_
-                        }
+                    { key = cacheKey
                     , lookupTable = lookupTable
                     }
                     projectCacheWithComputedImports.lookupTables
