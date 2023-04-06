@@ -235,7 +235,7 @@ computeImplicitlyImportedElements modules (Node _ import_) acc =
                                     case ListExtra.find (\union -> union.name == name) moduleDocs.unions of
                                         Just union ->
                                             List.foldl
-                                                (\( tagName, _ ) subSubAcc -> Dict.insert tagName ProjectCache.Type subSubAcc)
+                                                (\( tagName, _ ) subSubAcc -> Dict.insert tagName ProjectCache.Value subSubAcc)
                                                 subAcc
                                                 union.tags
 
@@ -254,10 +254,61 @@ computeImplicitlyImportedElements modules (Node _ import_) acc =
         Just (Node _ (Exposing.All _)) ->
             case Dict.get (Node.value import_.moduleName) modules of
                 Just moduleDocs ->
-                    acc
+                    collectAllExposed moduleDocs acc
 
                 Nothing ->
                     acc
+
+
+collectAllExposed : Elm.Docs.Module -> Dict String ProjectCache.ElementType -> Dict String ProjectCache.ElementType
+collectAllExposed moduleDocs acc =
+    acc
+        |> collectAllValues moduleDocs.values
+        |> collectAllAliases moduleDocs.aliases
+        |> collectAllTypes moduleDocs.unions
+
+
+collectAllValues : List Elm.Docs.Value -> Dict String ProjectCache.ElementType -> Dict String ProjectCache.ElementType
+collectAllValues values acc =
+    List.foldl
+        (\{ name } subAcc -> Dict.insert name ProjectCache.Value subAcc)
+        acc
+        values
+
+
+collectAllAliases : List Elm.Docs.Alias -> Dict String ProjectCache.ElementType -> Dict String ProjectCache.ElementType
+collectAllAliases values acc =
+    List.foldl
+        (\{ name, tipe } subAcc ->
+            Dict.insert
+                name
+                ProjectCache.Type
+                (case tipe of
+                    Elm.Type.Record _ Nothing ->
+                        Dict.insert name ProjectCache.Value subAcc
+
+                    _ ->
+                        subAcc
+                )
+        )
+        acc
+        values
+
+
+collectAllTypes : List Elm.Docs.Union -> Dict String ProjectCache.ElementType -> Dict String ProjectCache.ElementType
+collectAllTypes unions acc =
+    List.foldl
+        (\union subAcc -> Dict.insert union.name ProjectCache.Type (insertConstructors union.tags subAcc))
+        acc
+        unions
+
+
+insertConstructors : List ( String, a ) -> Dict String ProjectCache.ElementType -> Dict String ProjectCache.ElementType
+insertConstructors tags acc =
+    List.foldl
+        (\( tagName, _ ) subSubAcc -> Dict.insert tagName ProjectCache.Value subSubAcc)
+        acc
+        tags
 
 
 computeImportedModulesDocs :
