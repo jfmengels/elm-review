@@ -228,22 +228,7 @@ computeImplicitlyImportedElements modules (Node _ import_) acc =
         Just (Node _ (Exposing.Explicit list)) ->
             case Dict.get (Node.value import_.moduleName) modules of
                 Just moduleDocs ->
-                    List.foldl
-                        (\node subAcc ->
-                            case Node.value node of
-                                Exposing.TypeExpose { name } ->
-                                    case ListExtra.find (\union -> union.name == name) moduleDocs.unions of
-                                        Just union ->
-                                            insertConstructors union.tags subAcc
-
-                                        Nothing ->
-                                            subAcc
-
-                                _ ->
-                                    subAcc
-                        )
-                        acc
-                        list
+                    collectExplicit moduleDocs list acc
 
                 Nothing ->
                     acc
@@ -255,6 +240,26 @@ computeImplicitlyImportedElements modules (Node _ import_) acc =
 
                 Nothing ->
                     acc
+
+
+collectExplicit : Elm.Docs.Module -> List (Node TopLevelExpose) -> List ProjectCache.ImportedElementType -> List ProjectCache.ImportedElementType
+collectExplicit moduleDocs list acc =
+    List.foldl
+        (\node subAcc ->
+            case Node.value node of
+                Exposing.TypeExpose { name } ->
+                    case ListExtra.find (\union -> union.name == name) moduleDocs.unions of
+                        Just union ->
+                            insertConstructors union.tags subAcc
+
+                        Nothing ->
+                            subAcc
+
+                _ ->
+                    subAcc
+        )
+        acc
+        list
 
 
 collectAllExposed : Elm.Docs.Module -> List ProjectCache.ImportedElementType -> List ProjectCache.ImportedElementType
