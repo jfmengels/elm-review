@@ -21,8 +21,8 @@ type alias ModuleCacheKey =
 
 
 type ImportedElementType
-    = Value
-    | Type
+    = Value String
+    | Type String
 
 
 empty : ProjectCache
