@@ -164,8 +164,7 @@ compute2 cacheKey moduleName module_ project =
                 ( preludeModuleDocs deps, projectCache )
                 moduleAst.imports
 
-        computeLookupTableForModule : () -> ( ModuleNameLookupTable, Dict ModuleName Elm.Docs.Module )
-        computeLookupTableForModule () =
+        ( lookupTable, modules ) =
             let
                 moduleContext : Context
                 moduleContext =
@@ -184,9 +183,6 @@ compute2 cacheKey moduleName module_ project =
                 }
                 projectCacheWithComputedImports.modules
             )
-
-        ( lookupTable, modules ) =
-            computeLookupTableForModule ()
 
         newProjectCache : ProjectCache
         newProjectCache =
