@@ -112,7 +112,7 @@ compute moduleName module_ project =
         ( imported, projectCacheWithComputedImports ) =
             List.foldl
                 (\node acc -> computeImportedModulesDocs modulesByModuleName deps node acc)
-                (preludeModuleDocs modulesByModuleName deps projectCache)
+                (preludeModuleDocs deps projectCache)
                 moduleAst.imports
 
         cacheKey : ProjectCache.ModuleCacheKey
@@ -178,7 +178,7 @@ computeOnlyModuleDocs moduleName module_ modulesByModuleName deps projectCache =
         ( imported, projectCacheWithComputedImports ) =
             List.foldl
                 (\node acc -> computeImportedModulesDocs modulesByModuleName deps node acc)
-                (preludeModuleDocs modulesByModuleName deps projectCache)
+                (preludeModuleDocs deps projectCache)
                 moduleAst.imports
 
         moduleContext : Context
@@ -240,12 +240,11 @@ computeImportedModulesDocs modulesByModuleName deps (Node _ import_) ( accImport
 
 
 computeImportedModulesDocsForPrelude :
-    Dict ModuleName OpaqueProjectModule
-    -> Dict ModuleName Elm.Docs.Module
+    Dict ModuleName Elm.Docs.Module
     -> Node Import
     -> ( Dict ModuleName Elm.Docs.Module, ProjectCache )
     -> ( Dict ModuleName Elm.Docs.Module, ProjectCache )
-computeImportedModulesDocsForPrelude modulesByModuleName deps (Node _ import_) ( accImported, accProjectCache ) =
+computeImportedModulesDocsForPrelude deps (Node _ import_) ( accImported, accProjectCache ) =
     let
         importedModuleName : ModuleName
         importedModuleName =
@@ -325,10 +324,10 @@ visitExpressions node context =
         |> expressionExitVisitor node
 
 
-preludeModuleDocs : Dict ModuleName OpaqueProjectModule -> Dict ModuleName Elm.Docs.Module -> ProjectCache -> ( Dict ModuleName Elm.Docs.Module, ProjectCache )
-preludeModuleDocs modulesByModuleName deps projectCache =
+preludeModuleDocs : Dict ModuleName Elm.Docs.Module -> ProjectCache -> ( Dict ModuleName Elm.Docs.Module, ProjectCache )
+preludeModuleDocs deps projectCache =
     List.foldl
-        (\node acc -> computeImportedModulesDocsForPrelude modulesByModuleName deps node acc)
+        (\node acc -> computeImportedModulesDocsForPrelude deps node acc)
         ( Dict.empty, projectCache )
         elmCorePrelude
 
