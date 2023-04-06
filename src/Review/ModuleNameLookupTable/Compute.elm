@@ -261,7 +261,7 @@ collectExplicit moduleDocs list acc =
                         _ ->
                             subAcc
                 )
-                []
+                (Dict.get moduleDocs.name acc |> Maybe.withDefault [])
                 list
     in
     Dict.insert moduleDocs.name importedConstructors acc
@@ -272,7 +272,8 @@ collectAllExposed moduleDocs acc =
     let
         importedElements : List ProjectCache.ImportedElementType
         importedElements =
-            []
+            Dict.get moduleDocs.name acc
+                |> Maybe.withDefault []
                 |> collectAllValues moduleDocs.values
                 |> collectAllAliases moduleDocs.aliases
                 |> collectAllTypes moduleDocs.unions
