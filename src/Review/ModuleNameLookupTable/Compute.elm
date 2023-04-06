@@ -116,10 +116,6 @@ compute moduleName module_ project =
                 ( preludeModuleDocs deps, projectCache )
                 moduleAst.imports
 
-        cacheKey : ProjectCache.ModuleCacheKey
-        cacheKey =
-            { imported = imported, contentHash = ProjectModule.contentHash module_ }
-
         computeLookupTableForModule : () -> ( ModuleNameLookupTable, Dict ModuleName Elm.Docs.Module )
         computeLookupTableForModule () =
             let
@@ -144,7 +140,7 @@ compute moduleName module_ project =
         ( lookupTable, modules ) =
             case Dict.get moduleName projectCacheWithComputedImports.lookupTables of
                 Just cache ->
-                    if cache.key.contentHash == cacheKey.contentHash && cache.key.imported == cacheKey.imported then
+                    if cache.key.contentHash == ProjectModule.contentHash module_ && cache.key.imported == imported then
                         ( cache.lookupTable, projectCacheWithComputedImports.modules )
 
                     else
@@ -157,7 +153,15 @@ compute moduleName module_ project =
         newProjectCache =
             { dependenciesModules = Just { elmJsonContentHash = elmJsonContentHash, deps = deps }
             , modules = modules
-            , lookupTables = Dict.insert moduleName { key = cacheKey, lookupTable = lookupTable } projectCacheWithComputedImports.lookupTables
+            , lookupTables =
+                Dict.insert moduleName
+                    { key =
+                        { imported = imported
+                        , contentHash = ProjectModule.contentHash module_
+                        }
+                    , lookupTable = lookupTable
+                    }
+                    projectCacheWithComputedImports.lookupTables
             }
     in
     ( lookupTable, ValidProject.updateProjectCache newProjectCache project )
