@@ -110,6 +110,10 @@ compute moduleName module_ project =
         moduleAst =
             ProjectModule.ast module_
 
+        importedImplicitly : List ( ElementType, String )
+        importedImplicitly =
+            []
+
         ( imported, projectCacheWithComputedImports ) =
             List.foldl
                 (\node acc -> computeImportedModulesDocs modulesByModuleName deps node acc)
@@ -165,6 +169,11 @@ compute moduleName module_ project =
             }
     in
     ( lookupTable, ValidProject.updateProjectCache newProjectCache project )
+
+
+type ElementType
+    = Value String
+    | Type String
 
 
 computeOnlyModuleDocs :
