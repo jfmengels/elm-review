@@ -110,7 +110,7 @@ compute moduleName module_ project =
         moduleAst =
             ProjectModule.ast module_
 
-        importedImplicitly : Dict String ProjectCache.ElementType
+        importedImplicitly : Dict String ProjectCache.ImportedElementType
         importedImplicitly =
             List.foldl
                 (\node acc -> computeImplicitlyImportedElements projectCache.modules node acc)
@@ -218,8 +218,8 @@ computeOnlyModuleDocs moduleName module_ modulesByModuleName deps projectCache =
 computeImplicitlyImportedElements :
     Dict ModuleName Elm.Docs.Module
     -> Node Import
-    -> Dict String ProjectCache.ElementType
-    -> Dict String ProjectCache.ElementType
+    -> Dict String ProjectCache.ImportedElementType
+    -> Dict String ProjectCache.ImportedElementType
 computeImplicitlyImportedElements modules (Node _ import_) acc =
     case import_.exposingList of
         Nothing ->
@@ -257,7 +257,7 @@ computeImplicitlyImportedElements modules (Node _ import_) acc =
                     acc
 
 
-collectAllExposed : Elm.Docs.Module -> Dict String ProjectCache.ElementType -> Dict String ProjectCache.ElementType
+collectAllExposed : Elm.Docs.Module -> Dict String ProjectCache.ImportedElementType -> Dict String ProjectCache.ImportedElementType
 collectAllExposed moduleDocs acc =
     acc
         |> collectAllValues moduleDocs.values
@@ -265,7 +265,7 @@ collectAllExposed moduleDocs acc =
         |> collectAllTypes moduleDocs.unions
 
 
-collectAllValues : List Elm.Docs.Value -> Dict String ProjectCache.ElementType -> Dict String ProjectCache.ElementType
+collectAllValues : List Elm.Docs.Value -> Dict String ProjectCache.ImportedElementType -> Dict String ProjectCache.ImportedElementType
 collectAllValues values acc =
     List.foldl
         (\{ name } subAcc -> Dict.insert name ProjectCache.Value subAcc)
@@ -273,7 +273,7 @@ collectAllValues values acc =
         values
 
 
-collectAllAliases : List Elm.Docs.Alias -> Dict String ProjectCache.ElementType -> Dict String ProjectCache.ElementType
+collectAllAliases : List Elm.Docs.Alias -> Dict String ProjectCache.ImportedElementType -> Dict String ProjectCache.ImportedElementType
 collectAllAliases values acc =
     List.foldl
         (\{ name, tipe } subAcc ->
@@ -292,7 +292,7 @@ collectAllAliases values acc =
         values
 
 
-collectAllTypes : List Elm.Docs.Union -> Dict String ProjectCache.ElementType -> Dict String ProjectCache.ElementType
+collectAllTypes : List Elm.Docs.Union -> Dict String ProjectCache.ImportedElementType -> Dict String ProjectCache.ImportedElementType
 collectAllTypes unions acc =
     List.foldl
         (\union subAcc -> Dict.insert union.name ProjectCache.Type (insertConstructors union.tags subAcc))
@@ -300,7 +300,7 @@ collectAllTypes unions acc =
         unions
 
 
-insertConstructors : List ( String, a ) -> Dict String ProjectCache.ElementType -> Dict String ProjectCache.ElementType
+insertConstructors : List ( String, a ) -> Dict String ProjectCache.ImportedElementType -> Dict String ProjectCache.ImportedElementType
 insertConstructors tags acc =
     List.foldl
         (\( tagName, _ ) subSubAcc -> Dict.insert tagName ProjectCache.Value subSubAcc)
