@@ -5670,10 +5670,6 @@ createModuleVisitorFromProjectVisitorHelp schema exceptions raise hidden travers
             inputContextHashes =
                 computeProjectContextHashes traversalAndFolder project hidden.cache.moduleContexts incoming initialProjectContextHash
 
-            inputProjectContext : projectContext
-            inputProjectContext =
-                computeProjectContext traversalAndFolder project hidden.cache.moduleContexts incoming initialProjectContext
-
             isFileIgnored : Bool
             isFileIgnored =
                 not (Exceptions.isFileWeWantReportsFor exceptions filePath)
@@ -5697,6 +5693,11 @@ createModuleVisitorFromProjectVisitorHelp schema exceptions raise hidden travers
                 Nothing
 
             Nothing ->
+                let
+                    inputProjectContext : projectContext
+                    inputProjectContext =
+                        computeProjectContext traversalAndFolder project hidden.cache.moduleContexts incoming initialProjectContext
+                in
                 Just
                     (\availableData ->
                         let
