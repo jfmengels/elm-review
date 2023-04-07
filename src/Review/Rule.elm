@@ -4897,6 +4897,40 @@ computeModules reviewOptions maybeModuleZipper initialProject ruleProjectVisitor
                     }
 
 
+computeProjectContextHashes :
+    TraversalAndFolder projectContext moduleContext
+    -> ValidProject
+    -> Dict String (ModuleCacheEntry projectContext)
+    -> Graph.Adjacency ()
+    -> List (ContextHash projectContext)
+    -> List (ContextHash projectContext)
+computeProjectContextHashes traversalAndFolder project cache incoming initial =
+    case traversalAndFolder of
+        TraverseAllModulesInParallel _ ->
+            initial
+
+        TraverseImportedModulesFirst _ ->
+            let
+                graph : Graph FilePath ()
+                graph =
+                    ValidProject.moduleGraph project
+            in
+            IntDict.foldl
+                (\key _ acc ->
+                    case
+                        Graph.get key graph
+                            |> Maybe.andThen (\graphModule -> Dict.get graphModule.node.label cache)
+                    of
+                        Just importedModuleCache ->
+                            Cache.outputContextHash importedModuleCache :: acc
+
+                        Nothing ->
+                            acc
+                )
+                initial
+                incoming
+
+
 computeProjectContext :
     TraversalAndFolder projectContext moduleContext
     -> ValidProject
