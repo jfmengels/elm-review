@@ -12,6 +12,7 @@ type ModuleEntry error context
         , isFileIgnored : Bool
         , errors : List error
         , outputContext : context
+        , outputContextHash : ContextHash context
         }
 
 
@@ -30,6 +31,7 @@ createModuleEntry entry =
         , isFileIgnored = entry.isFileIgnored
         , errors = entry.errors
         , outputContext = entry.outputContext
+        , outputContextHash = ContextHash.create entry.outputContext
         }
 
 
