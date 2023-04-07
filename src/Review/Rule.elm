@@ -5703,7 +5703,7 @@ createModuleVisitorFromProjectVisitorHelp schema exceptions raise hidden travers
                                         Cache.createModuleEntry
                                             { contentHash = moduleContentHash
                                             , errors = errors
-                                            , inputContextHash = inputContextHash
+                                            , inputContextHashes = inputContextHash
                                             , isFileIgnored = isFileIgnored
                                             , outputContext = outputProjectContext
                                             }

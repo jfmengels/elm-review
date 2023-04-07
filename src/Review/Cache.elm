@@ -8,7 +8,7 @@ import Review.RequestedData exposing (RequestedData(..))
 type ModuleEntry error context
     = ModuleEntry
         { contentHash : ContentHash
-        , inputContextHash : ContextHash context
+        , inputContextHashes : ContextHash context
         , isFileIgnored : Bool
         , errors : List error
         , outputContext : context
@@ -17,7 +17,7 @@ type ModuleEntry error context
 
 createModuleEntry :
     { contentHash : ContentHash
-    , inputContextHash : ContextHash context
+    , inputContextHashes : ContextHash context
     , isFileIgnored : Bool
     , errors : List error
     , outputContext : context
@@ -40,7 +40,7 @@ errors (ModuleEntry entry) =
 match : ContentHash -> ContextHash context -> ModuleEntry error context -> { isFileIgnored : Bool, requestedData : RequestedData } -> Bool
 match contentHash context (ModuleEntry entry) { isFileIgnored, requestedData } =
     ContentHash.areEqual contentHash entry.contentHash
-        && ContextHash.areEqual context entry.inputContextHash
+        && ContextHash.areEqual context entry.inputContextHashes
         && (not (ruleCaresAboutIgnoredFiles requestedData) || isFileIgnored == entry.isFileIgnored)
 
 
