@@ -1,4 +1,4 @@
-module Review.Project.ProjectCache exposing (ImportedElementType(..), ModuleCacheKey, ProjectCache, empty, typeElement, valueElement)
+module Review.Project.ProjectCache exposing (ImportedElement, ModuleCacheKey, ProjectCache, empty, typeElement, valueElement)
 
 import Dict exposing (Dict)
 import Elm.Docs
@@ -15,7 +15,7 @@ type alias ProjectCache =
 
 
 type alias ModuleCacheKey =
-    { implicitImports : Dict String (List ImportedElementType)
+    { implicitImports : Dict String (List ImportedElement)
     , contentHash : ContentHash
     }
 
@@ -28,16 +28,20 @@ empty =
     }
 
 
+type alias ImportedElement =
+    ( String, ImportedElementType )
+
+
 type ImportedElementType
-    = Value String
-    | Type String
+    = Value
+    | Type
 
 
-valueElement : String -> ImportedElementType
-valueElement =
-    Value
+valueElement : String -> ImportedElement
+valueElement name =
+    ( name, Value )
 
 
-typeElement : String -> ImportedElementType
-typeElement =
-    Type
+typeElement : String -> ImportedElement
+typeElement name =
+    ( name, Type )

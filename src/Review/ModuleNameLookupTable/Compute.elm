@@ -95,7 +95,7 @@ compute moduleName module_ project =
            can cause the lookup table to be different. So we only need to store the names of the elements that were
            imported "implicitly", though `exposing (..)` or `exposing (D(..))`.
         -}
-        implicitImports : Dict String (List ProjectCache.ImportedElementType)
+        implicitImports : Dict String (List ProjectCache.ImportedElement)
         implicitImports =
             List.foldl
                 (\node acc -> computeImplicitlyImportedElements projectCache.modules node acc)
@@ -243,8 +243,8 @@ computeOnlyModuleDocs moduleName module_ modulesByModuleName deps projectCache =
 computeImplicitlyImportedElements :
     Dict ModuleName Elm.Docs.Module
     -> Node Import
-    -> Dict String (List ProjectCache.ImportedElementType)
-    -> Dict String (List ProjectCache.ImportedElementType)
+    -> Dict String (List ProjectCache.ImportedElement)
+    -> Dict String (List ProjectCache.ImportedElement)
 computeImplicitlyImportedElements modules (Node _ import_) acc =
     case import_.exposingList of
         Nothing ->
@@ -267,10 +267,10 @@ computeImplicitlyImportedElements modules (Node _ import_) acc =
                     acc
 
 
-collectExplicit : Elm.Docs.Module -> List (Node TopLevelExpose) -> Dict String (List ProjectCache.ImportedElementType) -> Dict String (List ProjectCache.ImportedElementType)
+collectExplicit : Elm.Docs.Module -> List (Node TopLevelExpose) -> Dict String (List ProjectCache.ImportedElement) -> Dict String (List ProjectCache.ImportedElement)
 collectExplicit moduleDocs list acc =
     let
-        importedConstructors : List ProjectCache.ImportedElementType
+        importedConstructors : List ProjectCache.ImportedElement
         importedConstructors =
             List.foldl
                 (\node subAcc ->
@@ -292,10 +292,10 @@ collectExplicit moduleDocs list acc =
     Dict.insert moduleDocs.name importedConstructors acc
 
 
-collectAllExposed : Elm.Docs.Module -> Dict String (List ProjectCache.ImportedElementType) -> Dict String (List ProjectCache.ImportedElementType)
+collectAllExposed : Elm.Docs.Module -> Dict String (List ProjectCache.ImportedElement) -> Dict String (List ProjectCache.ImportedElement)
 collectAllExposed moduleDocs acc =
     let
-        importedElements : List ProjectCache.ImportedElementType
+        importedElements : List ProjectCache.ImportedElement
         importedElements =
             Dict.get moduleDocs.name acc
                 |> Maybe.withDefault []
@@ -306,7 +306,7 @@ collectAllExposed moduleDocs acc =
     Dict.insert moduleDocs.name importedElements acc
 
 
-collectAllValues : List Elm.Docs.Value -> List ProjectCache.ImportedElementType -> List ProjectCache.ImportedElementType
+collectAllValues : List Elm.Docs.Value -> List ProjectCache.ImportedElement -> List ProjectCache.ImportedElement
 collectAllValues values acc =
     List.foldl
         (\{ name } subAcc -> ProjectCache.valueElement name :: subAcc)
@@ -314,7 +314,7 @@ collectAllValues values acc =
         values
 
 
-collectAllAliases : List Elm.Docs.Alias -> List ProjectCache.ImportedElementType -> List ProjectCache.ImportedElementType
+collectAllAliases : List Elm.Docs.Alias -> List ProjectCache.ImportedElement -> List ProjectCache.ImportedElement
 collectAllAliases values acc =
     List.foldl
         (\{ name, tipe } subAcc ->
@@ -331,7 +331,7 @@ collectAllAliases values acc =
         values
 
 
-collectAllTypes : List Elm.Docs.Union -> List ProjectCache.ImportedElementType -> List ProjectCache.ImportedElementType
+collectAllTypes : List Elm.Docs.Union -> List ProjectCache.ImportedElement -> List ProjectCache.ImportedElement
 collectAllTypes unions acc =
     List.foldl
         (\union subAcc -> ProjectCache.typeElement union.name :: insertConstructors union.tags subAcc)
@@ -339,7 +339,7 @@ collectAllTypes unions acc =
         unions
 
 
-insertConstructors : List ( String, a ) -> List ProjectCache.ImportedElementType -> List ProjectCache.ImportedElementType
+insertConstructors : List ( String, a ) -> List ProjectCache.ImportedElement -> List ProjectCache.ImportedElement
 insertConstructors tags acc =
     List.foldl
         (\( tagName, _ ) subSubAcc -> ProjectCache.valueElement tagName :: subSubAcc)
