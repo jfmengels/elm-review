@@ -5409,7 +5409,7 @@ createProjectVisitor schema hidden maybeVisitor possibleInputContexts computeCon
                             , Cache.createEntryForProjectFileCache
                                 { contentHash = contentHash
                                 , errors = errors
-                                , inputContextHash = inputContextHash
+                                , inputContextHash = [ inputContextHash ]
                                 , outputContext = outputContext
                                 }
                                 |> toRuleProjectVisitor
@@ -5488,7 +5488,7 @@ createDependenciesVisitor schema { exceptions } raise cache { allVisitor, direct
                                     Cache.createEntryForProjectFileCache
                                         { contentHash = dependenciesHash
                                         , errors = errors
-                                        , inputContextHash = inputContextHash
+                                        , inputContextHash = [ inputContextHash ]
                                         , outputContext = finalOutputContext
                                         }
                             in

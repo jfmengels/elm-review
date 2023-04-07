@@ -71,7 +71,7 @@ type ProjectFileCache error context
 
 createEntryForProjectFileCache :
     { contentHash : Maybe ContentHash
-    , inputContextHash : ContextHash context
+    , inputContextHash : List (ContextHash context)
     , errors : List error
     , outputContext : context
     }
@@ -79,7 +79,7 @@ createEntryForProjectFileCache :
 createEntryForProjectFileCache entry =
     ProjectFileCache
         { contentHash = entry.contentHash
-        , inputContextHash = [ entry.inputContextHash ]
+        , inputContextHash = entry.inputContextHash
         , errors = entry.errors
         , outputContext = entry.outputContext
         , outputContextHash = ContextHash.create entry.outputContext
