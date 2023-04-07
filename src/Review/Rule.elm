@@ -4163,7 +4163,7 @@ type alias ExtractCache projectContext =
 
 qualifyErrors : { ruleName : String, exceptions : Exceptions, filePath : String } -> List (Error {}) -> List (Error {}) -> List (Error {})
 qualifyErrors params errors acc =
-    List.foldl (\err -> qualifyError params err) acc errors
+    List.foldl (\err subAcc -> qualifyError params err subAcc) acc errors
 
 
 qualifyError : { ruleName : String, exceptions : Exceptions, filePath : String } -> Error {} -> List (Error {}) -> List (Error {})
