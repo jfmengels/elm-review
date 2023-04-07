@@ -306,7 +306,6 @@ import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern exposing (Pattern)
 import Elm.Syntax.Range as Range exposing (Range)
-import Interface as If
 import Json.Encode as Encode
 import Review.Cache as Cache
 import Review.Cache.ContentHash exposing (ContentHash)
