@@ -5277,7 +5277,7 @@ mapLast mapper lines =
 
 
 type RuleProjectVisitor
-    = RuleProjectVisitor (RuleProjectVisitorOperations RuleProjectVisitor)
+    = RuleProjectVisitor RuleProjectVisitorOperations
 
 
 type alias RuleProjectVisitorHidden projectContext =
@@ -5299,13 +5299,13 @@ type alias ChangeableRuleData =
 The hidden state is `{ cache : ProjectRuleCache projectContext, ruleData : ChangeableRuleData }`
 
 -}
-type alias RuleProjectVisitorOperations t =
-    { elmJsonVisitor : Maybe (ValidProject -> Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> ( List (Error {}), t ))
-    , readmeVisitor : Maybe (ValidProject -> Maybe { readmeKey : ReadmeKey, content : String } -> ( List (Error {}), t ))
-    , dependenciesVisitor : Maybe (ValidProject -> { all : Dict String Review.Project.Dependency.Dependency, direct : Dict String Review.Project.Dependency.Dependency } -> ( List (Error {}), t ))
+type alias RuleProjectVisitorOperations =
+    { elmJsonVisitor : Maybe (ValidProject -> Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> ( List (Error {}), RuleProjectVisitor ))
+    , readmeVisitor : Maybe (ValidProject -> Maybe { readmeKey : ReadmeKey, content : String } -> ( List (Error {}), RuleProjectVisitor ))
+    , dependenciesVisitor : Maybe (ValidProject -> { all : Dict String Review.Project.Dependency.Dependency, direct : Dict String Review.Project.Dependency.Dependency } -> ( List (Error {}), RuleProjectVisitor ))
     , createModuleVisitorFromProjectVisitor : Maybe (ValidProject -> String -> ContentHash -> Graph.Adjacency () -> Maybe (AvailableData -> RuleModuleVisitor))
-    , finalProjectEvaluation : Maybe (() -> ( List (Error {}), t ))
-    , dataExtractVisitor : ReviewOptionsData -> Dict String Encode.Value -> ( Dict String Encode.Value, t )
+    , finalProjectEvaluation : Maybe (() -> ( List (Error {}), RuleProjectVisitor ))
+    , dataExtractVisitor : ReviewOptionsData -> Dict String Encode.Value -> ( Dict String Encode.Value, RuleProjectVisitor )
     , getErrorsForModule : String -> List (Error {})
     , getErrors : () -> List (Error {})
     , backToRule : () -> Rule
