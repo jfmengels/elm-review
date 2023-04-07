@@ -309,7 +309,7 @@ collectAllExposed moduleDocs acc =
 collectAllValues : List Elm.Docs.Value -> List ProjectCache.ImportedElementType -> List ProjectCache.ImportedElementType
 collectAllValues values acc =
     List.foldl
-        (\{ name } subAcc -> ProjectCache.Value name :: subAcc)
+        (\{ name } subAcc -> ProjectCache.valueElement name :: subAcc)
         acc
         values
 
@@ -318,10 +318,10 @@ collectAllAliases : List Elm.Docs.Alias -> List ProjectCache.ImportedElementType
 collectAllAliases values acc =
     List.foldl
         (\{ name, tipe } subAcc ->
-            ProjectCache.Type name
+            ProjectCache.typeElement name
                 :: (case tipe of
                         Elm.Type.Record _ Nothing ->
-                            ProjectCache.Value name :: subAcc
+                            ProjectCache.valueElement name :: subAcc
 
                         _ ->
                             subAcc
@@ -334,7 +334,7 @@ collectAllAliases values acc =
 collectAllTypes : List Elm.Docs.Union -> List ProjectCache.ImportedElementType -> List ProjectCache.ImportedElementType
 collectAllTypes unions acc =
     List.foldl
-        (\union subAcc -> ProjectCache.Type union.name :: insertConstructors union.tags subAcc)
+        (\union subAcc -> ProjectCache.typeElement union.name :: insertConstructors union.tags subAcc)
         acc
         unions
 
@@ -342,7 +342,7 @@ collectAllTypes unions acc =
 insertConstructors : List ( String, a ) -> List ProjectCache.ImportedElementType -> List ProjectCache.ImportedElementType
 insertConstructors tags acc =
     List.foldl
-        (\( tagName, _ ) subSubAcc -> ProjectCache.Value tagName :: subSubAcc)
+        (\( tagName, _ ) subSubAcc -> ProjectCache.valueElement tagName :: subSubAcc)
         acc
         tags
 
