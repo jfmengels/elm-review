@@ -1,4 +1,4 @@
-module Review.Cache exposing (EntryMaybe, EntryNoOutputContext, ModuleEntry, createEntryMaybe, createModuleEntry, createNoOutput, errors, errorsFromEntryMaybe, errorsMaybe, match, matchMaybe, matchNoOutput, outputContext, outputContextMaybe, outputForNoOutput)
+module Review.Cache exposing (EntryNoOutputContext, ModuleEntry, ProjectFileCache, createEntryForProjectFileCache, createModuleEntry, createNoOutput, errors, errorsForMaybeProjectFileCache, errorsFromProjectFileCache, match, matchNoOutput, matchProjectFileCache, outputContext, outputContextForProjectFileCache, outputForNoOutput)
 
 import Review.Cache.ContentHash as ContentHash exposing (ContentHash)
 import Review.Cache.ContextHash as ContextHash exposing (ContextHash)
@@ -51,8 +51,8 @@ ruleCaresAboutIgnoredFiles (RequestedData { ignoredFiles }) =
 
 {-| Variant where the content may be absent
 -}
-type EntryMaybe error context
-    = EntryMaybe
+type ProjectFileCache error context
+    = ProjectFileCache
         { contentHash : Maybe ContentHash
         , inputContextHash : ContextHash context
         , errors : List error
@@ -60,15 +60,15 @@ type EntryMaybe error context
         }
 
 
-createEntryMaybe :
+createEntryForProjectFileCache :
     { contentHash : Maybe ContentHash
     , inputContextHash : ContextHash context
     , errors : List error
     , outputContext : context
     }
-    -> EntryMaybe error context
-createEntryMaybe entry =
-    EntryMaybe
+    -> ProjectFileCache error context
+createEntryForProjectFileCache entry =
+    ProjectFileCache
         { contentHash = entry.contentHash
         , inputContextHash = entry.inputContextHash
         , errors = entry.errors
@@ -76,28 +76,28 @@ createEntryMaybe entry =
         }
 
 
-outputContextMaybe : EntryMaybe error context -> context
-outputContextMaybe (EntryMaybe entry) =
+outputContextForProjectFileCache : ProjectFileCache error context -> context
+outputContextForProjectFileCache (ProjectFileCache entry) =
     entry.outputContext
 
 
-errorsFromEntryMaybe : EntryMaybe error context -> List error
-errorsFromEntryMaybe (EntryMaybe entry) =
+errorsFromProjectFileCache : ProjectFileCache error context -> List error
+errorsFromProjectFileCache (ProjectFileCache entry) =
     entry.errors
 
 
-errorsMaybe : Maybe (EntryMaybe error context) -> List error
-errorsMaybe maybeEntry =
+errorsForMaybeProjectFileCache : Maybe (ProjectFileCache error context) -> List error
+errorsForMaybeProjectFileCache maybeEntry =
     case maybeEntry of
-        Just (EntryMaybe entry) ->
+        Just (ProjectFileCache entry) ->
             entry.errors
 
         Nothing ->
             []
 
 
-matchMaybe : Maybe ContentHash -> ContextHash context -> EntryMaybe error context -> Bool
-matchMaybe contentHash context (EntryMaybe entry) =
+matchProjectFileCache : Maybe ContentHash -> ContextHash context -> ProjectFileCache error context -> Bool
+matchProjectFileCache contentHash context (ProjectFileCache entry) =
     ContentHash.areEqualForMaybe contentHash entry.contentHash
         && ContextHash.areEqual context entry.inputContextHash
 

@@ -4147,8 +4147,8 @@ type alias ModuleCacheEntry projectContext =
     Cache.ModuleEntry (Error {}) projectContext
 
 
-type alias CacheEntryMaybe projectContext =
-    Cache.EntryMaybe (Error {}) projectContext
+type alias ProjectFileCache projectContext =
+    Cache.ProjectFileCache (Error {}) projectContext
 
 
 type alias FinalProjectEvaluationCache projectContext =
@@ -4251,9 +4251,9 @@ errorsFromCache : ProjectRuleCache projectContext -> List (Error {})
 errorsFromCache cache =
     List.concat
         [ Dict.foldl (\_ cacheEntry acc -> List.append (Cache.errors cacheEntry) acc) [] cache.moduleContexts
-        , Cache.errorsMaybe cache.elmJson
-        , Cache.errorsMaybe cache.readme
-        , Cache.errorsMaybe cache.dependencies
+        , Cache.errorsForMaybeProjectFileCache cache.elmJson
+        , Cache.errorsForMaybeProjectFileCache cache.readme
+        , Cache.errorsForMaybeProjectFileCache cache.dependencies
         , Maybe.map Cache.outputForNoOutput cache.finalEvaluationErrors |> Maybe.withDefault []
         ]
 
@@ -4263,9 +4263,9 @@ errorsFromCache cache =
 
 
 type alias ProjectRuleCache projectContext =
-    { elmJson : Maybe (CacheEntryMaybe projectContext)
-    , readme : Maybe (CacheEntryMaybe projectContext)
-    , dependencies : Maybe (CacheEntryMaybe projectContext)
+    { elmJson : Maybe (ProjectFileCache projectContext)
+    , readme : Maybe (ProjectFileCache projectContext)
+    , dependencies : Maybe (ProjectFileCache projectContext)
     , moduleContexts : Dict String (ModuleCacheEntry projectContext)
     , finalEvaluationErrors : Maybe (FinalProjectEvaluationCache projectContext)
     , extract : Maybe (ExtractCache projectContext)
@@ -5357,10 +5357,10 @@ createProjectVisitor :
     ProjectRuleSchemaData projectContext moduleContext
     -> RuleProjectVisitorHidden projectContext
     -> Maybe (data -> projectContext -> ( List (Error {}), projectContext ))
-    -> List (Maybe (Cache.EntryMaybe error projectContext))
+    -> List (Maybe (Cache.ProjectFileCache error projectContext))
     -> (ValidProject -> Maybe ContentHash)
-    -> (ProjectRuleCache projectContext -> Maybe (CacheEntryMaybe projectContext))
-    -> (CacheEntryMaybe projectContext -> RuleProjectVisitor)
+    -> (ProjectRuleCache projectContext -> Maybe (ProjectFileCache projectContext))
+    -> (ProjectFileCache projectContext -> RuleProjectVisitor)
     ->
         Maybe
             (ValidProject
@@ -5388,13 +5388,13 @@ createProjectVisitor schema hidden maybeVisitor possibleInputContexts computeCon
                         contentHash =
                             computeContentHash project
 
-                        cachePredicate : CacheEntryMaybe projectContext -> Bool
+                        cachePredicate : ProjectFileCache projectContext -> Bool
                         cachePredicate elmJson =
-                            Cache.matchMaybe contentHash inputContextHash elmJson
+                            Cache.matchProjectFileCache contentHash inputContextHash elmJson
                     in
                     case reuseProjectRuleCache cachePredicate cacheGetter hidden.cache of
                         Just entry ->
-                            ( Cache.errorsFromEntryMaybe entry, toRuleProjectVisitor entry )
+                            ( Cache.errorsFromProjectFileCache entry, toRuleProjectVisitor entry )
 
                         Nothing ->
                             let
@@ -5406,7 +5406,7 @@ createProjectVisitor schema hidden maybeVisitor possibleInputContexts computeCon
                                     filterExceptionsAndSetName hidden.ruleData.exceptions schema.name errorsForVisitor
                             in
                             ( errors
-                            , Cache.createEntryMaybe
+                            , Cache.createEntryForProjectFileCache
                                 { contentHash = contentHash
                                 , errors = errors
                                 , inputContextHash = inputContextHash
@@ -5453,13 +5453,13 @@ createDependenciesVisitor schema { exceptions } raise cache { allVisitor, direct
                         dependenciesHash =
                             ValidProject.dependenciesHash project
 
-                        cachePredicate : CacheEntryMaybe projectContext -> Bool
+                        cachePredicate : ProjectFileCache projectContext -> Bool
                         cachePredicate entry =
-                            Cache.matchMaybe dependenciesHash inputContextHash entry
+                            Cache.matchProjectFileCache dependenciesHash inputContextHash entry
                     in
                     case reuseProjectRuleCache cachePredicate .dependencies cache of
                         Just entry ->
-                            ( Cache.errorsFromEntryMaybe entry, raise cache )
+                            ( Cache.errorsFromProjectFileCache entry, raise cache )
 
                         Nothing ->
                             let
@@ -5483,9 +5483,9 @@ createDependenciesVisitor schema { exceptions } raise cache { allVisitor, direct
                                 errors =
                                     filterExceptionsAndSetName exceptions schema.name (List.append errorsForIndirect errorsForDirect)
 
-                                dependenciesEntry : CacheEntryMaybe projectContext
+                                dependenciesEntry : ProjectFileCache projectContext
                                 dependenciesEntry =
-                                    Cache.createEntryMaybe
+                                    Cache.createEntryForProjectFileCache
                                         { contentHash = dependenciesHash
                                         , errors = errors
                                         , inputContextHash = inputContextHash
@@ -5498,14 +5498,14 @@ createDependenciesVisitor schema { exceptions } raise cache { allVisitor, direct
                 )
 
 
-findInitialInputContext : projectContext -> List (Maybe (Cache.EntryMaybe error projectContext)) -> projectContext
+findInitialInputContext : projectContext -> List (Maybe (Cache.ProjectFileCache error projectContext)) -> projectContext
 findInitialInputContext defaultContext possibleInputContexts =
     case possibleInputContexts of
         [] ->
             defaultContext
 
         (Just cacheEntry) :: _ ->
-            Cache.outputContextMaybe cacheEntry
+            Cache.outputContextForProjectFileCache cacheEntry
 
         Nothing :: rest ->
             findInitialInputContext defaultContext rest
