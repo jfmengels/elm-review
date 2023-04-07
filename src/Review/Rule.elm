@@ -4215,8 +4215,7 @@ finalCacheMarker _ _ cache =
 computeFinalContext : ProjectRuleSchemaData projectContext moduleContext -> ProjectRuleCache projectContext -> projectContext
 computeFinalContext schema cache =
     let
-        projectContext : projectContext
-        projectContext =
+        ( projectContextHash, projectContext ) =
             findInitialInputContext schema.initialProjectContext [ cache.dependencies, cache.readme, cache.elmJson ]
 
         traversalAndFolder : TraversalAndFolder projectContext moduleContext
@@ -5376,13 +5375,8 @@ createProjectVisitor schema hidden maybeVisitor possibleInputContexts computeCon
             Just
                 (\project data ->
                     let
-                        inputContext : projectContext
-                        inputContext =
+                        ( inputContextHash, inputContext ) =
                             findInitialInputContext schema.initialProjectContext possibleInputContexts
-
-                        inputContextHash : ContextHash projectContext
-                        inputContextHash =
-                            ContextHash.create inputContext
 
                         contentHash : Maybe ContentHash
                         contentHash =
@@ -5390,7 +5384,7 @@ createProjectVisitor schema hidden maybeVisitor possibleInputContexts computeCon
 
                         cachePredicate : ProjectFileCache projectContext -> Bool
                         cachePredicate elmJson =
-                            Cache.matchProjectFileCache contentHash [ inputContextHash ] elmJson
+                            Cache.matchProjectFileCache contentHash inputContextHash elmJson
                     in
                     case reuseProjectRuleCache cachePredicate cacheGetter hidden.cache of
                         Just entry ->
@@ -5409,7 +5403,7 @@ createProjectVisitor schema hidden maybeVisitor possibleInputContexts computeCon
                             , Cache.createEntryForProjectFileCache
                                 { contentHash = contentHash
                                 , errors = errors
-                                , inputContextHash = [ inputContextHash ]
+                                , inputContextHash = inputContextHash
                                 , outputContext = outputContext
                                 }
                                 |> toRuleProjectVisitor
@@ -5441,13 +5435,8 @@ createDependenciesVisitor schema { exceptions } raise cache { allVisitor, direct
             Just
                 (\project { all, direct } ->
                     let
-                        inputContext : projectContext
-                        inputContext =
+                        ( inputContextHash, inputContext ) =
                             findInitialInputContext schema.initialProjectContext [ cache.readme, cache.elmJson ]
-
-                        inputContextHash : ContextHash projectContext
-                        inputContextHash =
-                            ContextHash.create inputContext
 
                         dependenciesHash : Maybe ContentHash
                         dependenciesHash =
@@ -5455,7 +5444,7 @@ createDependenciesVisitor schema { exceptions } raise cache { allVisitor, direct
 
                         cachePredicate : ProjectFileCache projectContext -> Bool
                         cachePredicate entry =
-                            Cache.matchProjectFileCache dependenciesHash [ inputContextHash ] entry
+                            Cache.matchProjectFileCache dependenciesHash inputContextHash entry
                     in
                     case reuseProjectRuleCache cachePredicate .dependencies cache of
                         Just entry ->
@@ -5488,7 +5477,7 @@ createDependenciesVisitor schema { exceptions } raise cache { allVisitor, direct
                                     Cache.createEntryForProjectFileCache
                                         { contentHash = dependenciesHash
                                         , errors = errors
-                                        , inputContextHash = [ inputContextHash ]
+                                        , inputContextHash = inputContextHash
                                         , outputContext = finalOutputContext
                                         }
                             in
@@ -5498,14 +5487,14 @@ createDependenciesVisitor schema { exceptions } raise cache { allVisitor, direct
                 )
 
 
-findInitialInputContext : projectContext -> List (Maybe (Cache.ProjectFileCache error projectContext)) -> projectContext
+findInitialInputContext : projectContext -> List (Maybe (Cache.ProjectFileCache error projectContext)) -> ( List (ContextHash projectContext), projectContext )
 findInitialInputContext defaultContext possibleInputContexts =
     case possibleInputContexts of
         [] ->
-            defaultContext
+            ( [], defaultContext )
 
         (Just cacheEntry) :: _ ->
-            Cache.outputContextForProjectFileCache cacheEntry
+            ( [ Cache.outputContextHashForProjectFileCache cacheEntry ], Cache.outputContextForProjectFileCache cacheEntry )
 
         Nothing :: rest ->
             findInitialInputContext defaultContext rest
@@ -5640,8 +5629,7 @@ createModuleVisitorFromProjectVisitorHelp :
 createModuleVisitorFromProjectVisitorHelp schema exceptions raise hidden traversalAndFolder ( ModuleRuleSchema moduleRuleSchema, moduleContextCreator ) =
     \project filePath moduleContentHash incoming ->
         let
-            initialProjectContext : projectContext
-            initialProjectContext =
+            ( initialProjectContextHash, initialProjectContext ) =
                 findInitialInputContext schema.initialProjectContext [ hidden.cache.dependencies, hidden.cache.readme, hidden.cache.elmJson ]
 
             inputProjectContext : projectContext
