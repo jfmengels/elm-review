@@ -23,8 +23,14 @@ createModuleEntry :
     , outputContext : context
     }
     -> ModuleEntry error context
-createModuleEntry =
+createModuleEntry entry =
     ModuleEntry
+        { contentHash = entry.contentHash
+        , inputContextHashes = entry.inputContextHashes
+        , isFileIgnored = entry.isFileIgnored
+        , errors = entry.errors
+        , outputContext = entry.outputContext
+        }
 
 
 outputContext : ModuleEntry error context -> context
