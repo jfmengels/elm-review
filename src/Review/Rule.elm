@@ -5390,7 +5390,7 @@ createProjectVisitor schema hidden maybeVisitor possibleInputContexts computeCon
 
                         cachePredicate : ProjectFileCache projectContext -> Bool
                         cachePredicate elmJson =
-                            Cache.matchProjectFileCache contentHash inputContextHash elmJson
+                            Cache.matchProjectFileCache contentHash [ inputContextHash ] elmJson
                     in
                     case reuseProjectRuleCache cachePredicate cacheGetter hidden.cache of
                         Just entry ->
@@ -5455,7 +5455,7 @@ createDependenciesVisitor schema { exceptions } raise cache { allVisitor, direct
 
                         cachePredicate : ProjectFileCache projectContext -> Bool
                         cachePredicate entry =
-                            Cache.matchProjectFileCache dependenciesHash inputContextHash entry
+                            Cache.matchProjectFileCache dependenciesHash [ inputContextHash ] entry
                     in
                     case reuseProjectRuleCache cachePredicate .dependencies cache of
                         Just entry ->

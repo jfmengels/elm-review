@@ -62,7 +62,7 @@ ruleCaresAboutIgnoredFiles (RequestedData { ignoredFiles }) =
 type ProjectFileCache error context
     = ProjectFileCache
         { contentHash : Maybe ContentHash
-        , inputContextHash : ContextHash context
+        , inputContextHash : List (ContextHash context)
         , errors : List error
         , outputContext : context
         , outputContextHash : ContextHash context
@@ -79,7 +79,7 @@ createEntryForProjectFileCache :
 createEntryForProjectFileCache entry =
     ProjectFileCache
         { contentHash = entry.contentHash
-        , inputContextHash = entry.inputContextHash
+        , inputContextHash = [ entry.inputContextHash ]
         , errors = entry.errors
         , outputContext = entry.outputContext
         , outputContextHash = ContextHash.create entry.outputContext
@@ -111,10 +111,10 @@ errorsForMaybeProjectFileCache maybeEntry =
             []
 
 
-matchProjectFileCache : Maybe ContentHash -> ContextHash context -> ProjectFileCache error context -> Bool
-matchProjectFileCache contentHash context (ProjectFileCache entry) =
+matchProjectFileCache : Maybe ContentHash -> List (ContextHash context) -> ProjectFileCache error context -> Bool
+matchProjectFileCache contentHash contexts (ProjectFileCache entry) =
     ContentHash.areEqualForMaybe contentHash entry.contentHash
-        && ContextHash.areEqual context entry.inputContextHash
+        && (contexts == entry.inputContextHash)
 
 
 {-| Variant for final operations like the final evaluation or the extract
