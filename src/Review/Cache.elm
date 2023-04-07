@@ -57,6 +57,7 @@ type ProjectFileCache error context
         , inputContextHash : ContextHash context
         , errors : List error
         , outputContext : context
+        , outputContextHash : ContextHash context
         }
 
 
@@ -73,6 +74,7 @@ createEntryForProjectFileCache entry =
         , inputContextHash = entry.inputContextHash
         , errors = entry.errors
         , outputContext = entry.outputContext
+        , outputContextHash = ContextHash.create entry.outputContext
         }
 
 
