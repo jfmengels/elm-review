@@ -5763,32 +5763,6 @@ createRuleModuleVisitor schema params toRuleProjectVisitor initialContext =
     raise ( [], initialContext )
 
 
-moduleRuleImplementation :
-    ModuleRuleSchemaData moduleContext
-    -> { ruleName : String, exceptions : Exceptions, filePath : String }
-    -> (( List (Error {}), moduleContext ) -> RuleProjectVisitor)
-    -> (( List (Error {}), moduleContext ) -> RuleModuleVisitor)
-    -> ( List (Error {}), moduleContext )
-    -> RuleModuleVisitorOperations RuleModuleVisitor
-moduleRuleImplementation schema params toRuleProjectVisitor raise errorsAndContext =
-    { moduleDefinitionVisitor = createVisitor params raise errorsAndContext schema.moduleDefinitionVisitor
-    , moduleDocumentationVisitor = createVisitor params raise errorsAndContext schema.moduleDocumentationVisitor
-    , commentVisitor = createVisitor params raise errorsAndContext schema.commentsVisitor
-    , importsVisitor = createImportsVisitor params raise errorsAndContext schema.importVisitor
-    , declarationListVisitor = createVisitor params raise errorsAndContext schema.declarationListVisitor
-    , declarationVisitorOnEnter = createVisitor params raise errorsAndContext schema.declarationVisitorOnEnter
-    , declarationVisitorOnExit = createVisitor params raise errorsAndContext schema.declarationVisitorOnExit
-    , expressionVisitorOnEnter = createVisitor params raise errorsAndContext schema.expressionVisitorsOnEnter
-    , expressionVisitorOnExit = createVisitor params raise errorsAndContext schema.expressionVisitorsOnExit
-    , letDeclarationVisitorOnEnter = createVisitor2 params raise errorsAndContext schema.letDeclarationVisitorOnEnter
-    , letDeclarationVisitorOnExit = createVisitor2 params raise errorsAndContext schema.letDeclarationVisitorOnExit
-    , caseBranchVisitorOnEnter = createVisitor2 params raise errorsAndContext schema.caseBranchVisitorOnEnter
-    , caseBranchVisitorOnExit = createVisitor2 params raise errorsAndContext schema.caseBranchVisitorOnExit
-    , finalModuleEvaluation = createFinalModuleEvaluationVisitor params raise errorsAndContext schema.finalEvaluationFn
-    , toProjectVisitor = \() -> toRuleProjectVisitor errorsAndContext
-    }
-
-
 createVisitor :
     { ruleName : String, exceptions : Exceptions, filePath : String }
     -> (( List (Error {}), context ) -> a)

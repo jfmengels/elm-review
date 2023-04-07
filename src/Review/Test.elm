@@ -137,7 +137,6 @@ import Review.FileParser as FileParser
 import Review.Fix as Fix
 import Review.Options as ReviewOptions
 import Review.Project as Project exposing (Project, ProjectModule)
-import Review.Project.ProjectModule as ProjectModule
 import Review.Rule as Rule exposing (ReviewError, Rule)
 import Review.Test.Dependencies exposing (projectWithElmCore)
 import Review.Test.FailureMessage as FailureMessage

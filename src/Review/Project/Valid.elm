@@ -25,7 +25,6 @@ import Dict exposing (Dict)
 import Elm.Package
 import Elm.Project
 import Elm.Syntax.File
-import Elm.Syntax.Module
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node
 import Path
