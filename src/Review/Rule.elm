@@ -5666,13 +5666,13 @@ createModuleVisitorFromProjectVisitorHelp schema exceptions raise hidden travers
             ( initialProjectContextHash, initialProjectContext ) =
                 findInitialInputContext schema.initialProjectContext [ hidden.cache.dependencies, hidden.cache.readme, hidden.cache.elmJson ]
 
+            inputContextHashes : List (ContextHash projectContext)
+            inputContextHashes =
+                computeProjectContextHashes traversalAndFolder project hidden.cache.moduleContexts incoming initialProjectContextHash
+
             inputProjectContext : projectContext
             inputProjectContext =
                 computeProjectContext traversalAndFolder project hidden.cache.moduleContexts incoming initialProjectContext
-
-            inputContextHashes : List (ContextHash projectContext)
-            inputContextHashes =
-                [ ContextHash.create inputProjectContext ]
 
             isFileIgnored : Bool
             isFileIgnored =
