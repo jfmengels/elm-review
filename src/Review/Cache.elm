@@ -1,4 +1,4 @@
-module Review.Cache exposing (EntryNoOutputContext, ModuleEntry, ProjectFileCache, createEntryForProjectFileCache, createModuleEntry, createNoOutput, errors, errorsForMaybeProjectFileCache, errorsFromProjectFileCache, match, matchNoOutput, matchProjectFileCache, outputContext, outputContextForProjectFileCache, outputForNoOutput)
+module Review.Cache exposing (EntryNoOutputContext, ModuleEntry, ProjectFileCache, createEntryForProjectFileCache, createModuleEntry, createNoOutput, errors, errorsForMaybeProjectFileCache, errorsFromProjectFileCache, match, matchNoOutput, matchProjectFileCache, outputContext, outputContextForProjectFileCache, outputContextHashForProjectFileCache, outputForNoOutput)
 
 import Review.Cache.ContentHash as ContentHash exposing (ContentHash)
 import Review.Cache.ContextHash as ContextHash exposing (ContextHash)
@@ -89,6 +89,11 @@ createEntryForProjectFileCache entry =
 outputContextForProjectFileCache : ProjectFileCache error context -> context
 outputContextForProjectFileCache (ProjectFileCache entry) =
     entry.outputContext
+
+
+outputContextHashForProjectFileCache : ProjectFileCache error context -> ContextHash context
+outputContextHashForProjectFileCache (ProjectFileCache entry) =
+    entry.outputContextHash
 
 
 errorsFromProjectFileCache : ProjectFileCache error context -> List error
