@@ -5568,7 +5568,7 @@ createFinalProjectEvaluationVisitor schema { exceptions } raise cache =
                                     filterExceptionsAndSetName exceptions schema.name (finalEvaluationFn inputContext)
                             in
                             ( errors
-                            , raise { cache | finalEvaluationErrors = Just (Cache.createNoOutput inputContext errors) }
+                            , raise { cache | finalEvaluationErrors = Just (Cache.createNoOutput (ContextHash.create inputContext) errors) }
                             )
                 )
 

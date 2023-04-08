@@ -131,10 +131,10 @@ type EntryNoOutputContext output context
         }
 
 
-createNoOutput : context -> output -> EntryNoOutputContext output context
-createNoOutput inputContext output =
+createNoOutput : ContextHash context -> output -> EntryNoOutputContext output context
+createNoOutput inputContextHash output =
     EntryNoOutputContext
-        { inputContextHashes = ContextHash.create inputContext
+        { inputContextHashes = inputContextHash
         , output = output
         }
 
