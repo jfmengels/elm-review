@@ -4212,6 +4212,35 @@ finalCacheMarker _ _ cache =
     cache
 
 
+computeFinalContextHashes : ProjectRuleSchemaData projectContext moduleContext -> ProjectRuleCache projectContext -> List (ContextHash projectContext)
+computeFinalContextHashes schema cache =
+    let
+        ( projectContextHash, projectContext ) =
+            findInitialInputContext schema.initialProjectContext [ cache.dependencies, cache.readme, cache.elmJson ]
+
+        traversalAndFolder : TraversalAndFolder projectContext moduleContext
+        traversalAndFolder =
+            case ( schema.traversalType, schema.folder ) of
+                ( AllModulesInParallel, _ ) ->
+                    TraverseAllModulesInParallel schema.folder
+
+                ( ImportedModulesFirst, Just folder ) ->
+                    TraverseImportedModulesFirst folder
+
+                ( ImportedModulesFirst, Nothing ) ->
+                    TraverseAllModulesInParallel Nothing
+    in
+    case getFolderFromTraversal traversalAndFolder of
+        Just { foldProjectContexts } ->
+            Dict.foldl
+                (\_ cacheEntry acc -> Cache.outputContextHash cacheEntry :: acc)
+                projectContextHash
+                cache.moduleContexts
+
+        Nothing ->
+            projectContextHash
+
+
 computeFinalContext : ProjectRuleSchemaData projectContext moduleContext -> ProjectRuleCache projectContext -> projectContext
 computeFinalContext schema cache =
     let
