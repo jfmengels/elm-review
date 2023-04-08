@@ -5120,7 +5120,7 @@ findFixHelp project fixablePredicate errors maybeModuleZipper =
                                 Just elmJson ->
                                     case
                                         InternalFix.fixElmJson fixes elmJson.raw
-                                            |> Maybe.andThen
+                                            |> Maybe.map
                                                 (\fixResult ->
                                                     ValidProject.addElmJson { path = elmJson.path, raw = fixResult.raw, project = fixResult.project } project
                                                 )
