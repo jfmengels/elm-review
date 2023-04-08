@@ -511,17 +511,21 @@ addElmJson elmJson_ (ValidProject project) =
                 Nothing
 
             else
-                computeUpdatedDependencies previousElmJson elmJson_ project
-                    |> Maybe.map
-                        (\updatedDependencies ->
-                            ValidProject
-                                { project
-                                    | elmJson = Just ( elmJson_, ContentHash.hash elmJson_.raw )
-                                    , dependencies = updatedDependencies.dependencies
-                                    , directDependencies = updatedDependencies.directDependencies
-                                    , dependencyModules = updatedDependencies.dependencyModules
-                                }
-                        )
+                case computeUpdatedDependencies previousElmJson elmJson_ project of
+                    Just updatedDependencies ->
+                        ValidProject
+                            { project
+                                | elmJson = Just ( elmJson_, ContentHash.hash elmJson_.raw )
+                                , dependencies = updatedDependencies.dependencies
+                                , directDependencies = updatedDependencies.directDependencies
+                                , dependencyModules = updatedDependencies.dependencyModules
+                            }
+                            |> Just
+
+                    Nothing ->
+                        -- Dependencies are unchanged
+                        ValidProject { project | elmJson = Just ( elmJson_, ContentHash.hash elmJson_.raw ) }
+                            |> Just
 
 
 computeUpdatedDependencies :
@@ -531,11 +535,7 @@ computeUpdatedDependencies :
     -> Maybe { dependencies : Dict String Dependency, directDependencies : Dict String Dependency, dependencyModules : Set ModuleName }
 computeUpdatedDependencies previousElmJsonProject newElmJson project =
     if areDependenciesUnchanged { before = previousElmJsonProject, after = newElmJson.project } then
-        Just
-            { dependencies = project.dependencies
-            , directDependencies = project.directDependencies
-            , dependencyModules = project.dependencyModules
-            }
+        Nothing
 
     else
         let
