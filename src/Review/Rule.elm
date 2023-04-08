@@ -5553,9 +5553,13 @@ createFinalProjectEvaluationVisitor schema { exceptions } raise cache =
                         inputContext =
                             computeFinalContext schema cache
 
+                        inputContextHashes : ContextHash projectContext
+                        inputContextHashes =
+                            ContextHash.create inputContext
+
                         cachePredicate : FinalProjectEvaluationCache projectContext -> Bool
                         cachePredicate entry =
-                            Cache.matchNoOutput (ContextHash.create inputContext) entry
+                            Cache.matchNoOutput inputContextHashes entry
                     in
                     case reuseProjectRuleCache cachePredicate .finalEvaluationErrors cache of
                         Just entry ->
@@ -5568,7 +5572,7 @@ createFinalProjectEvaluationVisitor schema { exceptions } raise cache =
                                     filterExceptionsAndSetName exceptions schema.name (finalEvaluationFn inputContext)
                             in
                             ( errors
-                            , raise { cache | finalEvaluationErrors = Just (Cache.createNoOutput (ContextHash.create inputContext) errors) }
+                            , raise { cache | finalEvaluationErrors = Just (Cache.createNoOutput inputContextHashes errors) }
                             )
                 )
 
