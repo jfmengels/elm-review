@@ -1,4 +1,4 @@
-module Review.Cache.ContextHash exposing (ContextHash, areEqual, create)
+module Review.Cache.ContextHash exposing (ContextHash, create)
 
 
 type ContextHash context
@@ -13,8 +13,3 @@ create context =
 createContextHashMarker : a -> a
 createContextHashMarker context =
     context
-
-
-areEqual : ContextHash context -> ContextHash context -> Bool
-areEqual (ContextHash a) (ContextHash b) =
-    a == b
