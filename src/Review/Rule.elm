@@ -4215,7 +4215,7 @@ finalCacheMarker _ _ cache =
 computeFinalContextHashes : ProjectRuleSchemaData projectContext moduleContext -> ProjectRuleCache projectContext -> List (ContextHash projectContext)
 computeFinalContextHashes schema cache =
     let
-        ( projectContextHash, projectContext ) =
+        ( projectContextHash, _ ) =
             findInitialInputContext schema.initialProjectContext [ cache.dependencies, cache.readme, cache.elmJson ]
 
         traversalAndFolder : TraversalAndFolder projectContext moduleContext
@@ -4244,7 +4244,7 @@ computeFinalContextHashes schema cache =
 computeFinalContext : ProjectRuleSchemaData projectContext moduleContext -> ProjectRuleCache projectContext -> projectContext
 computeFinalContext schema cache =
     let
-        ( projectContextHash, projectContext ) =
+        ( _, projectContext ) =
             findInitialInputContext schema.initialProjectContext [ cache.dependencies, cache.readme, cache.elmJson ]
 
         traversalAndFolder : TraversalAndFolder projectContext moduleContext
