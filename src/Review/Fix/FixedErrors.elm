@@ -1,4 +1,4 @@
-module Review.Fix.FixedErrors exposing (FixedErrors, count, empty, hasChanged, insert, toDict)
+module Review.Fix.FixedErrors exposing (FixedErrors, count, empty, insert, toDict)
 
 import Dict exposing (Dict)
 import Review.Error exposing (ReviewError)
@@ -22,11 +22,6 @@ insert ((Review.Error.ReviewError { filePath }) as error) (FixedErrors fixCount 
             (\errors -> Just (error :: Maybe.withDefault [] errors))
             fixedErrors
         )
-
-
-hasChanged : FixedErrors -> FixedErrors -> Bool
-hasChanged (FixedErrors beforeCount _) (FixedErrors afterCount _) =
-    beforeCount /= afterCount
 
 
 toDict : FixedErrors -> Dict String (List ReviewError)

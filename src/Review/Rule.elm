@@ -745,12 +745,11 @@ runRules (ReviewOptionsInternal reviewOptions) ruleProjectVisitors project =
     let
         result : { fixedErrors : FixedErrors, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject }
         result =
-            runRulesHelp
+            runProjectVisitor
                 reviewOptions
-                { fixedErrors = FixedErrors.empty
-                , ruleProjectVisitors = ruleProjectVisitors
-                , project = project
-                }
+                ruleProjectVisitors
+                FixedErrors.empty
+                project
 
         { errors, rules, extracts } =
             computeErrorsAndRulesAndExtracts reviewOptions result.ruleProjectVisitors
@@ -802,32 +801,6 @@ computeErrorsAndRulesAndExtracts reviewOptions ruleProjectVisitors =
         , rules = List.map (\(RuleProjectVisitor rule) -> rule.backToRule ()) ruleProjectVisitors
         , extracts = Dict.empty
         }
-
-
-runRulesHelp :
-    ReviewOptionsData
-    -> { fixedErrors : FixedErrors, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject }
-    -> { fixedErrors : FixedErrors, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject }
-runRulesHelp reviewOptions acc =
-    let
-        result : { fixedErrors : FixedErrors, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject }
-        result =
-            runProjectVisitor
-                reviewOptions
-                acc.ruleProjectVisitors
-                acc.fixedErrors
-                acc.project
-    in
-    if
-        InternalOptions.shouldContinueLookingForFixes reviewOptions result.fixedErrors
-            && FixedErrors.hasChanged result.fixedErrors acc.fixedErrors
-    then
-        -- TODO Reevaluate whether this makes sense. Haven't we already re-applied all fixes that we could have found?
-        -- In other words, will `FixedErrors.hasChanged result.fixedErrors acc.fixedErrors` ever be `True`?
-        runRulesHelp reviewOptions result
-
-    else
-        result
 
 
 {-| Let `elm-review` know that this rule may provide fixes in the reported errors.
