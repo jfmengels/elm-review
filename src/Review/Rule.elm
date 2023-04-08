@@ -4231,7 +4231,7 @@ computeFinalContextHashes schema cache =
                     TraverseAllModulesInParallel Nothing
     in
     case getFolderFromTraversal traversalAndFolder of
-        Just { foldProjectContexts } ->
+        Just _ ->
             Dict.foldl
                 (\_ cacheEntry acc -> Cache.outputContextHash cacheEntry :: acc)
                 projectContextHash
