@@ -14,11 +14,16 @@ type ComparableContextHash context
     = ComparableContextHash (List (ContextHash context))
 
 
-{-| Will be replaced by a function that will sort the context hashes (which will be hashed values) in optimized mode.
--}
 toComparable : List (ContextHash projectContext) -> ComparableContextHash projectContext
 toComparable list =
-    ComparableContextHash list
+    ComparableContextHash (sort list)
+
+
+{-| Will be replaced by a function that will sort the context hashes (which will be hashed values) in optimized mode.
+-}
+sort : a -> a
+sort =
+    identity
 
 
 createContextHashMarker : a -> a
