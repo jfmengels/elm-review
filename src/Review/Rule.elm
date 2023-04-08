@@ -5386,8 +5386,8 @@ createRuleProjectVisitor schema initialProject ruleData initialCache =
                     raise { cache = newCache, ruleData = hidden.ruleData }
             in
             RuleProjectVisitor
-                { elmJsonVisitor = createProjectVisitor schema hidden schema.elmJsonVisitor [] ValidProject.elmJsonHash .elmJson (\entry -> raiseCache { cache | elmJson = Just entry })
-                , readmeVisitor = createProjectVisitor schema hidden schema.readmeVisitor [ cache.elmJson ] ValidProject.readmeHash .readme (\entry -> raiseCache { cache | readme = Just entry })
+                { elmJsonVisitor = createProjectVisitor schema hidden schema.elmJsonVisitor [] ValidProject.elmJsonHash .elmJson (\entry -> raiseCache { cache | elmJson = Just entry }) (\() -> raise hidden)
+                , readmeVisitor = createProjectVisitor schema hidden schema.readmeVisitor [ cache.elmJson ] ValidProject.readmeHash .readme (\entry -> raiseCache { cache | readme = Just entry }) (\() -> raise hidden)
                 , dependenciesVisitor = createDependenciesVisitor schema hidden.ruleData raiseCache cache { allVisitor = schema.dependenciesVisitor, directVisitor = schema.directDependenciesVisitor }
                 , createModuleVisitorFromProjectVisitor = createModuleVisitorFromProjectVisitor schema hidden.ruleData.exceptions raiseCache hidden
                 , finalProjectEvaluation = createFinalProjectEvaluationVisitor schema hidden.ruleData raiseCache cache
@@ -5423,13 +5423,14 @@ createProjectVisitor :
     -> (ValidProject -> Maybe ContentHash)
     -> (ProjectRuleCache projectContext -> Maybe (ProjectFileCache projectContext))
     -> (ProjectFileCache projectContext -> RuleProjectVisitor)
+    -> (() -> RuleProjectVisitor)
     ->
         Maybe
             (ValidProject
              -> data
              -> ( List (Error {}), RuleProjectVisitor )
             )
-createProjectVisitor schema hidden maybeVisitor possibleInputContexts computeContentHash cacheGetter toRuleProjectVisitor =
+createProjectVisitor schema hidden maybeVisitor possibleInputContexts computeContentHash cacheGetter toRuleProjectVisitor toRuleProjectVisitorWithoutChangingCache =
     case maybeVisitor of
         Nothing ->
             Nothing
@@ -5451,7 +5452,7 @@ createProjectVisitor schema hidden maybeVisitor possibleInputContexts computeCon
                     in
                     case reuseProjectRuleCache cachePredicate cacheGetter hidden.cache of
                         Just entry ->
-                            ( Cache.errorsFromProjectFileCache entry, toRuleProjectVisitor entry )
+                            ( Cache.errorsFromProjectFileCache entry, toRuleProjectVisitorWithoutChangingCache () )
 
                         Nothing ->
                             let
