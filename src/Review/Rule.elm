@@ -5584,7 +5584,7 @@ createFinalProjectEvaluationVisitor schema { exceptions } raise cache =
 
                         inputContextHashes : List (ContextHash projectContext)
                         inputContextHashes =
-                            [ ContextHash.create inputContext ]
+                            computeFinalContextHashes schema cache
 
                         cachePredicate : FinalProjectEvaluationCache projectContext -> Bool
                         cachePredicate entry =
