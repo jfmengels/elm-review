@@ -49,10 +49,10 @@ shouldContinueLookingForFixes : ReviewOptionsData -> FixedErrors -> Bool
 shouldContinueLookingForFixes reviewOptionsData fixedErrors =
     case reviewOptionsData.fixMode of
         Enabled (Just fixLimit) ->
-            fixLimit > FixedErrors.count fixedErrors
+            not (FixedErrors.shouldAbort fixedErrors) && fixLimit > FixedErrors.count fixedErrors
 
         Enabled Nothing ->
-            True
+            not (FixedErrors.shouldAbort fixedErrors)
 
         Disabled ->
             False
