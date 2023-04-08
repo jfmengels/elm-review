@@ -5578,10 +5578,6 @@ createFinalProjectEvaluationVisitor schema { exceptions } raise cache =
             Just
                 (\() ->
                     let
-                        inputContext : projectContext
-                        inputContext =
-                            computeFinalContext schema cache
-
                         inputContextHashes : List (ContextHash projectContext)
                         inputContextHashes =
                             computeFinalContextHashes schema cache
@@ -5596,6 +5592,10 @@ createFinalProjectEvaluationVisitor schema { exceptions } raise cache =
 
                         Nothing ->
                             let
+                                inputContext : projectContext
+                                inputContext =
+                                    computeFinalContext schema cache
+
                                 errors : List (Error {})
                                 errors =
                                     filterExceptionsAndSetName exceptions schema.name (finalEvaluationFn inputContext)
