@@ -510,50 +510,31 @@ addElmJson elmJson_ (ValidProject project) =
             if sourceDirectories /= Review.Project.Internal.sourceDirectoriesForProject previousElmJson then
                 Nothing
 
+            else if areDependenciesUnchanged { before = previousElmJson, after = elmJson_.project } then
+                -- Dependencies are unchanged
+                ValidProject { project | elmJson = Just ( elmJson_, ContentHash.hash elmJson_.raw ) }
+                    |> Just
+
             else
-                case computeUpdatedDependencies previousElmJson elmJson_ project of
-                    Just updatedDependencies ->
-                        ValidProject
-                            { project
-                                | elmJson = Just ( elmJson_, ContentHash.hash elmJson_.raw )
-                                , dependencies = updatedDependencies.dependencies
-                                , directDependencies = updatedDependencies.directDependencies
-                                , dependencyModules = updatedDependencies.dependencyModules
-                            }
-                            |> Just
+                let
+                    newDependencies : Dict String Dependency
+                    newDependencies =
+                        -- TODO Remove from `dependencies` if some have been removed or their version has changed
+                        -- and return `Nothing` if some have been added
+                        project.dependencies
 
-                    Nothing ->
-                        -- Dependencies are unchanged
-                        ValidProject { project | elmJson = Just ( elmJson_, ContentHash.hash elmJson_.raw ) }
-                            |> Just
-
-
-computeUpdatedDependencies :
-    Elm.Project.Project
-    -> { path : String, raw : String, project : Elm.Project.Project }
-    -> ValidProjectData
-    -> Maybe { dependencies : Dict String Dependency, directDependencies : Dict String Dependency, dependencyModules : Set ModuleName }
-computeUpdatedDependencies previousElmJsonProject newElmJson project =
-    if areDependenciesUnchanged { before = previousElmJsonProject, after = newElmJson.project } then
-        Nothing
-
-    else
-        let
-            newDependencies : Dict String Dependency
-            newDependencies =
-                -- TODO Remove from `dependencies` if some have been removed or their version has changed
-                -- and return `Nothing` if some have been added
-                project.dependencies
-
-            directDependencies_ : Dict String Dependency
-            directDependencies_ =
-                computeDirectDependencies { elmJson = Just ( newElmJson, ContentHash.hash newElmJson.raw ), dependencies = newDependencies }
-        in
-        Just
-            { dependencies = newDependencies
-            , directDependencies = directDependencies_
-            , dependencyModules = computeDependencyModules directDependencies_
-            }
+                    directDependencies_ : Dict String Dependency
+                    directDependencies_ =
+                        computeDirectDependencies { elmJson = Just ( elmJson_, ContentHash.hash elmJson_.raw ), dependencies = newDependencies }
+                in
+                ValidProject
+                    { project
+                        | elmJson = Just ( elmJson_, ContentHash.hash elmJson_.raw )
+                        , dependencies = newDependencies
+                        , directDependencies = directDependencies_
+                        , dependencyModules = computeDependencyModules directDependencies_
+                    }
+                    |> Just
 
 
 areDependenciesUnchanged : { before : Elm.Project.Project, after : Elm.Project.Project } -> Bool
