@@ -309,7 +309,7 @@ import Elm.Syntax.Range as Range exposing (Range)
 import Json.Encode as Encode
 import Review.Cache as Cache
 import Review.Cache.ContentHash exposing (ContentHash)
-import Review.Cache.ContextHash as ContextHash exposing (ContextHash)
+import Review.Cache.ContextHash exposing (ContextHash)
 import Review.ElmProjectEncoder
 import Review.Error exposing (InternalError)
 import Review.Exceptions as Exceptions exposing (Exceptions)
