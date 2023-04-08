@@ -517,7 +517,6 @@ addElmJson elmJson_ (ValidProject project) =
                             ValidProject
                                 { project
                                     | elmJson = Just ( elmJson_, ContentHash.hash elmJson_.raw )
-                                    , sourceDirectories = sourceDirectories
                                     , dependencies = updatedDependencies.dependencies
                                     , directDependencies = updatedDependencies.directDependencies
                                     , dependencyModules = updatedDependencies.dependencyModules
