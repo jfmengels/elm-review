@@ -515,10 +515,14 @@ addElmJson elmJson_ (ValidProject project) =
                     elmJsonData : ( { path : String, raw : String, project : Elm.Project.Project }, ContentHash )
                     elmJsonData =
                         ( elmJson_, ContentHash.hash elmJson_.raw )
+
+                    newProjectData : ValidProjectData
+                    newProjectData =
+                        { project | elmJson = Just elmJsonData }
                 in
                 if areDependenciesUnchanged { before = previousElmJson, after = elmJson_.project } then
                     -- Dependencies are unchanged
-                    ValidProject { project | elmJson = Just elmJsonData }
+                    ValidProject newProjectData
                         |> Just
 
                 else
@@ -531,7 +535,7 @@ addElmJson elmJson_ (ValidProject project) =
 
                         directDependencies_ : Dict String Dependency
                         directDependencies_ =
-                            computeDirectDependencies { elmJson = Just elmJsonData, dependencies = newDependencies }
+                            computeDirectDependencies newProjectData
                     in
                     ValidProject
                         { project
