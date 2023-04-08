@@ -521,7 +521,6 @@ addElmJson elmJson_ (ValidProject project) =
                         { project | elmJson = Just elmJsonData }
                 in
                 if areDependenciesUnchanged { before = previousElmJson, after = elmJson_.project } then
-                    -- Dependencies are unchanged
                     ValidProject newProjectData
                         |> Just
 
