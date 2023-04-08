@@ -126,22 +126,22 @@ matchProjectFileCache contentHash contexts (ProjectFileCache entry) =
 -}
 type EntryNoOutputContext output context
     = EntryNoOutputContext
-        { inputContextHashes : ContextHash context
+        { inputContextHashes : List (ContextHash context)
         , output : output
         }
 
 
-createNoOutput : ContextHash context -> output -> EntryNoOutputContext output context
-createNoOutput inputContextHash output =
+createNoOutput : List (ContextHash context) -> output -> EntryNoOutputContext output context
+createNoOutput inputContextHashes output =
     EntryNoOutputContext
-        { inputContextHashes = inputContextHash
+        { inputContextHashes = inputContextHashes
         , output = output
         }
 
 
-matchNoOutput : ContextHash context -> EntryNoOutputContext error context -> Bool
+matchNoOutput : List (ContextHash context) -> EntryNoOutputContext error context -> Bool
 matchNoOutput context (EntryNoOutputContext entry) =
-    ContextHash.areEqual context entry.inputContextHashes
+    context == entry.inputContextHashes
 
 
 outputForNoOutput : EntryNoOutputContext output context -> output
