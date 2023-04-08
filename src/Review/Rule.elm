@@ -4236,10 +4236,10 @@ computeFinalContextHashes schema cache =
                 (\_ cacheEntry acc -> Cache.outputContextHash cacheEntry :: acc)
                 projectContextHash
                 cache.moduleContexts
-                |> ContextHash.sortContextHashes
+                |> ContextHash.toComparable
 
         Nothing ->
-            ContextHash.sortContextHashes projectContextHash
+            ContextHash.toComparable projectContextHash
 
 
 computeFinalContext : ProjectRuleSchemaData projectContext moduleContext -> ProjectRuleCache projectContext -> projectContext
@@ -4937,7 +4937,7 @@ computeProjectContextHashes :
 computeProjectContextHashes traversalAndFolder project cache incoming initial =
     case traversalAndFolder of
         TraverseAllModulesInParallel _ ->
-            ContextHash.sortContextHashes initial
+            ContextHash.toComparable initial
 
         TraverseImportedModulesFirst _ ->
             let
@@ -4959,7 +4959,7 @@ computeProjectContextHashes traversalAndFolder project cache incoming initial =
                 )
                 initial
                 incoming
-                |> ContextHash.sortContextHashes
+                |> ContextHash.toComparable
 
 
 computeProjectContext :
@@ -5446,7 +5446,7 @@ createProjectVisitor schema hidden maybeVisitor possibleInputContexts computeCon
 
                         inputContextHash : ComparableContextHash projectContext
                         inputContextHash =
-                            ContextHash.sortContextHashes baseInputContextHash
+                            ContextHash.toComparable baseInputContextHash
 
                         contentHash : Maybe ContentHash
                         contentHash =
@@ -5510,7 +5510,7 @@ createDependenciesVisitor schema { exceptions } raise cache { allVisitor, direct
 
                         inputContextHash : ComparableContextHash projectContext
                         inputContextHash =
-                            ContextHash.sortContextHashes baseInputContextHash
+                            ContextHash.toComparable baseInputContextHash
 
                         dependenciesHash : Maybe ContentHash
                         dependenciesHash =

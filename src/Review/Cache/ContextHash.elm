@@ -1,4 +1,4 @@
-module Review.Cache.ContextHash exposing (ComparableContextHash, ContextHash, create, sortContextHashes)
+module Review.Cache.ContextHash exposing (ComparableContextHash, ContextHash, create, toComparable)
 
 
 type ContextHash context
@@ -14,8 +14,8 @@ type ComparableContextHash context
     = ComparableContextHash (List (ContextHash context))
 
 
-sortContextHashes : List (ContextHash projectContext) -> ComparableContextHash projectContext
-sortContextHashes list =
+toComparable : List (ContextHash projectContext) -> ComparableContextHash projectContext
+toComparable list =
     ComparableContextHash list
 
 
