@@ -4156,7 +4156,7 @@ type alias FinalProjectEvaluationCache projectContext =
 
 
 type alias ExtractCache projectContext =
-    { inputContext : ContextHash projectContext
+    { inputContextHashes : List (ContextHash projectContext)
     , extract : Extract
     }
 
@@ -5622,13 +5622,13 @@ createDataExtractVisitor schema raise cache =
             \reviewOptions extracts ->
                 if reviewOptions.extract then
                     let
-                        inputContext : projectContext
-                        inputContext =
-                            computeFinalContext schema cache
+                        inputContextHashes : List (ContextHash projectContext)
+                        inputContextHashes =
+                            computeFinalContextHashes schema cache
 
                         cachePredicate : ExtractCache projectContext -> Bool
                         cachePredicate extract =
-                            extract.inputContext == ContextHash.create inputContext
+                            extract.inputContextHashes == inputContextHashes
 
                         ( Extract extractData, newCache ) =
                             case reuseProjectRuleCache cachePredicate .extract cache of
@@ -5637,12 +5637,16 @@ createDataExtractVisitor schema raise cache =
 
                                 Nothing ->
                                     let
+                                        inputContext : projectContext
+                                        inputContext =
+                                            computeFinalContext schema cache
+
                                         extract : Extract
                                         extract =
                                             dataExtractor inputContext
                                     in
                                     ( extract
-                                    , { cache | extract = Just { inputContext = ContextHash.create inputContext, extract = extract } }
+                                    , { cache | extract = Just { inputContextHashes = inputContextHashes, extract = extract } }
                                     )
                     in
                     ( Dict.insert schema.name extractData extracts
