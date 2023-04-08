@@ -132,6 +132,7 @@ Help would be appreciated to fill the blanks!
 [`Review.Rule.withIsFileIgnored`]: https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule#withIsFileIgnored
 [`Review.Test.ignoredFilesImpactResults`]: https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule-Test#ignoredFilesImpactResults
 
+[2.12.2]: https://github.com/jfmengels/elm-review/releases/tag/2.12.2
 [2.12.1]: https://github.com/jfmengels/elm-review/releases/tag/2.12.1
 [2.12.0]: https://github.com/jfmengels/elm-review/releases/tag/2.12.0
 [2.11.1]: https://github.com/jfmengels/elm-review/releases/tag/2.11.1
