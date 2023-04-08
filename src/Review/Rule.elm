@@ -4446,7 +4446,7 @@ computeReadme reviewOptions project ruleProjectVisitors fixedErrors =
                     case fixResult.fixedFile of
                         FixedElmJson ->
                             { project = fixResult.project
-                            , step = Abort
+                            , step = ElmJson
                             , ruleProjectVisitors = newRuleProjectVisitors
                             , fixedErrors = newFixedErrors
                             }
@@ -4513,7 +4513,7 @@ computeDependencies reviewOptions project ruleProjectVisitors fixedErrors =
                     case fixResult.fixedFile of
                         FixedElmJson ->
                             { project = fixResult.project
-                            , step = Abort
+                            , step = ElmJson
                             , ruleProjectVisitors = newRuleProjectVisitors
                             , fixedErrors = newFixedErrors
                             }
@@ -4581,7 +4581,7 @@ computeFinalProjectEvaluation reviewOptions project ruleProjectVisitors fixedErr
                                     Modules moduleZipper
 
                                 FixedElmJson ->
-                                    Abort
+                                    ElmJson
 
                                 FixedReadme ->
                                     Readme
@@ -4831,7 +4831,7 @@ findFixInComputeModuleResults ({ reviewOptions, module_, project, moduleZipper, 
                             ContinueWithNextStep
                                 { project = fixResult.project
                                 , ruleProjectVisitors = outputRuleProjectVisitors
-                                , nextStep = NextStepAbort
+                                , nextStep = BackToElmJson
                                 , fixedErrors = FixedErrors.insert fixResult.error fixedErrors
                                 }
 
