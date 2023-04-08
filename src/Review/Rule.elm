@@ -309,7 +309,7 @@ import Elm.Syntax.Range as Range exposing (Range)
 import Json.Encode as Encode
 import Review.Cache as Cache
 import Review.Cache.ContentHash exposing (ContentHash)
-import Review.Cache.ContextHash exposing (ContextHash)
+import Review.Cache.ContextHash as ContextHash exposing (ComparableContextHash, ContextHash)
 import Review.ElmProjectEncoder
 import Review.Error exposing (InternalError)
 import Review.Exceptions as Exceptions exposing (Exceptions)
@@ -4156,7 +4156,7 @@ type alias FinalProjectEvaluationCache projectContext =
 
 
 type alias ExtractCache projectContext =
-    { inputContextHashes : List (ContextHash projectContext)
+    { inputContextHashes : ComparableContextHash projectContext
     , extract : Extract
     }
 
@@ -4212,7 +4212,7 @@ finalCacheMarker _ _ cache =
     cache
 
 
-computeFinalContextHashes : ProjectRuleSchemaData projectContext moduleContext -> ProjectRuleCache projectContext -> List (ContextHash projectContext)
+computeFinalContextHashes : ProjectRuleSchemaData projectContext moduleContext -> ProjectRuleCache projectContext -> ComparableContextHash projectContext
 computeFinalContextHashes schema cache =
     let
         ( projectContextHash, _ ) =
@@ -4236,9 +4236,10 @@ computeFinalContextHashes schema cache =
                 (\_ cacheEntry acc -> Cache.outputContextHash cacheEntry :: acc)
                 projectContextHash
                 cache.moduleContexts
+                |> ContextHash.sortContextHashes
 
         Nothing ->
-            projectContextHash
+            ContextHash.sortContextHashes projectContextHash
 
 
 computeFinalContext : ProjectRuleSchemaData projectContext moduleContext -> ProjectRuleCache projectContext -> projectContext
@@ -4932,11 +4933,11 @@ computeProjectContextHashes :
     -> Dict String (ModuleCacheEntry projectContext)
     -> Graph.Adjacency ()
     -> List (ContextHash projectContext)
-    -> List (ContextHash projectContext)
+    -> ComparableContextHash projectContext
 computeProjectContextHashes traversalAndFolder project cache incoming initial =
     case traversalAndFolder of
         TraverseAllModulesInParallel _ ->
-            initial
+            ContextHash.sortContextHashes initial
 
         TraverseImportedModulesFirst _ ->
             let
@@ -4958,6 +4959,7 @@ computeProjectContextHashes traversalAndFolder project cache incoming initial =
                 )
                 initial
                 incoming
+                |> ContextHash.sortContextHashes
 
 
 computeProjectContext :
@@ -5439,8 +5441,12 @@ createProjectVisitor schema hidden maybeVisitor possibleInputContexts computeCon
             Just
                 (\project data ->
                     let
-                        ( inputContextHash, inputContext ) =
+                        ( baseInputContextHash, inputContext ) =
                             findInitialInputContext schema.initialProjectContext possibleInputContexts
+
+                        inputContextHash : ComparableContextHash projectContext
+                        inputContextHash =
+                            ContextHash.sortContextHashes baseInputContextHash
 
                         contentHash : Maybe ContentHash
                         contentHash =
@@ -5499,8 +5505,12 @@ createDependenciesVisitor schema { exceptions } raise cache { allVisitor, direct
             Just
                 (\project { all, direct } ->
                     let
-                        ( inputContextHash, inputContext ) =
+                        ( baseInputContextHash, inputContext ) =
                             findInitialInputContext schema.initialProjectContext [ cache.readme, cache.elmJson ]
+
+                        inputContextHash : ComparableContextHash projectContext
+                        inputContextHash =
+                            ContextHash.sortContextHashes baseInputContextHash
 
                         dependenciesHash : Maybe ContentHash
                         dependenciesHash =
@@ -5579,7 +5589,7 @@ createFinalProjectEvaluationVisitor schema { exceptions } raise cache =
             Just
                 (\() ->
                     let
-                        inputContextHashes : List (ContextHash projectContext)
+                        inputContextHashes : ComparableContextHash projectContext
                         inputContextHashes =
                             computeFinalContextHashes schema cache
 
@@ -5622,7 +5632,7 @@ createDataExtractVisitor schema raise cache =
             \reviewOptions extracts ->
                 if reviewOptions.extract then
                     let
-                        inputContextHashes : List (ContextHash projectContext)
+                        inputContextHashes : ComparableContextHash projectContext
                         inputContextHashes =
                             computeFinalContextHashes schema cache
 
@@ -5703,7 +5713,7 @@ createModuleVisitorFromProjectVisitorHelp schema exceptions raise hidden travers
             ( initialProjectContextHash, initialProjectContext ) =
                 findInitialInputContext schema.initialProjectContext [ hidden.cache.dependencies, hidden.cache.readme, hidden.cache.elmJson ]
 
-            inputContextHashes : List (ContextHash projectContext)
+            inputContextHashes : ComparableContextHash projectContext
             inputContextHashes =
                 computeProjectContextHashes traversalAndFolder project hidden.cache.moduleContexts incoming initialProjectContextHash
 

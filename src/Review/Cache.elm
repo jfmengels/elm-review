@@ -1,14 +1,14 @@
 module Review.Cache exposing (EntryNoOutputContext, ModuleEntry, ProjectFileCache, createEntryForProjectFileCache, createModuleEntry, createNoOutput, errors, errorsForMaybeProjectFileCache, errorsFromProjectFileCache, match, matchNoOutput, matchProjectFileCache, outputContext, outputContextForProjectFileCache, outputContextHash, outputContextHashForProjectFileCache, outputForNoOutput)
 
 import Review.Cache.ContentHash as ContentHash exposing (ContentHash)
-import Review.Cache.ContextHash as ContextHash exposing (ContextHash)
+import Review.Cache.ContextHash as ContextHash exposing (ComparableContextHash, ContextHash)
 import Review.RequestedData exposing (RequestedData(..))
 
 
 type ModuleEntry error context
     = ModuleEntry
         { contentHash : ContentHash
-        , inputContextHashes : List (ContextHash context)
+        , inputContextHashes : ComparableContextHash context
         , isFileIgnored : Bool
         , errors : List error
         , outputContext : context
@@ -18,7 +18,7 @@ type ModuleEntry error context
 
 createModuleEntry :
     { contentHash : ContentHash
-    , inputContextHashes : List (ContextHash context)
+    , inputContextHashes : ComparableContextHash context
     , isFileIgnored : Bool
     , errors : List error
     , outputContext : context
@@ -50,7 +50,7 @@ errors (ModuleEntry entry) =
     entry.errors
 
 
-match : ContentHash -> List (ContextHash context) -> ModuleEntry error context -> { isFileIgnored : Bool, requestedData : RequestedData } -> Bool
+match : ContentHash -> ComparableContextHash context -> ModuleEntry error context -> { isFileIgnored : Bool, requestedData : RequestedData } -> Bool
 match contentHash inputContexts (ModuleEntry entry) { isFileIgnored, requestedData } =
     ContentHash.areEqual contentHash entry.contentHash
         && (inputContexts == entry.inputContextHashes)
@@ -67,7 +67,7 @@ ruleCaresAboutIgnoredFiles (RequestedData { ignoredFiles }) =
 type ProjectFileCache error context
     = ProjectFileCache
         { contentHash : Maybe ContentHash
-        , inputContextHash : List (ContextHash context)
+        , inputContextHash : ComparableContextHash context
         , errors : List error
         , outputContext : context
         , outputContextHash : ContextHash context
@@ -76,7 +76,7 @@ type ProjectFileCache error context
 
 createEntryForProjectFileCache :
     { contentHash : Maybe ContentHash
-    , inputContextHash : List (ContextHash context)
+    , inputContextHash : ComparableContextHash context
     , errors : List error
     , outputContext : context
     }
@@ -116,7 +116,7 @@ errorsForMaybeProjectFileCache maybeEntry =
             []
 
 
-matchProjectFileCache : Maybe ContentHash -> List (ContextHash context) -> ProjectFileCache error context -> Bool
+matchProjectFileCache : Maybe ContentHash -> ComparableContextHash context -> ProjectFileCache error context -> Bool
 matchProjectFileCache contentHash contexts (ProjectFileCache entry) =
     ContentHash.areEqualForMaybe contentHash entry.contentHash
         && (contexts == entry.inputContextHash)
@@ -126,12 +126,12 @@ matchProjectFileCache contentHash contexts (ProjectFileCache entry) =
 -}
 type EntryNoOutputContext output context
     = EntryNoOutputContext
-        { inputContextHashes : List (ContextHash context)
+        { inputContextHashes : ComparableContextHash context
         , output : output
         }
 
 
-createNoOutput : List (ContextHash context) -> output -> EntryNoOutputContext output context
+createNoOutput : ComparableContextHash context -> output -> EntryNoOutputContext output context
 createNoOutput inputContextHashes output =
     EntryNoOutputContext
         { inputContextHashes = inputContextHashes
@@ -139,7 +139,7 @@ createNoOutput inputContextHashes output =
         }
 
 
-matchNoOutput : List (ContextHash context) -> EntryNoOutputContext error context -> Bool
+matchNoOutput : ComparableContextHash context -> EntryNoOutputContext error context -> Bool
 matchNoOutput context (EntryNoOutputContext entry) =
     context == entry.inputContextHashes
 
