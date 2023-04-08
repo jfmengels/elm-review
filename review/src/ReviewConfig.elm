@@ -58,6 +58,7 @@ config =
             , "src/Review/Fix.elm"
             ]
     , NoUnused.CustomTypeConstructorArgs.rule
+        |> Rule.ignoreErrorsForFiles [ "src/Review/Cache/ContextHash.elm" ]
     , NoUnused.CustomTypeConstructors.rule []
     , NoUnused.Dependencies.rule
     , NoUnused.Exports.rule
