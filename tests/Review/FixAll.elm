@@ -45,6 +45,7 @@ b = 1
 module A exposing (a)
 a = 1
 b = 1
+c = 1
 """
                                 }
                 in
