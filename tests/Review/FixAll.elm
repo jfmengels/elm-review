@@ -49,6 +49,18 @@ c = 1
 """
                                 }
 
+                    expectedProjectModules : List Project.ProjectModule
+                    expectedProjectModules =
+                        Project.new
+                            |> Project.addModule
+                                { path = "A.elm"
+                                , source = """
+module A exposing (a)
+a = 1
+"""
+                                }
+                            |> Project.modules
+
                     results : { errors : List Rule.ReviewError, fixedErrors : Dict String (List Rule.ReviewError), rules : List Rule.Rule, project : Project, extracts : Dict String Json.Encode.Value }
                     results =
                         Review.Options.withFixes Review.Options.fixesEnabledWithoutLimits
@@ -57,17 +69,7 @@ c = 1
                 Expect.all
                     [ \() ->
                         Project.modules results.project
-                            |> Expect.equal
-                                (Project.new
-                                    |> Project.addModule
-                                        { path = "A.elm"
-                                        , source = """
-module A exposing (a)
-a = 1
-"""
-                                        }
-                                    |> Project.modules
-                                )
+                            |> Expect.equal expectedProjectModules
                     ]
                     ()
         ]
