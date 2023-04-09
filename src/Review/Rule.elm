@@ -4808,16 +4808,12 @@ findFixInComputeModuleResults ({ reviewOptions, module_, project, moduleZipper, 
                             else
                                 case Zipper.focusl (\mod -> mod.node.label == filePath) moduleZipper of
                                     Just newModuleZipper ->
-                                        Logger.log
-                                            reviewOptions.logger
-                                            (fixedError newFixedErrors { ruleName = errorRuleName fixResult.error, filePath = filePath })
-                                            (ContinueWithNextStep
-                                                { project = fixResult.project
-                                                , ruleProjectVisitors = outputRuleProjectVisitors
-                                                , nextStep = ModuleVisitStep (Just newModuleZipper)
-                                                , fixedErrors = newFixedErrors
-                                                }
-                                            )
+                                        ContinueWithNextStep
+                                            { project = fixResult.project
+                                            , ruleProjectVisitors = outputRuleProjectVisitors
+                                            , nextStep = ModuleVisitStep (Just newModuleZipper)
+                                            , fixedErrors = newFixedErrors
+                                            }
 
                                     Nothing ->
                                         ContinueWithNextStep
@@ -5057,14 +5053,14 @@ findFix reviewOptions project errors fixedErrors maybeModuleZipper =
                     nextStep =
                         if InternalOptions.shouldContinueLookingForFixes reviewOptions newFixedErrors then
                             ShouldContinue newFixedErrors
-                                |> Logger.log
-                                    reviewOptions.logger
-                                    (fixedError newFixedErrors { ruleName = errorRuleName fixResult.error, filePath = errorFilePath fixResult.error })
 
                         else
                             ShouldAbort newFixedErrors
                 in
                 ( nextStep, fixResult )
+                    |> Logger.log
+                        reviewOptions.logger
+                        (fixedError newFixedErrors { ruleName = errorRuleName fixResult.error, filePath = errorFilePath fixResult.error })
             )
 
 
