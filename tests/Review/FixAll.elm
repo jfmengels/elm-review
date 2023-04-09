@@ -56,9 +56,7 @@ c = 1
                 in
                 Expect.all
                     [ \() ->
-                        results
-                            |> .project
-                            |> Project.modules
+                        Project.modules results.project
                             |> Expect.equal
                                 (Project.new
                                     |> Project.addModule
