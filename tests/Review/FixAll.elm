@@ -216,7 +216,7 @@ applicationElmJson depsDirect =
 }"""
     , project =
         Elm.Project.Application
-            { elm = Elm.Version.one
+            { elm = unsafeElmVersion "0.19.1"
             , dirs = []
             , depsDirect = depsDirect
             , depsIndirect = []
@@ -234,3 +234,13 @@ unsafePackageName packageName =
 
         Nothing ->
             Debug.todo ("Package name `" ++ packageName ++ "` was not valid.")
+
+
+unsafeElmVersion : String -> Elm.Version.Version
+unsafeElmVersion versionString =
+    case Elm.Version.fromString versionString of
+        Just version ->
+            version
+
+        Nothing ->
+            Debug.todo ("Package name `" ++ versionString ++ "` was not valid.")
