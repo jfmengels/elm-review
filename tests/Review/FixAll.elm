@@ -54,20 +54,24 @@ c = 1
                         Review.Options.withFixes Review.Options.fixesEnabledWithoutLimits
                             |> runWithOptions project
                 in
-                results
-                    |> .project
-                    |> Project.modules
-                    |> Expect.equal
-                        (Project.new
-                            |> Project.addModule
-                                { path = "A.elm"
-                                , source = """
+                Expect.all
+                    [ \() ->
+                        results
+                            |> .project
+                            |> Project.modules
+                            |> Expect.equal
+                                (Project.new
+                                    |> Project.addModule
+                                        { path = "A.elm"
+                                        , source = """
 module A exposing (a)
 a = 1
 """
-                                }
-                            |> Project.modules
-                        )
+                                        }
+                                    |> Project.modules
+                                )
+                    ]
+                    ()
         ]
 
 
