@@ -11,7 +11,7 @@ import Review.Error exposing (ReviewError(..), Target(..))
 import Review.Fix.Internal exposing (Fix(..))
 import Review.Options
 import Review.Project as Project exposing (Project)
-import Review.Rule as Rule
+import Review.Rule as Rule exposing (Rule)
 import Test exposing (Test, describe, test)
 
 
@@ -34,7 +34,7 @@ b = 1
                                 }
                 in
                 Review.Options.withFixes Review.Options.fixedDisabled
-                    |> runWithOptions project
+                    |> runWithOptions NoUnused.Variables.rule project
                     |> .project
                     |> Project.modules
                     |> Expect.equal (Project.modules project)
@@ -69,7 +69,7 @@ a = 1
                     results : { errors : List Rule.ReviewError, fixedErrors : Dict String (List Rule.ReviewError), rules : List Rule.Rule, project : Project, extracts : Dict String Json.Encode.Value }
                     results =
                         Review.Options.withFixes Review.Options.fixesEnabledWithoutLimits
-                            |> runWithOptions project
+                            |> runWithOptions NoUnused.Variables.rule project
                 in
                 Expect.all
                     [ \() ->
@@ -139,7 +139,7 @@ d = 1
                     results : { errors : List Rule.ReviewError, fixedErrors : Dict String (List Rule.ReviewError), rules : List Rule.Rule, project : Project, extracts : Dict String Json.Encode.Value }
                     results =
                         Review.Options.withFixes (Review.Options.fixesEnabledWithLimit 2)
-                            |> runWithOptions project
+                            |> runWithOptions NoUnused.Variables.rule project
                 in
                 Expect.all
                     [ \() ->
@@ -180,12 +180,13 @@ d = 1
 
 
 runWithOptions :
-    Project
+    Rule
+    -> Project
     -> (Review.Options.ReviewOptions -> Review.Options.ReviewOptions)
     -> { errors : List Rule.ReviewError, fixedErrors : Dict String (List Rule.ReviewError), rules : List Rule.Rule, project : Project, extracts : Dict String Json.Encode.Value }
-runWithOptions project buildOptions =
+runWithOptions rule project buildOptions =
     Rule.reviewV3 (buildOptions Review.Options.defaults)
-        [ NoUnused.Variables.rule ]
+        [ rule ]
         project
 
 
