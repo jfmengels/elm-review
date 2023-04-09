@@ -103,6 +103,76 @@ a = 1
                             |> Expect.equal expectedProjectModules
                     ]
                     ()
+        , test "should touch the project when running with fixes enabled with a limit" <|
+            \() ->
+                let
+                    project : Project
+                    project =
+                        Project.new
+                            |> Project.addModule
+                                { path = "A.elm"
+                                , source = """
+module A exposing (a)
+a = 1
+b = 1
+c = 1
+d = 1
+"""
+                                }
+
+                    expectedProjectModules : List Project.ProjectModule
+                    expectedProjectModules =
+                        Project.new
+                            |> Project.addModule
+                                { path = "A.elm"
+                                , source = """
+module A exposing (a)
+a = 1
+d = 1
+"""
+                                }
+                            |> Project.modules
+
+                    results : { errors : List Rule.ReviewError, fixedErrors : Dict String (List Rule.ReviewError), rules : List Rule.Rule, project : Project, extracts : Dict String Json.Encode.Value }
+                    results =
+                        Review.Options.withFixes (Review.Options.fixesEnabledWithLimit 2)
+                            |> runWithOptions project
+                in
+                Expect.all
+                    [ \() ->
+                        results.fixedErrors
+                            |> Expect.equal
+                                (Dict.fromList
+                                    [ ( "A.elm"
+                                      , [ ReviewError
+                                            { message = "Top-level variable `c` is not used"
+                                            , details = [ "You should either use this value somewhere, or remove it at the location I pointed at." ]
+                                            , filePath = "A.elm"
+                                            , fixes = Just [ Removal { end = { column = 1, row = 5 }, start = { column = 1, row = 4 } } ]
+                                            , preventsExtract = False
+                                            , range = { end = { column = 2, row = 4 }, start = { column = 1, row = 4 } }
+                                            , ruleName = "NoUnused.Variables"
+                                            , target = Module
+                                            }
+                                        , ReviewError
+                                            { message = "Top-level variable `b` is not used"
+                                            , details = [ "You should either use this value somewhere, or remove it at the location I pointed at." ]
+                                            , filePath = "A.elm"
+                                            , fixes = Just [ Removal { end = { column = 1, row = 5 }, start = { column = 1, row = 4 } } ]
+                                            , preventsExtract = False
+                                            , range = { end = { column = 2, row = 4 }, start = { column = 1, row = 4 } }
+                                            , ruleName = "NoUnused.Variables"
+                                            , target = Module
+                                            }
+                                        ]
+                                      )
+                                    ]
+                                )
+                    , \() ->
+                        Project.modules results.project
+                            |> Expect.equal expectedProjectModules
+                    ]
+                    ()
         ]
 
 
