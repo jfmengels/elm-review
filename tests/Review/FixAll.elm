@@ -1,6 +1,9 @@
 module Review.FixAll exposing (..)
 
 import Dict exposing (Dict)
+import Elm.Package
+import Elm.Project
+import Elm.Version
 import Expect
 import Json.Encode
 import NoUnused.Variables
@@ -184,3 +187,49 @@ runWithOptions project buildOptions =
     Rule.reviewV3 (buildOptions Review.Options.defaults)
         [ NoUnused.Variables.rule ]
         project
+
+
+
+-- Create elm.json
+
+
+applicationElmJson : List ( Elm.Package.Name, Elm.Version.Version ) -> { path : String, raw : String, project : Elm.Project.Project }
+applicationElmJson depsDirect =
+    { path = "elm.json"
+    , raw = """{
+    "type": "application",
+    "source-directories": [
+        "src"
+    ],
+    "elm-version": "0.19.1",
+    "dependencies": {
+        "direct": {
+            "elm/core": "1.0.0"
+        },
+        "indirect": {}
+    },
+    "test-dependencies": {
+        "direct": {},
+        "indirect": {}
+    }
+}"""
+    , project =
+        Elm.Project.Application
+            { elm = Elm.Version.one
+            , dirs = []
+            , depsDirect = depsDirect
+            , depsIndirect = []
+            , testDepsDirect = []
+            , testDepsIndirect = []
+            }
+    }
+
+
+unsafePackageName : String -> Elm.Package.Name
+unsafePackageName packageName =
+    case Elm.Package.fromString packageName of
+        Just name ->
+            name
+
+        Nothing ->
+            Debug.todo ("Package name `" ++ packageName ++ "` was not valid.")
