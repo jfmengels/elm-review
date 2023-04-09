@@ -5,7 +5,7 @@ import Elm.Package
 import Elm.Project
 import Elm.Version
 import Expect
-import Json.Encode
+import Json.Encode as Encode
 import NoUnused.Dependencies
 import NoUnused.Variables
 import Review.Error exposing (ReviewError(..), Target(..))
@@ -67,7 +67,7 @@ a = 1
                                 }
                             |> Project.modules
 
-                    results : { errors : List Rule.ReviewError, fixedErrors : Dict String (List Rule.ReviewError), rules : List Rule.Rule, project : Project, extracts : Dict String Json.Encode.Value }
+                    results : { errors : List Rule.ReviewError, fixedErrors : Dict String (List Rule.ReviewError), rules : List Rule.Rule, project : Project, extracts : Dict String Encode.Value }
                     results =
                         Review.Options.withFixes Review.Options.fixesEnabledWithoutLimits
                             |> runWithOptions NoUnused.Variables.rule project
@@ -137,7 +137,7 @@ d = 1
                                 }
                             |> Project.modules
 
-                    results : { errors : List Rule.ReviewError, fixedErrors : Dict String (List Rule.ReviewError), rules : List Rule.Rule, project : Project, extracts : Dict String Json.Encode.Value }
+                    results : { errors : List Rule.ReviewError, fixedErrors : Dict String (List Rule.ReviewError), rules : List Rule.Rule, project : Project, extracts : Dict String Encode.Value }
                     results =
                         Review.Options.withFixes (Review.Options.fixesEnabledWithLimit 2)
                             |> runWithOptions NoUnused.Variables.rule project
@@ -206,7 +206,7 @@ a = 1
                             [ ( unsafePackageName "elm/core", Elm.Version.one )
                             ]
 
-                    results : { errors : List Rule.ReviewError, fixedErrors : Dict String (List Rule.ReviewError), rules : List Rule.Rule, project : Project, extracts : Dict String Json.Encode.Value }
+                    results : { errors : List Rule.ReviewError, fixedErrors : Dict String (List Rule.ReviewError), rules : List Rule.Rule, project : Project, extracts : Dict String Encode.Value }
                     results =
                         Review.Options.withFixes Review.Options.fixesEnabledWithoutLimits
                             |> runWithOptions NoUnused.Dependencies.rule (baseProject |> Project.addElmJson inputElmJson)
@@ -224,7 +224,7 @@ runWithOptions :
     Rule
     -> Project
     -> (Review.Options.ReviewOptions -> Review.Options.ReviewOptions)
-    -> { errors : List Rule.ReviewError, fixedErrors : Dict String (List Rule.ReviewError), rules : List Rule.Rule, project : Project, extracts : Dict String Json.Encode.Value }
+    -> { errors : List Rule.ReviewError, fixedErrors : Dict String (List Rule.ReviewError), rules : List Rule.Rule, project : Project, extracts : Dict String Encode.Value }
 runWithOptions rule project buildOptions =
     Rule.reviewV3 (buildOptions Review.Options.defaults)
         [ rule ]
