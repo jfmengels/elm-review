@@ -48,9 +48,13 @@ b = 1
 c = 1
 """
                                 }
+
+                    results : { errors : List Rule.ReviewError, fixedErrors : Dict String (List Rule.ReviewError), rules : List Rule.Rule, project : Project, extracts : Dict String Json.Encode.Value }
+                    results =
+                        Review.Options.withFixes Review.Options.fixesEnabledWithoutLimits
+                            |> runWithOptions project
                 in
-                Review.Options.withFixes Review.Options.fixesEnabledWithoutLimits
-                    |> runWithOptions project
+                results
                     |> .project
                     |> Project.modules
                     |> Expect.equal
