@@ -6,6 +6,7 @@ import Elm.Project
 import Elm.Version
 import Expect
 import Json.Encode
+import NoUnused.Dependencies
 import NoUnused.Variables
 import Review.Error exposing (ReviewError(..), Target(..))
 import Review.Fix.Internal exposing (Fix(..))
@@ -176,6 +177,46 @@ d = 1
                             |> Expect.equal expectedProjectModules
                     ]
                     ()
+        , test "should apply fixes to elm.json" <|
+            \() ->
+                let
+                    baseProject =
+                        Project.new
+                            |> Project.addModule
+                                { path = "A.elm"
+                                , source = """
+module A exposing (a)
+a = 1
+"""
+                                }
+
+                    inputElmJson : { path : String, raw : String, project : Elm.Project.Project }
+                    inputElmJson =
+                        applicationElmJson
+                            """ "elm/core": "1.0.0",
+"something/unused": "1.0.0" """
+                            [ ( unsafePackageName "elm/core", Elm.Version.one )
+                            , ( unsafePackageName "something/unused", Elm.Version.one )
+                            ]
+
+                    expectedElmJson : { path : String, raw : String, project : Elm.Project.Project }
+                    expectedElmJson =
+                        applicationElmJson
+                            """ "elm/core": "1.0.0\""""
+                            [ ( unsafePackageName "elm/core", Elm.Version.one )
+                            ]
+
+                    results : { errors : List Rule.ReviewError, fixedErrors : Dict String (List Rule.ReviewError), rules : List Rule.Rule, project : Project, extracts : Dict String Json.Encode.Value }
+                    results =
+                        Review.Options.withFixes Review.Options.fixesEnabledWithoutLimits
+                            |> runWithOptions NoUnused.Dependencies.rule (baseProject |> Project.addElmJson inputElmJson)
+                in
+                Expect.all
+                    [ \() ->
+                        Project.elmJson results.project
+                            |> Expect.equal (Just expectedElmJson)
+                    ]
+                    ()
         ]
 
 
@@ -194,8 +235,8 @@ runWithOptions rule project buildOptions =
 -- Create elm.json
 
 
-applicationElmJson : List ( Elm.Package.Name, Elm.Version.Version ) -> { path : String, raw : String, project : Elm.Project.Project }
-applicationElmJson depsDirect =
+applicationElmJson : String -> List ( Elm.Package.Name, Elm.Version.Version ) -> { path : String, raw : String, project : Elm.Project.Project }
+applicationElmJson depsDirectString depsDirect =
     { path = "elm.json"
     , raw = """{
     "type": "application",
@@ -205,7 +246,7 @@ applicationElmJson depsDirect =
     "elm-version": "0.19.1",
     "dependencies": {
         "direct": {
-            "elm/core": "1.0.0"
+           """ ++ depsDirectString ++ """
         },
         "indirect": {}
     },
@@ -213,11 +254,12 @@ applicationElmJson depsDirect =
         "direct": {},
         "indirect": {}
     }
-}"""
+}
+"""
     , project =
         Elm.Project.Application
             { elm = unsafeElmVersion "0.19.1"
-            , dirs = []
+            , dirs = [ "src" ]
             , depsDirect = depsDirect
             , depsIndirect = []
             , testDepsDirect = []
