@@ -208,6 +208,42 @@ a = 1
                 in
                 Expect.all
                     [ \() ->
+                        results.fixedErrors
+                            |> Expect.equal
+                                (Dict.fromList
+                                    [ ( "elm.json"
+                                      , [ ReviewError
+                                            { message = "Unused dependency `something/unused`"
+                                            , details = [ "To remove it, I recommend running the following command:", "    elm-json uninstall something/unused" ]
+                                            , filePath = "elm.json"
+                                            , fixes = Just [ Replacement { end = { column = 1, row = 100000000 }, start = { column = 1, row = 1 } } """{
+    "type": "application",
+    "source-directories": [
+        "src"
+    ],
+    "elm-version": "0.19.1",
+    "dependencies": {
+        "direct": {
+            "elm/core": "1.0.0"
+        },
+        "indirect": {}
+    },
+    "test-dependencies": {
+        "direct": {},
+        "indirect": {}
+    }
+}
+""" ]
+                                            , preventsExtract = False
+                                            , range = { end = { column = 51, row = 9 }, start = { column = 35, row = 9 } }
+                                            , ruleName = "NoUnused.Dependencies"
+                                            , target = ElmJson
+                                            }
+                                        ]
+                                      )
+                                    ]
+                                )
+                    , \() ->
                         Project.elmJson results.project
                             |> Expect.equal (Just expectedElmJson)
                     ]
