@@ -15,7 +15,7 @@ import Test exposing (Test, describe, test)
 all : Test
 all =
     describe "Fix all"
-        [ test "should not touch the project when running with fixAll set to False" <|
+        [ test "should not touch the project when fixes are disabled" <|
             \() ->
                 let
                     project : Project
@@ -35,7 +35,7 @@ b = 1
                     |> .project
                     |> Project.modules
                     |> Expect.equal (Project.modules project)
-        , test "should touch the project when running with fixAll set to True" <|
+        , test "should touch the project when running with fixes enabled without limit" <|
             \() ->
                 let
                     project : Project
