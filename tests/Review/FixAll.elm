@@ -5,6 +5,7 @@ import Elm.Package
 import Elm.Project
 import Elm.Version
 import Expect
+import Json.Decode as Decode
 import Json.Encode as Encode
 import NoUnused.Dependencies
 import NoUnused.Variables
@@ -193,18 +194,12 @@ a = 1
                     inputElmJson : { path : String, raw : String, project : Elm.Project.Project }
                     inputElmJson =
                         applicationElmJson
-                            """ "elm/core": "1.0.0",
-"something/unused": "1.0.0" """
-                            [ ( unsafePackageName "elm/core", Elm.Version.one )
-                            , ( unsafePackageName "something/unused", Elm.Version.one )
-                            ]
+                            """ "elm/core": "1.0.0", "something/unused": "1.0.0" """
 
                     expectedElmJson : { path : String, raw : String, project : Elm.Project.Project }
                     expectedElmJson =
                         applicationElmJson
                             """ "elm/core": "1.0.0\""""
-                            [ ( unsafePackageName "elm/core", Elm.Version.one )
-                            ]
 
                     results : { errors : List Rule.ReviewError, fixedErrors : Dict String (List Rule.ReviewError), rules : List Rule.Rule, project : Project, extracts : Dict String Encode.Value }
                     results =
@@ -235,10 +230,12 @@ runWithOptions rule project buildOptions =
 -- Create elm.json
 
 
-applicationElmJson : String -> List ( Elm.Package.Name, Elm.Version.Version ) -> { path : String, raw : String, project : Elm.Project.Project }
-applicationElmJson depsDirectString depsDirect =
-    { path = "elm.json"
-    , raw = """{
+applicationElmJson : String -> { path : String, raw : String, project : Elm.Project.Project }
+applicationElmJson depsDirectString =
+    let
+        raw : String
+        raw =
+            """{
     "type": "application",
     "source-directories": [
         "src"
@@ -256,16 +253,16 @@ applicationElmJson depsDirectString depsDirect =
     }
 }
 """
-    , project =
-        Elm.Project.Application
-            { elm = unsafeElmVersion "0.19.1"
-            , dirs = [ "src" ]
-            , depsDirect = depsDirect
-            , depsIndirect = []
-            , testDepsDirect = []
-            , testDepsIndirect = []
+    in
+    case Decode.decodeString Elm.Project.decoder raw of
+        Ok project ->
+            { path = "elm.json"
+            , raw = raw
+            , project = project
             }
-    }
+
+        Err err ->
+            Debug.todo ("Could not decode elm.json: " ++ Debug.toString err)
 
 
 unsafePackageName : String -> Elm.Package.Name
