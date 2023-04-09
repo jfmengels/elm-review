@@ -4371,18 +4371,23 @@ computeElmJson reviewOptions project ruleProjectVisitors fixedErrors =
     in
     case findFix reviewOptions project errors fixedErrors Nothing of
         Just ( postFixStatus, fixResult ) ->
-            case postFixStatus of
-                ShouldContinue newFixedErrors ->
+            let
+                newFixedErrors : FixedErrors
+                newFixedErrors =
                     -- The only possible thing we can fix here is the `elm.json` file, so we don't need to check
                     -- what the fixed file was.
-                    computeElmJson reviewOptions fixResult.project ruleProjectVisitors newFixedErrors
+                    case postFixStatus of
+                        ShouldContinue newFixedErrors_ ->
+                            newFixedErrors_
 
-                ShouldAbort newFixedErrors ->
-                    { project = fixResult.project
-                    , step = Abort
-                    , ruleProjectVisitors = newRuleProjectVisitors
-                    , fixedErrors = newFixedErrors
-                    }
+                        ShouldAbort newFixedErrors_ ->
+                            newFixedErrors_
+            in
+            { project = fixResult.project
+            , step = Abort
+            , ruleProjectVisitors = newRuleProjectVisitors
+            , fixedErrors = newFixedErrors
+            }
 
         Nothing ->
             { project = project
