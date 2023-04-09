@@ -248,6 +248,81 @@ a = 1
                             |> Expect.equal (Just expectedElmJson)
                     ]
                     ()
+        , test "should stop applying fixes after the first change to elm.json, even without fix limits" <|
+            \() ->
+                let
+                    baseProject =
+                        Project.new
+                            |> Project.addModule
+                                { path = "A.elm"
+                                , source = """
+module A exposing (a)
+a = 1
+"""
+                                }
+
+                    inputElmJson : { path : String, raw : String, project : Elm.Project.Project }
+                    inputElmJson =
+                        applicationElmJson
+                            """ "elm/core": "1.0.0", "something/unused": "1.0.0", "other/unused": "1.0.0" """
+
+                    expectedElmJson : { path : String, raw : String, project : Elm.Project.Project }
+                    expectedElmJson =
+                        applicationElmJson
+                            """ "elm/core": "1.0.0",
+            "other/unused": "1.0.0\""""
+
+                    results : { errors : List Rule.ReviewError, fixedErrors : Dict String (List Rule.ReviewError), rules : List Rule.Rule, project : Project, extracts : Dict String Encode.Value }
+                    results =
+                        Review.Options.withFixes Review.Options.fixesEnabledWithoutLimits
+                            |> runWithOptions NoUnused.Dependencies.rule (baseProject |> Project.addElmJson inputElmJson)
+                in
+                Expect.all
+                    [ \() ->
+                        results.fixedErrors
+                            |> Expect.equal
+                                (Dict.fromList
+                                    [ ( "elm.json"
+                                      , [ ReviewError
+                                            { message = "Unused dependency `something/unused`"
+                                            , details =
+                                                [ "To remove it, I recommend running the following command:"
+                                                , "    elm-json uninstall something/unused"
+                                                ]
+                                            , filePath = "elm.json"
+                                            , fixes = Just [ Replacement { end = { column = 1, row = 100000000 }, start = { column = 1, row = 1 } } """{
+    "type": "application",
+    "source-directories": [
+        "src"
+    ],
+    "elm-version": "0.19.1",
+    "dependencies": {
+        "direct": {
+            "elm/core": "1.0.0",
+            "other/unused": "1.0.0"
+        },
+        "indirect": {}
+    },
+    "test-dependencies": {
+        "direct": {},
+        "indirect": {}
+    }
+}
+""" ]
+                                            , preventsExtract = False
+                                            , range = { end = { column = 51, row = 9 }, start = { column = 35, row = 9 } }
+                                            , ruleName = "NoUnused.Dependencies"
+                                            , target = ElmJson
+                                            }
+                                        ]
+                                      )
+                                    ]
+                                )
+                    , \() ->
+                        Project.elmJson results.project
+                            |> Expect.equal (Just expectedElmJson)
+                    ]
+                    ()
         ]
 
 
