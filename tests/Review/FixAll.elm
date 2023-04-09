@@ -1,6 +1,8 @@
 module Review.FixAll exposing (..)
 
+import Dict exposing (Dict)
 import Expect
+import Json.Encode
 import NoUnused.Variables
 import Review.Options
 import Review.Project as Project exposing (Project)
@@ -26,9 +28,8 @@ b = 1
 """
                                 }
                 in
-                Rule.reviewV3 (Review.Options.defaults |> Review.Options.withFixes Review.Options.fixedDisabled)
-                    [ NoUnused.Variables.rule ]
-                    project
+                Review.Options.withFixes Review.Options.fixedDisabled
+                    |> runWithOptions project
                     |> .project
                     |> Project.modules
                     |> Expect.equal (Project.modules project)
@@ -47,9 +48,8 @@ b = 1
 """
                                 }
                 in
-                Rule.reviewV3 (Review.Options.defaults |> Review.Options.withFixes Review.Options.fixesEnabledWithoutLimits)
-                    [ NoUnused.Variables.rule ]
-                    project
+                Review.Options.withFixes Review.Options.fixesEnabledWithoutLimits
+                    |> runWithOptions project
                     |> .project
                     |> Project.modules
                     |> Expect.equal
@@ -64,3 +64,13 @@ a = 1
                             |> Project.modules
                         )
         ]
+
+
+runWithOptions :
+    Project
+    -> (Review.Options.ReviewOptions -> Review.Options.ReviewOptions)
+    -> { errors : List Rule.ReviewError, fixedErrors : Dict String (List Rule.ReviewError), rules : List Rule.Rule, project : Project, extracts : Dict String Json.Encode.Value }
+runWithOptions project buildOptions =
+    Rule.reviewV3 (buildOptions Review.Options.defaults)
+        [ NoUnused.Variables.rule ]
+        project
