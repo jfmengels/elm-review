@@ -4,6 +4,8 @@ import Dict exposing (Dict)
 import Expect
 import Json.Encode
 import NoUnused.Variables
+import Review.Error exposing (ReviewError(..), Target(..))
+import Review.Fix.Internal exposing (Fix(..))
 import Review.Options
 import Review.Project as Project exposing (Project)
 import Review.Rule as Rule
@@ -68,6 +70,35 @@ a = 1
                 in
                 Expect.all
                     [ \() ->
+                        results.fixedErrors
+                            |> Expect.equal
+                                (Dict.fromList
+                                    [ ( "A.elm"
+                                      , [ ReviewError
+                                            { message = "Top-level variable `c` is not used"
+                                            , details = [ "You should either use this value somewhere, or remove it at the location I pointed at." ]
+                                            , filePath = "A.elm"
+                                            , fixes = Just [ Removal { end = { column = 1, row = 5 }, start = { column = 1, row = 4 } } ]
+                                            , preventsExtract = False
+                                            , range = { end = { column = 2, row = 4 }, start = { column = 1, row = 4 } }
+                                            , ruleName = "NoUnused.Variables"
+                                            , target = Module
+                                            }
+                                        , ReviewError
+                                            { message = "Top-level variable `b` is not used"
+                                            , details = [ "You should either use this value somewhere, or remove it at the location I pointed at." ]
+                                            , filePath = "A.elm"
+                                            , fixes = Just [ Removal { end = { column = 1, row = 5 }, start = { column = 1, row = 4 } } ]
+                                            , preventsExtract = False
+                                            , range = { end = { column = 2, row = 4 }, start = { column = 1, row = 4 } }
+                                            , ruleName = "NoUnused.Variables"
+                                            , target = Module
+                                            }
+                                        ]
+                                      )
+                                    ]
+                                )
+                    , \() ->
                         Project.modules results.project
                             |> Expect.equal expectedProjectModules
                     ]
