@@ -4274,8 +4274,8 @@ type alias ProjectRuleCache projectContext =
     }
 
 
-computeStepsForProjectWithoutFixes : ValidProject -> List RuleProjectVisitor -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor }
-computeStepsForProjectWithoutFixes project ruleProjectVisitors =
+runProjectVisitorWithoutFixes : ValidProject -> List RuleProjectVisitor -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor }
+runProjectVisitorWithoutFixes project ruleProjectVisitors =
     let
         ( newProject, newRules ) =
             ruleProjectVisitors
