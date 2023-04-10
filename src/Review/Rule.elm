@@ -4422,24 +4422,26 @@ computeReadmeHelp : ReviewOptionsData -> ValidProject -> Maybe { readmeKey : Rea
 computeReadmeHelp reviewOptions project readmeData ruleProjectVisitors fixedErrors accRules =
     let
         ( errors, newRuleProjectVisitors ) =
-            computeReadmeHelp2 ruleProjectVisitors
+            computeReadmeHelp2 ruleProjectVisitors ( [], [] )
 
-        computeReadmeHelp2 rules =
-            List.foldl
-                (\((RuleProjectVisitor rule) as untouched) ( accErrors, accRules_ ) ->
+        computeReadmeHelp2 rules ( accErrors, accRules_ ) =
+            case rules of
+                [] ->
+                    ( accErrors, accRules )
+
+                ((RuleProjectVisitor rule) as untouched) :: rest ->
                     case rule.readmeVisitor of
                         Just visitor ->
                             let
                                 ( newErrors, updatedRule ) =
                                     visitor project readmeData
                             in
-                            ( List.append newErrors accErrors, updatedRule :: accRules_ )
+                            computeReadmeHelp2 rest
+                                ( List.append newErrors accErrors, updatedRule :: accRules_ )
 
                         Nothing ->
-                            ( accErrors, untouched :: accRules_ )
-                )
-                ( [], [] )
-                rules
+                            computeReadmeHelp2 rest
+                                ( accErrors, untouched :: accRules_ )
     in
     case findFix reviewOptions project errors fixedErrors Nothing of
         Just ( postFixStatus, fixResult ) ->
