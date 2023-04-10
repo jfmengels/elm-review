@@ -4555,39 +4555,11 @@ computeFinalProjectEvaluation :
 computeFinalProjectEvaluation reviewOptions project ruleProjectVisitors fixedErrors =
     case computeFinalProjectEvaluationHelp reviewOptions project fixedErrors ruleProjectVisitors [] [] of
         FoundNoFixes ( errors, newRuleProjectVisitors ) ->
-            case findFix reviewOptions project errors fixedErrors Nothing of
-                Just ( postFixStatus, fixResult ) ->
-                    let
-                        ( newFixedErrors, step ) =
-                            case postFixStatus of
-                                ShouldAbort newFixedErrors_ ->
-                                    ( newFixedErrors_, EndAnalysis )
-
-                                ShouldContinue newFixedErrors_ ->
-                                    ( newFixedErrors_
-                                    , case fixResult.fixedFile of
-                                        FixedElmModule _ moduleZipper ->
-                                            Modules moduleZipper
-
-                                        FixedElmJson ->
-                                            ElmJson
-
-                                        FixedReadme ->
-                                            Readme
-                                    )
-                    in
-                    { project = fixResult.project
-                    , ruleProjectVisitors = newRuleProjectVisitors
-                    , step = step
-                    , fixedErrors = newFixedErrors
-                    }
-
-                Nothing ->
-                    { project = project
-                    , ruleProjectVisitors = newRuleProjectVisitors
-                    , step = EndAnalysis
-                    , fixedErrors = fixedErrors
-                    }
+            { project = project
+            , ruleProjectVisitors = newRuleProjectVisitors
+            , step = EndAnalysis
+            , fixedErrors = fixedErrors
+            }
 
         FoundFixes result ->
             result
