@@ -4426,29 +4426,9 @@ computeReadmeHelp : ReviewOptionsData -> ValidProject -> Maybe { readmeKey : Rea
 computeReadmeHelp reviewOptions project readmeData ruleProjectVisitors fixedErrors accRules =
     let
         ( errors, newRuleProjectVisitors ) =
-            case computeReadmeHelp2 ruleProjectVisitors ( [], [] ) of
+            case computeReadmeHelp2 ruleProjectVisitors project readmeData ( [], [] ) of
                 FoundNoFixes result ->
                     result
-
-        computeReadmeHelp2 : List RuleProjectVisitor -> ( List (Error {}), List RuleProjectVisitor ) -> Output
-        computeReadmeHelp2 rules ( accErrors, accRules_ ) =
-            case rules of
-                [] ->
-                    FoundNoFixes ( accErrors, accRules )
-
-                ((RuleProjectVisitor rule) as untouched) :: rest ->
-                    case rule.readmeVisitor of
-                        Just visitor ->
-                            let
-                                ( newErrors, updatedRule ) =
-                                    visitor project readmeData
-                            in
-                            computeReadmeHelp2 rest
-                                ( List.append newErrors accErrors, updatedRule :: accRules_ )
-
-                        Nothing ->
-                            computeReadmeHelp2 rest
-                                ( accErrors, untouched :: accRules_ )
     in
     case findFix reviewOptions project errors fixedErrors Nothing of
         Just ( postFixStatus, fixResult ) ->
@@ -4482,6 +4462,33 @@ computeReadmeHelp reviewOptions project readmeData ruleProjectVisitors fixedErro
             , ruleProjectVisitors = newRuleProjectVisitors
             , fixedErrors = fixedErrors
             }
+
+
+computeReadmeHelp2 : List RuleProjectVisitor -> ValidProject -> Maybe { readmeKey : ReadmeKey, content : String } -> ( List (Error {}), List RuleProjectVisitor ) -> Output
+computeReadmeHelp2 rules project readmeData ( accErrors, accRules ) =
+    case rules of
+        [] ->
+            FoundNoFixes ( accErrors, accRules )
+
+        ((RuleProjectVisitor rule) as untouched) :: rest ->
+            case rule.readmeVisitor of
+                Just visitor ->
+                    let
+                        ( newErrors, updatedRule ) =
+                            visitor project readmeData
+                    in
+                    computeReadmeHelp2
+                        rest
+                        project
+                        readmeData
+                        ( List.append newErrors accErrors, updatedRule :: accRules )
+
+                Nothing ->
+                    computeReadmeHelp2
+                        rest
+                        project
+                        readmeData
+                        ( accErrors, untouched :: accRules )
 
 
 computeDependencies :
