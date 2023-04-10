@@ -4279,6 +4279,10 @@ computeStepsForProjectWithoutFixes :
     -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors, step : Step }
     -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
 computeStepsForProjectWithoutFixes reviewOptions { project, ruleProjectVisitors, fixedErrors, step } =
+    let
+        a =
+            ()
+    in
     case step of
         ElmJson ->
             let
