@@ -4276,9 +4276,10 @@ type alias ProjectRuleCache projectContext =
 
 computeStepsForProjectWithoutFixes :
     ReviewOptionsData
-    -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors, step : Step }
-    -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
-computeStepsForProjectWithoutFixes reviewOptions { project, ruleProjectVisitors, fixedErrors, step } =
+    -> ValidProject
+    -> List RuleProjectVisitor
+    -> List RuleProjectVisitor
+computeStepsForProjectWithoutFixes reviewOptions project ruleProjectVisitors =
     let
         elmJsonData : Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project }
         elmJsonData =
@@ -4305,84 +4306,44 @@ computeStepsForProjectWithoutFixes reviewOptions { project, ruleProjectVisitors,
             { all = ValidProject.dependencies project
             , direct = ValidProject.directDependencies project
             }
-
-        newRules : List RuleProjectVisitor
-        newRules =
-            ruleProjectVisitors
-                |> List.map
-                    (\((RuleProjectVisitor ruleProjectVisitor) as untouched) ->
-                        case ruleProjectVisitor.elmJsonVisitor of
-                            Just visitor ->
-                                Tuple.second (visitor project elmJsonData)
-
-                            Nothing ->
-                                untouched
-                    )
-                |> List.map
-                    (\((RuleProjectVisitor ruleProjectVisitor) as untouched) ->
-                        case ruleProjectVisitor.readmeVisitor of
-                            Just visitor ->
-                                Tuple.second (visitor project readmeData)
-
-                            Nothing ->
-                                untouched
-                    )
-                |> List.map
-                    (\((RuleProjectVisitor ruleProjectVisitor) as untouched) ->
-                        case ruleProjectVisitor.dependenciesVisitor of
-                            Just visitor ->
-                                Tuple.second (visitor project dependenciesData)
-
-                            Nothing ->
-                                untouched
-                    )
-                |> List.map
-                    (\((RuleProjectVisitor ruleProjectVisitor) as untouched) ->
-                        case ruleProjectVisitor.finalProjectEvaluation of
-                            Just visitor ->
-                                Tuple.second (visitor ())
-
-                            Nothing ->
-                                untouched
-                    )
     in
-    case step of
-        ElmJson ->
-            computeStepsForProject
-                reviewOptions
-                (computeElmJson reviewOptions project fixedErrors elmJsonData ruleProjectVisitors [])
+    ruleProjectVisitors
+        |> List.map
+            (\((RuleProjectVisitor ruleProjectVisitor) as untouched) ->
+                case ruleProjectVisitor.elmJsonVisitor of
+                    Just visitor ->
+                        Tuple.second (visitor project elmJsonData)
 
-        Readme ->
-            computeStepsForProject
-                reviewOptions
-                (computeReadme reviewOptions project fixedErrors readmeData ruleProjectVisitors [])
+                    Nothing ->
+                        untouched
+            )
+        |> List.map
+            (\((RuleProjectVisitor ruleProjectVisitor) as untouched) ->
+                case ruleProjectVisitor.readmeVisitor of
+                    Just visitor ->
+                        Tuple.second (visitor project readmeData)
 
-        Dependencies ->
-            computeStepsForProject
-                reviewOptions
-                (computeDependencies reviewOptions project fixedErrors dependenciesData ruleProjectVisitors [])
+                    Nothing ->
+                        untouched
+            )
+        |> List.map
+            (\((RuleProjectVisitor ruleProjectVisitor) as untouched) ->
+                case ruleProjectVisitor.dependenciesVisitor of
+                    Just visitor ->
+                        Tuple.second (visitor project dependenciesData)
 
-        Modules moduleZipper ->
-            computeStepsForProject
-                reviewOptions
-                (computeModules
-                    reviewOptions
-                    (Just moduleZipper)
-                    project
-                    ruleProjectVisitors
-                    fixedErrors
-                )
+                    Nothing ->
+                        untouched
+            )
+        |> List.map
+            (\((RuleProjectVisitor ruleProjectVisitor) as untouched) ->
+                case ruleProjectVisitor.finalProjectEvaluation of
+                    Just visitor ->
+                        Tuple.second (visitor ())
 
-        FinalProjectEvaluation ->
-            computeStepsForProject
-                reviewOptions
-                (computeFinalProjectEvaluation reviewOptions project fixedErrors ruleProjectVisitors [])
-
-        EndAnalysis ->
-            { project = project
-            , ruleProjectVisitors = ruleProjectVisitors
-            , fixedErrors = fixedErrors
-            }
+                    Nothing ->
+                        untouched
+            )
 
 
 computeStepsForProject :
