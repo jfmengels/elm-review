@@ -4293,7 +4293,7 @@ computeStepsForProject reviewOptions { project, ruleProjectVisitors, fixedErrors
         Dependencies ->
             computeStepsForProject
                 reviewOptions
-                (computeDependencies reviewOptions project ruleProjectVisitors fixedErrors)
+                (computeDependencies reviewOptions project fixedErrors ruleProjectVisitors [])
 
         Modules moduleZipper ->
             computeStepsForProject
@@ -4477,10 +4477,11 @@ computeReadmeHelp reviewOptions project readmeData fixedErrors rules accRules =
 computeDependencies :
     ReviewOptionsData
     -> ValidProject
-    -> List RuleProjectVisitor
     -> FixedErrors
+    -> List RuleProjectVisitor
+    -> List RuleProjectVisitor
     -> { project : ValidProject, step : Step, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
-computeDependencies reviewOptions project ruleProjectVisitors fixedErrors =
+computeDependencies reviewOptions project fixedErrors rules accRules =
     let
         dependencies : Dict String Review.Project.Dependency.Dependency
         dependencies =
@@ -4489,60 +4490,45 @@ computeDependencies reviewOptions project ruleProjectVisitors fixedErrors =
         directDependencies : Dict String Review.Project.Dependency.Dependency
         directDependencies =
             ValidProject.directDependencies project
-
-        ( errors, newRuleProjectVisitors ) =
-            List.foldl
-                (\((RuleProjectVisitor rule) as untouched) ( accErrors, accRules ) ->
-                    case rule.dependenciesVisitor of
-                        Just visitor ->
-                            let
-                                ( newErrors, updatedRule ) =
-                                    visitor project { all = dependencies, direct = directDependencies }
-                            in
-                            ( List.append newErrors accErrors, updatedRule :: accRules )
-
-                        Nothing ->
-                            ( accErrors, untouched :: accRules )
-                )
-                ( [], [] )
-                ruleProjectVisitors
     in
-    case findFix reviewOptions project errors fixedErrors Nothing of
-        Just ( postFixStatus, fixResult ) ->
-            case postFixStatus of
-                ShouldAbort newFixedErrors ->
-                    { project = fixResult.project, step = EndAnalysis, ruleProjectVisitors = newRuleProjectVisitors, fixedErrors = newFixedErrors }
-
-                ShouldContinue newFixedErrors ->
-                    case fixResult.fixedFile of
-                        FixedElmJson ->
-                            { project = fixResult.project
-                            , step = ElmJson
-                            , ruleProjectVisitors = newRuleProjectVisitors
-                            , fixedErrors = newFixedErrors
-                            }
-
-                        FixedReadme ->
-                            { project = fixResult.project
-                            , step = Readme
-                            , ruleProjectVisitors = newRuleProjectVisitors
-                            , fixedErrors = newFixedErrors
-                            }
-
-                        FixedElmModule _ _ ->
-                            -- Not possible, users don't have the module key to provide fixes for an Elm module
-                            { project = project
-                            , step = Modules (ValidProject.moduleZipper project)
-                            , ruleProjectVisitors = newRuleProjectVisitors
-                            , fixedErrors = fixedErrors
-                            }
-
-        Nothing ->
+    case rules of
+        [] ->
             { project = project
+            , ruleProjectVisitors = accRules
             , step = Modules (ValidProject.moduleZipper project)
-            , ruleProjectVisitors = newRuleProjectVisitors
             , fixedErrors = fixedErrors
             }
+
+        ((RuleProjectVisitor rule) as untouched) :: rest ->
+            case rule.dependenciesVisitor of
+                Just visitor ->
+                    let
+                        ( errors, updatedRule ) =
+                            visitor project { all = dependencies, direct = directDependencies }
+                    in
+                    case standardFindFix reviewOptions project fixedErrors errors of
+                        Just ( newProject, newFixedErrors, step ) ->
+                            { project = newProject
+                            , ruleProjectVisitors = updatedRule :: (rest ++ accRules)
+                            , step = step
+                            , fixedErrors = newFixedErrors
+                            }
+
+                        Nothing ->
+                            computeDependencies
+                                reviewOptions
+                                project
+                                fixedErrors
+                                rest
+                                (updatedRule :: accRules)
+
+                Nothing ->
+                    computeDependencies
+                        reviewOptions
+                        project
+                        fixedErrors
+                        rest
+                        (untouched :: accRules)
 
 
 computeFinalProjectEvaluation :
