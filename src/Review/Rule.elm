@@ -4542,7 +4542,7 @@ computeDependencies reviewOptions project ruleProjectVisitors fixedErrors =
 
 
 type Output
-    = FoundNoFixes ( List (Error {}), List RuleProjectVisitor )
+    = FoundNoFixes (List RuleProjectVisitor)
     | FoundFixes { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, step : Step, fixedErrors : FixedErrors }
 
 
@@ -4553,8 +4553,8 @@ computeFinalProjectEvaluation :
     -> FixedErrors
     -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, step : Step, fixedErrors : FixedErrors }
 computeFinalProjectEvaluation reviewOptions project ruleProjectVisitors fixedErrors =
-    case computeFinalProjectEvaluationHelp reviewOptions project fixedErrors ruleProjectVisitors [] [] of
-        FoundNoFixes ( errors, newRuleProjectVisitors ) ->
+    case computeFinalProjectEvaluationHelp reviewOptions project fixedErrors ruleProjectVisitors [] of
+        FoundNoFixes newRuleProjectVisitors ->
             { project = project
             , ruleProjectVisitors = newRuleProjectVisitors
             , step = EndAnalysis
@@ -4570,13 +4570,12 @@ computeFinalProjectEvaluationHelp :
     -> ValidProject
     -> FixedErrors
     -> List RuleProjectVisitor
-    -> List (Error {})
     -> List RuleProjectVisitor
     -> Output
-computeFinalProjectEvaluationHelp reviewOptions project fixedErrors rules accErrors accRules =
+computeFinalProjectEvaluationHelp reviewOptions project fixedErrors rules accRules =
     case rules of
         [] ->
-            FoundNoFixes ( accErrors, accRules )
+            FoundNoFixes accRules
 
         ((RuleProjectVisitor rule) as untouched) :: rest ->
             case rule.finalProjectEvaluation of
@@ -4619,7 +4618,6 @@ computeFinalProjectEvaluationHelp reviewOptions project fixedErrors rules accErr
                                 project
                                 fixedErrors
                                 rest
-                                (List.append newErrors accErrors)
                                 (updatedRule :: accRules)
 
                 Nothing ->
@@ -4628,7 +4626,6 @@ computeFinalProjectEvaluationHelp reviewOptions project fixedErrors rules accErr
                         project
                         fixedErrors
                         rest
-                        accErrors
                         (untouched :: accRules)
 
 
