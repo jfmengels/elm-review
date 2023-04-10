@@ -5160,6 +5160,7 @@ findFixHelp project fixablePredicate errors maybeModuleZipper =
                                     of
                                         Err fixProblem ->
                                             -- TODO Save the fix problem into the error somehow
+                                            -- We can probably work directly on the errors in the cache?
                                             let
                                                 _ =
                                                     Review.Error.markFixesAsProblem fixProblem headError
