@@ -4543,6 +4543,7 @@ computeDependencies reviewOptions project ruleProjectVisitors fixedErrors =
 
 type Output
     = FoundNoFixes ( List (Error {}), List RuleProjectVisitor )
+    | FoundFixes { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, step : Step, fixedErrors : FixedErrors }
 
 
 computeFinalProjectEvaluation :
@@ -4612,6 +4613,9 @@ computeFinalProjectEvaluation reviewOptions project ruleProjectVisitors fixedErr
                     , step = EndAnalysis
                     , fixedErrors = fixedErrors
                     }
+
+        FoundFixes result ->
+            result
 
 
 reuseProjectRuleCache : (b -> Bool) -> (ProjectRuleCache a -> Maybe b) -> ProjectRuleCache a -> Maybe b
