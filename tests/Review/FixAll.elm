@@ -1,6 +1,7 @@
 module Review.FixAll exposing (..)
 
 import Dict exposing (Dict)
+import Docs.UpToDateReadmeLinks
 import Elm.Package
 import Elm.Project
 import Elm.Version
@@ -323,6 +324,58 @@ a = 1
                             |> Expect.equal (Just expectedElmJson)
                     ]
                     ()
+        , test "should apply fixes for the README" <|
+            \() ->
+                let
+                    baseProject : Project
+                    baseProject =
+                        Project.new
+                            |> Project.addElmJson packageElmJson
+                            |> Project.addModule
+                                { path = "A.elm"
+                                , source = "module A exposing (a)\na = 1"
+                                }
+                            |> Project.addReadme
+                                { path = "README.md"
+                                , content = "[link](https://package.elm-lang.org/packages/author/package/1.0.1/A)"
+                                }
+
+                    expectedReadme : { path : String, content : String }
+                    expectedReadme =
+                        { path = "README.md"
+                        , content = "[link](https://package.elm-lang.org/packages/author/package/1.0.0/A/)"
+                        }
+
+                    results : { errors : List Rule.ReviewError, fixedErrors : Dict String (List Rule.ReviewError), rules : List Rule.Rule, project : Project, extracts : Dict String Encode.Value }
+                    results =
+                        Review.Options.withFixes Review.Options.fixesEnabledWithoutLimits
+                            |> runWithOptions Docs.UpToDateReadmeLinks.rule baseProject
+                in
+                Expect.all
+                    [ \() ->
+                        results.fixedErrors
+                            |> Expect.equal
+                                (Dict.fromList
+                                    [ ( "README.md"
+                                      , [ ReviewError
+                                            { message = "Link does not point to the current version of the package"
+                                            , details = [ "I suggest to run elm-review --fix to get the correct link." ]
+                                            , filePath = "README.md"
+                                            , fixes = Just [ Replacement { end = { column = 68, row = 1 }, start = { column = 8, row = 1 } } "https://package.elm-lang.org/packages/author/package/1.0.0/A/" ]
+                                            , preventsExtract = False
+                                            , range = { end = { column = 68, row = 1 }, start = { column = 8, row = 1 } }
+                                            , ruleName = "Docs.UpToDateReadmeLinks"
+                                            , target = Readme
+                                            }
+                                        ]
+                                      )
+                                    ]
+                                )
+                    , \() ->
+                        Project.readme results.project
+                            |> Expect.equal (Just expectedReadme)
+                    ]
+                    ()
         ]
 
 
@@ -373,7 +426,7 @@ packageElmJson =
     "license": "BSD-3-Clause",
     "version": "1.0.0",
     "exposed-modules": [
-        "Exposed"
+        "A"
     ],
     "elm-version": "0.19.0 <= v < 0.20.0",
     "dependencies": {
