@@ -4297,9 +4297,20 @@ computeStepsForProject reviewOptions { project, ruleProjectVisitors, fixedErrors
                 (computeElmJson reviewOptions project fixedErrors elmJsonData ruleProjectVisitors [])
 
         Readme ->
+            let
+                readmeData : Maybe { readmeKey : ReadmeKey, content : String }
+                readmeData =
+                    Maybe.map
+                        (\readme ->
+                            { readmeKey = ReadmeKey { path = readme.path, content = readme.content }
+                            , content = readme.content
+                            }
+                        )
+                        (ValidProject.readme project)
+            in
             computeStepsForProject
                 reviewOptions
-                (computeReadme reviewOptions project fixedErrors ruleProjectVisitors)
+                (computeReadme reviewOptions project fixedErrors readmeData ruleProjectVisitors [])
 
         Dependencies ->
             computeStepsForProject
@@ -4400,32 +4411,11 @@ computeReadme :
     ReviewOptionsData
     -> ValidProject
     -> FixedErrors
-    -> List RuleProjectVisitor
-    -> { project : ValidProject, step : Step, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
-computeReadme reviewOptions project fixedErrors ruleProjectVisitors =
-    let
-        readmeData : Maybe { readmeKey : ReadmeKey, content : String }
-        readmeData =
-            Maybe.map
-                (\readme ->
-                    { readmeKey = ReadmeKey { path = readme.path, content = readme.content }
-                    , content = readme.content
-                    }
-                )
-                (ValidProject.readme project)
-    in
-    computeReadmeHelp reviewOptions project fixedErrors readmeData ruleProjectVisitors []
-
-
-computeReadmeHelp :
-    ReviewOptionsData
-    -> ValidProject
-    -> FixedErrors
     -> Maybe { readmeKey : ReadmeKey, content : String }
     -> List RuleProjectVisitor
     -> List RuleProjectVisitor
     -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, step : Step, fixedErrors : FixedErrors }
-computeReadmeHelp reviewOptions project fixedErrors readmeData rules accRules =
+computeReadme reviewOptions project fixedErrors readmeData rules accRules =
     case rules of
         [] ->
             { project = project
@@ -4450,7 +4440,7 @@ computeReadmeHelp reviewOptions project fixedErrors readmeData rules accRules =
                             }
 
                         Nothing ->
-                            computeReadmeHelp
+                            computeReadme
                                 reviewOptions
                                 project
                                 fixedErrors
@@ -4459,7 +4449,7 @@ computeReadmeHelp reviewOptions project fixedErrors readmeData rules accRules =
                                 (updatedRule :: accRules)
 
                 Nothing ->
-                    computeReadmeHelp
+                    computeReadme
                         reviewOptions
                         project
                         fixedErrors
