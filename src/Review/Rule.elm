@@ -4613,13 +4613,42 @@ computeFinalProjectEvaluationHelp reviewOptions project fixedErrors rules accErr
                         ( newErrors, updatedRule ) =
                             visitor ()
                     in
-                    computeFinalProjectEvaluationHelp
-                        reviewOptions
-                        project
-                        fixedErrors
-                        rest
-                        (List.append newErrors accErrors)
-                        (updatedRule :: accRules)
+                    case findFix reviewOptions project newErrors fixedErrors Nothing of
+                        Just ( postFixStatus, fixResult ) ->
+                            let
+                                ( newFixedErrors, step ) =
+                                    case postFixStatus of
+                                        ShouldAbort newFixedErrors_ ->
+                                            ( newFixedErrors_, EndAnalysis )
+
+                                        ShouldContinue newFixedErrors_ ->
+                                            ( newFixedErrors_
+                                            , case fixResult.fixedFile of
+                                                FixedElmModule _ moduleZipper ->
+                                                    Modules moduleZipper
+
+                                                FixedElmJson ->
+                                                    ElmJson
+
+                                                FixedReadme ->
+                                                    Readme
+                                            )
+                            in
+                            FoundFixes
+                                { project = fixResult.project
+                                , ruleProjectVisitors = updatedRule :: (rest ++ accRules)
+                                , step = step
+                                , fixedErrors = newFixedErrors
+                                }
+
+                        Nothing ->
+                            computeFinalProjectEvaluationHelp
+                                reviewOptions
+                                project
+                                fixedErrors
+                                rest
+                                (List.append newErrors accErrors)
+                                (updatedRule :: accRules)
 
                 Nothing ->
                     computeFinalProjectEvaluationHelp
