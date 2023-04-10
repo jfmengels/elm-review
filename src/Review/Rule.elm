@@ -4474,7 +4474,7 @@ computeReadmeHelp2 reviewOptions project readmeData fixedErrors rules ( accError
             case rule.readmeVisitor of
                 Just visitor ->
                     let
-                        ( newErrors, updatedRule ) =
+                        ( errors, updatedRule ) =
                             visitor project readmeData
                     in
                     computeReadmeHelp2
@@ -4483,7 +4483,7 @@ computeReadmeHelp2 reviewOptions project readmeData fixedErrors rules ( accError
                         readmeData
                         fixedErrors
                         rest
-                        ( List.append newErrors accErrors, updatedRule :: accRules )
+                        ( List.append errors accErrors, updatedRule :: accRules )
 
                 Nothing ->
                     computeReadmeHelp2
