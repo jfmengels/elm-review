@@ -343,10 +343,7 @@ runWithOptions rule project buildOptions =
 
 applicationElmJson : String -> { path : String, raw : String, project : Elm.Project.Project }
 applicationElmJson depsDirectString =
-    let
-        raw : String
-        raw =
-            """{
+    parseElmJson ("""{
     "type": "application",
     "source-directories": [
         "src"
@@ -363,8 +360,11 @@ applicationElmJson depsDirectString =
         "indirect": {}
     }
 }
-"""
-    in
+""")
+
+
+parseElmJson : String -> { path : String, raw : String, project : Elm.Project.Project }
+parseElmJson raw =
     case Decode.decodeString Elm.Project.decoder raw of
         Ok project ->
             { path = "elm.json"
