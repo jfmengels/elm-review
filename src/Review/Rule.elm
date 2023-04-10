@@ -4699,7 +4699,7 @@ computeModuleWithRuleVisitorsAndFindFix :
 computeModuleWithRuleVisitorsAndFindFix params inputRuleModuleVisitors requestedData rulesNotToRun =
     let
         ( newProject, newRules ) =
-            computeModuleWithRuleVisitors params inputRuleModuleVisitors requestedData rulesNotToRun
+            computeModuleWithRuleVisitors params.project params.module_ inputRuleModuleVisitors requestedData rulesNotToRun
     in
     case findFixInComputeModuleResults { params | project = newProject } newRules of
         ContinueWithNextStep nextStepResult ->
@@ -4709,25 +4709,20 @@ computeModuleWithRuleVisitorsAndFindFix params inputRuleModuleVisitors requested
             computeModule newParams
 
 
-computeModuleWithRuleVisitors :
-    DataToComputeSingleModule
-    -> List (AvailableData -> RuleModuleVisitor)
-    -> RequestedData
-    -> List RuleProjectVisitor
-    -> ( ValidProject, List RuleProjectVisitor )
-computeModuleWithRuleVisitors params inputRuleModuleVisitors (RequestedData requestedData) rulesNotToRun =
+computeModuleWithRuleVisitors : ValidProject -> OpaqueProjectModule -> List (AvailableData -> RuleModuleVisitor) -> RequestedData -> List RuleProjectVisitor -> ( ValidProject, List RuleProjectVisitor )
+computeModuleWithRuleVisitors project module_ inputRuleModuleVisitors (RequestedData requestedData) rulesNotToRun =
     let
         ( moduleNameLookupTable, newProject ) =
-            computeModuleNameLookupTable requestedData params.project params.module_
+            computeModuleNameLookupTable requestedData project module_
 
         ast : File
         ast =
-            ProjectModule.ast params.module_
+            ProjectModule.ast module_
 
         availableData : AvailableData
         availableData =
             { ast = ast
-            , moduleKey = ModuleKey (ProjectModule.path params.module_)
+            , moduleKey = ModuleKey (ProjectModule.path module_)
             , moduleNameLookupTable = moduleNameLookupTable
             , moduleDocumentation = findModuleDocumentation ast
             , extractSourceCode =
@@ -4735,14 +4730,14 @@ computeModuleWithRuleVisitors params inputRuleModuleVisitors (RequestedData requ
                     let
                         lines : List String
                         lines =
-                            String.lines (ProjectModule.source params.module_)
+                            String.lines (ProjectModule.source module_)
                     in
                     \range -> extractSourceCode lines range
 
                 else
                     always ""
-            , filePath = ProjectModule.path params.module_
-            , isInSourceDirectories = ProjectModule.isInSourceDirectories params.module_
+            , filePath = ProjectModule.path module_
+            , isInSourceDirectories = ProjectModule.isInSourceDirectories module_
             }
 
         outputRuleProjectVisitors : List RuleProjectVisitor
