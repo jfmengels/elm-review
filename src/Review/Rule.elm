@@ -4422,6 +4422,9 @@ computeReadmeHelp : ReviewOptionsData -> ValidProject -> Maybe { readmeKey : Rea
 computeReadmeHelp reviewOptions project readmeData ruleProjectVisitors fixedErrors accRules =
     let
         ( errors, newRuleProjectVisitors ) =
+            computeReadmeHelp2 ruleProjectVisitors
+
+        computeReadmeHelp2 rules =
             List.foldl
                 (\((RuleProjectVisitor rule) as untouched) ( accErrors, accRules_ ) ->
                     case rule.readmeVisitor of
@@ -4436,7 +4439,7 @@ computeReadmeHelp reviewOptions project readmeData ruleProjectVisitors fixedErro
                             ( accErrors, untouched :: accRules_ )
                 )
                 ( [], [] )
-                ruleProjectVisitors
+                rules
     in
     case findFix reviewOptions project errors fixedErrors Nothing of
         Just ( postFixStatus, fixResult ) ->
