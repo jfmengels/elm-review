@@ -363,6 +363,26 @@ applicationElmJson depsDirectString =
 """)
 
 
+packageElmJson : { path : String, raw : String, project : Elm.Project.Project }
+packageElmJson =
+    parseElmJson """
+{
+    "type": "package",
+    "name": "author/package",
+    "summary": "Summary",
+    "license": "BSD-3-Clause",
+    "version": "1.0.0",
+    "exposed-modules": [
+        "Exposed"
+    ],
+    "elm-version": "0.19.0 <= v < 0.20.0",
+    "dependencies": {
+        "elm/core": "1.0.0 <= v < 2.0.0"
+    },
+    "test-dependencies": {}
+}"""
+
+
 parseElmJson : String -> { path : String, raw : String, project : Elm.Project.Project }
 parseElmJson raw =
     case Decode.decodeString Elm.Project.decoder raw of
