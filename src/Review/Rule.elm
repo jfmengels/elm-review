@@ -4351,7 +4351,19 @@ computeElmJson reviewOptions project fixedErrors ruleProjectVisitors =
                     }
                 )
                 (ValidProject.elmJson project)
+    in
+    computeElmJsonHelp reviewOptions project fixedErrors elmJsonData ruleProjectVisitors
 
+
+computeElmJsonHelp :
+    ReviewOptionsData
+    -> ValidProject
+    -> FixedErrors
+    -> Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project }
+    -> List RuleProjectVisitor
+    -> { project : ValidProject, step : Step, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
+computeElmJsonHelp reviewOptions project fixedErrors elmJsonData ruleProjectVisitors =
+    let
         ( errors, newRuleProjectVisitors ) =
             List.foldl
                 (\((RuleProjectVisitor rule) as untouched) ( accErrors, accRules ) ->
