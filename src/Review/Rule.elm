@@ -4425,16 +4425,7 @@ computeReadme reviewOptions project ruleProjectVisitors fixedErrors =
 
 computeReadmeHelp : ReviewOptionsData -> ValidProject -> Maybe { readmeKey : ReadmeKey, content : String } -> List RuleProjectVisitor -> FixedErrors -> List RuleProjectVisitor -> { project : ValidProject, step : Step, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
 computeReadmeHelp reviewOptions project readmeData ruleProjectVisitors fixedErrors accRules =
-    case computeReadmeHelp2 reviewOptions project readmeData fixedErrors ruleProjectVisitors ( [], [] ) of
-        FoundNoFixes ( errors, newRuleProjectVisitors ) ->
-            { project = project
-            , step = Dependencies
-            , ruleProjectVisitors = newRuleProjectVisitors
-            , fixedErrors = fixedErrors
-            }
-
-        FoundFixes result ->
-            result
+    computeReadmeHelp2 reviewOptions project readmeData fixedErrors ruleProjectVisitors ( [], [] )
 
 
 computeReadmeHelp2 :
@@ -4444,11 +4435,15 @@ computeReadmeHelp2 :
     -> FixedErrors
     -> List RuleProjectVisitor
     -> ( List (Error {}), List RuleProjectVisitor )
-    -> Output
+    -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, step : Step, fixedErrors : FixedErrors }
 computeReadmeHelp2 reviewOptions project readmeData fixedErrors rules ( accErrors, accRules ) =
     case rules of
         [] ->
-            FoundNoFixes ( accErrors, accRules )
+            { project = project
+            , step = Dependencies
+            , ruleProjectVisitors = accRules
+            , fixedErrors = fixedErrors
+            }
 
         ((RuleProjectVisitor rule) as untouched) :: rest ->
             case rule.readmeVisitor of
@@ -4476,12 +4471,11 @@ computeReadmeHelp2 reviewOptions project readmeData fixedErrors rules ( accError
                                                 FixedElmModule _ _ ->
                                                     ( newFixedErrors_, Readme )
                             in
-                            FoundFixes
-                                { project = fixResult.project
-                                , step = step
-                                , ruleProjectVisitors = updatedRule :: (rest ++ accRules)
-                                , fixedErrors = newFixedErrors
-                                }
+                            { project = fixResult.project
+                            , step = step
+                            , ruleProjectVisitors = updatedRule :: (rest ++ accRules)
+                            , fixedErrors = newFixedErrors
+                            }
 
                         Nothing ->
                             computeReadmeHelp2
