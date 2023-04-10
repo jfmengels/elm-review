@@ -4301,16 +4301,16 @@ runProjectVisitorWithoutFixes project ruleProjectVisitors =
     in
     { project = newProject
     , ruleProjectVisitors =
-        newRules
-            |> List.map
-                (\((RuleProjectVisitor ruleProjectVisitor) as untouched) ->
-                    case ruleProjectVisitor.finalProjectEvaluation of
-                        Just visitor ->
-                            Tuple.second (visitor ())
+        List.map
+            (\((RuleProjectVisitor ruleProjectVisitor) as untouched) ->
+                case ruleProjectVisitor.finalProjectEvaluation of
+                    Just visitor ->
+                        Tuple.second (visitor ())
 
-                        Nothing ->
-                            untouched
-                )
+                    Nothing ->
+                        untouched
+            )
+            newRules
     }
 
 
