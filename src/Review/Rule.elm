@@ -4280,50 +4280,47 @@ computeStepsForProjectWithoutFixes :
     -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
 computeStepsForProjectWithoutFixes reviewOptions { project, ruleProjectVisitors, fixedErrors, step } =
     let
+        elmJsonData : Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project }
+        elmJsonData =
+            Maybe.map
+                (\elmJson ->
+                    { elmJsonKey = ElmJsonKey elmJson
+                    , project = elmJson.project
+                    }
+                )
+                (ValidProject.elmJson project)
+
+        readmeData : Maybe { readmeKey : ReadmeKey, content : String }
+        readmeData =
+            Maybe.map
+                (\readme ->
+                    { readmeKey = ReadmeKey { path = readme.path, content = readme.content }
+                    , content = readme.content
+                    }
+                )
+                (ValidProject.readme project)
+
+        dependenciesData : { all : Dict String Review.Project.Dependency.Dependency, direct : Dict String Review.Project.Dependency.Dependency }
+        dependenciesData =
+            { all = ValidProject.dependencies project
+            , direct = ValidProject.directDependencies project
+            }
+
         a =
             ()
     in
     case step of
         ElmJson ->
-            let
-                elmJsonData : Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project }
-                elmJsonData =
-                    Maybe.map
-                        (\elmJson ->
-                            { elmJsonKey = ElmJsonKey elmJson
-                            , project = elmJson.project
-                            }
-                        )
-                        (ValidProject.elmJson project)
-            in
             computeStepsForProject
                 reviewOptions
                 (computeElmJson reviewOptions project fixedErrors elmJsonData ruleProjectVisitors [])
 
         Readme ->
-            let
-                readmeData : Maybe { readmeKey : ReadmeKey, content : String }
-                readmeData =
-                    Maybe.map
-                        (\readme ->
-                            { readmeKey = ReadmeKey { path = readme.path, content = readme.content }
-                            , content = readme.content
-                            }
-                        )
-                        (ValidProject.readme project)
-            in
             computeStepsForProject
                 reviewOptions
                 (computeReadme reviewOptions project fixedErrors readmeData ruleProjectVisitors [])
 
         Dependencies ->
-            let
-                dependenciesData : { all : Dict String Review.Project.Dependency.Dependency, direct : Dict String Review.Project.Dependency.Dependency }
-                dependenciesData =
-                    { all = ValidProject.dependencies project
-                    , direct = ValidProject.directDependencies project
-                    }
-            in
             computeStepsForProject
                 reviewOptions
                 (computeDependencies reviewOptions project fixedErrors dependenciesData ruleProjectVisitors [])
