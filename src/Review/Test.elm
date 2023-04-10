@@ -1624,18 +1624,18 @@ checkDetailsAreCorrect error_ (ExpectedError expectedError) =
 checkFixesAreCorrect : RuleCanProvideFixes -> CodeInspector -> ReviewError -> ExpectedError -> Expectation
 checkFixesAreCorrect (RuleCanProvideFixes ruleCanProvideFixes) codeInspector ((Error.ReviewError err) as error_) ((ExpectedError expectedError_) as expectedError) =
     case ( expectedError_.fixedSource, err.fixes ) of
-        ( Nothing, Nothing ) ->
+        ( Nothing, Error.NoFixes ) ->
             Expect.pass
 
-        ( Just _, Nothing ) ->
+        ( Just _, Error.NoFixes ) ->
             FailureMessage.missingFixes (extractExpectedErrorData expectedError)
                 |> Expect.fail
 
-        ( Nothing, Just _ ) ->
+        ( Nothing, Error.Available _ ) ->
             FailureMessage.unexpectedFixes error_
                 |> Expect.fail
 
-        ( Just expectedFixedSource, Just fixes ) ->
+        ( Just expectedFixedSource, Error.Available fixes ) ->
             case Fix.fix err.target fixes codeInspector.source of
                 Fix.Successful fixedSource ->
                     if fixedSource == expectedFixedSource then
@@ -1658,6 +1658,17 @@ checkFixesAreCorrect (RuleCanProvideFixes ruleCanProvideFixes) codeInspector ((E
                     Expect.fail <| FailureMessage.invalidSourceAfterFix error_ sourceCode
 
                 Fix.Errored Fix.HasCollisionsInFixRanges ->
+                    Expect.fail <| FailureMessage.hasCollisionsInFixRanges error_
+
+        ( _, Error.FailedToApply _ problem ) ->
+            case problem of
+                Error.Unchanged ->
+                    Expect.fail <| FailureMessage.unchangedSourceAfterFix error_
+
+                Error.SourceCodeIsNotValid sourceCode ->
+                    Expect.fail <| FailureMessage.invalidSourceAfterFix error_ sourceCode
+
+                Error.HasCollisionsInFixRanges ->
                     Expect.fail <| FailureMessage.hasCollisionsInFixRanges error_
 
 

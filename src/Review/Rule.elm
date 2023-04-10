@@ -644,7 +644,7 @@ collectConfigurationErrors rules =
                             , message = message
                             , details = details
                             , range = Range.emptyRange
-                            , fixes = Nothing
+                            , fixes = Review.Error.NoFixes
                             , target = Review.Error.Global
                             , preventsExtract = False
                             }
@@ -3447,7 +3447,7 @@ error { message, details } range =
         , filePath = ""
         , details = details
         , range = range
-        , fixes = Nothing
+        , fixes = Review.Error.NoFixes
         , target = Review.Error.Module
         , preventsExtract = False
         }
@@ -3510,7 +3510,7 @@ errorForModule (ModuleKey path) { message, details } range =
         , details = details
         , range = range
         , filePath = path
-        , fixes = Nothing
+        , fixes = Review.Error.NoFixes
         , target = Review.Error.Module
         , preventsExtract = False
         }
@@ -3574,7 +3574,7 @@ errorForElmJson (ElmJsonKey { path, raw }) getErrorInfo =
         , details = errorInfo.details
         , range = errorInfo.range
         , filePath = path
-        , fixes = Nothing
+        , fixes = Review.Error.NoFixes
         , target = Review.Error.ElmJson
         , preventsExtract = False
         }
@@ -3625,6 +3625,7 @@ errorForElmJsonWithFix (ElmJsonKey elmJson) getErrorInfo getFix =
                     ]
                 )
                 (getFix elmJson.project)
+                |> Review.Error.fixesFromMaybe
         , target = Review.Error.ElmJson
         , preventsExtract = False
         }
@@ -3658,7 +3659,7 @@ errorForReadme (ReadmeKey { path }) { message, details } range =
         , filePath = path
         , details = details
         , range = range
-        , fixes = Nothing
+        , fixes = Review.Error.NoFixes
         , target = Review.Error.Readme
         , preventsExtract = False
         }
@@ -3691,7 +3692,7 @@ elmReviewGlobalError { message, details } =
         , message = message
         , details = details
         , range = Range.emptyRange
-        , fixes = Nothing
+        , fixes = Review.Error.NoFixes
         , target = Review.Error.Global
         , preventsExtract = False
         }
@@ -3734,7 +3735,7 @@ globalError { message, details } =
         , message = message
         , details = details
         , range = Range.emptyRange
-        , fixes = Nothing
+        , fixes = Review.Error.NoFixes
         , target = Review.Error.UserGlobal
         , preventsExtract = False
         }
@@ -3752,7 +3753,7 @@ parsingError path =
             , "Hint: Try running `elm make`. The compiler should give you better hints on how to resolve the problem."
             ]
         , range = Range.emptyRange
-        , fixes = Nothing
+        , fixes = Review.Error.NoFixes
         , target = Review.Error.Module
         , preventsExtract = False
         }
@@ -3789,15 +3790,15 @@ withFixes fixes error_ =
     mapInternalError
         (\err ->
             if List.isEmpty fixes then
-                { err | fixes = Nothing }
+                { err | fixes = Review.Error.NoFixes }
 
             else
                 case err.target of
                     Review.Error.Module ->
-                        { err | fixes = Just fixes }
+                        { err | fixes = Review.Error.Available fixes }
 
                     Review.Error.Readme ->
-                        { err | fixes = Just fixes }
+                        { err | fixes = Review.Error.Available fixes }
 
                     Review.Error.ElmJson ->
                         err
@@ -3850,7 +3851,15 @@ defined any.
 -}
 errorFixes : ReviewError -> Maybe (List Fix)
 errorFixes (Review.Error.ReviewError err) =
-    err.fixes
+    case err.fixes of
+        Review.Error.Available fixes ->
+            Just fixes
+
+        Review.Error.NoFixes ->
+            Nothing
+
+        Review.Error.FailedToApply fixes _ ->
+            Just fixes
 
 
 {-| Get the file path of an [`Error`](#Error).
@@ -5172,16 +5181,19 @@ findFixHelp project fixablePredicate errors maybeModuleZipper =
 isFixable : ({ ruleName : String, filePath : String, message : String, details : List String, range : Range } -> Bool) -> InternalError -> Maybe (List Fix)
 isFixable predicate err =
     case err.fixes of
-        Just _ ->
+        Review.Error.Available fixes ->
             -- It's cheaper to check for fixes first and also quite likely to return Nothing
             -- so we do the fixes check first.
             if predicate { ruleName = err.ruleName, filePath = err.filePath, message = err.message, details = err.details, range = err.range } then
-                err.fixes
+                Just fixes
 
             else
                 Nothing
 
-        Nothing ->
+        Review.Error.NoFixes ->
+            Nothing
+
+        Review.Error.FailedToApply _ _ ->
             Nothing
 
 

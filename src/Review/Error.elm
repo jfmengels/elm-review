@@ -1,4 +1,4 @@
-module Review.Error exposing (InternalError, ReviewError(..), Target(..), doesPreventExtract, error, preventExtract, withFixes)
+module Review.Error exposing (ErrorFixes(..), FixProblem(..), InternalError, ReviewError(..), Target(..), doesPreventExtract, error, fixesFromMaybe, preventExtract, withFixes)
 
 import Elm.Syntax.Range exposing (Range)
 import Review.Fix.Internal exposing (Fix)
@@ -22,22 +22,32 @@ type alias InternalError =
     , filePath : String
     , details : List String
     , range : Range
-    , fixes : Maybe (List Fix)
+    , fixes : ErrorFixes
     , target : Target
     , preventsExtract : Bool
     }
 
 
 type ErrorFixes
-    = None
+    = NoFixes
     | Available (List Fix)
-    | Failed (List Fix) FixProblem
+    | FailedToApply (List Fix) FixProblem
 
 
 type FixProblem
     = Unchanged
     | SourceCodeIsNotValid String
     | HasCollisionsInFixRanges
+
+
+fixesFromMaybe : Maybe (List Fix) -> ErrorFixes
+fixesFromMaybe maybeFixes =
+    case maybeFixes of
+        Just fixes ->
+            Available fixes
+
+        Nothing ->
+            NoFixes
 
 
 error : { message : String, details : List String } -> Range -> ReviewError
@@ -48,7 +58,7 @@ error { message, details } range =
         , filePath = ""
         , details = details
         , range = range
-        , fixes = Nothing
+        , fixes = NoFixes
         , target = Module
         , preventsExtract = False
         }
@@ -60,10 +70,10 @@ withFixes fixes (ReviewError error_) =
         { error_
             | fixes =
                 if List.isEmpty fixes || String.endsWith ".json" error_.filePath then
-                    Nothing
+                    NoFixes
 
                 else
-                    Just fixes
+                    Available fixes
         }
 
 

@@ -84,7 +84,7 @@ a = 1
                                             { message = "Top-level variable `c` is not used"
                                             , details = [ "You should either use this value somewhere, or remove it at the location I pointed at." ]
                                             , filePath = "A.elm"
-                                            , fixes = Just [ Removal { end = { column = 1, row = 5 }, start = { column = 1, row = 4 } } ]
+                                            , fixes = Review.Error.Available [ Removal { end = { column = 1, row = 5 }, start = { column = 1, row = 4 } } ]
                                             , preventsExtract = False
                                             , range = { end = { column = 2, row = 4 }, start = { column = 1, row = 4 } }
                                             , ruleName = "NoUnused.Variables"
@@ -94,7 +94,7 @@ a = 1
                                             { message = "Top-level variable `b` is not used"
                                             , details = [ "You should either use this value somewhere, or remove it at the location I pointed at." ]
                                             , filePath = "A.elm"
-                                            , fixes = Just [ Removal { end = { column = 1, row = 5 }, start = { column = 1, row = 4 } } ]
+                                            , fixes = Review.Error.Available [ Removal { end = { column = 1, row = 5 }, start = { column = 1, row = 4 } } ]
                                             , preventsExtract = False
                                             , range = { end = { column = 2, row = 4 }, start = { column = 1, row = 4 } }
                                             , ruleName = "NoUnused.Variables"
@@ -154,7 +154,7 @@ d = 1
                                             { message = "Top-level variable `c` is not used"
                                             , details = [ "You should either use this value somewhere, or remove it at the location I pointed at." ]
                                             , filePath = "A.elm"
-                                            , fixes = Just [ Removal { end = { column = 1, row = 5 }, start = { column = 1, row = 4 } } ]
+                                            , fixes = Review.Error.Available [ Removal { end = { column = 1, row = 5 }, start = { column = 1, row = 4 } } ]
                                             , preventsExtract = False
                                             , range = { end = { column = 2, row = 4 }, start = { column = 1, row = 4 } }
                                             , ruleName = "NoUnused.Variables"
@@ -164,7 +164,7 @@ d = 1
                                             { message = "Top-level variable `b` is not used"
                                             , details = [ "You should either use this value somewhere, or remove it at the location I pointed at." ]
                                             , filePath = "A.elm"
-                                            , fixes = Just [ Removal { end = { column = 1, row = 5 }, start = { column = 1, row = 4 } } ]
+                                            , fixes = Review.Error.Available [ Removal { end = { column = 1, row = 5 }, start = { column = 1, row = 4 } } ]
                                             , preventsExtract = False
                                             , range = { end = { column = 2, row = 4 }, start = { column = 1, row = 4 } }
                                             , ruleName = "NoUnused.Variables"
@@ -217,7 +217,7 @@ a = 1
                                             { message = "Unused dependency `something/unused`"
                                             , details = [ "To remove it, I recommend running the following command:", "    elm-json uninstall something/unused" ]
                                             , filePath = "elm.json"
-                                            , fixes = Just [ Replacement { end = { column = 1, row = 100000000 }, start = { column = 1, row = 1 } } """{
+                                            , fixes = Review.Error.Available [ Replacement { end = { column = 1, row = 100000000 }, start = { column = 1, row = 1 } } """{
     "type": "application",
     "source-directories": [
         "src"
@@ -291,7 +291,7 @@ a = 1
                                                 , "    elm-json uninstall something/unused"
                                                 ]
                                             , filePath = "elm.json"
-                                            , fixes = Just [ Replacement { end = { column = 1, row = 100000000 }, start = { column = 1, row = 1 } } """{
+                                            , fixes = Review.Error.Available [ Replacement { end = { column = 1, row = 100000000 }, start = { column = 1, row = 1 } } """{
     "type": "application",
     "source-directories": [
         "src"
@@ -361,7 +361,7 @@ a = 1
                                             { message = "Link does not point to the current version of the package"
                                             , details = [ "I suggest to run elm-review --fix to get the correct link." ]
                                             , filePath = "README.md"
-                                            , fixes = Just [ Replacement { end = { column = 68, row = 1 }, start = { column = 8, row = 1 } } "https://package.elm-lang.org/packages/author/package/1.0.0/A/" ]
+                                            , fixes = Review.Error.Available [ Replacement { end = { column = 68, row = 1 }, start = { column = 8, row = 1 } } "https://package.elm-lang.org/packages/author/package/1.0.0/A/" ]
                                             , preventsExtract = False
                                             , range = { end = { column = 68, row = 1 }, start = { column = 8, row = 1 } }
                                             , ruleName = "Docs.UpToDateReadmeLinks"
