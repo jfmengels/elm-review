@@ -4397,6 +4397,11 @@ computeElmJson reviewOptions project ruleProjectVisitors fixedErrors =
             }
 
 
+type Output
+    = FoundNoFixes ( List (Error {}), List RuleProjectVisitor )
+    | FoundFixes { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, step : Step, fixedErrors : FixedErrors }
+
+
 computeReadme :
     ReviewOptionsData
     -> ValidProject
@@ -4416,11 +4421,6 @@ computeReadme reviewOptions project ruleProjectVisitors fixedErrors =
                 (ValidProject.readme project)
     in
     computeReadmeHelp reviewOptions project readmeData ruleProjectVisitors fixedErrors []
-
-
-type Output
-    = FoundNoFixes ( List (Error {}), List RuleProjectVisitor )
-    | FoundFixes { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, step : Step, fixedErrors : FixedErrors }
 
 
 computeReadmeHelp : ReviewOptionsData -> ValidProject -> Maybe { readmeKey : ReadmeKey, content : String } -> List RuleProjectVisitor -> FixedErrors -> List RuleProjectVisitor -> { project : ValidProject, step : Step, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
