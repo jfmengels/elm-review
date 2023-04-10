@@ -4553,7 +4553,7 @@ computeFinalProjectEvaluation :
     -> FixedErrors
     -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, step : Step, fixedErrors : FixedErrors }
 computeFinalProjectEvaluation reviewOptions project ruleProjectVisitors fixedErrors =
-    case computeFinalProjectEvaluationHelp ruleProjectVisitors [] [] of
+    case computeFinalProjectEvaluationHelp reviewOptions project fixedErrors ruleProjectVisitors [] [] of
         FoundNoFixes ( errors, newRuleProjectVisitors ) ->
             case findFix reviewOptions project errors fixedErrors Nothing of
                 Just ( postFixStatus, fixResult ) ->
@@ -4593,8 +4593,15 @@ computeFinalProjectEvaluation reviewOptions project ruleProjectVisitors fixedErr
             result
 
 
-computeFinalProjectEvaluationHelp : List RuleProjectVisitor -> List (Error {}) -> List RuleProjectVisitor -> Output
-computeFinalProjectEvaluationHelp rules accErrors accRules =
+computeFinalProjectEvaluationHelp :
+    ReviewOptionsData
+    -> ValidProject
+    -> FixedErrors
+    -> List RuleProjectVisitor
+    -> List (Error {})
+    -> List RuleProjectVisitor
+    -> Output
+computeFinalProjectEvaluationHelp reviewOptions project fixedErrors rules accErrors accRules =
     case rules of
         [] ->
             FoundNoFixes ( accErrors, accRules )
@@ -4607,12 +4614,18 @@ computeFinalProjectEvaluationHelp rules accErrors accRules =
                             visitor ()
                     in
                     computeFinalProjectEvaluationHelp
+                        reviewOptions
+                        project
+                        fixedErrors
                         rest
                         (List.append newErrors accErrors)
                         (updatedRule :: accRules)
 
                 Nothing ->
                     computeFinalProjectEvaluationHelp
+                        reviewOptions
+                        project
+                        fixedErrors
                         rest
                         accErrors
                         (untouched :: accRules)
