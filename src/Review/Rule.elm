@@ -4280,6 +4280,22 @@ computeStepsForProjectWithoutFixes :
     -> List RuleProjectVisitor
     -> List RuleProjectVisitor
 computeStepsForProjectWithoutFixes reviewOptions project ruleProjectVisitors =
+    ruleProjectVisitors
+        |> computeProjectFilesWithoutFixes project
+        |> computeModulesWithoutFixes project
+        |> List.map
+            (\((RuleProjectVisitor ruleProjectVisitor) as untouched) ->
+                case ruleProjectVisitor.finalProjectEvaluation of
+                    Just visitor ->
+                        Tuple.second (visitor ())
+
+                    Nothing ->
+                        untouched
+            )
+
+
+computeProjectFilesWithoutFixes : ValidProject -> List RuleProjectVisitor -> List RuleProjectVisitor
+computeProjectFilesWithoutFixes project ruleProjectVisitors =
     let
         elmJsonData : Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project }
         elmJsonData =
@@ -4331,16 +4347,6 @@ computeStepsForProjectWithoutFixes reviewOptions project ruleProjectVisitors =
                 case ruleProjectVisitor.dependenciesVisitor of
                     Just visitor ->
                         Tuple.second (visitor project dependenciesData)
-
-                    Nothing ->
-                        untouched
-            )
-        |> computeModulesWithoutFixes project
-        |> List.map
-            (\((RuleProjectVisitor ruleProjectVisitor) as untouched) ->
-                case ruleProjectVisitor.finalProjectEvaluation of
-                    Just visitor ->
-                        Tuple.second (visitor ())
 
                     Nothing ->
                         untouched
