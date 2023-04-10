@@ -1,4 +1,4 @@
-module Review.Options.Internal exposing (FixMode(..), ReviewOptionsData, ReviewOptionsInternal(..), shouldApplyFix, shouldContinueLookingForFixes)
+module Review.Options.Internal exposing (FixMode(..), ReviewOptionsData, ReviewOptionsInternal(..), shouldApplyFix, shouldContinueLookingForFixes, shouldLookForFixes)
 
 import Dict exposing (Dict)
 import Elm.Syntax.Range exposing (Range)
@@ -43,6 +43,16 @@ shouldApplyFix reviewOptionsData =
 
         Disabled ->
             Nothing
+
+
+shouldLookForFixes : ReviewOptionsData -> Bool
+shouldLookForFixes reviewOptionsData =
+    case reviewOptionsData.fixMode of
+        Enabled _ ->
+            True
+
+        Disabled ->
+            False
 
 
 shouldContinueLookingForFixes : ReviewOptionsData -> FixedErrors -> Bool
