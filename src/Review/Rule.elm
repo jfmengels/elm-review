@@ -4427,38 +4427,11 @@ computeReadmeHelp : ReviewOptionsData -> ValidProject -> Maybe { readmeKey : Rea
 computeReadmeHelp reviewOptions project readmeData ruleProjectVisitors fixedErrors accRules =
     case computeReadmeHelp2 reviewOptions project readmeData fixedErrors ruleProjectVisitors ( [], [] ) of
         FoundNoFixes ( errors, newRuleProjectVisitors ) ->
-            case findFix reviewOptions project errors fixedErrors Nothing of
-                Just ( postFixStatus, fixResult ) ->
-                    case postFixStatus of
-                        ShouldAbort newFixedErrors ->
-                            { project = fixResult.project, step = EndAnalysis, ruleProjectVisitors = newRuleProjectVisitors, fixedErrors = newFixedErrors }
-
-                        ShouldContinue newFixedErrors ->
-                            case fixResult.fixedFile of
-                                FixedElmJson ->
-                                    { project = fixResult.project
-                                    , step = ElmJson
-                                    , ruleProjectVisitors = newRuleProjectVisitors
-                                    , fixedErrors = newFixedErrors
-                                    }
-
-                                FixedReadme ->
-                                    computeReadme reviewOptions fixResult.project ruleProjectVisitors newFixedErrors
-
-                                FixedElmModule _ _ ->
-                                    -- Not possible, users don't have the module key to provide fixes for an Elm module
-                                    { project = project
-                                    , step = Dependencies
-                                    , ruleProjectVisitors = newRuleProjectVisitors
-                                    , fixedErrors = fixedErrors
-                                    }
-
-                Nothing ->
-                    { project = project
-                    , step = Dependencies
-                    , ruleProjectVisitors = newRuleProjectVisitors
-                    , fixedErrors = fixedErrors
-                    }
+            { project = project
+            , step = Dependencies
+            , ruleProjectVisitors = newRuleProjectVisitors
+            , fixedErrors = fixedErrors
+            }
 
         FoundFixes result ->
             result
