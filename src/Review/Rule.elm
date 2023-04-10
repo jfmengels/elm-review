@@ -4336,6 +4336,15 @@ computeStepsForProjectWithoutFixes reviewOptions { project, ruleProjectVisitors,
                             Nothing ->
                                 untouched
                     )
+                |> List.map
+                    (\((RuleProjectVisitor ruleProjectVisitor) as untouched) ->
+                        case ruleProjectVisitor.finalProjectEvaluation of
+                            Just visitor ->
+                                Tuple.second (visitor ())
+
+                            Nothing ->
+                                untouched
+                    )
     in
     case step of
         ElmJson ->
