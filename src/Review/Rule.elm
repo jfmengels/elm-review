@@ -4277,13 +4277,12 @@ type alias ProjectRuleCache projectContext =
 computeStepsForProjectWithoutFixes : ValidProject -> List RuleProjectVisitor -> ( ValidProject, List RuleProjectVisitor )
 computeStepsForProjectWithoutFixes project ruleProjectVisitors =
     let
-        newRules : List RuleProjectVisitor
-        newRules =
+        ( newProject, newRules ) =
             ruleProjectVisitors
                 |> computeProjectFilesWithoutFixes project
                 |> computeModulesWithoutFixes project
     in
-    ( project
+    ( newProject
     , newRules
         |> List.map
             (\((RuleProjectVisitor ruleProjectVisitor) as untouched) ->
@@ -4911,17 +4910,32 @@ findFixInComputeModuleResults ({ reviewOptions, module_, project, moduleZipper, 
                 }
 
 
-computeModulesWithoutFixes :
-    ValidProject
-    -> List RuleProjectVisitor
-    -> List RuleProjectVisitor
-computeModulesWithoutFixes project rules =
+computeModulesWithoutFixes : ValidProject -> List RuleProjectVisitor -> ( ValidProject, List RuleProjectVisitor )
+computeModulesWithoutFixes project initialRules =
+    List.foldl
+        (\{ node, incoming } (( accProject, accRules ) as acc) ->
+            case ValidProject.getModuleByPath node.label project of
+                Just module_ ->
+                    computeModuleWithoutFixes module_ incoming accProject accRules
+
+                Nothing ->
+                    acc
+        )
+        ( project, initialRules )
+        (ValidProject.sortedModules project)
+
+
+computeModuleWithoutFixes : OpaqueProjectModule -> Graph.Adjacency () -> ValidProject -> List RuleProjectVisitor -> ( ValidProject, List RuleProjectVisitor )
+computeModuleWithoutFixes module_ incoming project ruleProjectVisitors =
     let
-        sortedModules : List (Graph.NodeContext FilePath ())
-        sortedModules =
-            ValidProject.sortedModules project
+        ( inputRuleModuleVisitors, requestedData, rulesNotToRun ) =
+            computeWhatsRequiredToAnalyze project module_ incoming ruleProjectVisitors
     in
-    rules
+    if List.isEmpty inputRuleModuleVisitors then
+        ( project, ruleProjectVisitors )
+
+    else
+        computeModuleWithRuleVisitors project module_ inputRuleModuleVisitors requestedData rulesNotToRun
 
 
 computeModules :
