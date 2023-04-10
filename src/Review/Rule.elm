@@ -4418,7 +4418,13 @@ computeReadme reviewOptions project ruleProjectVisitors fixedErrors =
                     }
                 )
                 projectReadme
+    in
+    computeReadmeHelp reviewOptions project readmeData ruleProjectVisitors fixedErrors
 
+
+computeReadmeHelp : ReviewOptionsData -> ValidProject -> Maybe { readmeKey : ReadmeKey, content : String } -> List RuleProjectVisitor -> FixedErrors -> { project : ValidProject, step : Step, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
+computeReadmeHelp reviewOptions project readmeData ruleProjectVisitors fixedErrors =
+    let
         ( errors, newRuleProjectVisitors ) =
             List.foldl
                 (\((RuleProjectVisitor rule) as untouched) ( accErrors, accRules ) ->
