@@ -4283,7 +4283,7 @@ computeStepsForProject reviewOptions { project, ruleProjectVisitors, fixedErrors
         ElmJson ->
             computeStepsForProject
                 reviewOptions
-                (computeElmJson reviewOptions project ruleProjectVisitors fixedErrors)
+                (computeElmJson reviewOptions project fixedErrors ruleProjectVisitors)
 
         Readme ->
             computeStepsForProject
@@ -4337,10 +4337,10 @@ type NextStep
 computeElmJson :
     ReviewOptionsData
     -> ValidProject
-    -> List RuleProjectVisitor
     -> FixedErrors
+    -> List RuleProjectVisitor
     -> { project : ValidProject, step : Step, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
-computeElmJson reviewOptions project ruleProjectVisitors fixedErrors =
+computeElmJson reviewOptions project fixedErrors ruleProjectVisitors =
     let
         elmJsonData : Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project }
         elmJsonData =
