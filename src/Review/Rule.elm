@@ -4318,9 +4318,20 @@ computeStepsForProject :
 computeStepsForProject reviewOptions { project, ruleProjectVisitors, fixedErrors, step } =
     case step of
         ElmJson ->
+            let
+                elmJsonData : Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project }
+                elmJsonData =
+                    Maybe.map
+                        (\elmJson ->
+                            { elmJsonKey = ElmJsonKey elmJson
+                            , project = elmJson.project
+                            }
+                        )
+                        (ValidProject.elmJson project)
+            in
             computeStepsForProject
                 reviewOptions
-                (computeElmJson reviewOptions project fixedErrors ruleProjectVisitors)
+                (computeElmJson reviewOptions project fixedErrors elmJsonData ruleProjectVisitors [])
 
         Readme ->
             computeStepsForProject
@@ -4375,32 +4386,11 @@ computeElmJson :
     ReviewOptionsData
     -> ValidProject
     -> FixedErrors
-    -> List RuleProjectVisitor
-    -> { project : ValidProject, step : Step, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
-computeElmJson reviewOptions project fixedErrors ruleProjectVisitors =
-    let
-        elmJsonData : Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project }
-        elmJsonData =
-            Maybe.map
-                (\elmJson ->
-                    { elmJsonKey = ElmJsonKey elmJson
-                    , project = elmJson.project
-                    }
-                )
-                (ValidProject.elmJson project)
-    in
-    computeElmJsonHelp reviewOptions project fixedErrors elmJsonData ruleProjectVisitors []
-
-
-computeElmJsonHelp :
-    ReviewOptionsData
-    -> ValidProject
-    -> FixedErrors
     -> Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project }
     -> List RuleProjectVisitor
     -> List RuleProjectVisitor
     -> { project : ValidProject, step : Step, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
-computeElmJsonHelp reviewOptions project fixedErrors elmJsonData rules accRules =
+computeElmJson reviewOptions project fixedErrors elmJsonData rules accRules =
     case rules of
         [] ->
             { project = project
@@ -4425,7 +4415,7 @@ computeElmJsonHelp reviewOptions project fixedErrors elmJsonData rules accRules 
                             }
 
                         Nothing ->
-                            computeElmJsonHelp
+                            computeElmJson
                                 reviewOptions
                                 project
                                 fixedErrors
@@ -4434,7 +4424,7 @@ computeElmJsonHelp reviewOptions project fixedErrors elmJsonData rules accRules 
                                 (updatedRule :: accRules)
 
                 Nothing ->
-                    computeElmJsonHelp
+                    computeElmJson
                         reviewOptions
                         project
                         fixedErrors
