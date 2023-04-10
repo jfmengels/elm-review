@@ -4420,15 +4420,10 @@ computeReadme reviewOptions project ruleProjectVisitors fixedErrors =
                 )
                 (ValidProject.readme project)
     in
-    computeReadmeHelp reviewOptions project readmeData ruleProjectVisitors fixedErrors []
+    computeReadmeHelp reviewOptions project readmeData fixedErrors ruleProjectVisitors []
 
 
-computeReadmeHelp : ReviewOptionsData -> ValidProject -> Maybe { readmeKey : ReadmeKey, content : String } -> List RuleProjectVisitor -> FixedErrors -> List RuleProjectVisitor -> { project : ValidProject, step : Step, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
-computeReadmeHelp reviewOptions project readmeData ruleProjectVisitors fixedErrors accRules =
-    computeReadmeHelp2 reviewOptions project readmeData fixedErrors ruleProjectVisitors []
-
-
-computeReadmeHelp2 :
+computeReadmeHelp :
     ReviewOptionsData
     -> ValidProject
     -> Maybe { readmeKey : ReadmeKey, content : String }
@@ -4436,7 +4431,7 @@ computeReadmeHelp2 :
     -> List RuleProjectVisitor
     -> List RuleProjectVisitor
     -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, step : Step, fixedErrors : FixedErrors }
-computeReadmeHelp2 reviewOptions project readmeData fixedErrors rules accRules =
+computeReadmeHelp reviewOptions project readmeData fixedErrors rules accRules =
     case rules of
         [] ->
             { project = project
@@ -4478,7 +4473,7 @@ computeReadmeHelp2 reviewOptions project readmeData fixedErrors rules accRules =
                             }
 
                         Nothing ->
-                            computeReadmeHelp2
+                            computeReadmeHelp
                                 reviewOptions
                                 project
                                 readmeData
@@ -4487,7 +4482,7 @@ computeReadmeHelp2 reviewOptions project readmeData fixedErrors rules accRules =
                                 (updatedRule :: accRules)
 
                 Nothing ->
-                    computeReadmeHelp2
+                    computeReadmeHelp
                         reviewOptions
                         project
                         readmeData
