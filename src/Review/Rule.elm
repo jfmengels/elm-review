@@ -4415,25 +4415,25 @@ computeReadme reviewOptions project ruleProjectVisitors fixedErrors =
                 )
                 (ValidProject.readme project)
     in
-    computeReadmeHelp reviewOptions project readmeData ruleProjectVisitors fixedErrors
+    computeReadmeHelp reviewOptions project readmeData ruleProjectVisitors fixedErrors []
 
 
-computeReadmeHelp : ReviewOptionsData -> ValidProject -> Maybe { readmeKey : ReadmeKey, content : String } -> List RuleProjectVisitor -> FixedErrors -> { project : ValidProject, step : Step, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
-computeReadmeHelp reviewOptions project readmeData ruleProjectVisitors fixedErrors =
+computeReadmeHelp : ReviewOptionsData -> ValidProject -> Maybe { readmeKey : ReadmeKey, content : String } -> List RuleProjectVisitor -> FixedErrors -> List RuleProjectVisitor -> { project : ValidProject, step : Step, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
+computeReadmeHelp reviewOptions project readmeData ruleProjectVisitors fixedErrors accRules =
     let
         ( errors, newRuleProjectVisitors ) =
             List.foldl
-                (\((RuleProjectVisitor rule) as untouched) ( accErrors, accRules ) ->
+                (\((RuleProjectVisitor rule) as untouched) ( accErrors, accRules_ ) ->
                     case rule.readmeVisitor of
                         Just visitor ->
                             let
                                 ( newErrors, updatedRule ) =
                                     visitor project readmeData
                             in
-                            ( List.append newErrors accErrors, updatedRule :: accRules )
+                            ( List.append newErrors accErrors, updatedRule :: accRules_ )
 
                         Nothing ->
-                            ( accErrors, untouched :: accRules )
+                            ( accErrors, untouched :: accRules_ )
                 )
                 ( [], [] )
                 ruleProjectVisitors
