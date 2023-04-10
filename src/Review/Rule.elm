@@ -4542,7 +4542,7 @@ computeDependencies reviewOptions project ruleProjectVisitors fixedErrors =
 
 
 type Output
-    = FoundNoErrors ( List (Error {}), List RuleProjectVisitor )
+    = FoundNoFixes ( List (Error {}), List RuleProjectVisitor )
 
 
 computeFinalProjectEvaluation :
@@ -4557,7 +4557,7 @@ computeFinalProjectEvaluation reviewOptions project ruleProjectVisitors fixedErr
         computeFinalProjectEvaluationHelp rules accErrors accRules =
             case rules of
                 [] ->
-                    FoundNoErrors ( accErrors, accRules )
+                    FoundNoFixes ( accErrors, accRules )
 
                 ((RuleProjectVisitor rule) as untouched) :: rest ->
                     case rule.finalProjectEvaluation of
@@ -4578,7 +4578,7 @@ computeFinalProjectEvaluation reviewOptions project ruleProjectVisitors fixedErr
                                 (untouched :: accRules)
     in
     case computeFinalProjectEvaluationHelp ruleProjectVisitors [] [] of
-        FoundNoErrors ( errors, newRuleProjectVisitors ) ->
+        FoundNoFixes ( errors, newRuleProjectVisitors ) ->
             case findFix reviewOptions project errors fixedErrors Nothing of
                 Just ( postFixStatus, fixResult ) ->
                     let
