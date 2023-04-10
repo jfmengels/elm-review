@@ -4542,7 +4542,7 @@ computeDependencies reviewOptions project ruleProjectVisitors fixedErrors =
 
 
 type Output
-    = FoundNoFixes (List RuleProjectVisitor)
+    = FoundNoFixes { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, step : Step, fixedErrors : FixedErrors }
     | FoundFixes { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, step : Step, fixedErrors : FixedErrors }
 
 
@@ -4554,12 +4554,8 @@ computeFinalProjectEvaluation :
     -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, step : Step, fixedErrors : FixedErrors }
 computeFinalProjectEvaluation reviewOptions project ruleProjectVisitors fixedErrors =
     case computeFinalProjectEvaluationHelp reviewOptions project fixedErrors ruleProjectVisitors [] of
-        FoundNoFixes newRuleProjectVisitors ->
-            { project = project
-            , ruleProjectVisitors = newRuleProjectVisitors
-            , step = EndAnalysis
-            , fixedErrors = fixedErrors
-            }
+        FoundNoFixes result ->
+            result
 
         FoundFixes result ->
             result
@@ -4575,7 +4571,12 @@ computeFinalProjectEvaluationHelp :
 computeFinalProjectEvaluationHelp reviewOptions project fixedErrors rules accRules =
     case rules of
         [] ->
-            FoundNoFixes accRules
+            FoundNoFixes
+                { project = project
+                , ruleProjectVisitors = accRules
+                , step = EndAnalysis
+                , fixedErrors = fixedErrors
+                }
 
         ((RuleProjectVisitor rule) as untouched) :: rest ->
             case rule.finalProjectEvaluation of
