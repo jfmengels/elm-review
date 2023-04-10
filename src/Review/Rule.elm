@@ -4542,7 +4542,7 @@ computeDependencies reviewOptions project ruleProjectVisitors fixedErrors =
 
 
 type Output
-    = Normal ( List (Error {}), List RuleProjectVisitor )
+    = FoundNoErrors ( List (Error {}), List RuleProjectVisitor )
 
 
 computeFinalProjectEvaluation :
@@ -4557,7 +4557,7 @@ computeFinalProjectEvaluation reviewOptions project ruleProjectVisitors fixedErr
         computeFinalProjectEvaluationHelp rules accErrors accRules =
             case rules of
                 [] ->
-                    Normal ( accErrors, accRules )
+                    FoundNoErrors ( accErrors, accRules )
 
                 ((RuleProjectVisitor rule) as untouched) :: rest ->
                     case rule.finalProjectEvaluation of
@@ -4577,7 +4577,7 @@ computeFinalProjectEvaluation reviewOptions project ruleProjectVisitors fixedErr
                                 accErrors
                                 (untouched :: accRules)
 
-        (Normal ( errors, newRuleProjectVisitors )) =
+        (FoundNoErrors ( errors, newRuleProjectVisitors )) =
             computeFinalProjectEvaluationHelp ruleProjectVisitors [] []
     in
     case findFix reviewOptions project errors fixedErrors Nothing of
