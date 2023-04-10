@@ -4553,31 +4553,6 @@ computeFinalProjectEvaluation :
     -> FixedErrors
     -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, step : Step, fixedErrors : FixedErrors }
 computeFinalProjectEvaluation reviewOptions project ruleProjectVisitors fixedErrors =
-    let
-        computeFinalProjectEvaluationHelp : List RuleProjectVisitor -> List (Error {}) -> List RuleProjectVisitor -> Output
-        computeFinalProjectEvaluationHelp rules accErrors accRules =
-            case rules of
-                [] ->
-                    FoundNoFixes ( accErrors, accRules )
-
-                ((RuleProjectVisitor rule) as untouched) :: rest ->
-                    case rule.finalProjectEvaluation of
-                        Just visitor ->
-                            let
-                                ( newErrors, updatedRule ) =
-                                    visitor ()
-                            in
-                            computeFinalProjectEvaluationHelp
-                                rest
-                                (List.append newErrors accErrors)
-                                (updatedRule :: accRules)
-
-                        Nothing ->
-                            computeFinalProjectEvaluationHelp
-                                rest
-                                accErrors
-                                (untouched :: accRules)
-    in
     case computeFinalProjectEvaluationHelp ruleProjectVisitors [] [] of
         FoundNoFixes ( errors, newRuleProjectVisitors ) ->
             case findFix reviewOptions project errors fixedErrors Nothing of
@@ -4616,6 +4591,31 @@ computeFinalProjectEvaluation reviewOptions project ruleProjectVisitors fixedErr
 
         FoundFixes result ->
             result
+
+
+computeFinalProjectEvaluationHelp : List RuleProjectVisitor -> List (Error {}) -> List RuleProjectVisitor -> Output
+computeFinalProjectEvaluationHelp rules accErrors accRules =
+    case rules of
+        [] ->
+            FoundNoFixes ( accErrors, accRules )
+
+        ((RuleProjectVisitor rule) as untouched) :: rest ->
+            case rule.finalProjectEvaluation of
+                Just visitor ->
+                    let
+                        ( newErrors, updatedRule ) =
+                            visitor ()
+                    in
+                    computeFinalProjectEvaluationHelp
+                        rest
+                        (List.append newErrors accErrors)
+                        (updatedRule :: accRules)
+
+                Nothing ->
+                    computeFinalProjectEvaluationHelp
+                        rest
+                        accErrors
+                        (untouched :: accRules)
 
 
 reuseProjectRuleCache : (b -> Bool) -> (ProjectRuleCache a -> Maybe b) -> ProjectRuleCache a -> Maybe b
