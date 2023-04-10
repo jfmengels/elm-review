@@ -4581,10 +4581,10 @@ computeFinalProjectEvaluationHelp reviewOptions project fixedErrors rules accRul
             case rule.finalProjectEvaluation of
                 Just visitor ->
                     let
-                        ( newErrors, updatedRule ) =
+                        ( errors, updatedRule ) =
                             visitor ()
                     in
-                    case findFix reviewOptions project newErrors fixedErrors Nothing of
+                    case findFix reviewOptions project errors fixedErrors Nothing of
                         Just ( postFixStatus, fixResult ) ->
                             let
                                 ( newFixedErrors, step ) =
