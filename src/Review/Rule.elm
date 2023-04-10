@@ -4723,7 +4723,27 @@ computeModule params =
         }
 
     else
-        computeModuleWithRuleVisitors params inputRuleModuleVisitors filePath requestedData rulesNotToRun
+        computeModuleWithRuleVisitorsAndFindFix params inputRuleModuleVisitors filePath requestedData rulesNotToRun
+
+
+computeModuleWithRuleVisitorsAndFindFix :
+    DataToComputeSingleModule
+    -> List (AvailableData -> RuleModuleVisitor)
+    -> String
+    -> RequestedData
+    -> List RuleProjectVisitor
+    -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, nextStep : NextStep, fixedErrors : FixedErrors }
+computeModuleWithRuleVisitorsAndFindFix params inputRuleModuleVisitors filePath requestedData rulesNotToRun =
+    let
+        ( newProject, newRules ) =
+            computeModuleWithRuleVisitors params inputRuleModuleVisitors filePath requestedData rulesNotToRun
+    in
+    case findFixInComputeModuleResults { params | project = newProject } newRules of
+        ContinueWithNextStep nextStepResult ->
+            nextStepResult
+
+        ReComputeModule newParams ->
+            computeModule newParams
 
 
 computeModuleWithRuleVisitors :
@@ -4732,7 +4752,7 @@ computeModuleWithRuleVisitors :
     -> String
     -> RequestedData
     -> List RuleProjectVisitor
-    -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, nextStep : NextStep, fixedErrors : FixedErrors }
+    -> ( ValidProject, List RuleProjectVisitor )
 computeModuleWithRuleVisitors params inputRuleModuleVisitors filePath (RequestedData requestedData) rulesNotToRun =
     let
         ( moduleNameLookupTable, newProject ) =
@@ -4769,12 +4789,7 @@ computeModuleWithRuleVisitors params inputRuleModuleVisitors filePath (Requested
                 |> visitModuleForProjectRule availableData
                 |> List.map (\(RuleModuleVisitor ruleModuleVisitor) -> ruleModuleVisitor.toProjectVisitor ())
     in
-    case findFixInComputeModuleResults { params | project = newProject } (List.append rulesNotToRun outputRuleProjectVisitors) of
-        ContinueWithNextStep nextStepResult ->
-            nextStepResult
-
-        ReComputeModule newParams ->
-            computeModule newParams
+    ( newProject, List.append rulesNotToRun outputRuleProjectVisitors )
 
 
 computeModuleNameLookupTable : { a | moduleNameLookupTable : Bool } -> ValidProject -> OpaqueProjectModule -> ( ModuleNameLookupTableInternal.ModuleNameLookupTable, ValidProject )
