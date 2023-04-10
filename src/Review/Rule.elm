@@ -4568,28 +4568,9 @@ computeFinalProjectEvaluation reviewOptions project fixedErrors rules accRules =
                         ( errors, updatedRule ) =
                             visitor ()
                     in
-                    case findFix reviewOptions project errors fixedErrors Nothing of
-                        Just ( postFixStatus, fixResult ) ->
-                            let
-                                ( newFixedErrors, step ) =
-                                    case postFixStatus of
-                                        ShouldAbort newFixedErrors_ ->
-                                            ( newFixedErrors_, EndAnalysis )
-
-                                        ShouldContinue newFixedErrors_ ->
-                                            ( newFixedErrors_
-                                            , case fixResult.fixedFile of
-                                                FixedElmModule _ moduleZipper ->
-                                                    Modules moduleZipper
-
-                                                FixedElmJson ->
-                                                    ElmJson
-
-                                                FixedReadme ->
-                                                    Readme
-                                            )
-                            in
-                            { project = fixResult.project
+                    case standardFindFix reviewOptions project fixedErrors errors of
+                        Just ( newProject, newFixedErrors, step ) ->
+                            { project = newProject
                             , ruleProjectVisitors = updatedRule :: (rest ++ accRules)
                             , step = step
                             , fixedErrors = newFixedErrors
