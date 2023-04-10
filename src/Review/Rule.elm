@@ -4274,7 +4274,7 @@ type alias ProjectRuleCache projectContext =
     }
 
 
-computeStepsForProjectWithoutFixes : ValidProject -> List RuleProjectVisitor -> ( ValidProject, List RuleProjectVisitor )
+computeStepsForProjectWithoutFixes : ValidProject -> List RuleProjectVisitor -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor }
 computeStepsForProjectWithoutFixes project ruleProjectVisitors =
     let
         ( newProject, newRules ) =
@@ -4282,18 +4282,19 @@ computeStepsForProjectWithoutFixes project ruleProjectVisitors =
                 |> computeProjectFilesWithoutFixes project
                 |> computeModulesWithoutFixes project
     in
-    ( newProject
-    , newRules
-        |> List.map
-            (\((RuleProjectVisitor ruleProjectVisitor) as untouched) ->
-                case ruleProjectVisitor.finalProjectEvaluation of
-                    Just visitor ->
-                        Tuple.second (visitor ())
+    { project = newProject
+    , ruleProjectVisitors =
+        newRules
+            |> List.map
+                (\((RuleProjectVisitor ruleProjectVisitor) as untouched) ->
+                    case ruleProjectVisitor.finalProjectEvaluation of
+                        Just visitor ->
+                            Tuple.second (visitor ())
 
-                    Nothing ->
-                        untouched
-            )
-    )
+                        Nothing ->
+                            untouched
+                )
+    }
 
 
 computeProjectFilesWithoutFixes : ValidProject -> List RuleProjectVisitor -> List RuleProjectVisitor
