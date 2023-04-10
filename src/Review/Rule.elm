@@ -742,24 +742,41 @@ runRules :
     -> ValidProject
     -> { errors : List ReviewError, fixedErrors : Dict String (List ReviewError), rules : List Rule, project : Project, extracts : Dict String Encode.Value }
 runRules (ReviewOptionsInternal reviewOptions) ruleProjectVisitors project =
-    let
-        result : { fixedErrors : FixedErrors, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject }
-        result =
-            runProjectVisitor
-                reviewOptions
-                ruleProjectVisitors
-                FixedErrors.empty
-                project
+    if InternalOptions.shouldLookForFixes reviewOptions then
+        let
+            result : { fixedErrors : FixedErrors, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject }
+            result =
+                runProjectVisitor
+                    reviewOptions
+                    ruleProjectVisitors
+                    FixedErrors.empty
+                    project
 
-        { errors, rules, extracts } =
-            computeErrorsAndRulesAndExtracts reviewOptions result.ruleProjectVisitors
-    in
-    { errors = errors
-    , rules = rules
-    , extracts = extracts
-    , fixedErrors = FixedErrors.toDict result.fixedErrors
-    , project = ValidProject.toRegularProject result.project
-    }
+            { errors, rules, extracts } =
+                computeErrorsAndRulesAndExtracts reviewOptions result.ruleProjectVisitors
+        in
+        { errors = errors
+        , rules = rules
+        , extracts = extracts
+        , fixedErrors = FixedErrors.toDict result.fixedErrors
+        , project = ValidProject.toRegularProject result.project
+        }
+
+    else
+        let
+            result : { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor }
+            result =
+                runProjectVisitorWithoutFixes project ruleProjectVisitors
+
+            { errors, rules, extracts } =
+                computeErrorsAndRulesAndExtracts reviewOptions result.ruleProjectVisitors
+        in
+        { errors = errors
+        , rules = rules
+        , extracts = extracts
+        , fixedErrors = Dict.empty
+        , project = ValidProject.toRegularProject result.project
+        }
 
 
 computeErrorsAndRulesAndExtracts : ReviewOptionsData -> List RuleProjectVisitor -> { errors : List ReviewError, rules : List Rule, extracts : Dict String Encode.Value }
