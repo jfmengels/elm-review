@@ -4723,20 +4723,19 @@ computeModule params =
         }
 
     else
-        computeModuleWithRuleVisitorsAndFindFix params inputRuleModuleVisitors filePath requestedData rulesNotToRun
+        computeModuleWithRuleVisitorsAndFindFix params inputRuleModuleVisitors requestedData rulesNotToRun
 
 
 computeModuleWithRuleVisitorsAndFindFix :
     DataToComputeSingleModule
     -> List (AvailableData -> RuleModuleVisitor)
-    -> String
     -> RequestedData
     -> List RuleProjectVisitor
     -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, nextStep : NextStep, fixedErrors : FixedErrors }
-computeModuleWithRuleVisitorsAndFindFix params inputRuleModuleVisitors filePath requestedData rulesNotToRun =
+computeModuleWithRuleVisitorsAndFindFix params inputRuleModuleVisitors requestedData rulesNotToRun =
     let
         ( newProject, newRules ) =
-            computeModuleWithRuleVisitors params inputRuleModuleVisitors filePath requestedData rulesNotToRun
+            computeModuleWithRuleVisitors params inputRuleModuleVisitors requestedData rulesNotToRun
     in
     case findFixInComputeModuleResults { params | project = newProject } newRules of
         ContinueWithNextStep nextStepResult ->
@@ -4749,11 +4748,10 @@ computeModuleWithRuleVisitorsAndFindFix params inputRuleModuleVisitors filePath 
 computeModuleWithRuleVisitors :
     DataToComputeSingleModule
     -> List (AvailableData -> RuleModuleVisitor)
-    -> String
     -> RequestedData
     -> List RuleProjectVisitor
     -> ( ValidProject, List RuleProjectVisitor )
-computeModuleWithRuleVisitors params inputRuleModuleVisitors filePath (RequestedData requestedData) rulesNotToRun =
+computeModuleWithRuleVisitors params inputRuleModuleVisitors (RequestedData requestedData) rulesNotToRun =
     let
         ( moduleNameLookupTable, newProject ) =
             computeModuleNameLookupTable requestedData params.project params.module_
@@ -4779,7 +4777,7 @@ computeModuleWithRuleVisitors params inputRuleModuleVisitors filePath (Requested
 
                 else
                     always ""
-            , filePath = filePath
+            , filePath = ProjectModule.path params.module_
             , isInSourceDirectories = ProjectModule.isInSourceDirectories params.module_
             }
 
