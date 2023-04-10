@@ -4306,8 +4306,36 @@ computeStepsForProjectWithoutFixes reviewOptions { project, ruleProjectVisitors,
             , direct = ValidProject.directDependencies project
             }
 
-        a =
-            ()
+        newRules : List RuleProjectVisitor
+        newRules =
+            ruleProjectVisitors
+                |> List.map
+                    (\((RuleProjectVisitor ruleProjectVisitor) as untouched) ->
+                        case ruleProjectVisitor.elmJsonVisitor of
+                            Just visitor ->
+                                Tuple.second (visitor project elmJsonData)
+
+                            Nothing ->
+                                untouched
+                    )
+                |> List.map
+                    (\((RuleProjectVisitor ruleProjectVisitor) as untouched) ->
+                        case ruleProjectVisitor.readmeVisitor of
+                            Just visitor ->
+                                Tuple.second (visitor project readmeData)
+
+                            Nothing ->
+                                untouched
+                    )
+                |> List.map
+                    (\((RuleProjectVisitor ruleProjectVisitor) as untouched) ->
+                        case ruleProjectVisitor.dependenciesVisitor of
+                            Just visitor ->
+                                Tuple.second (visitor project dependenciesData)
+
+                            Nothing ->
+                                untouched
+                    )
     in
     case step of
         ElmJson ->
