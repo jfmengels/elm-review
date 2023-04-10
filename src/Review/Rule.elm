@@ -4541,11 +4541,6 @@ computeDependencies reviewOptions project ruleProjectVisitors fixedErrors =
             }
 
 
-type Output
-    = FoundNoFixes { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, step : Step, fixedErrors : FixedErrors }
-    | FoundFixes { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, step : Step, fixedErrors : FixedErrors }
-
-
 computeFinalProjectEvaluation :
     ReviewOptionsData
     -> ValidProject
@@ -4553,12 +4548,7 @@ computeFinalProjectEvaluation :
     -> FixedErrors
     -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, step : Step, fixedErrors : FixedErrors }
 computeFinalProjectEvaluation reviewOptions project ruleProjectVisitors fixedErrors =
-    case computeFinalProjectEvaluationHelp reviewOptions project fixedErrors ruleProjectVisitors [] of
-        FoundNoFixes result ->
-            result
-
-        FoundFixes result ->
-            result
+    computeFinalProjectEvaluationHelp reviewOptions project fixedErrors ruleProjectVisitors []
 
 
 computeFinalProjectEvaluationHelp :
@@ -4567,16 +4557,15 @@ computeFinalProjectEvaluationHelp :
     -> FixedErrors
     -> List RuleProjectVisitor
     -> List RuleProjectVisitor
-    -> Output
+    -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, step : Step, fixedErrors : FixedErrors }
 computeFinalProjectEvaluationHelp reviewOptions project fixedErrors rules accRules =
     case rules of
         [] ->
-            FoundNoFixes
-                { project = project
-                , ruleProjectVisitors = accRules
-                , step = EndAnalysis
-                , fixedErrors = fixedErrors
-                }
+            { project = project
+            , ruleProjectVisitors = accRules
+            , step = EndAnalysis
+            , fixedErrors = fixedErrors
+            }
 
         ((RuleProjectVisitor rule) as untouched) :: rest ->
             case rule.finalProjectEvaluation of
@@ -4606,12 +4595,11 @@ computeFinalProjectEvaluationHelp reviewOptions project fixedErrors rules accRul
                                                     Readme
                                             )
                             in
-                            FoundFixes
-                                { project = fixResult.project
-                                , ruleProjectVisitors = updatedRule :: (rest ++ accRules)
-                                , step = step
-                                , fixedErrors = newFixedErrors
-                                }
+                            { project = fixResult.project
+                            , ruleProjectVisitors = updatedRule :: (rest ++ accRules)
+                            , step = step
+                            , fixedErrors = newFixedErrors
+                            }
 
                         Nothing ->
                             computeFinalProjectEvaluationHelp
