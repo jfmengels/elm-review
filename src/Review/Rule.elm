@@ -4479,38 +4479,29 @@ computeReadmeHelp2 reviewOptions project readmeData fixedErrors rules ( accError
                     in
                     case findFix reviewOptions project errors fixedErrors Nothing of
                         Just ( postFixStatus, fixResult ) ->
-                            case postFixStatus of
-                                ShouldAbort newFixedErrors ->
-                                    FoundFixes
-                                        { project = fixResult.project
-                                        , step = EndAnalysis
-                                        , ruleProjectVisitors = updatedRule :: (rest ++ accRules)
-                                        , fixedErrors = newFixedErrors
-                                        }
+                            let
+                                ( newFixedErrors, step ) =
+                                    case postFixStatus of
+                                        ShouldAbort newFixedErrors_ ->
+                                            ( newFixedErrors_, EndAnalysis )
 
-                                ShouldContinue newFixedErrors ->
-                                    case fixResult.fixedFile of
-                                        FixedElmJson ->
-                                            FoundFixes
-                                                { project = fixResult.project
-                                                , step = ElmJson
-                                                , ruleProjectVisitors = updatedRule :: (rest ++ accRules)
-                                                , fixedErrors = newFixedErrors
-                                                }
+                                        ShouldContinue newFixedErrors_ ->
+                                            case fixResult.fixedFile of
+                                                FixedElmJson ->
+                                                    ( newFixedErrors_, ElmJson )
 
-                                        FixedReadme ->
-                                            FoundFixes
-                                                (computeReadme reviewOptions fixResult.project (updatedRule :: (rest ++ accRules)) newFixedErrors)
+                                                FixedReadme ->
+                                                    ( newFixedErrors_, Readme )
 
-                                        FixedElmModule _ _ ->
-                                            -- Not possible, users don't have the module key to provide fixes for an Elm module
-                                            computeReadmeHelp2
-                                                reviewOptions
-                                                project
-                                                readmeData
-                                                fixedErrors
-                                                rest
-                                                ( List.append errors accErrors, updatedRule :: accRules )
+                                                FixedElmModule _ _ ->
+                                                    ( newFixedErrors_, Readme )
+                            in
+                            FoundFixes
+                                { project = fixResult.project
+                                , step = step
+                                , ruleProjectVisitors = updatedRule :: (rest ++ accRules)
+                                , fixedErrors = newFixedErrors
+                                }
 
                         Nothing ->
                             computeReadmeHelp2
