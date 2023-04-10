@@ -4424,18 +4424,18 @@ computeReadme reviewOptions project fixedErrors ruleProjectVisitors =
                 )
                 (ValidProject.readme project)
     in
-    computeReadmeHelp reviewOptions project readmeData fixedErrors ruleProjectVisitors []
+    computeReadmeHelp reviewOptions project fixedErrors readmeData ruleProjectVisitors []
 
 
 computeReadmeHelp :
     ReviewOptionsData
     -> ValidProject
-    -> Maybe { readmeKey : ReadmeKey, content : String }
     -> FixedErrors
+    -> Maybe { readmeKey : ReadmeKey, content : String }
     -> List RuleProjectVisitor
     -> List RuleProjectVisitor
     -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, step : Step, fixedErrors : FixedErrors }
-computeReadmeHelp reviewOptions project readmeData fixedErrors rules accRules =
+computeReadmeHelp reviewOptions project fixedErrors readmeData rules accRules =
     case rules of
         [] ->
             { project = project
@@ -4463,8 +4463,8 @@ computeReadmeHelp reviewOptions project readmeData fixedErrors rules accRules =
                             computeReadmeHelp
                                 reviewOptions
                                 project
-                                readmeData
                                 fixedErrors
+                                readmeData
                                 rest
                                 (updatedRule :: accRules)
 
@@ -4472,8 +4472,8 @@ computeReadmeHelp reviewOptions project readmeData fixedErrors rules accRules =
                     computeReadmeHelp
                         reviewOptions
                         project
-                        readmeData
                         fixedErrors
+                        readmeData
                         rest
                         (untouched :: accRules)
 
