@@ -4288,7 +4288,7 @@ computeStepsForProject reviewOptions { project, ruleProjectVisitors, fixedErrors
         Readme ->
             computeStepsForProject
                 reviewOptions
-                (computeReadme reviewOptions project ruleProjectVisitors fixedErrors)
+                (computeReadme reviewOptions project fixedErrors ruleProjectVisitors)
 
         Dependencies ->
             computeStepsForProject
@@ -4405,10 +4405,10 @@ type Output
 computeReadme :
     ReviewOptionsData
     -> ValidProject
-    -> List RuleProjectVisitor
     -> FixedErrors
+    -> List RuleProjectVisitor
     -> { project : ValidProject, step : Step, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
-computeReadme reviewOptions project ruleProjectVisitors fixedErrors =
+computeReadme reviewOptions project fixedErrors ruleProjectVisitors =
     let
         readmeData : Maybe { readmeKey : ReadmeKey, content : String }
         readmeData =
