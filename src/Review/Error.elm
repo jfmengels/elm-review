@@ -28,6 +28,18 @@ type alias InternalError =
     }
 
 
+type ErrorFixes
+    = None
+    | Available (List Fix)
+    | Failed (List Fix) FixProblem
+
+
+type FixProblem
+    = Unchanged
+    | SourceCodeIsNotValid String
+    | HasCollisionsInFixRanges
+
+
 error : { message : String, details : List String } -> Range -> ReviewError
 error { message, details } range =
     ReviewError
