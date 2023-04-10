@@ -4352,7 +4352,7 @@ computeElmJson reviewOptions project fixedErrors ruleProjectVisitors =
                 )
                 (ValidProject.elmJson project)
     in
-    computeElmJsonHelp reviewOptions project fixedErrors elmJsonData ruleProjectVisitors
+    computeElmJsonHelp reviewOptions project fixedErrors elmJsonData ruleProjectVisitors []
 
 
 computeElmJsonHelp :
@@ -4361,52 +4361,49 @@ computeElmJsonHelp :
     -> FixedErrors
     -> Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project }
     -> List RuleProjectVisitor
+    -> List RuleProjectVisitor
     -> { project : ValidProject, step : Step, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
-computeElmJsonHelp reviewOptions project fixedErrors elmJsonData ruleProjectVisitors =
-    let
-        ( errors, newRuleProjectVisitors ) =
-            List.foldl
-                (\((RuleProjectVisitor rule) as untouched) ( accErrors, accRules ) ->
-                    case rule.elmJsonVisitor of
-                        Just visitor ->
-                            let
-                                ( newErrors, updatedRule ) =
-                                    visitor project elmJsonData
-                            in
-                            ( List.append newErrors accErrors, updatedRule :: accRules )
-
-                        Nothing ->
-                            ( accErrors, untouched :: accRules )
-                )
-                ( [], [] )
-                ruleProjectVisitors
-    in
-    case findFix reviewOptions project errors fixedErrors Nothing of
-        Just ( postFixStatus, fixResult ) ->
-            let
-                newFixedErrors : FixedErrors
-                newFixedErrors =
-                    -- The only possible thing we can fix here is the `elm.json` file, so we don't need to check
-                    -- what the fixed file was.
-                    case postFixStatus of
-                        ShouldContinue newFixedErrors_ ->
-                            newFixedErrors_
-
-                        ShouldAbort newFixedErrors_ ->
-                            newFixedErrors_
-            in
-            { project = fixResult.project
-            , step = EndAnalysis
-            , ruleProjectVisitors = newRuleProjectVisitors
-            , fixedErrors = newFixedErrors
-            }
-
-        Nothing ->
+computeElmJsonHelp reviewOptions project fixedErrors elmJsonData rules accRules =
+    case rules of
+        [] ->
             { project = project
             , step = Readme
-            , ruleProjectVisitors = newRuleProjectVisitors
+            , ruleProjectVisitors = accRules
             , fixedErrors = fixedErrors
             }
+
+        ((RuleProjectVisitor rule) as untouched) :: rest ->
+            case rule.elmJsonVisitor of
+                Just visitor ->
+                    let
+                        ( errors, updatedRule ) =
+                            visitor project elmJsonData
+                    in
+                    case standardFindFix reviewOptions project fixedErrors errors of
+                        Just ( newProject, newFixedErrors, step ) ->
+                            { project = newProject
+                            , step = step
+                            , ruleProjectVisitors = updatedRule :: (rest ++ accRules)
+                            , fixedErrors = newFixedErrors
+                            }
+
+                        Nothing ->
+                            computeElmJsonHelp
+                                reviewOptions
+                                project
+                                fixedErrors
+                                elmJsonData
+                                rest
+                                (updatedRule :: accRules)
+
+                Nothing ->
+                    computeElmJsonHelp
+                        reviewOptions
+                        project
+                        fixedErrors
+                        elmJsonData
+                        rest
+                        (untouched :: accRules)
 
 
 computeReadme :
