@@ -4418,17 +4418,23 @@ computeReadme reviewOptions project ruleProjectVisitors fixedErrors =
     computeReadmeHelp reviewOptions project readmeData ruleProjectVisitors fixedErrors []
 
 
+type Output
+    = FoundNoFixes ( List (Error {}), List RuleProjectVisitor )
+
+
 computeReadmeHelp : ReviewOptionsData -> ValidProject -> Maybe { readmeKey : ReadmeKey, content : String } -> List RuleProjectVisitor -> FixedErrors -> List RuleProjectVisitor -> { project : ValidProject, step : Step, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
 computeReadmeHelp reviewOptions project readmeData ruleProjectVisitors fixedErrors accRules =
     let
         ( errors, newRuleProjectVisitors ) =
-            computeReadmeHelp2 ruleProjectVisitors ( [], [] )
+            case computeReadmeHelp2 ruleProjectVisitors ( [], [] ) of
+                FoundNoFixes result ->
+                    result
 
-        computeReadmeHelp2 : List RuleProjectVisitor -> ( List (Error {}), List RuleProjectVisitor ) -> ( List (Error {}), List RuleProjectVisitor )
+        computeReadmeHelp2 : List RuleProjectVisitor -> ( List (Error {}), List RuleProjectVisitor ) -> Output
         computeReadmeHelp2 rules ( accErrors, accRules_ ) =
             case rules of
                 [] ->
-                    ( accErrors, accRules )
+                    FoundNoFixes ( accErrors, accRules )
 
                 ((RuleProjectVisitor rule) as untouched) :: rest ->
                     case rule.readmeVisitor of
