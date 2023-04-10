@@ -4690,30 +4690,8 @@ computeModule :
     -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, nextStep : NextStep, fixedErrors : FixedErrors }
 computeModule params =
     let
-        filePath : String
-        filePath =
-            ProjectModule.path params.module_
-
         ( inputRuleModuleVisitors, requestedData, rulesNotToRun ) =
-            List.foldl
-                (\((RuleProjectVisitor ruleProjectVisitor) as rule) ( with, requestedAcc, without ) ->
-                    case ruleProjectVisitor.createModuleVisitorFromProjectVisitor of
-                        Just moduleVisitorCreator ->
-                            case moduleVisitorCreator params.project filePath (ProjectModule.contentHash params.module_) params.incoming of
-                                Just moduleVisitor ->
-                                    ( moduleVisitor :: with
-                                    , RequestedData.combineJust ruleProjectVisitor.requestedData requestedAcc
-                                    , without
-                                    )
-
-                                Nothing ->
-                                    ( with, requestedAcc, rule :: without )
-
-                        Nothing ->
-                            ( with, requestedAcc, rule :: without )
-                )
-                ( [], RequestedData.none, [] )
-                params.ruleProjectVisitors
+            computeWhatsRequiredToAnalyze params.project params.module_ params.incoming params.ruleProjectVisitors
     in
     if List.isEmpty inputRuleModuleVisitors then
         { project = params.project
@@ -4724,6 +4702,34 @@ computeModule params =
 
     else
         computeModuleWithRuleVisitorsAndFindFix params inputRuleModuleVisitors requestedData rulesNotToRun
+
+
+computeWhatsRequiredToAnalyze : ValidProject -> OpaqueProjectModule -> Graph.Adjacency () -> List RuleProjectVisitor -> ( List (AvailableData -> RuleModuleVisitor), RequestedData, List RuleProjectVisitor )
+computeWhatsRequiredToAnalyze project module_ incoming ruleProjectVisitors =
+    let
+        filePath : String
+        filePath =
+            ProjectModule.path module_
+    in
+    List.foldl
+        (\((RuleProjectVisitor ruleProjectVisitor) as rule) ( with, requestedAcc, without ) ->
+            case ruleProjectVisitor.createModuleVisitorFromProjectVisitor of
+                Just moduleVisitorCreator ->
+                    case moduleVisitorCreator project filePath (ProjectModule.contentHash module_) incoming of
+                        Just moduleVisitor ->
+                            ( moduleVisitor :: with
+                            , RequestedData.combineJust ruleProjectVisitor.requestedData requestedAcc
+                            , without
+                            )
+
+                        Nothing ->
+                            ( with, requestedAcc, rule :: without )
+
+                Nothing ->
+                    ( with, requestedAcc, rule :: without )
+        )
+        ( [], RequestedData.none, [] )
+        ruleProjectVisitors
 
 
 computeModuleWithRuleVisitorsAndFindFix :
