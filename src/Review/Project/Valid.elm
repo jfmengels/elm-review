@@ -17,6 +17,7 @@ module Review.Project.Valid exposing
     , projectCache
     , readme
     , readmeHash
+    , sortedModules
     , toRegularProject
     , updateProjectCache
     )
@@ -112,13 +113,13 @@ parse ((Project p) as project) =
 {-| This is unsafe because we assume that there are some modules. We do check for this earlier in the exposed functions.
 -}
 unsafeCreateZipper : List a -> Zipper a
-unsafeCreateZipper sortedModules =
-    case Zipper.fromList sortedModules of
+unsafeCreateZipper sortedModules_ =
+    case Zipper.fromList sortedModules_ of
         Just zipper ->
             zipper
 
         Nothing ->
-            unsafeCreateZipper sortedModules
+            unsafeCreateZipper sortedModules_
 
 
 fromProjectAndGraph : Graph FilePath () -> Graph.AcyclicGraph FilePath () -> Project -> ValidProject
@@ -356,6 +357,11 @@ moduleZipper (ValidProject project) =
     unsafeCreateZipper project.sortedModules
 
 
+sortedModules : ValidProject -> List (Graph.NodeContext FilePath ())
+sortedModules (ValidProject project) =
+    project.sortedModules
+
+
 updateProjectCache : ProjectCache -> ValidProject -> ValidProject
 updateProjectCache projectCache_ (ValidProject project) =
     ValidProject { project | projectCache = projectCache_ }
@@ -422,13 +428,13 @@ addParsedModule { path, source, ast } maybeModuleZipper (ValidProject project) =
 
                     Ok acyclicGraph ->
                         let
-                            sortedModules : List (Graph.NodeContext FilePath ())
-                            sortedModules =
+                            sortedModules_ : List (Graph.NodeContext FilePath ())
+                            sortedModules_ =
                                 Graph.topologicalSort acyclicGraph
 
                             moduleZipper_ : Zipper (Graph.NodeContext FilePath ())
                             moduleZipper_ =
-                                unsafeCreateZipper sortedModules
+                                unsafeCreateZipper sortedModules_
 
                             newModuleZipper : Zipper (Graph.NodeContext FilePath ())
                             newModuleZipper =
@@ -444,7 +450,7 @@ addParsedModule { path, source, ast } maybeModuleZipper (ValidProject project) =
                                             -- Should not happen :/
                                             |> Maybe.withDefault moduleZipper_
                         in
-                        Just ( ValidProject { newProject | moduleGraph = graph, sortedModules = sortedModules }, newModuleZipper )
+                        Just ( ValidProject { newProject | moduleGraph = graph, sortedModules = sortedModules_ }, newModuleZipper )
 
         Nothing ->
             -- We don't support adding new files at the moment.
