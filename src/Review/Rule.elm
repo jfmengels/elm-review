@@ -4756,8 +4756,6 @@ computeModuleWithRuleVisitors params inputRuleModuleVisitors filePath (Requested
             { ast = ast
             , moduleKey = ModuleKey (ProjectModule.path params.module_)
             , moduleNameLookupTable = moduleNameLookupTable
-
-            -- TODO Avoid computing the module docs if we don't need them. Or use `elm-syntax`'s AST node when that's available.
             , moduleDocumentation = findModuleDocumentation ast
             , extractSourceCode =
                 if requestedData.sourceCodeExtractor then
