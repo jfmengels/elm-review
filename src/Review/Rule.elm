@@ -4426,7 +4426,7 @@ computeReadmeHelp : ReviewOptionsData -> ValidProject -> Maybe { readmeKey : Rea
 computeReadmeHelp reviewOptions project readmeData ruleProjectVisitors fixedErrors accRules =
     let
         ( errors, newRuleProjectVisitors ) =
-            case computeReadmeHelp2 ruleProjectVisitors project readmeData ( [], [] ) of
+            case computeReadmeHelp2 project readmeData ruleProjectVisitors ( [], [] ) of
                 FoundNoFixes result ->
                     result
     in
@@ -4464,8 +4464,8 @@ computeReadmeHelp reviewOptions project readmeData ruleProjectVisitors fixedErro
             }
 
 
-computeReadmeHelp2 : List RuleProjectVisitor -> ValidProject -> Maybe { readmeKey : ReadmeKey, content : String } -> ( List (Error {}), List RuleProjectVisitor ) -> Output
-computeReadmeHelp2 rules project readmeData ( accErrors, accRules ) =
+computeReadmeHelp2 : ValidProject -> Maybe { readmeKey : ReadmeKey, content : String } -> List RuleProjectVisitor -> ( List (Error {}), List RuleProjectVisitor ) -> Output
+computeReadmeHelp2 project readmeData rules ( accErrors, accRules ) =
     case rules of
         [] ->
             FoundNoFixes ( accErrors, accRules )
@@ -4478,16 +4478,16 @@ computeReadmeHelp2 rules project readmeData ( accErrors, accRules ) =
                             visitor project readmeData
                     in
                     computeReadmeHelp2
-                        rest
                         project
                         readmeData
+                        rest
                         ( List.append newErrors accErrors, updatedRule :: accRules )
 
                 Nothing ->
                     computeReadmeHelp2
-                        rest
                         project
                         readmeData
+                        rest
                         ( accErrors, untouched :: accRules )
 
 
