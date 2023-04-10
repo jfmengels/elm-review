@@ -1,4 +1,4 @@
-module Review.Error exposing (ErrorFixes(..), InternalError, ReviewError(..), Target(..), doesPreventExtract, error, fixesFromMaybe, preventExtract, withFixes)
+module Review.Error exposing (ErrorFixes(..), InternalError, ReviewError(..), Target(..), doesPreventExtract, error, fixesFromMaybe, markFixesAsProblem, preventExtract, withFixes)
 
 import Elm.Syntax.Range exposing (Range)
 import Review.Fix.FixProblem as FixProblem
@@ -43,6 +43,16 @@ fixesFromMaybe maybeFixes =
 
         Nothing ->
             NoFixes
+
+
+markFixesAsProblem : FixProblem.FixProblem -> InternalError -> InternalError
+markFixesAsProblem fixProblem error_ =
+    case error_.fixes of
+        Available fixes ->
+            { error_ | fixes = FailedToApply fixes fixProblem }
+
+        _ ->
+            error_
 
 
 error : { message : String, details : List String } -> Range -> ReviewError
