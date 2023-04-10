@@ -4276,9 +4276,14 @@ type alias ProjectRuleCache projectContext =
 
 computeStepsForProjectWithoutFixes : ValidProject -> List RuleProjectVisitor -> List RuleProjectVisitor
 computeStepsForProjectWithoutFixes project ruleProjectVisitors =
-    ruleProjectVisitors
-        |> computeProjectFilesWithoutFixes project
-        |> computeModulesWithoutFixes project
+    let
+        newRules : List RuleProjectVisitor
+        newRules =
+            ruleProjectVisitors
+                |> computeProjectFilesWithoutFixes project
+                |> computeModulesWithoutFixes project
+    in
+    newRules
         |> List.map
             (\((RuleProjectVisitor ruleProjectVisitor) as untouched) ->
                 case ruleProjectVisitor.finalProjectEvaluation of
