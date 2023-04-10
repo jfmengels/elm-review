@@ -4549,7 +4549,7 @@ computeFinalProjectEvaluation :
     -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, step : Step, fixedErrors : FixedErrors }
 computeFinalProjectEvaluation reviewOptions project ruleProjectVisitors fixedErrors =
     let
-        ( errors, newRuleProjectVisitors ) =
+        computeFinalProjectEvaluationHelp rules =
             List.foldl
                 (\((RuleProjectVisitor rule) as untouched) ( accErrors, accRules ) ->
                     case rule.finalProjectEvaluation of
@@ -4564,7 +4564,10 @@ computeFinalProjectEvaluation reviewOptions project ruleProjectVisitors fixedErr
                             ( accErrors, untouched :: accRules )
                 )
                 ( [], [] )
-                ruleProjectVisitors
+                rules
+
+        ( errors, newRuleProjectVisitors ) =
+            computeFinalProjectEvaluationHelp ruleProjectVisitors
     in
     case findFix reviewOptions project errors fixedErrors Nothing of
         Just ( postFixStatus, fixResult ) ->
