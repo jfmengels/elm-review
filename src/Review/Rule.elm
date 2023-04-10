@@ -5160,6 +5160,10 @@ findFixHelp project fixablePredicate errors maybeModuleZipper =
                                     of
                                         Err fixProblem ->
                                             -- TODO Save the fix problem into the error somehow
+                                            let
+                                                _ =
+                                                    Review.Error.markFixesAsProblem fixProblem headError
+                                            in
                                             findFixHelp project fixablePredicate restOfErrors maybeModuleZipper
 
                                         Ok fixResult ->
@@ -5180,6 +5184,10 @@ findFixHelp project fixablePredicate errors maybeModuleZipper =
                                     of
                                         Err fixProblem ->
                                             -- TODO Save the fix problem into the error somehow
+                                            let
+                                                _ =
+                                                    Review.Error.markFixesAsProblem fixProblem headError
+                                            in
                                             findFixHelp project fixablePredicate restOfErrors maybeModuleZipper
 
                                         Ok newProject ->
@@ -5198,6 +5206,10 @@ findFixHelp project fixablePredicate errors maybeModuleZipper =
                                     case InternalFix.fixReadme fixes readme.content of
                                         Err fixProblem ->
                                             -- TODO Save the fix problem into the error somehow
+                                            let
+                                                _ =
+                                                    Review.Error.markFixesAsProblem fixProblem headError
+                                            in
                                             findFixHelp project fixablePredicate restOfErrors maybeModuleZipper
 
                                         Ok content ->
