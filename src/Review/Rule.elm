@@ -4426,7 +4426,7 @@ computeReadmeHelp : ReviewOptionsData -> ValidProject -> Maybe { readmeKey : Rea
 computeReadmeHelp reviewOptions project readmeData ruleProjectVisitors fixedErrors accRules =
     let
         ( errors, newRuleProjectVisitors ) =
-            case computeReadmeHelp2 project readmeData ruleProjectVisitors ( [], [] ) of
+            case computeReadmeHelp2 reviewOptions project readmeData fixedErrors ruleProjectVisitors ( [], [] ) of
                 FoundNoFixes result ->
                     result
     in
@@ -4464,8 +4464,8 @@ computeReadmeHelp reviewOptions project readmeData ruleProjectVisitors fixedErro
             }
 
 
-computeReadmeHelp2 : ValidProject -> Maybe { readmeKey : ReadmeKey, content : String } -> List RuleProjectVisitor -> ( List (Error {}), List RuleProjectVisitor ) -> Output
-computeReadmeHelp2 project readmeData rules ( accErrors, accRules ) =
+computeReadmeHelp2 : ReviewOptionsData -> ValidProject -> Maybe { readmeKey : ReadmeKey, content : String } -> FixedErrors -> List RuleProjectVisitor -> ( List (Error {}), List RuleProjectVisitor ) -> Output
+computeReadmeHelp2 reviewOptions project readmeData fixedErrors rules ( accErrors, accRules ) =
     case rules of
         [] ->
             FoundNoFixes ( accErrors, accRules )
@@ -4478,15 +4478,19 @@ computeReadmeHelp2 project readmeData rules ( accErrors, accRules ) =
                             visitor project readmeData
                     in
                     computeReadmeHelp2
+                        reviewOptions
                         project
                         readmeData
+                        fixedErrors
                         rest
                         ( List.append newErrors accErrors, updatedRule :: accRules )
 
                 Nothing ->
                     computeReadmeHelp2
+                        reviewOptions
                         project
                         readmeData
+                        fixedErrors
                         rest
                         ( accErrors, untouched :: accRules )
 
