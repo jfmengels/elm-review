@@ -4424,6 +4424,7 @@ computeReadmeHelp reviewOptions project readmeData ruleProjectVisitors fixedErro
         ( errors, newRuleProjectVisitors ) =
             computeReadmeHelp2 ruleProjectVisitors ( [], [] )
 
+        computeReadmeHelp2 : List RuleProjectVisitor -> ( List (Error {}), List RuleProjectVisitor ) -> ( List (Error {}), List RuleProjectVisitor )
         computeReadmeHelp2 rules ( accErrors, accRules_ ) =
             case rules of
                 [] ->
