@@ -6,6 +6,7 @@ import Elm.Syntax.File exposing (File)
 import Elm.Syntax.Range exposing (Range)
 import Json.Decode as Decode
 import Review.FileParser as FileParser
+import Review.Fix.FixProblem as FixProblem
 import Unicode
 import Vendor.ListExtra as ListExtra
 
@@ -84,49 +85,49 @@ getRowAtLine lines rowIndex =
 
 {-| Apply the changes on the source code.
 -}
-fixModule : List Fix -> String -> Maybe { source : String, ast : File }
+fixModule : List Fix -> String -> Result FixProblem.FixProblem { source : String, ast : File }
 fixModule fixes originalSourceCode =
     case tryToApplyFix fixes originalSourceCode of
-        Just fixedSourceCode ->
+        Ok fixedSourceCode ->
             case FileParser.parse fixedSourceCode of
                 Ok ast ->
-                    Just { source = fixedSourceCode, ast = ast }
+                    Ok { source = fixedSourceCode, ast = ast }
 
                 Err _ ->
-                    Nothing
+                    Err (FixProblem.SourceCodeIsNotValid fixedSourceCode)
 
-        Nothing ->
-            Nothing
+        Err err ->
+            Err err
 
 
 {-| Apply the changes on the elm.json file.
 -}
-fixElmJson : List Fix -> String -> Maybe { raw : String, project : Elm.Project.Project }
+fixElmJson : List Fix -> String -> Result FixProblem.FixProblem { raw : String, project : Elm.Project.Project }
 fixElmJson fixes originalSourceCode =
     case tryToApplyFix fixes originalSourceCode of
-        Just resultAfterFix ->
+        Ok resultAfterFix ->
             case Decode.decodeString Elm.Project.decoder resultAfterFix of
                 Ok project ->
-                    Just { raw = resultAfterFix, project = project }
+                    Ok { raw = resultAfterFix, project = project }
 
                 Err _ ->
-                    Nothing
+                    Err (FixProblem.SourceCodeIsNotValid resultAfterFix)
 
-        Nothing ->
-            Nothing
+        Err err ->
+            Err err
 
 
 {-| Apply the changes on the README.md file.
 -}
-fixReadme : List Fix -> String -> Maybe String
+fixReadme : List Fix -> String -> Result FixProblem.FixProblem String
 fixReadme fixes originalSourceCode =
     tryToApplyFix fixes originalSourceCode
 
 
-tryToApplyFix : List Fix -> String -> Maybe String
+tryToApplyFix : List Fix -> String -> Result FixProblem.FixProblem String
 tryToApplyFix fixes sourceCode =
     if containRangeCollisions fixes then
-        Nothing
+        Err FixProblem.HasCollisionsInFixRanges
 
     else
         let
@@ -138,10 +139,10 @@ tryToApplyFix fixes sourceCode =
                     |> String.join "\n"
         in
         if sourceCode == resultAfterFix then
-            Nothing
+            Err FixProblem.Unchanged
 
         else
-            Just resultAfterFix
+            Ok resultAfterFix
 
 
 

@@ -5144,7 +5144,7 @@ findFixHelp project fixablePredicate errors maybeModuleZipper =
                                 Just file ->
                                     case
                                         InternalFix.fixModule fixes (ProjectModule.source file)
-                                            |> Maybe.andThen
+                                            |> Result.andThen
                                                 (\fixResult ->
                                                     ValidProject.addParsedModule { path = headError.filePath, source = fixResult.source, ast = fixResult.ast } maybeModuleZipper project
                                                         |> Maybe.map
@@ -5154,12 +5154,15 @@ findFixHelp project fixablePredicate errors maybeModuleZipper =
                                                                 , error = errorToReviewError (Error headError)
                                                                 }
                                                             )
+                                                        -- TODO This is a dummy value. Figure out what makes sense
+                                                        |> Result.fromMaybe FixProblem.Unchanged
                                                 )
                                     of
-                                        Nothing ->
+                                        Err fixProblem ->
+                                            -- TODO Save the fix problem into the error somehow
                                             findFixHelp project fixablePredicate restOfErrors maybeModuleZipper
 
-                                        Just fixResult ->
+                                        Ok fixResult ->
                                             Just fixResult
 
                         Review.Error.ElmJson ->
@@ -5170,15 +5173,16 @@ findFixHelp project fixablePredicate errors maybeModuleZipper =
                                 Just elmJson ->
                                     case
                                         InternalFix.fixElmJson fixes elmJson.raw
-                                            |> Maybe.map
+                                            |> Result.map
                                                 (\fixResult ->
                                                     ValidProject.addElmJson { path = elmJson.path, raw = fixResult.raw, project = fixResult.project } project
                                                 )
                                     of
-                                        Nothing ->
+                                        Err fixProblem ->
+                                            -- TODO Save the fix problem into the error somehow
                                             findFixHelp project fixablePredicate restOfErrors maybeModuleZipper
 
-                                        Just newProject ->
+                                        Ok newProject ->
                                             Just
                                                 { project = newProject
                                                 , fixedFile = FixedElmJson
@@ -5192,10 +5196,11 @@ findFixHelp project fixablePredicate errors maybeModuleZipper =
 
                                 Just readme ->
                                     case InternalFix.fixReadme fixes readme.content of
-                                        Nothing ->
+                                        Err fixProblem ->
+                                            -- TODO Save the fix problem into the error somehow
                                             findFixHelp project fixablePredicate restOfErrors maybeModuleZipper
 
-                                        Just content ->
+                                        Ok content ->
                                             Just
                                                 { project = ValidProject.addReadme { path = readme.path, content = content } project
                                                 , fixedFile = FixedReadme
