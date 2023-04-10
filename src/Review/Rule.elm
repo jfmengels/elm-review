@@ -4889,6 +4889,11 @@ computeModulesWithoutFixes :
     -> List RuleProjectVisitor
     -> List RuleProjectVisitor
 computeModulesWithoutFixes project rules =
+    let
+        sortedModules : List (Graph.NodeContext FilePath ())
+        sortedModules =
+            ValidProject.sortedModules project
+    in
     rules
 
 
