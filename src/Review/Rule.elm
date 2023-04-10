@@ -4576,43 +4576,42 @@ computeFinalProjectEvaluation reviewOptions project ruleProjectVisitors fixedErr
                                 rest
                                 accErrors
                                 (untouched :: accRules)
-
-        (FoundNoErrors ( errors, newRuleProjectVisitors )) =
-            computeFinalProjectEvaluationHelp ruleProjectVisitors [] []
     in
-    case findFix reviewOptions project errors fixedErrors Nothing of
-        Just ( postFixStatus, fixResult ) ->
-            let
-                ( newFixedErrors, step ) =
-                    case postFixStatus of
-                        ShouldAbort newFixedErrors_ ->
-                            ( newFixedErrors_, EndAnalysis )
+    case computeFinalProjectEvaluationHelp ruleProjectVisitors [] [] of
+        FoundNoErrors ( errors, newRuleProjectVisitors ) ->
+            case findFix reviewOptions project errors fixedErrors Nothing of
+                Just ( postFixStatus, fixResult ) ->
+                    let
+                        ( newFixedErrors, step ) =
+                            case postFixStatus of
+                                ShouldAbort newFixedErrors_ ->
+                                    ( newFixedErrors_, EndAnalysis )
 
-                        ShouldContinue newFixedErrors_ ->
-                            ( newFixedErrors_
-                            , case fixResult.fixedFile of
-                                FixedElmModule _ moduleZipper ->
-                                    Modules moduleZipper
+                                ShouldContinue newFixedErrors_ ->
+                                    ( newFixedErrors_
+                                    , case fixResult.fixedFile of
+                                        FixedElmModule _ moduleZipper ->
+                                            Modules moduleZipper
 
-                                FixedElmJson ->
-                                    ElmJson
+                                        FixedElmJson ->
+                                            ElmJson
 
-                                FixedReadme ->
-                                    Readme
-                            )
-            in
-            { project = fixResult.project
-            , ruleProjectVisitors = newRuleProjectVisitors
-            , step = step
-            , fixedErrors = newFixedErrors
-            }
+                                        FixedReadme ->
+                                            Readme
+                                    )
+                    in
+                    { project = fixResult.project
+                    , ruleProjectVisitors = newRuleProjectVisitors
+                    , step = step
+                    , fixedErrors = newFixedErrors
+                    }
 
-        Nothing ->
-            { project = project
-            , ruleProjectVisitors = newRuleProjectVisitors
-            , step = EndAnalysis
-            , fixedErrors = fixedErrors
-            }
+                Nothing ->
+                    { project = project
+                    , ruleProjectVisitors = newRuleProjectVisitors
+                    , step = EndAnalysis
+                    , fixedErrors = fixedErrors
+                    }
 
 
 reuseProjectRuleCache : (b -> Bool) -> (ProjectRuleCache a -> Maybe b) -> ProjectRuleCache a -> Maybe b
