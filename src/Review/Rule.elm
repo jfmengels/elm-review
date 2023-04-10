@@ -20,7 +20,7 @@ module Review.Rule exposing
     , Metadata, withMetadata, moduleNameFromMetadata, moduleNameNodeFromMetadata, isInSourceDirectories
     , Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix, ElmJsonKey, errorForElmJson, errorForElmJsonWithFix, ReadmeKey, errorForReadme, errorForReadmeWithFix
     , globalError, configurationError
-    , ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, errorTarget
+    , ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFilePath, errorTarget, errorFixes, errorFixFailure
     , ignoreErrorsForDirectories, ignoreErrorsForFiles, filterErrorsForFiles
     , withDataExtractor, preventExtract
     , reviewV3, reviewV2, review, ProjectData, ruleName, ruleProvidesFixes, ruleKnowsAboutIgnoredFiles, withRuleId, getConfigurationError
@@ -244,7 +244,7 @@ first, as they are in practice a simpler version of project rules.
 
 @docs Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix, ElmJsonKey, errorForElmJson, errorForElmJsonWithFix, ReadmeKey, errorForReadme, errorForReadmeWithFix
 @docs globalError, configurationError
-@docs ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, errorTarget
+@docs ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFilePath, errorTarget, errorFixes, errorFixFailure
 
 
 ## Configuring exceptions
@@ -3860,6 +3860,33 @@ errorFixes (Review.Error.ReviewError err) =
 
         Review.Error.FailedToApply fixes _ ->
             Just fixes
+
+
+{-| Get the reason why the fix for an error failed when its available automatic fix was attempted and deemed incorrect.
+
+Note that if the review process was not run in fix mode previously, then this will return `Nothing`.
+
+-}
+errorFixFailure : ReviewError -> Maybe Fix.Problem
+errorFixFailure (Review.Error.ReviewError err) =
+    case err.fixes of
+        Review.Error.Available _ ->
+            Nothing
+
+        Review.Error.NoFixes ->
+            Nothing
+
+        Review.Error.FailedToApply _ problem ->
+            Just <|
+                case problem of
+                    Review.Error.Unchanged ->
+                        Fix.Unchanged
+
+                    Review.Error.SourceCodeIsNotValid string ->
+                        Fix.SourceCodeIsNotValid string
+
+                    Review.Error.HasCollisionsInFixRanges ->
+                        Fix.HasCollisionsInFixRanges
 
 
 {-| Get the file path of an [`Error`](#Error).
