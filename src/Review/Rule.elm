@@ -4424,44 +4424,40 @@ type Output
 
 computeReadmeHelp : ReviewOptionsData -> ValidProject -> Maybe { readmeKey : ReadmeKey, content : String } -> List RuleProjectVisitor -> FixedErrors -> List RuleProjectVisitor -> { project : ValidProject, step : Step, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
 computeReadmeHelp reviewOptions project readmeData ruleProjectVisitors fixedErrors accRules =
-    let
-        ( errors, newRuleProjectVisitors ) =
-            case computeReadmeHelp2 reviewOptions project readmeData fixedErrors ruleProjectVisitors ( [], [] ) of
-                FoundNoFixes result ->
-                    result
-    in
-    case findFix reviewOptions project errors fixedErrors Nothing of
-        Just ( postFixStatus, fixResult ) ->
-            case postFixStatus of
-                ShouldAbort newFixedErrors ->
-                    { project = fixResult.project, step = EndAnalysis, ruleProjectVisitors = newRuleProjectVisitors, fixedErrors = newFixedErrors }
+    case computeReadmeHelp2 reviewOptions project readmeData fixedErrors ruleProjectVisitors ( [], [] ) of
+        FoundNoFixes ( errors, newRuleProjectVisitors ) ->
+            case findFix reviewOptions project errors fixedErrors Nothing of
+                Just ( postFixStatus, fixResult ) ->
+                    case postFixStatus of
+                        ShouldAbort newFixedErrors ->
+                            { project = fixResult.project, step = EndAnalysis, ruleProjectVisitors = newRuleProjectVisitors, fixedErrors = newFixedErrors }
 
-                ShouldContinue newFixedErrors ->
-                    case fixResult.fixedFile of
-                        FixedElmJson ->
-                            { project = fixResult.project
-                            , step = ElmJson
-                            , ruleProjectVisitors = newRuleProjectVisitors
-                            , fixedErrors = newFixedErrors
-                            }
+                        ShouldContinue newFixedErrors ->
+                            case fixResult.fixedFile of
+                                FixedElmJson ->
+                                    { project = fixResult.project
+                                    , step = ElmJson
+                                    , ruleProjectVisitors = newRuleProjectVisitors
+                                    , fixedErrors = newFixedErrors
+                                    }
 
-                        FixedReadme ->
-                            computeReadme reviewOptions fixResult.project ruleProjectVisitors newFixedErrors
+                                FixedReadme ->
+                                    computeReadme reviewOptions fixResult.project ruleProjectVisitors newFixedErrors
 
-                        FixedElmModule _ _ ->
-                            -- Not possible, users don't have the module key to provide fixes for an Elm module
-                            { project = project
-                            , step = Dependencies
-                            , ruleProjectVisitors = newRuleProjectVisitors
-                            , fixedErrors = fixedErrors
-                            }
+                                FixedElmModule _ _ ->
+                                    -- Not possible, users don't have the module key to provide fixes for an Elm module
+                                    { project = project
+                                    , step = Dependencies
+                                    , ruleProjectVisitors = newRuleProjectVisitors
+                                    , fixedErrors = fixedErrors
+                                    }
 
-        Nothing ->
-            { project = project
-            , step = Dependencies
-            , ruleProjectVisitors = newRuleProjectVisitors
-            , fixedErrors = fixedErrors
-            }
+                Nothing ->
+                    { project = project
+                    , step = Dependencies
+                    , ruleProjectVisitors = newRuleProjectVisitors
+                    , fixedErrors = fixedErrors
+                    }
 
 
 computeReadmeHelp2 : ReviewOptionsData -> ValidProject -> Maybe { readmeKey : ReadmeKey, content : String } -> FixedErrors -> List RuleProjectVisitor -> ( List (Error {}), List RuleProjectVisitor ) -> Output
