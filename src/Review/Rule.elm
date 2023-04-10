@@ -4293,7 +4293,7 @@ computeStepsForProject reviewOptions { project, ruleProjectVisitors, fixedErrors
         Dependencies ->
             computeStepsForProject
                 reviewOptions
-                (computeDependencies reviewOptions project fixedErrors ruleProjectVisitors [])
+                (computeDependencies reviewOptions project fixedErrors ruleProjectVisitors)
 
         Modules moduleZipper ->
             computeStepsForProject
@@ -4479,18 +4479,28 @@ computeDependencies :
     -> ValidProject
     -> FixedErrors
     -> List RuleProjectVisitor
+    -> { project : ValidProject, step : Step, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
+computeDependencies reviewOptions project fixedErrors rules =
+    computeDependenciesHelp
+        reviewOptions
+        project
+        fixedErrors
+        { all = ValidProject.dependencies project
+        , direct = ValidProject.directDependencies project
+        }
+        rules
+        []
+
+
+computeDependenciesHelp :
+    ReviewOptionsData
+    -> ValidProject
+    -> FixedErrors
+    -> { all : Dict String Review.Project.Dependency.Dependency, direct : Dict String Review.Project.Dependency.Dependency }
+    -> List RuleProjectVisitor
     -> List RuleProjectVisitor
     -> { project : ValidProject, step : Step, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
-computeDependencies reviewOptions project fixedErrors rules accRules =
-    let
-        dependencies : Dict String Review.Project.Dependency.Dependency
-        dependencies =
-            ValidProject.dependencies project
-
-        directDependencies : Dict String Review.Project.Dependency.Dependency
-        directDependencies =
-            ValidProject.directDependencies project
-    in
+computeDependenciesHelp reviewOptions project fixedErrors dependenciesData rules accRules =
     case rules of
         [] ->
             { project = project
@@ -4504,7 +4514,7 @@ computeDependencies reviewOptions project fixedErrors rules accRules =
                 Just visitor ->
                     let
                         ( errors, updatedRule ) =
-                            visitor project { all = dependencies, direct = directDependencies }
+                            visitor project dependenciesData
                     in
                     case standardFindFix reviewOptions project fixedErrors errors of
                         Just ( newProject, newFixedErrors, step ) ->
@@ -4515,18 +4525,20 @@ computeDependencies reviewOptions project fixedErrors rules accRules =
                             }
 
                         Nothing ->
-                            computeDependencies
+                            computeDependenciesHelp
                                 reviewOptions
                                 project
                                 fixedErrors
+                                dependenciesData
                                 rest
                                 (updatedRule :: accRules)
 
                 Nothing ->
-                    computeDependencies
+                    computeDependenciesHelp
                         reviewOptions
                         project
                         fixedErrors
+                        dependenciesData
                         rest
                         (untouched :: accRules)
 
