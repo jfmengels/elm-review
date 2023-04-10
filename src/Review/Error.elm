@@ -1,6 +1,7 @@
-module Review.Error exposing (ErrorFixes(..), FixProblem(..), InternalError, ReviewError(..), Target(..), doesPreventExtract, error, fixesFromMaybe, preventExtract, withFixes)
+module Review.Error exposing (ErrorFixes(..), InternalError, ReviewError(..), Target(..), doesPreventExtract, error, fixesFromMaybe, preventExtract, withFixes)
 
 import Elm.Syntax.Range exposing (Range)
+import Review.Fix.FixProblem as FixProblem
 import Review.Fix.Internal exposing (Fix)
 
 
@@ -31,13 +32,7 @@ type alias InternalError =
 type ErrorFixes
     = NoFixes
     | Available (List Fix)
-    | FailedToApply (List Fix) FixProblem
-
-
-type FixProblem
-    = Unchanged
-    | SourceCodeIsNotValid String
-    | HasCollisionsInFixRanges
+    | FailedToApply (List Fix) FixProblem.FixProblem
 
 
 fixesFromMaybe : Maybe (List Fix) -> ErrorFixes

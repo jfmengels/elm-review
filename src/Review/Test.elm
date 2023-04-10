@@ -135,6 +135,7 @@ import Json.Encode as Encode
 import Review.Error as Error
 import Review.FileParser as FileParser
 import Review.Fix as Fix
+import Review.Fix.FixProblem as FixProblem
 import Review.Options as ReviewOptions
 import Review.Project as Project exposing (Project, ProjectModule)
 import Review.Rule as Rule exposing (ReviewError, Rule)
@@ -1662,13 +1663,13 @@ checkFixesAreCorrect (RuleCanProvideFixes ruleCanProvideFixes) codeInspector ((E
 
         ( _, Error.FailedToApply _ problem ) ->
             case problem of
-                Error.Unchanged ->
+                FixProblem.Unchanged ->
                     Expect.fail <| FailureMessage.unchangedSourceAfterFix error_
 
-                Error.SourceCodeIsNotValid sourceCode ->
+                FixProblem.SourceCodeIsNotValid sourceCode ->
                     Expect.fail <| FailureMessage.invalidSourceAfterFix error_ sourceCode
 
-                Error.HasCollisionsInFixRanges ->
+                FixProblem.HasCollisionsInFixRanges ->
                     Expect.fail <| FailureMessage.hasCollisionsInFixRanges error_
 
 

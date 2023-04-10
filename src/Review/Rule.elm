@@ -315,6 +315,7 @@ import Review.Error exposing (InternalError)
 import Review.Exceptions as Exceptions exposing (Exceptions)
 import Review.FilePath exposing (FilePath)
 import Review.Fix as Fix exposing (Fix)
+import Review.Fix.FixProblem as FixProblem
 import Review.Fix.FixedErrors as FixedErrors exposing (FixedErrors)
 import Review.Fix.Internal as InternalFix
 import Review.ImportCycle as ImportCycle
@@ -3879,13 +3880,13 @@ errorFixFailure (Review.Error.ReviewError err) =
         Review.Error.FailedToApply _ problem ->
             Just <|
                 case problem of
-                    Review.Error.Unchanged ->
+                    FixProblem.Unchanged ->
                         Fix.Unchanged
 
-                    Review.Error.SourceCodeIsNotValid string ->
+                    FixProblem.SourceCodeIsNotValid string ->
                         Fix.SourceCodeIsNotValid string
 
-                    Review.Error.HasCollisionsInFixRanges ->
+                    FixProblem.HasCollisionsInFixRanges ->
                         Fix.HasCollisionsInFixRanges
 
 
