@@ -4274,12 +4274,8 @@ type alias ProjectRuleCache projectContext =
     }
 
 
-computeStepsForProjectWithoutFixes :
-    ReviewOptionsData
-    -> ValidProject
-    -> List RuleProjectVisitor
-    -> List RuleProjectVisitor
-computeStepsForProjectWithoutFixes reviewOptions project ruleProjectVisitors =
+computeStepsForProjectWithoutFixes : ValidProject -> List RuleProjectVisitor -> List RuleProjectVisitor
+computeStepsForProjectWithoutFixes project ruleProjectVisitors =
     ruleProjectVisitors
         |> computeProjectFilesWithoutFixes project
         |> computeModulesWithoutFixes project
