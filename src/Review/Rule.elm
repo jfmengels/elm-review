@@ -5017,14 +5017,14 @@ computeModuleAndCacheResult reviewOptions moduleZipper project ruleProjectVisito
     let
         { node, incoming } =
             Zipper.current moduleZipper
-
-        ignoreModule : () -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, nextStep : NextStep, fixedErrors : FixedErrors }
-        ignoreModule () =
-            { project = project, ruleProjectVisitors = ruleProjectVisitors, nextStep = ModuleVisitStep (Zipper.next moduleZipper), fixedErrors = fixedErrors }
     in
     case ValidProject.getModuleByPath node.label project of
         Nothing ->
-            ignoreModule ()
+            { project = project
+            , ruleProjectVisitors = ruleProjectVisitors
+            , nextStep = ModuleVisitStep (Zipper.next moduleZipper)
+            , fixedErrors = fixedErrors
+            }
 
         Just module_ ->
             computeModule
