@@ -4425,7 +4425,7 @@ computeReadme reviewOptions project ruleProjectVisitors fixedErrors =
 
 computeReadmeHelp : ReviewOptionsData -> ValidProject -> Maybe { readmeKey : ReadmeKey, content : String } -> List RuleProjectVisitor -> FixedErrors -> List RuleProjectVisitor -> { project : ValidProject, step : Step, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
 computeReadmeHelp reviewOptions project readmeData ruleProjectVisitors fixedErrors accRules =
-    computeReadmeHelp2 reviewOptions project readmeData fixedErrors ruleProjectVisitors ( [], [] )
+    computeReadmeHelp2 reviewOptions project readmeData fixedErrors ruleProjectVisitors []
 
 
 computeReadmeHelp2 :
@@ -4434,9 +4434,9 @@ computeReadmeHelp2 :
     -> Maybe { readmeKey : ReadmeKey, content : String }
     -> FixedErrors
     -> List RuleProjectVisitor
-    -> ( List (Error {}), List RuleProjectVisitor )
+    -> List RuleProjectVisitor
     -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, step : Step, fixedErrors : FixedErrors }
-computeReadmeHelp2 reviewOptions project readmeData fixedErrors rules ( accErrors, accRules ) =
+computeReadmeHelp2 reviewOptions project readmeData fixedErrors rules accRules =
     case rules of
         [] ->
             { project = project
@@ -4484,7 +4484,7 @@ computeReadmeHelp2 reviewOptions project readmeData fixedErrors rules ( accError
                                 readmeData
                                 fixedErrors
                                 rest
-                                ( List.append errors accErrors, updatedRule :: accRules )
+                                (updatedRule :: accRules)
 
                 Nothing ->
                     computeReadmeHelp2
@@ -4493,7 +4493,7 @@ computeReadmeHelp2 reviewOptions project readmeData fixedErrors rules ( accError
                         readmeData
                         fixedErrors
                         rest
-                        ( accErrors, untouched :: accRules )
+                        (untouched :: accRules)
 
 
 computeDependencies :
