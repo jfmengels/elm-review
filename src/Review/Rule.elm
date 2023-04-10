@@ -4437,7 +4437,14 @@ computeReadmeHelp reviewOptions project readmeData ruleProjectVisitors fixedErro
             result
 
 
-computeReadmeHelp2 : ReviewOptionsData -> ValidProject -> Maybe { readmeKey : ReadmeKey, content : String } -> FixedErrors -> List RuleProjectVisitor -> ( List (Error {}), List RuleProjectVisitor ) -> Output
+computeReadmeHelp2 :
+    ReviewOptionsData
+    -> ValidProject
+    -> Maybe { readmeKey : ReadmeKey, content : String }
+    -> FixedErrors
+    -> List RuleProjectVisitor
+    -> ( List (Error {}), List RuleProjectVisitor )
+    -> Output
 computeReadmeHelp2 reviewOptions project readmeData fixedErrors rules ( accErrors, accRules ) =
     case rules of
         [] ->
