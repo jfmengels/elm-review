@@ -4430,14 +4430,6 @@ computeReadme reviewOptions project ruleProjectVisitors fixedErrors =
                 )
                 ( [], [] )
                 ruleProjectVisitors
-
-        resultWhenNoFix : () -> { project : ValidProject, step : Step, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
-        resultWhenNoFix () =
-            { project = project
-            , step = Dependencies
-            , ruleProjectVisitors = newRuleProjectVisitors
-            , fixedErrors = fixedErrors
-            }
     in
     case findFix reviewOptions project errors fixedErrors Nothing of
         Just ( postFixStatus, fixResult ) ->
@@ -4459,10 +4451,18 @@ computeReadme reviewOptions project ruleProjectVisitors fixedErrors =
 
                         FixedElmModule _ _ ->
                             -- Not possible, users don't have the module key to provide fixes for an Elm module
-                            resultWhenNoFix ()
+                            { project = project
+                            , step = Dependencies
+                            , ruleProjectVisitors = newRuleProjectVisitors
+                            , fixedErrors = fixedErrors
+                            }
 
         Nothing ->
-            resultWhenNoFix ()
+            { project = project
+            , step = Dependencies
+            , ruleProjectVisitors = newRuleProjectVisitors
+            , fixedErrors = fixedErrors
+            }
 
 
 computeDependencies :
@@ -4497,14 +4497,6 @@ computeDependencies reviewOptions project ruleProjectVisitors fixedErrors =
                 )
                 ( [], [] )
                 ruleProjectVisitors
-
-        resultWhenNoFix : () -> { project : ValidProject, step : Step, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
-        resultWhenNoFix () =
-            { project = project
-            , step = Modules (ValidProject.moduleZipper project)
-            , ruleProjectVisitors = newRuleProjectVisitors
-            , fixedErrors = fixedErrors
-            }
     in
     case findFix reviewOptions project errors fixedErrors Nothing of
         Just ( postFixStatus, fixResult ) ->
@@ -4530,10 +4522,18 @@ computeDependencies reviewOptions project ruleProjectVisitors fixedErrors =
 
                         FixedElmModule _ _ ->
                             -- Not possible, users don't have the module key to provide fixes for an Elm module
-                            resultWhenNoFix ()
+                            { project = project
+                            , step = Modules (ValidProject.moduleZipper project)
+                            , ruleProjectVisitors = newRuleProjectVisitors
+                            , fixedErrors = fixedErrors
+                            }
 
         Nothing ->
-            resultWhenNoFix ()
+            { project = project
+            , step = Modules (ValidProject.moduleZipper project)
+            , ruleProjectVisitors = newRuleProjectVisitors
+            , fixedErrors = fixedErrors
+            }
 
 
 computeFinalProjectEvaluation :
@@ -4765,15 +4765,6 @@ findFixInComputeModuleResults ({ reviewOptions, module_, project, moduleZipper, 
         errors : List (Error {})
         errors =
             List.concatMap (\(RuleProjectVisitor ruleProjectVisitor) -> ruleProjectVisitor.getErrorsForModule modulePath) outputRuleProjectVisitors
-
-        resultWhenNoFix : () -> ComputeModuleFindFixResult projectContext moduleContext
-        resultWhenNoFix () =
-            ContinueWithNextStep
-                { project = project
-                , ruleProjectVisitors = outputRuleProjectVisitors
-                , nextStep = ModuleVisitStep (Zipper.next moduleZipper)
-                , fixedErrors = fixedErrors
-                }
     in
     case findFix reviewOptions project errors fixedErrors (Just moduleZipper) of
         Just ( postFixStatus, fixResult ) ->
@@ -4824,7 +4815,12 @@ findFixInComputeModuleResults ({ reviewOptions, module_, project, moduleZipper, 
                                             )
 
                                     Nothing ->
-                                        resultWhenNoFix ()
+                                        ContinueWithNextStep
+                                            { project = project
+                                            , ruleProjectVisitors = outputRuleProjectVisitors
+                                            , nextStep = ModuleVisitStep (Zipper.next moduleZipper)
+                                            , fixedErrors = fixedErrors
+                                            }
 
                         FixedElmJson ->
                             ContinueWithNextStep
@@ -4843,7 +4839,12 @@ findFixInComputeModuleResults ({ reviewOptions, module_, project, moduleZipper, 
                                 }
 
         Nothing ->
-            resultWhenNoFix ()
+            ContinueWithNextStep
+                { project = project
+                , ruleProjectVisitors = outputRuleProjectVisitors
+                , nextStep = ModuleVisitStep (Zipper.next moduleZipper)
+                , fixedErrors = fixedErrors
+                }
 
 
 computeModules :
