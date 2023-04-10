@@ -4549,6 +4549,7 @@ computeFinalProjectEvaluation :
     -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, step : Step, fixedErrors : FixedErrors }
 computeFinalProjectEvaluation reviewOptions project ruleProjectVisitors fixedErrors =
     let
+        computeFinalProjectEvaluationHelp : List RuleProjectVisitor -> List (Error {}) -> List RuleProjectVisitor -> ( List (Error {}), List RuleProjectVisitor )
         computeFinalProjectEvaluationHelp rules accErrors accRules =
             case rules of
                 [] ->
