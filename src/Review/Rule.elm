@@ -4447,26 +4447,9 @@ computeReadmeHelp reviewOptions project readmeData fixedErrors rules accRules =
                         ( errors, updatedRule ) =
                             visitor project readmeData
                     in
-                    case findFix reviewOptions project errors fixedErrors Nothing of
-                        Just ( postFixStatus, fixResult ) ->
-                            let
-                                ( newFixedErrors, step ) =
-                                    case postFixStatus of
-                                        ShouldAbort newFixedErrors_ ->
-                                            ( newFixedErrors_, EndAnalysis )
-
-                                        ShouldContinue newFixedErrors_ ->
-                                            case fixResult.fixedFile of
-                                                FixedElmJson ->
-                                                    ( newFixedErrors_, ElmJson )
-
-                                                FixedReadme ->
-                                                    ( newFixedErrors_, Readme )
-
-                                                FixedElmModule _ _ ->
-                                                    ( newFixedErrors_, Readme )
-                            in
-                            { project = fixResult.project
+                    case standardFindFix reviewOptions project fixedErrors errors of
+                        Just ( newProject, newFixedErrors, step ) ->
+                            { project = newProject
                             , step = step
                             , ruleProjectVisitors = updatedRule :: (rest ++ accRules)
                             , fixedErrors = newFixedErrors
@@ -5064,6 +5047,29 @@ type FixedFile
 type PostFixStatus
     = ShouldAbort FixedErrors
     | ShouldContinue FixedErrors
+
+
+standardFindFix : ReviewOptionsData -> ValidProject -> FixedErrors -> List (Error a) -> Maybe ( ValidProject, FixedErrors, Step )
+standardFindFix reviewOptions project fixedErrors errors =
+    case findFix reviewOptions project errors fixedErrors Nothing of
+        Nothing ->
+            Nothing
+
+        Just ( postFixStatus, fixResult ) ->
+            case postFixStatus of
+                ShouldAbort newFixedErrors_ ->
+                    Just ( fixResult.project, newFixedErrors_, EndAnalysis )
+
+                ShouldContinue newFixedErrors_ ->
+                    case fixResult.fixedFile of
+                        FixedElmJson ->
+                            Just ( fixResult.project, newFixedErrors_, ElmJson )
+
+                        FixedReadme ->
+                            Just ( fixResult.project, newFixedErrors_, Readme )
+
+                        FixedElmModule _ zipper ->
+                            Just ( fixResult.project, newFixedErrors_, Modules zipper )
 
 
 findFix : ReviewOptionsData -> ValidProject -> List (Error a) -> FixedErrors -> Maybe (Zipper (Graph.NodeContext FilePath ())) -> Maybe ( PostFixStatus, { project : ValidProject, fixedFile : FixedFile, error : ReviewError } )
