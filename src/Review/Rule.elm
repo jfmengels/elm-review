@@ -4335,6 +4335,7 @@ computeStepsForProjectWithoutFixes reviewOptions project ruleProjectVisitors =
                     Nothing ->
                         untouched
             )
+        |> computeModulesWithoutFixes project
         |> List.map
             (\((RuleProjectVisitor ruleProjectVisitor) as untouched) ->
                 case ruleProjectVisitor.finalProjectEvaluation of
@@ -4881,6 +4882,14 @@ findFixInComputeModuleResults ({ reviewOptions, module_, project, moduleZipper, 
                 , nextStep = ModuleVisitStep (Zipper.next moduleZipper)
                 , fixedErrors = fixedErrors
                 }
+
+
+computeModulesWithoutFixes :
+    ValidProject
+    -> List RuleProjectVisitor
+    -> List RuleProjectVisitor
+computeModulesWithoutFixes project rules =
+    rules
 
 
 computeModules :
