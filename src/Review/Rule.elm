@@ -4350,9 +4350,16 @@ computeStepsForProject reviewOptions { project, ruleProjectVisitors, fixedErrors
                 (computeReadme reviewOptions project fixedErrors readmeData ruleProjectVisitors [])
 
         Dependencies ->
+            let
+                dependenciesData : { all : Dict String Review.Project.Dependency.Dependency, direct : Dict String Review.Project.Dependency.Dependency }
+                dependenciesData =
+                    { all = ValidProject.dependencies project
+                    , direct = ValidProject.directDependencies project
+                    }
+            in
             computeStepsForProject
                 reviewOptions
-                (computeDependencies reviewOptions project fixedErrors ruleProjectVisitors)
+                (computeDependencies reviewOptions project fixedErrors dependenciesData ruleProjectVisitors [])
 
         Modules moduleZipper ->
             computeStepsForProject
@@ -4499,29 +4506,11 @@ computeDependencies :
     ReviewOptionsData
     -> ValidProject
     -> FixedErrors
-    -> List RuleProjectVisitor
-    -> { project : ValidProject, step : Step, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
-computeDependencies reviewOptions project fixedErrors rules =
-    computeDependenciesHelp
-        reviewOptions
-        project
-        fixedErrors
-        { all = ValidProject.dependencies project
-        , direct = ValidProject.directDependencies project
-        }
-        rules
-        []
-
-
-computeDependenciesHelp :
-    ReviewOptionsData
-    -> ValidProject
-    -> FixedErrors
     -> { all : Dict String Review.Project.Dependency.Dependency, direct : Dict String Review.Project.Dependency.Dependency }
     -> List RuleProjectVisitor
     -> List RuleProjectVisitor
     -> { project : ValidProject, step : Step, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
-computeDependenciesHelp reviewOptions project fixedErrors dependenciesData rules accRules =
+computeDependencies reviewOptions project fixedErrors dependenciesData rules accRules =
     case rules of
         [] ->
             { project = project
@@ -4546,7 +4535,7 @@ computeDependenciesHelp reviewOptions project fixedErrors dependenciesData rules
                             }
 
                         Nothing ->
-                            computeDependenciesHelp
+                            computeDependencies
                                 reviewOptions
                                 project
                                 fixedErrors
@@ -4555,7 +4544,7 @@ computeDependenciesHelp reviewOptions project fixedErrors dependenciesData rules
                                 (updatedRule :: accRules)
 
                 Nothing ->
-                    computeDependenciesHelp
+                    computeDependencies
                         reviewOptions
                         project
                         fixedErrors
