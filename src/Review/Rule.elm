@@ -4405,10 +4405,6 @@ computeReadme :
     -> { project : ValidProject, step : Step, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
 computeReadme reviewOptions project ruleProjectVisitors fixedErrors =
     let
-        projectReadme : Maybe { path : String, content : String }
-        projectReadme =
-            ValidProject.readme project
-
         readmeData : Maybe { readmeKey : ReadmeKey, content : String }
         readmeData =
             Maybe.map
@@ -4417,7 +4413,7 @@ computeReadme reviewOptions project ruleProjectVisitors fixedErrors =
                     , content = readme.content
                     }
                 )
-                projectReadme
+                (ValidProject.readme project)
     in
     computeReadmeHelp reviewOptions project readmeData ruleProjectVisitors fixedErrors
 
