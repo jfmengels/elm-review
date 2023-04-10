@@ -4311,7 +4311,7 @@ computeStepsForProject reviewOptions { project, ruleProjectVisitors, fixedErrors
                 reviewOptions
                 (computeFinalProjectEvaluation reviewOptions project ruleProjectVisitors fixedErrors)
 
-        Abort ->
+        EndAnalysis ->
             { project = project
             , ruleProjectVisitors = ruleProjectVisitors
             , fixedErrors = fixedErrors
@@ -4324,7 +4324,7 @@ type Step
     | Dependencies
     | Modules (Zipper GraphModule)
     | FinalProjectEvaluation
-    | Abort
+    | EndAnalysis
 
 
 type NextStep
@@ -4384,7 +4384,7 @@ computeElmJson reviewOptions project ruleProjectVisitors fixedErrors =
                             newFixedErrors_
             in
             { project = fixResult.project
-            , step = Abort
+            , step = EndAnalysis
             , ruleProjectVisitors = newRuleProjectVisitors
             , fixedErrors = newFixedErrors
             }
@@ -4440,7 +4440,7 @@ computeReadme reviewOptions project ruleProjectVisitors fixedErrors =
         Just ( postFixStatus, fixResult ) ->
             case postFixStatus of
                 ShouldAbort newFixedErrors ->
-                    { project = fixResult.project, step = Abort, ruleProjectVisitors = newRuleProjectVisitors, fixedErrors = newFixedErrors }
+                    { project = fixResult.project, step = EndAnalysis, ruleProjectVisitors = newRuleProjectVisitors, fixedErrors = newFixedErrors }
 
                 ShouldContinue newFixedErrors ->
                     case fixResult.fixedFile of
@@ -4507,7 +4507,7 @@ computeDependencies reviewOptions project ruleProjectVisitors fixedErrors =
         Just ( postFixStatus, fixResult ) ->
             case postFixStatus of
                 ShouldAbort newFixedErrors ->
-                    { project = fixResult.project, step = Abort, ruleProjectVisitors = newRuleProjectVisitors, fixedErrors = newFixedErrors }
+                    { project = fixResult.project, step = EndAnalysis, ruleProjectVisitors = newRuleProjectVisitors, fixedErrors = newFixedErrors }
 
                 ShouldContinue newFixedErrors ->
                     case fixResult.fixedFile of
@@ -4572,7 +4572,7 @@ computeFinalProjectEvaluation reviewOptions project ruleProjectVisitors fixedErr
                 ( newFixedErrors, step ) =
                     case postFixStatus of
                         ShouldAbort newFixedErrors_ ->
-                            ( newFixedErrors_, Abort )
+                            ( newFixedErrors_, EndAnalysis )
 
                         ShouldContinue newFixedErrors_ ->
                             ( newFixedErrors_
@@ -4596,7 +4596,7 @@ computeFinalProjectEvaluation reviewOptions project ruleProjectVisitors fixedErr
         Nothing ->
             { project = project
             , ruleProjectVisitors = newRuleProjectVisitors
-            , step = Abort
+            , step = EndAnalysis
             , fixedErrors = fixedErrors
             }
 
@@ -4897,7 +4897,7 @@ computeModules reviewOptions maybeModuleZipper initialProject ruleProjectVisitor
                 NextStepAbort ->
                     { project = result.project
                     , ruleProjectVisitors = result.ruleProjectVisitors
-                    , step = Abort
+                    , step = EndAnalysis
                     , fixedErrors = result.fixedErrors
                     }
 
