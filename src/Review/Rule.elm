@@ -4309,7 +4309,7 @@ computeStepsForProject reviewOptions { project, ruleProjectVisitors, fixedErrors
         FinalProjectEvaluation ->
             computeStepsForProject
                 reviewOptions
-                (computeFinalProjectEvaluation reviewOptions project ruleProjectVisitors fixedErrors)
+                (computeFinalProjectEvaluation reviewOptions project fixedErrors ruleProjectVisitors [])
 
         EndAnalysis ->
             { project = project
@@ -4544,21 +4544,11 @@ computeDependencies reviewOptions project ruleProjectVisitors fixedErrors =
 computeFinalProjectEvaluation :
     ReviewOptionsData
     -> ValidProject
-    -> List RuleProjectVisitor
-    -> FixedErrors
-    -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, step : Step, fixedErrors : FixedErrors }
-computeFinalProjectEvaluation reviewOptions project ruleProjectVisitors fixedErrors =
-    computeFinalProjectEvaluationHelp reviewOptions project fixedErrors ruleProjectVisitors []
-
-
-computeFinalProjectEvaluationHelp :
-    ReviewOptionsData
-    -> ValidProject
     -> FixedErrors
     -> List RuleProjectVisitor
     -> List RuleProjectVisitor
     -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, step : Step, fixedErrors : FixedErrors }
-computeFinalProjectEvaluationHelp reviewOptions project fixedErrors rules accRules =
+computeFinalProjectEvaluation reviewOptions project fixedErrors rules accRules =
     case rules of
         [] ->
             { project = project
@@ -4602,7 +4592,7 @@ computeFinalProjectEvaluationHelp reviewOptions project fixedErrors rules accRul
                             }
 
                         Nothing ->
-                            computeFinalProjectEvaluationHelp
+                            computeFinalProjectEvaluation
                                 reviewOptions
                                 project
                                 fixedErrors
@@ -4610,7 +4600,7 @@ computeFinalProjectEvaluationHelp reviewOptions project fixedErrors rules accRul
                                 (updatedRule :: accRules)
 
                 Nothing ->
-                    computeFinalProjectEvaluationHelp
+                    computeFinalProjectEvaluation
                         reviewOptions
                         project
                         fixedErrors
