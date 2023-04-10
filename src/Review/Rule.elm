@@ -4735,17 +4735,8 @@ computeModuleWithRuleVisitors :
     -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, nextStep : NextStep, fixedErrors : FixedErrors }
 computeModuleWithRuleVisitors params inputRuleModuleVisitors filePath (RequestedData requestedData) rulesNotToRun =
     let
-        moduleName : ModuleName
-        moduleName =
-            ProjectModule.moduleName params.module_
-
         ( moduleNameLookupTable, newProject ) =
-            -- TODO If the file has changed, then compute the module docs anyway.
-            if requestedData.moduleNameLookupTable then
-                Review.ModuleNameLookupTable.Compute.compute moduleName params.module_ params.project
-
-            else
-                ( ModuleNameLookupTableInternal.empty moduleName, params.project )
+            computeModuleNameLookupTable requestedData params.project params.module_
 
         ast : File
         ast =
@@ -4784,6 +4775,21 @@ computeModuleWithRuleVisitors params inputRuleModuleVisitors filePath (Requested
 
         ReComputeModule newParams ->
             computeModule newParams
+
+
+computeModuleNameLookupTable : { a | moduleNameLookupTable : Bool } -> ValidProject -> OpaqueProjectModule -> ( ModuleNameLookupTableInternal.ModuleNameLookupTable, ValidProject )
+computeModuleNameLookupTable requestedData project module_ =
+    let
+        moduleName : ModuleName
+        moduleName =
+            ProjectModule.moduleName module_
+    in
+    -- TODO If the file has changed, then compute the module docs anyway.
+    if requestedData.moduleNameLookupTable then
+        Review.ModuleNameLookupTable.Compute.compute moduleName module_ project
+
+    else
+        ( ModuleNameLookupTableInternal.empty moduleName, project )
 
 
 type ComputeModuleFindFixResult projectContext moduleContext
