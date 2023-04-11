@@ -4656,16 +4656,20 @@ computeModule params =
     let
         ( inputRuleModuleVisitors, requestedData, rulesNotToRun ) =
             computeWhatsRequiredToAnalyze params.project params.module_ params.incoming params.ruleProjectVisitors
-    in
-    if List.isEmpty inputRuleModuleVisitors then
-        { project = params.project
-        , ruleProjectVisitors = params.ruleProjectVisitors
-        , nextStep = ModuleVisitStep (Zipper.next params.moduleZipper)
-        , fixedErrors = params.fixedErrors
-        }
 
-    else
-        computeModuleWithRuleVisitorsAndFindFix params inputRuleModuleVisitors requestedData rulesNotToRun
+        ( newProject, newRules ) =
+            if List.isEmpty inputRuleModuleVisitors then
+                ( params.project, params.ruleProjectVisitors )
+
+            else
+                computeModuleWithRuleVisitors params.project params.module_ inputRuleModuleVisitors requestedData rulesNotToRun
+    in
+    case findFixInComputeModuleResults { params | project = newProject } newRules of
+        ContinueWithNextStep nextStepResult ->
+            nextStepResult
+
+        ReComputeModule newParams ->
+            computeModule newParams
 
 
 computeWhatsRequiredToAnalyze : ValidProject -> OpaqueProjectModule -> Graph.Adjacency () -> List RuleProjectVisitor -> ( List (AvailableData -> RuleModuleVisitor), RequestedData, List RuleProjectVisitor )
