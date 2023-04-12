@@ -4429,21 +4429,21 @@ computeElmJson reviewOptions project fixedErrors elmJsonData rules accRules =
                             visitor project elmJsonData
                     in
                     case standardFindFix reviewOptions project fixedErrors updatedRule.setErrorsForElmJson errors of
-                        Just { newProject, newRule, newFixedErrors, step } ->
+                        FoundFixStandard { newProject, newRule, newFixedErrors, step } ->
                             { project = newProject
                             , ruleProjectVisitors = newRule :: (rest ++ accRules)
                             , step = step
                             , fixedErrors = newFixedErrors
                             }
 
-                        Nothing ->
+                        FoundNoFixesStandard newRule ->
                             computeElmJson
                                 reviewOptions
                                 project
                                 fixedErrors
                                 elmJsonData
                                 rest
-                                (RuleProjectVisitor updatedRule :: accRules)
+                                (newRule :: accRules)
 
                 Nothing ->
                     computeElmJson
@@ -4480,21 +4480,21 @@ computeReadme reviewOptions project fixedErrors readmeData rules accRules =
                             visitor project readmeData
                     in
                     case standardFindFix reviewOptions project fixedErrors updatedRule.setErrorsForReadme errors of
-                        Just { newProject, newRule, newFixedErrors, step } ->
+                        FoundFixStandard { newProject, newRule, newFixedErrors, step } ->
                             { project = newProject
                             , ruleProjectVisitors = newRule :: (rest ++ accRules)
                             , step = step
                             , fixedErrors = newFixedErrors
                             }
 
-                        Nothing ->
+                        FoundNoFixesStandard newRule ->
                             computeReadme
                                 reviewOptions
                                 project
                                 fixedErrors
                                 readmeData
                                 rest
-                                (RuleProjectVisitor updatedRule :: accRules)
+                                (newRule :: accRules)
 
                 Nothing ->
                     computeReadme
@@ -4531,21 +4531,21 @@ computeDependencies reviewOptions project fixedErrors dependenciesData rules acc
                             visitor project dependenciesData
                     in
                     case standardFindFix reviewOptions project fixedErrors updatedRule.setErrorsForDependencies errors of
-                        Just { newProject, newRule, newFixedErrors, step } ->
+                        FoundFixStandard { newProject, newRule, newFixedErrors, step } ->
                             { project = newProject
                             , ruleProjectVisitors = newRule :: (rest ++ accRules)
                             , step = step
                             , fixedErrors = newFixedErrors
                             }
 
-                        Nothing ->
+                        FoundNoFixesStandard newRule ->
                             computeDependencies
                                 reviewOptions
                                 project
                                 fixedErrors
                                 dependenciesData
                                 rest
-                                (RuleProjectVisitor updatedRule :: accRules)
+                                (newRule :: accRules)
 
                 Nothing ->
                     computeDependencies
@@ -4581,20 +4581,20 @@ computeFinalProjectEvaluation reviewOptions project fixedErrors rules accRules =
                             visitor ()
                     in
                     case standardFindFix reviewOptions project fixedErrors updatedRule.setErrorsForFinalEvaluation errors of
-                        Just { newProject, newRule, newFixedErrors, step } ->
+                        FoundFixStandard { newProject, newRule, newFixedErrors, step } ->
                             { project = newProject
                             , ruleProjectVisitors = newRule :: (rest ++ accRules)
                             , step = step
                             , fixedErrors = newFixedErrors
                             }
 
-                        Nothing ->
+                        FoundNoFixesStandard newRule ->
                             computeFinalProjectEvaluation
                                 reviewOptions
                                 project
                                 fixedErrors
                                 rest
-                                (RuleProjectVisitor updatedRule :: accRules)
+                                (newRule :: accRules)
 
                 Nothing ->
                     computeFinalProjectEvaluation
@@ -5061,12 +5061,16 @@ type PostFixStatus
     | ShouldContinue FixedErrors
 
 
-standardFindFix : ReviewOptionsData -> ValidProject -> FixedErrors -> (List (Error {}) -> RuleProjectVisitor) -> List (Error {}) -> Maybe { newProject : ValidProject, newRule : RuleProjectVisitor, step : Step, newFixedErrors : FixedErrors }
+type StandardFindFixResult
+    = FoundNoFixesStandard RuleProjectVisitor
+    | FoundFixStandard { newProject : ValidProject, newRule : RuleProjectVisitor, step : Step, newFixedErrors : FixedErrors }
+
+
+standardFindFix : ReviewOptionsData -> ValidProject -> FixedErrors -> (List (Error {}) -> RuleProjectVisitor) -> List (Error {}) -> StandardFindFixResult
 standardFindFix reviewOptions project fixedErrors updateErrors errors =
     case findFix reviewOptions project updateErrors errors fixedErrors Nothing of
         FoundNoFixes newRule ->
-            -- TODO Also return the rule if there are no errors
-            Nothing
+            FoundNoFixesStandard newRule
 
         FoundFix newRule ( postFixStatus, fixResult ) ->
             let
@@ -5086,7 +5090,7 @@ standardFindFix reviewOptions project fixedErrors updateErrors errors =
                                 FixedElmModule _ zipper ->
                                     ( newFixedErrors_, Modules zipper )
             in
-            Just { newProject = fixResult.project, newRule = newRule, newFixedErrors = newFixedErrors, step = step }
+            FoundFixStandard { newProject = fixResult.project, newRule = newRule, newFixedErrors = newFixedErrors, step = step }
 
 
 type FindFixResult
