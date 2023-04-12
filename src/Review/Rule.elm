@@ -5436,7 +5436,7 @@ createRuleProjectVisitor schema initialProject ruleData initialCache =
                 { elmJsonVisitor = createProjectVisitor schema hidden schema.elmJsonVisitor [] ValidProject.elmJsonHash .elmJson (\entry -> raiseCache { cache | elmJson = Just entry }) (\() -> raise hidden)
                 , readmeVisitor = createProjectVisitor schema hidden schema.readmeVisitor [ cache.elmJson ] ValidProject.readmeHash .readme (\entry -> raiseCache { cache | readme = Just entry }) (\() -> raise hidden)
                 , dependenciesVisitor = createDependenciesVisitor schema hidden.ruleData raiseCache cache { allVisitor = schema.dependenciesVisitor, directVisitor = schema.directDependenciesVisitor }
-                , createModuleVisitorFromProjectVisitor = createModuleVisitorFromProjectVisitor schema hidden.ruleData.exceptions raiseCache hidden
+                , createModuleVisitorFromProjectVisitor = createModuleVisitorFromProjectVisitor schema raiseCache hidden
                 , finalProjectEvaluation = createFinalProjectEvaluationVisitor schema hidden.ruleData raiseCache cache
                 , dataExtractVisitor = createDataExtractVisitor schema raiseCache cache
                 , getErrorsForModule = \filePath -> getErrorsForModule cache filePath
@@ -5714,11 +5714,10 @@ createDataExtractVisitor schema raise cache =
 
 createModuleVisitorFromProjectVisitor :
     ProjectRuleSchemaData projectContext moduleContext
-    -> Exceptions
     -> (ProjectRuleCache projectContext -> RuleProjectVisitor)
     -> RuleProjectVisitorHidden projectContext
     -> Maybe (ValidProject -> String -> ContentHash -> Graph.Adjacency () -> Maybe (AvailableData -> RuleModuleVisitor))
-createModuleVisitorFromProjectVisitor schema exceptions raise hidden =
+createModuleVisitorFromProjectVisitor schema raise hidden =
     case mergeModuleVisitors schema.name schema.initialProjectContext schema.moduleContextCreator schema.moduleVisitors of
         Nothing ->
             Nothing
@@ -5737,12 +5736,11 @@ createModuleVisitorFromProjectVisitor schema exceptions raise hidden =
                         ( ImportedModulesFirst, Nothing ) ->
                             TraverseAllModulesInParallel Nothing
             in
-            Just (createModuleVisitorFromProjectVisitorHelp schema exceptions raise hidden traversalAndFolder moduleRuleSchema)
+            Just (createModuleVisitorFromProjectVisitorHelp schema raise hidden traversalAndFolder moduleRuleSchema)
 
 
 createModuleVisitorFromProjectVisitorHelp :
     ProjectRuleSchemaData projectContext moduleContext
-    -> Exceptions
     -> (ProjectRuleCache projectContext -> RuleProjectVisitor)
     -> RuleProjectVisitorHidden projectContext
     -> TraversalAndFolder projectContext moduleContext
@@ -5752,7 +5750,7 @@ createModuleVisitorFromProjectVisitorHelp :
     -> ContentHash
     -> Graph.Adjacency ()
     -> Maybe (AvailableData -> RuleModuleVisitor)
-createModuleVisitorFromProjectVisitorHelp schema exceptions raise hidden traversalAndFolder ( ModuleRuleSchema moduleRuleSchema, moduleContextCreator ) =
+createModuleVisitorFromProjectVisitorHelp schema raise hidden traversalAndFolder ( ModuleRuleSchema moduleRuleSchema, moduleContextCreator ) =
     \project filePath moduleContentHash incoming ->
         let
             ( initialProjectContextHash, initialProjectContext ) =
@@ -5764,7 +5762,7 @@ createModuleVisitorFromProjectVisitorHelp schema exceptions raise hidden travers
 
             isFileIgnored : Bool
             isFileIgnored =
-                not (Exceptions.isFileWeWantReportsFor exceptions filePath)
+                not (Exceptions.isFileWeWantReportsFor hidden.ruleData.exceptions filePath)
 
             shouldReuseCache : Cache.ModuleEntry error projectContext -> Bool
             shouldReuseCache cacheEntry =
@@ -5799,7 +5797,7 @@ createModuleVisitorFromProjectVisitorHelp schema exceptions raise hidden travers
 
                             ruleData : { ruleName : String, exceptions : Exceptions, filePath : String }
                             ruleData =
-                                { ruleName = schema.name, exceptions = exceptions, filePath = availableData.filePath }
+                                { ruleName = schema.name, exceptions = hidden.ruleData.exceptions, filePath = availableData.filePath }
 
                             toRuleProjectVisitor : ( List (Error {}), moduleContext ) -> RuleProjectVisitor
                             toRuleProjectVisitor ( errors, resultModuleContext ) =
