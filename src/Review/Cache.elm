@@ -1,4 +1,4 @@
-module Review.Cache exposing (EntryNoOutputContext, ModuleEntry, ProjectFileCache, createEntryForProjectFileCache, createModuleEntry, createNoOutput, errors, errorsForMaybeProjectFileCache, errorsFromProjectFileCache, match, matchNoOutput, matchProjectFileCache, outputContext, outputContextForProjectFileCache, outputContextHash, outputContextHashForProjectFileCache, outputForNoOutput, setErrorsForModule)
+module Review.Cache exposing (EntryNoOutputContext, ModuleEntry, ProjectFileCache, createEntryForProjectFileCache, createModuleEntry, createNoOutput, errors, errorsForMaybeProjectFileCache, errorsFromProjectFileCache, match, matchNoOutput, matchProjectFileCache, outputContext, outputContextForProjectFileCache, outputContextHash, outputContextHashForProjectFileCache, outputForNoOutput, setErrorsForMaybeProjectFileCache, setErrorsForModule, setOutputForNoOutput)
 
 import Review.Cache.ContentHash as ContentHash exposing (ContentHash)
 import Review.Cache.ContextHash as ContextHash exposing (ComparableContextHash, ContextHash)
@@ -111,6 +111,16 @@ errorsFromProjectFileCache (ProjectFileCache entry) =
     entry.errors
 
 
+setErrorsForMaybeProjectFileCache : List error -> Maybe (ProjectFileCache error context) -> Maybe (ProjectFileCache error context)
+setErrorsForMaybeProjectFileCache newErrors maybeEntry =
+    case maybeEntry of
+        Just (ProjectFileCache entry) ->
+            Just (ProjectFileCache { entry | errors = newErrors })
+
+        Nothing ->
+            Nothing
+
+
 errorsForMaybeProjectFileCache : Maybe (ProjectFileCache error context) -> List error
 errorsForMaybeProjectFileCache maybeEntry =
     case maybeEntry of
@@ -152,3 +162,13 @@ matchNoOutput context (EntryNoOutputContext entry) =
 outputForNoOutput : EntryNoOutputContext output context -> output
 outputForNoOutput (EntryNoOutputContext entry) =
     entry.output
+
+
+setOutputForNoOutput : output -> Maybe (EntryNoOutputContext output context) -> Maybe (EntryNoOutputContext output context)
+setOutputForNoOutput newOutput maybeEntry =
+    case maybeEntry of
+        Just (EntryNoOutputContext entry) ->
+            Just (EntryNoOutputContext { inputContextHashes = entry.inputContextHashes, output = newOutput })
+
+        Nothing ->
+            Nothing

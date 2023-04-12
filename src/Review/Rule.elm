@@ -5437,6 +5437,10 @@ type alias RuleProjectVisitorOperations =
     , getErrorsForModule : String -> List (Error {})
     , getErrors : () -> List (Error {})
     , setErrorsForModule : String -> List (Error {}) -> RuleProjectVisitor
+    , setErrorsForElmJson : List (Error {}) -> RuleProjectVisitor
+    , setErrorsForReadme : List (Error {}) -> RuleProjectVisitor
+    , setErrorsForDependencies : List (Error {}) -> RuleProjectVisitor
+    , setErrorsForFinalEvaluation : List (Error {}) -> RuleProjectVisitor
     , backToRule : () -> Rule
     , requestedData : RequestedData
     }
@@ -5463,7 +5467,11 @@ createRuleProjectVisitor schema initialProject ruleData initialCache =
 
                 -- TODO This is called at the wrong moment: This contains the state of the project with fixes that haven't been applied.
                 , getErrors = \() -> errorsFromCache (finalCacheMarker schema.name hidden.ruleData.ruleId cache)
-                , setErrorsForModule = \filePath errors -> raiseCache { cache | moduleContexts = Dict.update filePath (Maybe.map (\entry -> Cache.setErrorsForModule errors entry)) cache.moduleContexts }
+                , setErrorsForModule = \filePath newErrors -> raiseCache { cache | moduleContexts = Dict.update filePath (Maybe.map (\entry -> Cache.setErrorsForModule newErrors entry)) cache.moduleContexts }
+                , setErrorsForElmJson = \newErrors -> raiseCache { cache | elmJson = Cache.setErrorsForMaybeProjectFileCache newErrors cache.elmJson }
+                , setErrorsForReadme = \newErrors -> raiseCache { cache | readme = Cache.setErrorsForMaybeProjectFileCache newErrors cache.readme }
+                , setErrorsForDependencies = \newErrors -> raiseCache { cache | dependencies = Cache.setErrorsForMaybeProjectFileCache newErrors cache.dependencies }
+                , setErrorsForFinalEvaluation = \newErrors -> raiseCache { cache | finalEvaluationErrors = Cache.setOutputForNoOutput newErrors cache.finalEvaluationErrors }
                 , backToRule =
                     \() ->
                         Rule
