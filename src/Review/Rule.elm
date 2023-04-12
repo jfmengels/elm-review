@@ -5089,8 +5089,8 @@ standardFindFix reviewOptions project fixedErrors rule errors =
 
 
 type FindFixResult
-    = FoundNoFixes (List (Error {}))
-    | FoundFix (List (Error {})) ( PostFixStatus, { project : ValidProject, fixedFile : FixedFile, error : ReviewError } )
+    = FoundNoFixes RuleProjectVisitor
+    | FoundFix RuleProjectVisitor ( PostFixStatus, { project : ValidProject, fixedFile : FixedFile, error : ReviewError } )
 
 
 findFix : ReviewOptionsData -> ValidProject -> RuleProjectVisitor -> List (Error {}) -> FixedErrors -> Maybe (Zipper (Graph.NodeContext FilePath ())) -> Maybe ( PostFixStatus, { project : ValidProject, fixedFile : FixedFile, error : ReviewError } )
