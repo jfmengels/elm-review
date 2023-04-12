@@ -4429,10 +4429,10 @@ computeElmJson reviewOptions project fixedErrors elmJsonData rules accRules =
                             visitor project elmJsonData
                     in
                     case standardFindFix reviewOptions project fixedErrors updatedRule errors of
-                        Just ( newProject, newFixedErrors, step ) ->
+                        Just { newProject, newRule, newFixedErrors, step } ->
                             { project = newProject
+                            , ruleProjectVisitors = newRule :: (rest ++ accRules)
                             , step = step
-                            , ruleProjectVisitors = updatedRule :: (rest ++ accRules)
                             , fixedErrors = newFixedErrors
                             }
 
@@ -4480,10 +4480,10 @@ computeReadme reviewOptions project fixedErrors readmeData rules accRules =
                             visitor project readmeData
                     in
                     case standardFindFix reviewOptions project fixedErrors updatedRule errors of
-                        Just ( newProject, newFixedErrors, step ) ->
+                        Just { newProject, newRule, newFixedErrors, step } ->
                             { project = newProject
+                            , ruleProjectVisitors = newRule :: (rest ++ accRules)
                             , step = step
-                            , ruleProjectVisitors = updatedRule :: (rest ++ accRules)
                             , fixedErrors = newFixedErrors
                             }
 
@@ -4531,9 +4531,9 @@ computeDependencies reviewOptions project fixedErrors dependenciesData rules acc
                             visitor project dependenciesData
                     in
                     case standardFindFix reviewOptions project fixedErrors updatedRule errors of
-                        Just ( newProject, newFixedErrors, step ) ->
+                        Just { newProject, newRule, newFixedErrors, step } ->
                             { project = newProject
-                            , ruleProjectVisitors = updatedRule :: (rest ++ accRules)
+                            , ruleProjectVisitors = newRule :: (rest ++ accRules)
                             , step = step
                             , fixedErrors = newFixedErrors
                             }
@@ -4581,9 +4581,9 @@ computeFinalProjectEvaluation reviewOptions project fixedErrors rules accRules =
                             visitor ()
                     in
                     case standardFindFix reviewOptions project fixedErrors updatedRule errors of
-                        Just ( newProject, newFixedErrors, step ) ->
+                        Just { newProject, newRule, newFixedErrors, step } ->
                             { project = newProject
-                            , ruleProjectVisitors = updatedRule :: (rest ++ accRules)
+                            , ruleProjectVisitors = newRule :: (rest ++ accRules)
                             , step = step
                             , fixedErrors = newFixedErrors
                             }
@@ -5061,8 +5061,8 @@ type PostFixStatus
     | ShouldContinue FixedErrors
 
 
-standardFindFix : ReviewOptionsData -> ValidProject -> FixedErrors -> RuleProjectVisitor -> List (Error a) -> Maybe ( ValidProject, FixedErrors, Step )
-standardFindFix reviewOptions project fixedErrors ruleProjectVisitor errors =
+standardFindFix : ReviewOptionsData -> ValidProject -> FixedErrors -> RuleProjectVisitor -> List (Error a) -> Maybe { newProject : ValidProject, newRule : RuleProjectVisitor, step : Step, newFixedErrors : FixedErrors }
+standardFindFix reviewOptions project fixedErrors rule errors =
     case findFix reviewOptions project errors fixedErrors Nothing of
         Nothing ->
             Nothing
@@ -5070,18 +5070,18 @@ standardFindFix reviewOptions project fixedErrors ruleProjectVisitor errors =
         Just ( postFixStatus, fixResult ) ->
             case postFixStatus of
                 ShouldAbort newFixedErrors_ ->
-                    Just ( fixResult.project, newFixedErrors_, EndAnalysis )
+                    Just { newProject = fixResult.project, newRule = rule, newFixedErrors = newFixedErrors_, step = EndAnalysis }
 
                 ShouldContinue newFixedErrors_ ->
                     case fixResult.fixedFile of
                         FixedElmJson ->
-                            Just ( fixResult.project, newFixedErrors_, ElmJson )
+                            Just { newProject = fixResult.project, newRule = rule, newFixedErrors = newFixedErrors_, step = ElmJson }
 
                         FixedReadme ->
-                            Just ( fixResult.project, newFixedErrors_, Readme )
+                            Just { newProject = fixResult.project, newRule = rule, newFixedErrors = newFixedErrors_, step = Readme }
 
                         FixedElmModule _ zipper ->
-                            Just ( fixResult.project, newFixedErrors_, Modules zipper )
+                            Just { newProject = fixResult.project, newRule = rule, newFixedErrors = newFixedErrors_, step = Modules zipper }
 
 
 type FindFixResult
