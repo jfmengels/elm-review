@@ -5091,28 +5091,32 @@ type FindFixResult
 
 findFix : ReviewOptionsData -> ValidProject -> List (Error a) -> FixedErrors -> Maybe (Zipper (Graph.NodeContext FilePath ())) -> Maybe ( PostFixStatus, { project : ValidProject, fixedFile : FixedFile, error : ReviewError } )
 findFix reviewOptions project errors fixedErrors maybeModuleZipper =
-    InternalOptions.shouldApplyFix reviewOptions
-        |> Maybe.andThen (\fixablePredicate -> findFixHelp project fixablePredicate errors [] maybeModuleZipper)
-        |> Maybe.map
-            (\fixResult ->
-                let
-                    newFixedErrors : FixedErrors
-                    newFixedErrors =
-                        FixedErrors.insert fixResult.error fixedErrors
+    case InternalOptions.shouldApplyFix reviewOptions of
+        Nothing ->
+            Nothing
 
-                    nextStep : PostFixStatus
-                    nextStep =
-                        if InternalOptions.shouldContinueLookingForFixes reviewOptions newFixedErrors then
-                            ShouldContinue newFixedErrors
+        Just fixablePredicate ->
+            findFixHelp project fixablePredicate errors [] maybeModuleZipper
+                |> Maybe.map
+                    (\fixResult ->
+                        let
+                            newFixedErrors : FixedErrors
+                            newFixedErrors =
+                                FixedErrors.insert fixResult.error fixedErrors
 
-                        else
-                            ShouldAbort newFixedErrors
-                in
-                ( nextStep, fixResult )
-                    |> Logger.log
-                        reviewOptions.logger
-                        (fixedError newFixedErrors { ruleName = errorRuleName fixResult.error, filePath = errorFilePath fixResult.error })
-            )
+                            nextStep : PostFixStatus
+                            nextStep =
+                                if InternalOptions.shouldContinueLookingForFixes reviewOptions newFixedErrors then
+                                    ShouldContinue newFixedErrors
+
+                                else
+                                    ShouldAbort newFixedErrors
+                        in
+                        ( nextStep, fixResult )
+                            |> Logger.log
+                                reviewOptions.logger
+                                (fixedError newFixedErrors { ruleName = errorRuleName fixResult.error, filePath = errorFilePath fixResult.error })
+                    )
 
 
 findFixHelp :
