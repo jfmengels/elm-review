@@ -4425,10 +4425,10 @@ computeElmJson reviewOptions project fixedErrors elmJsonData rules accRules =
             case rule.elmJsonVisitor of
                 Just visitor ->
                     let
-                        ( errors, updatedRule ) =
+                        ( errors, RuleProjectVisitor updatedRule ) =
                             visitor project elmJsonData
                     in
-                    case standardFindFix reviewOptions project fixedErrors updatedRule errors of
+                    case standardFindFix reviewOptions project fixedErrors (RuleProjectVisitor updatedRule) updatedRule.setErrorsForElmJson errors of
                         Just { newProject, newRule, newFixedErrors, step } ->
                             { project = newProject
                             , ruleProjectVisitors = newRule :: (rest ++ accRules)
@@ -4443,7 +4443,7 @@ computeElmJson reviewOptions project fixedErrors elmJsonData rules accRules =
                                 fixedErrors
                                 elmJsonData
                                 rest
-                                (updatedRule :: accRules)
+                                (RuleProjectVisitor updatedRule :: accRules)
 
                 Nothing ->
                     computeElmJson
@@ -4476,10 +4476,10 @@ computeReadme reviewOptions project fixedErrors readmeData rules accRules =
             case rule.readmeVisitor of
                 Just visitor ->
                     let
-                        ( errors, updatedRule ) =
+                        ( errors, RuleProjectVisitor updatedRule ) =
                             visitor project readmeData
                     in
-                    case standardFindFix reviewOptions project fixedErrors updatedRule errors of
+                    case standardFindFix reviewOptions project fixedErrors (RuleProjectVisitor updatedRule) updatedRule.setErrorsForReadme errors of
                         Just { newProject, newRule, newFixedErrors, step } ->
                             { project = newProject
                             , ruleProjectVisitors = newRule :: (rest ++ accRules)
@@ -4494,7 +4494,7 @@ computeReadme reviewOptions project fixedErrors readmeData rules accRules =
                                 fixedErrors
                                 readmeData
                                 rest
-                                (updatedRule :: accRules)
+                                (RuleProjectVisitor updatedRule :: accRules)
 
                 Nothing ->
                     computeReadme
@@ -4527,10 +4527,10 @@ computeDependencies reviewOptions project fixedErrors dependenciesData rules acc
             case rule.dependenciesVisitor of
                 Just visitor ->
                     let
-                        ( errors, updatedRule ) =
+                        ( errors, RuleProjectVisitor updatedRule ) =
                             visitor project dependenciesData
                     in
-                    case standardFindFix reviewOptions project fixedErrors updatedRule errors of
+                    case standardFindFix reviewOptions project fixedErrors (RuleProjectVisitor updatedRule) updatedRule.setErrorsForDependencies errors of
                         Just { newProject, newRule, newFixedErrors, step } ->
                             { project = newProject
                             , ruleProjectVisitors = newRule :: (rest ++ accRules)
@@ -4545,7 +4545,7 @@ computeDependencies reviewOptions project fixedErrors dependenciesData rules acc
                                 fixedErrors
                                 dependenciesData
                                 rest
-                                (updatedRule :: accRules)
+                                (RuleProjectVisitor updatedRule :: accRules)
 
                 Nothing ->
                     computeDependencies
@@ -4577,10 +4577,10 @@ computeFinalProjectEvaluation reviewOptions project fixedErrors rules accRules =
             case rule.finalProjectEvaluation of
                 Just visitor ->
                     let
-                        ( errors, updatedRule ) =
+                        ( errors, RuleProjectVisitor updatedRule ) =
                             visitor ()
                     in
-                    case standardFindFix reviewOptions project fixedErrors updatedRule errors of
+                    case standardFindFix reviewOptions project fixedErrors (RuleProjectVisitor updatedRule) updatedRule.setErrorsForFinalEvaluation errors of
                         Just { newProject, newRule, newFixedErrors, step } ->
                             { project = newProject
                             , ruleProjectVisitors = newRule :: (rest ++ accRules)
@@ -4594,7 +4594,7 @@ computeFinalProjectEvaluation reviewOptions project fixedErrors rules accRules =
                                 project
                                 fixedErrors
                                 rest
-                                (updatedRule :: accRules)
+                                (RuleProjectVisitor updatedRule :: accRules)
 
                 Nothing ->
                     computeFinalProjectEvaluation
@@ -4794,7 +4794,7 @@ findFixInComputeModuleResults ({ reviewOptions, module_, project, moduleZipper, 
                 errors =
                     ruleProjectVisitor.getErrorsForModule modulePath
             in
-            case findFix reviewOptions project currentRule errors fixedErrors (Just moduleZipper) of
+            case findFix reviewOptions project (\newErrors -> ruleProjectVisitor.setErrorsForModule modulePath newErrors) errors fixedErrors (Just moduleZipper) of
                 Just ( postFixStatus, fixResult ) ->
                     case postFixStatus of
                         ShouldAbort newFixedErrors ->
@@ -5061,9 +5061,9 @@ type PostFixStatus
     | ShouldContinue FixedErrors
 
 
-standardFindFix : ReviewOptionsData -> ValidProject -> FixedErrors -> RuleProjectVisitor -> List (Error {}) -> Maybe { newProject : ValidProject, newRule : RuleProjectVisitor, step : Step, newFixedErrors : FixedErrors }
-standardFindFix reviewOptions project fixedErrors rule errors =
-    case findFix reviewOptions project rule errors fixedErrors Nothing of
+standardFindFix : ReviewOptionsData -> ValidProject -> FixedErrors -> RuleProjectVisitor -> (List (Error {}) -> RuleProjectVisitor) -> List (Error {}) -> Maybe { newProject : ValidProject, newRule : RuleProjectVisitor, step : Step, newFixedErrors : FixedErrors }
+standardFindFix reviewOptions project fixedErrors rule updateErrors errors =
+    case findFix reviewOptions project updateErrors errors fixedErrors Nothing of
         Nothing ->
             Nothing
 
@@ -5093,8 +5093,8 @@ type FindFixResult
     | FoundFix RuleProjectVisitor ( PostFixStatus, { project : ValidProject, fixedFile : FixedFile, error : ReviewError } )
 
 
-findFix : ReviewOptionsData -> ValidProject -> RuleProjectVisitor -> List (Error {}) -> FixedErrors -> Maybe (Zipper (Graph.NodeContext FilePath ())) -> Maybe ( PostFixStatus, { project : ValidProject, fixedFile : FixedFile, error : ReviewError } )
-findFix reviewOptions project rule errors fixedErrors maybeModuleZipper =
+findFix : ReviewOptionsData -> ValidProject -> (List (Error {}) -> RuleProjectVisitor) -> List (Error {}) -> FixedErrors -> Maybe (Zipper (Graph.NodeContext FilePath ())) -> Maybe ( PostFixStatus, { project : ValidProject, fixedFile : FixedFile, error : ReviewError } )
+findFix reviewOptions project updateErrors errors fixedErrors maybeModuleZipper =
     case InternalOptions.shouldApplyFix reviewOptions of
         Nothing ->
             Nothing
