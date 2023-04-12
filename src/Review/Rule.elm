@@ -5087,7 +5087,7 @@ standardFindFix reviewOptions project fixedErrors errors =
 findFix : ReviewOptionsData -> ValidProject -> List (Error a) -> FixedErrors -> Maybe (Zipper (Graph.NodeContext FilePath ())) -> Maybe ( PostFixStatus, { project : ValidProject, fixedFile : FixedFile, error : ReviewError } )
 findFix reviewOptions project errors fixedErrors maybeModuleZipper =
     InternalOptions.shouldApplyFix reviewOptions
-        |> Maybe.andThen (\fixablePredicate -> findFixHelp project fixablePredicate errors maybeModuleZipper)
+        |> Maybe.andThen (\fixablePredicate -> findFixHelp project fixablePredicate errors [] maybeModuleZipper)
         |> Maybe.map
             (\fixResult ->
                 let
@@ -5114,24 +5114,25 @@ findFixHelp :
     ValidProject
     -> ({ ruleName : String, filePath : String, message : String, details : List String, range : Range } -> Bool)
     -> List (Error a)
+    -> List (Error a)
     -> Maybe (Zipper (Graph.NodeContext FilePath ()))
     -> Maybe { project : ValidProject, fixedFile : FixedFile, error : ReviewError }
-findFixHelp project fixablePredicate errors maybeModuleZipper =
+findFixHelp project fixablePredicate errors accErrors maybeModuleZipper =
     case errors of
         [] ->
             Nothing
 
-        (Error headError) :: restOfErrors ->
+        ((Error headError) as err) :: restOfErrors ->
             case isFixable fixablePredicate headError of
                 Nothing ->
-                    findFixHelp project fixablePredicate restOfErrors maybeModuleZipper
+                    findFixHelp project fixablePredicate restOfErrors (err :: accErrors) maybeModuleZipper
 
                 Just fixes ->
                     case headError.target of
                         Review.Error.Module ->
                             case ValidProject.getModuleByPath headError.filePath project of
                                 Nothing ->
-                                    findFixHelp project fixablePredicate restOfErrors maybeModuleZipper
+                                    findFixHelp project fixablePredicate restOfErrors (err :: accErrors) maybeModuleZipper
 
                                 Just file ->
                                     case
@@ -5157,7 +5158,7 @@ findFixHelp project fixablePredicate errors maybeModuleZipper =
                                                 _ =
                                                     Review.Error.markFixesAsProblem fixProblem headError
                                             in
-                                            findFixHelp project fixablePredicate restOfErrors maybeModuleZipper
+                                            findFixHelp project fixablePredicate restOfErrors (err :: accErrors) maybeModuleZipper
 
                                         Ok fixResult ->
                                             Just fixResult
@@ -5165,7 +5166,7 @@ findFixHelp project fixablePredicate errors maybeModuleZipper =
                         Review.Error.ElmJson ->
                             case ValidProject.elmJson project of
                                 Nothing ->
-                                    findFixHelp project fixablePredicate restOfErrors maybeModuleZipper
+                                    findFixHelp project fixablePredicate restOfErrors (err :: accErrors) maybeModuleZipper
 
                                 Just elmJson ->
                                     case
@@ -5181,7 +5182,7 @@ findFixHelp project fixablePredicate errors maybeModuleZipper =
                                                 _ =
                                                     Review.Error.markFixesAsProblem fixProblem headError
                                             in
-                                            findFixHelp project fixablePredicate restOfErrors maybeModuleZipper
+                                            findFixHelp project fixablePredicate restOfErrors (err :: accErrors) maybeModuleZipper
 
                                         Ok newProject ->
                                             Just
@@ -5193,7 +5194,7 @@ findFixHelp project fixablePredicate errors maybeModuleZipper =
                         Review.Error.Readme ->
                             case ValidProject.readme project of
                                 Nothing ->
-                                    findFixHelp project fixablePredicate restOfErrors maybeModuleZipper
+                                    findFixHelp project fixablePredicate restOfErrors (err :: accErrors) maybeModuleZipper
 
                                 Just readme ->
                                     case InternalFix.fixReadme fixes readme.content of
@@ -5203,7 +5204,7 @@ findFixHelp project fixablePredicate errors maybeModuleZipper =
                                                 _ =
                                                     Review.Error.markFixesAsProblem fixProblem headError
                                             in
-                                            findFixHelp project fixablePredicate restOfErrors maybeModuleZipper
+                                            findFixHelp project fixablePredicate restOfErrors (err :: accErrors) maybeModuleZipper
 
                                         Ok content ->
                                             Just
@@ -5213,7 +5214,7 @@ findFixHelp project fixablePredicate errors maybeModuleZipper =
                                                 }
 
                         _ ->
-                            findFixHelp project fixablePredicate restOfErrors maybeModuleZipper
+                            findFixHelp project fixablePredicate restOfErrors (err :: accErrors) maybeModuleZipper
 
 
 isFixable : ({ ruleName : String, filePath : String, message : String, details : List String, range : Range } -> Bool) -> InternalError -> Maybe (List Fix)
