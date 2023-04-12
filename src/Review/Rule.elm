@@ -4704,25 +4704,6 @@ computeWhatsRequiredToAnalyze project module_ incoming ruleProjectVisitors =
         ruleProjectVisitors
 
 
-computeModuleWithRuleVisitorsAndFindFix :
-    DataToComputeSingleModule
-    -> List (AvailableData -> RuleModuleVisitor)
-    -> RequestedData
-    -> List RuleProjectVisitor
-    -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, nextStep : NextStep, fixedErrors : FixedErrors }
-computeModuleWithRuleVisitorsAndFindFix params inputRuleModuleVisitors requestedData rulesNotToRun =
-    let
-        ( newProject, newRules ) =
-            computeModuleWithRuleVisitors params.project params.module_ inputRuleModuleVisitors requestedData rulesNotToRun
-    in
-    case findFixInComputeModuleResults { params | project = newProject } newRules of
-        ContinueWithNextStep nextStepResult ->
-            nextStepResult
-
-        ReComputeModule newParams ->
-            computeModule newParams
-
-
 computeModuleWithRuleVisitors : ValidProject -> OpaqueProjectModule -> List (AvailableData -> RuleModuleVisitor) -> RequestedData -> List RuleProjectVisitor -> ( ValidProject, List RuleProjectVisitor )
 computeModuleWithRuleVisitors project module_ inputRuleModuleVisitors (RequestedData requestedData) rulesNotToRun =
     let
