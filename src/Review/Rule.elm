@@ -5414,6 +5414,7 @@ type alias RuleProjectVisitorOperations =
     , dataExtractVisitor : ReviewOptionsData -> Dict String Encode.Value -> ( Dict String Encode.Value, RuleProjectVisitor )
     , getErrorsForModule : String -> List (Error {})
     , getErrors : () -> List (Error {})
+    , setErrors : String -> List (Error {}) -> RuleProjectVisitor
     , backToRule : () -> Rule
     , requestedData : RequestedData
     }
@@ -5440,6 +5441,7 @@ createRuleProjectVisitor schema initialProject ruleData initialCache =
 
                 -- TODO This is called at the wrong moment: This contains the state of the project with fixes that haven't been applied.
                 , getErrors = \() -> errorsFromCache (finalCacheMarker schema.name hidden.ruleData.ruleId cache)
+                , setErrors = \filePath errors -> raiseCache { cache | moduleContexts = Dict.update filePath (Maybe.map (\entry -> Cache.setErrors errors entry)) cache.moduleContexts }
                 , backToRule =
                     \() ->
                         Rule
