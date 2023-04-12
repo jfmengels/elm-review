@@ -4408,8 +4408,8 @@ computeElmJson :
     -> List RuleProjectVisitor
     -> List RuleProjectVisitor
     -> { project : ValidProject, step : Step, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
-computeElmJson reviewOptions project fixedErrors elmJsonData rules accRules =
-    case rules of
+computeElmJson reviewOptions project fixedErrors elmJsonData remainingRules accRules =
+    case remainingRules of
         [] ->
             { project = project
             , step = Readme
@@ -4459,8 +4459,8 @@ computeReadme :
     -> List RuleProjectVisitor
     -> List RuleProjectVisitor
     -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, step : Step, fixedErrors : FixedErrors }
-computeReadme reviewOptions project fixedErrors readmeData rules accRules =
-    case rules of
+computeReadme reviewOptions project fixedErrors readmeData remainingRules accRules =
+    case remainingRules of
         [] ->
             { project = project
             , step = Dependencies
@@ -4510,8 +4510,8 @@ computeDependencies :
     -> List RuleProjectVisitor
     -> List RuleProjectVisitor
     -> { project : ValidProject, step : Step, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
-computeDependencies reviewOptions project fixedErrors dependenciesData rules accRules =
-    case rules of
+computeDependencies reviewOptions project fixedErrors dependenciesData remainingRules accRules =
+    case remainingRules of
         [] ->
             { project = project
             , ruleProjectVisitors = accRules
@@ -4560,8 +4560,8 @@ computeFinalProjectEvaluation :
     -> List RuleProjectVisitor
     -> List RuleProjectVisitor
     -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, step : Step, fixedErrors : FixedErrors }
-computeFinalProjectEvaluation reviewOptions project fixedErrors rules accRules =
-    case rules of
+computeFinalProjectEvaluation reviewOptions project fixedErrors remainingRules accRules =
+    case remainingRules of
         [] ->
             { project = project
             , ruleProjectVisitors = accRules
