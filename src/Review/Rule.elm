@@ -5096,27 +5096,28 @@ findFix reviewOptions project rule errors fixedErrors maybeModuleZipper =
             Nothing
 
         Just fixablePredicate ->
-            findFixHelp project fixablePredicate errors [] maybeModuleZipper
-                |> Maybe.map
-                    (\fixResult ->
-                        let
-                            newFixedErrors : FixedErrors
-                            newFixedErrors =
-                                FixedErrors.insert fixResult.error fixedErrors
+            case findFixHelp project fixablePredicate errors [] maybeModuleZipper of
+                Nothing ->
+                    Nothing
 
-                            nextStep : PostFixStatus
-                            nextStep =
-                                if InternalOptions.shouldContinueLookingForFixes reviewOptions newFixedErrors then
-                                    ShouldContinue newFixedErrors
+                Just fixResult ->
+                    let
+                        newFixedErrors : FixedErrors
+                        newFixedErrors =
+                            FixedErrors.insert fixResult.error fixedErrors
 
-                                else
-                                    ShouldAbort newFixedErrors
-                        in
-                        ( nextStep, fixResult )
-                            |> Logger.log
-                                reviewOptions.logger
-                                (fixedError newFixedErrors { ruleName = errorRuleName fixResult.error, filePath = errorFilePath fixResult.error })
-                    )
+                        nextStep : PostFixStatus
+                        nextStep =
+                            if InternalOptions.shouldContinueLookingForFixes reviewOptions newFixedErrors then
+                                ShouldContinue newFixedErrors
+
+                            else
+                                ShouldAbort newFixedErrors
+                    in
+                    Just ( nextStep, fixResult )
+                        |> Logger.log
+                            reviewOptions.logger
+                            (fixedError newFixedErrors { ruleName = errorRuleName fixResult.error, filePath = errorFilePath fixResult.error })
 
 
 type FindFixHelpResult
