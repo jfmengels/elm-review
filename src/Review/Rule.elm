@@ -4784,7 +4784,7 @@ findFixInComputeModuleResults ({ reviewOptions, module_, project, moduleZipper, 
                 , fixedErrors = fixedErrors
                 }
 
-        ((RuleProjectVisitor ruleProjectVisitor) as currentRule) :: rest ->
+        (RuleProjectVisitor ruleProjectVisitor) :: rest ->
             let
                 modulePath : String
                 modulePath =
