@@ -4672,7 +4672,7 @@ computeModule params =
         findErrorsInCache { params | project = newProject, ruleProjectVisitors = newRules }
 
 
-findErrorsInCache : { reviewOptions : ReviewOptionsData, ruleProjectVisitors : List RuleProjectVisitor, module_ : OpaqueProjectModule, project : ValidProject, moduleZipper : Zipper GraphModule, fixedErrors : FixedErrors, incoming : Graph.Adjacency () } -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, nextStep : NextStep, fixedErrors : FixedErrors }
+findErrorsInCache : DataToComputeSingleModule -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, nextStep : NextStep, fixedErrors : FixedErrors }
 findErrorsInCache params =
     case findFixInComputeModuleResults params of
         ContinueWithNextStep nextStepResult ->
