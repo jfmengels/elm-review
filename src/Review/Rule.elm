@@ -5068,20 +5068,24 @@ standardFindFix reviewOptions project fixedErrors rule errors =
             Nothing
 
         Just ( postFixStatus, fixResult ) ->
-            case postFixStatus of
-                ShouldAbort newFixedErrors_ ->
-                    Just { newProject = fixResult.project, newRule = rule, newFixedErrors = newFixedErrors_, step = EndAnalysis }
+            let
+                ( newFixedErrors, step ) =
+                    case postFixStatus of
+                        ShouldAbort newFixedErrors_ ->
+                            ( newFixedErrors_, EndAnalysis )
 
-                ShouldContinue newFixedErrors_ ->
-                    case fixResult.fixedFile of
-                        FixedElmJson ->
-                            Just { newProject = fixResult.project, newRule = rule, newFixedErrors = newFixedErrors_, step = ElmJson }
+                        ShouldContinue newFixedErrors_ ->
+                            case fixResult.fixedFile of
+                                FixedElmJson ->
+                                    ( newFixedErrors_, ElmJson )
 
-                        FixedReadme ->
-                            Just { newProject = fixResult.project, newRule = rule, newFixedErrors = newFixedErrors_, step = Readme }
+                                FixedReadme ->
+                                    ( newFixedErrors_, Readme )
 
-                        FixedElmModule _ zipper ->
-                            Just { newProject = fixResult.project, newRule = rule, newFixedErrors = newFixedErrors_, step = Modules zipper }
+                                FixedElmModule _ zipper ->
+                                    ( newFixedErrors_, Modules zipper )
+            in
+            Just { newProject = fixResult.project, newRule = rule, newFixedErrors = newFixedErrors, step = step }
 
 
 type FindFixResult
