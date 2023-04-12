@@ -5463,7 +5463,7 @@ createRuleProjectVisitor schema initialProject ruleData initialCache =
 
                 -- TODO This is called at the wrong moment: This contains the state of the project with fixes that haven't been applied.
                 , getErrors = \() -> errorsFromCache (finalCacheMarker schema.name hidden.ruleData.ruleId cache)
-                , setErrorsForModule = \filePath errors -> raiseCache { cache | moduleContexts = Dict.update filePath (Maybe.map (\entry -> Cache.setErrors errors entry)) cache.moduleContexts }
+                , setErrorsForModule = \filePath errors -> raiseCache { cache | moduleContexts = Dict.update filePath (Maybe.map (\entry -> Cache.setErrorsForModule errors entry)) cache.moduleContexts }
                 , backToRule =
                     \() ->
                         Rule

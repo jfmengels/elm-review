@@ -1,4 +1,4 @@
-module Review.Cache exposing (EntryNoOutputContext, ModuleEntry, ProjectFileCache, createEntryForProjectFileCache, createModuleEntry, createNoOutput, errors, errorsForMaybeProjectFileCache, errorsFromProjectFileCache, match, matchNoOutput, matchProjectFileCache, outputContext, outputContextForProjectFileCache, outputContextHash, outputContextHashForProjectFileCache, outputForNoOutput, setErrors)
+module Review.Cache exposing (EntryNoOutputContext, ModuleEntry, ProjectFileCache, createEntryForProjectFileCache, createModuleEntry, createNoOutput, errors, errorsForMaybeProjectFileCache, errorsFromProjectFileCache, match, matchNoOutput, matchProjectFileCache, outputContext, outputContextForProjectFileCache, outputContextHash, outputContextHashForProjectFileCache, outputForNoOutput, setErrorsForModule)
 
 import Review.Cache.ContentHash as ContentHash exposing (ContentHash)
 import Review.Cache.ContextHash as ContextHash exposing (ComparableContextHash, ContextHash)
@@ -50,8 +50,8 @@ errors (ModuleEntry entry) =
     entry.errors
 
 
-setErrors : List error -> ModuleEntry error context -> ModuleEntry error context
-setErrors newErrors (ModuleEntry entry) =
+setErrorsForModule : List error -> ModuleEntry error context -> ModuleEntry error context
+setErrorsForModule newErrors (ModuleEntry entry) =
     ModuleEntry { entry | errors = newErrors }
 
 
