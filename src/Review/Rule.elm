@@ -4673,7 +4673,7 @@ computeModule params =
                 in
                 { params | project = newProject, ruleProjectVisitors = newRules }
     in
-    case findFixInComputeModuleResults paramsAfterVisit of
+    case findFixInComputeModuleResults paramsAfterVisit paramsAfterVisit.ruleProjectVisitors [] of
         ContinueWithNextStep nextStepResult ->
             nextStepResult
 
@@ -4769,94 +4769,106 @@ type ComputeModuleFindFixResult projectContext moduleContext
     | ReComputeModule DataToComputeSingleModule
 
 
-findFixInComputeModuleResults : DataToComputeSingleModule -> ComputeModuleFindFixResult projectContext moduleContext
-findFixInComputeModuleResults { reviewOptions, ruleProjectVisitors, module_, project, moduleZipper, fixedErrors, incoming } =
-    let
-        modulePath : String
-        modulePath =
-            ProjectModule.path module_
-
-        errors : List (Error {})
-        errors =
-            List.concatMap (\(RuleProjectVisitor ruleProjectVisitor) -> ruleProjectVisitor.getErrorsForModule modulePath) ruleProjectVisitors
-    in
-    case findFix reviewOptions project errors fixedErrors (Just moduleZipper) of
-        Just ( postFixStatus, fixResult ) ->
-            case postFixStatus of
-                ShouldAbort newFixedErrors ->
-                    ContinueWithNextStep
-                        { project = fixResult.project
-                        , ruleProjectVisitors = ruleProjectVisitors
-                        , nextStep = NextStepAbort
-                        , fixedErrors = newFixedErrors
-                        }
-
-                ShouldContinue newFixedErrors ->
-                    case fixResult.fixedFile of
-                        FixedElmModule { source, ast } newModuleZipper_ ->
-                            let
-                                filePath : FilePath
-                                filePath =
-                                    errorFilePath fixResult.error
-                            in
-                            if ProjectModule.path module_ == filePath then
-                                ReComputeModule
-                                    { reviewOptions = reviewOptions
-                                    , ruleProjectVisitors = ruleProjectVisitors
-                                    , module_ =
-                                        ProjectModule.create
-                                            { path = filePath
-                                            , source = source
-                                            , ast = ast
-                                            , isInSourceDirectories = ProjectModule.isInSourceDirectories module_
-                                            }
-                                    , project = fixResult.project
-                                    , moduleZipper = newModuleZipper_
-                                    , fixedErrors = newFixedErrors
-                                    , incoming = incoming
-                                    }
-
-                            else
-                                case Zipper.focusl (\mod -> mod.node.label == filePath) moduleZipper of
-                                    Just newModuleZipper ->
-                                        ContinueWithNextStep
-                                            { project = fixResult.project
-                                            , ruleProjectVisitors = ruleProjectVisitors
-                                            , nextStep = ModuleVisitStep (Just newModuleZipper)
-                                            , fixedErrors = newFixedErrors
-                                            }
-
-                                    Nothing ->
-                                        ContinueWithNextStep
-                                            { project = project
-                                            , ruleProjectVisitors = ruleProjectVisitors
-                                            , nextStep = ModuleVisitStep (Zipper.next moduleZipper)
-                                            , fixedErrors = fixedErrors
-                                            }
-
-                        FixedElmJson ->
-                            ContinueWithNextStep
-                                { project = fixResult.project
-                                , ruleProjectVisitors = ruleProjectVisitors
-                                , nextStep = BackToElmJson
-                                , fixedErrors = FixedErrors.insert fixResult.error fixedErrors
-                                }
-
-                        FixedReadme ->
-                            ContinueWithNextStep
-                                { project = fixResult.project
-                                , ruleProjectVisitors = ruleProjectVisitors
-                                , nextStep = BackToReadme
-                                , fixedErrors = FixedErrors.insert fixResult.error fixedErrors
-                                }
-
-        Nothing ->
+findFixInComputeModuleResults :
+    DataToComputeSingleModule
+    -> List RuleProjectVisitor
+    -> List RuleProjectVisitor
+    -> ComputeModuleFindFixResult projectContext moduleContext
+findFixInComputeModuleResults ({ reviewOptions, module_, project, moduleZipper, fixedErrors, incoming } as params) remainingRules rulesSoFar =
+    case remainingRules of
+        [] ->
             ContinueWithNextStep
                 { project = project
-                , ruleProjectVisitors = ruleProjectVisitors
+                , ruleProjectVisitors = rulesSoFar
                 , nextStep = ModuleVisitStep (Zipper.next moduleZipper)
                 , fixedErrors = fixedErrors
                 }
+
+        ((RuleProjectVisitor ruleProjectVisitor) as currentRule) :: rest ->
+            let
+                modulePath : String
+                modulePath =
+                    ProjectModule.path module_
+
+                errors : List (Error {})
+                errors =
+                    ruleProjectVisitor.getErrorsForModule modulePath
+            in
+            case findFix reviewOptions project errors fixedErrors (Just moduleZipper) of
+                Just ( postFixStatus, fixResult ) ->
+                    case postFixStatus of
+                        ShouldAbort newFixedErrors ->
+                            ContinueWithNextStep
+                                { project = fixResult.project
+                                , ruleProjectVisitors = remainingRules ++ rulesSoFar
+                                , nextStep = NextStepAbort
+                                , fixedErrors = newFixedErrors
+                                }
+
+                        ShouldContinue newFixedErrors ->
+                            case fixResult.fixedFile of
+                                FixedElmModule { source, ast } newModuleZipper_ ->
+                                    let
+                                        filePath : FilePath
+                                        filePath =
+                                            errorFilePath fixResult.error
+                                    in
+                                    if ProjectModule.path module_ == filePath then
+                                        ReComputeModule
+                                            { reviewOptions = reviewOptions
+                                            , ruleProjectVisitors = remainingRules ++ rulesSoFar
+                                            , module_ =
+                                                ProjectModule.create
+                                                    { path = filePath
+                                                    , source = source
+                                                    , ast = ast
+                                                    , isInSourceDirectories = ProjectModule.isInSourceDirectories module_
+                                                    }
+                                            , project = fixResult.project
+                                            , moduleZipper = newModuleZipper_
+                                            , fixedErrors = newFixedErrors
+                                            , incoming = incoming
+                                            }
+
+                                    else
+                                        case Zipper.focusl (\mod -> mod.node.label == filePath) moduleZipper of
+                                            Just newModuleZipper ->
+                                                ContinueWithNextStep
+                                                    { project = fixResult.project
+                                                    , ruleProjectVisitors = remainingRules ++ rulesSoFar
+                                                    , nextStep = ModuleVisitStep (Just newModuleZipper)
+                                                    , fixedErrors = newFixedErrors
+                                                    }
+
+                                            Nothing ->
+                                                ContinueWithNextStep
+                                                    { project = project
+                                                    , ruleProjectVisitors = remainingRules ++ rulesSoFar
+                                                    , nextStep = ModuleVisitStep (Zipper.next moduleZipper)
+                                                    , fixedErrors = fixedErrors
+                                                    }
+
+                                FixedElmJson ->
+                                    ContinueWithNextStep
+                                        { project = fixResult.project
+                                        , ruleProjectVisitors = remainingRules ++ rulesSoFar
+                                        , nextStep = BackToElmJson
+                                        , fixedErrors = FixedErrors.insert fixResult.error fixedErrors
+                                        }
+
+                                FixedReadme ->
+                                    ContinueWithNextStep
+                                        { project = fixResult.project
+                                        , ruleProjectVisitors = remainingRules ++ rulesSoFar
+                                        , nextStep = BackToReadme
+                                        , fixedErrors = FixedErrors.insert fixResult.error fixedErrors
+                                        }
+
+                Nothing ->
+                    findFixInComputeModuleResults
+                        params
+                        rest
+                        (currentRule :: rulesSoFar)
 
 
 computeModules :
