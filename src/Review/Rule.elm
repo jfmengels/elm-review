@@ -5119,6 +5119,11 @@ findFix reviewOptions project rule errors fixedErrors maybeModuleZipper =
                     )
 
 
+type FindFixHelpResult
+    = FoundNoFixesHelp (List (Error {}))
+    | FoundFixHelp ( List (Error {}), { project : ValidProject, fixedFile : FixedFile, error : ReviewError } )
+
+
 findFixHelp :
     ValidProject
     -> ({ ruleName : String, filePath : String, message : String, details : List String, range : Range } -> Bool)
