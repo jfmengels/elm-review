@@ -4676,6 +4676,16 @@ computeModule params =
             computeModule newParams
 
 
+findErrorsInCache : { reviewOptions : ReviewOptionsData, ruleProjectVisitors : List RuleProjectVisitor, module_ : OpaqueProjectModule, project : ValidProject, moduleZipper : Zipper GraphModule, fixedErrors : FixedErrors, incoming : Graph.Adjacency () } -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, nextStep : NextStep, fixedErrors : FixedErrors }
+findErrorsInCache params =
+    case findFixInComputeModuleResults params params.ruleProjectVisitors of
+        ContinueWithNextStep nextStepResult ->
+            nextStepResult
+
+        ReComputeModule newParams ->
+            computeModule newParams
+
+
 computeWhatsRequiredToAnalyze : ValidProject -> OpaqueProjectModule -> Graph.Adjacency () -> List RuleProjectVisitor -> ( List (AvailableData -> RuleModuleVisitor), RequestedData, List RuleProjectVisitor )
 computeWhatsRequiredToAnalyze project module_ incoming ruleProjectVisitors =
     let
