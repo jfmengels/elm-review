@@ -4660,21 +4660,20 @@ computeModule params =
     let
         ( inputRuleModuleVisitors, requestedData, rulesNotToRun ) =
             computeWhatsRequiredToAnalyze params.project params.module_ params.incoming params.ruleProjectVisitors
+
+        paramsAfterVisit : DataToComputeSingleModule
+        paramsAfterVisit =
+            if List.isEmpty inputRuleModuleVisitors then
+                params
+
+            else
+                let
+                    ( newProject, newRules ) =
+                        computeModuleWithRuleVisitors params.project params.fixedErrors params.module_ inputRuleModuleVisitors requestedData rulesNotToRun
+                in
+                { params | project = newProject, ruleProjectVisitors = newRules }
     in
-    if List.isEmpty inputRuleModuleVisitors then
-        findErrorsInCache params
-
-    else
-        let
-            ( newProject, newRules ) =
-                computeModuleWithRuleVisitors params.project params.fixedErrors params.module_ inputRuleModuleVisitors requestedData rulesNotToRun
-        in
-        findErrorsInCache { params | project = newProject, ruleProjectVisitors = newRules }
-
-
-findErrorsInCache : DataToComputeSingleModule -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, nextStep : NextStep, fixedErrors : FixedErrors }
-findErrorsInCache params =
-    case findFixInComputeModuleResults params of
+    case findFixInComputeModuleResults paramsAfterVisit of
         ContinueWithNextStep nextStepResult ->
             nextStepResult
 
