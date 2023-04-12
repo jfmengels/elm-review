@@ -4771,7 +4771,7 @@ type ComputeModuleFindFixResult projectContext moduleContext
 
 
 findFixInComputeModuleResults : DataToComputeSingleModule -> ComputeModuleFindFixResult projectContext moduleContext
-findFixInComputeModuleResults ({ reviewOptions, module_, project, moduleZipper, fixedErrors, ruleProjectVisitors } as params) =
+findFixInComputeModuleResults { reviewOptions, ruleProjectVisitors, module_, project, moduleZipper, fixedErrors, incoming } =
     let
         modulePath : String
         modulePath =
@@ -4802,17 +4802,19 @@ findFixInComputeModuleResults ({ reviewOptions, module_, project, moduleZipper, 
                             in
                             if ProjectModule.path module_ == filePath then
                                 ReComputeModule
-                                    { params
-                                        | module_ =
-                                            ProjectModule.create
-                                                { path = filePath
-                                                , source = source
-                                                , ast = ast
-                                                , isInSourceDirectories = ProjectModule.isInSourceDirectories module_
-                                                }
-                                        , project = fixResult.project
-                                        , moduleZipper = newModuleZipper_
-                                        , fixedErrors = newFixedErrors
+                                    { reviewOptions = reviewOptions
+                                    , ruleProjectVisitors = ruleProjectVisitors
+                                    , module_ =
+                                        ProjectModule.create
+                                            { path = filePath
+                                            , source = source
+                                            , ast = ast
+                                            , isInSourceDirectories = ProjectModule.isInSourceDirectories module_
+                                            }
+                                    , project = fixResult.project
+                                    , moduleZipper = newModuleZipper_
+                                    , fixedErrors = newFixedErrors
+                                    , incoming = incoming
                                     }
 
                             else
