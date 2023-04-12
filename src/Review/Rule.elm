@@ -4428,7 +4428,7 @@ computeElmJson reviewOptions project fixedErrors elmJsonData rules accRules =
                         ( errors, RuleProjectVisitor updatedRule ) =
                             visitor project elmJsonData
                     in
-                    case standardFindFix reviewOptions project fixedErrors (RuleProjectVisitor updatedRule) updatedRule.setErrorsForElmJson errors of
+                    case standardFindFix reviewOptions project fixedErrors updatedRule.setErrorsForElmJson errors of
                         Just { newProject, newRule, newFixedErrors, step } ->
                             { project = newProject
                             , ruleProjectVisitors = newRule :: (rest ++ accRules)
@@ -4479,7 +4479,7 @@ computeReadme reviewOptions project fixedErrors readmeData rules accRules =
                         ( errors, RuleProjectVisitor updatedRule ) =
                             visitor project readmeData
                     in
-                    case standardFindFix reviewOptions project fixedErrors (RuleProjectVisitor updatedRule) updatedRule.setErrorsForReadme errors of
+                    case standardFindFix reviewOptions project fixedErrors updatedRule.setErrorsForReadme errors of
                         Just { newProject, newRule, newFixedErrors, step } ->
                             { project = newProject
                             , ruleProjectVisitors = newRule :: (rest ++ accRules)
@@ -4530,7 +4530,7 @@ computeDependencies reviewOptions project fixedErrors dependenciesData rules acc
                         ( errors, RuleProjectVisitor updatedRule ) =
                             visitor project dependenciesData
                     in
-                    case standardFindFix reviewOptions project fixedErrors (RuleProjectVisitor updatedRule) updatedRule.setErrorsForDependencies errors of
+                    case standardFindFix reviewOptions project fixedErrors updatedRule.setErrorsForDependencies errors of
                         Just { newProject, newRule, newFixedErrors, step } ->
                             { project = newProject
                             , ruleProjectVisitors = newRule :: (rest ++ accRules)
@@ -4580,7 +4580,7 @@ computeFinalProjectEvaluation reviewOptions project fixedErrors rules accRules =
                         ( errors, RuleProjectVisitor updatedRule ) =
                             visitor ()
                     in
-                    case standardFindFix reviewOptions project fixedErrors (RuleProjectVisitor updatedRule) updatedRule.setErrorsForFinalEvaluation errors of
+                    case standardFindFix reviewOptions project fixedErrors updatedRule.setErrorsForFinalEvaluation errors of
                         Just { newProject, newRule, newFixedErrors, step } ->
                             { project = newProject
                             , ruleProjectVisitors = newRule :: (rest ++ accRules)
@@ -5061,8 +5061,8 @@ type PostFixStatus
     | ShouldContinue FixedErrors
 
 
-standardFindFix : ReviewOptionsData -> ValidProject -> FixedErrors -> RuleProjectVisitor -> (List (Error {}) -> RuleProjectVisitor) -> List (Error {}) -> Maybe { newProject : ValidProject, newRule : RuleProjectVisitor, step : Step, newFixedErrors : FixedErrors }
-standardFindFix reviewOptions project fixedErrors rule updateErrors errors =
+standardFindFix : ReviewOptionsData -> ValidProject -> FixedErrors -> (List (Error {}) -> RuleProjectVisitor) -> List (Error {}) -> Maybe { newProject : ValidProject, newRule : RuleProjectVisitor, step : Step, newFixedErrors : FixedErrors }
+standardFindFix reviewOptions project fixedErrors updateErrors errors =
     case findFix reviewOptions project updateErrors errors fixedErrors Nothing of
         FoundNoFixes newRule ->
             -- TODO Also return the rule if there are no errors
