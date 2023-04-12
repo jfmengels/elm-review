@@ -5084,6 +5084,11 @@ standardFindFix reviewOptions project fixedErrors errors =
                             Just ( fixResult.project, newFixedErrors_, Modules zipper )
 
 
+type FindFixResult
+    = FoundNoFixes (List (Error {}))
+    | FoundFix ( PostFixStatus, { project : ValidProject, fixedFile : FixedFile, error : ReviewError } )
+
+
 findFix : ReviewOptionsData -> ValidProject -> List (Error a) -> FixedErrors -> Maybe (Zipper (Graph.NodeContext FilePath ())) -> Maybe ( PostFixStatus, { project : ValidProject, fixedFile : FixedFile, error : ReviewError } )
 findFix reviewOptions project errors fixedErrors maybeModuleZipper =
     InternalOptions.shouldApplyFix reviewOptions
