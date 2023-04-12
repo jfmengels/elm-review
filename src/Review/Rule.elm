@@ -4674,7 +4674,7 @@ computeModule params =
 
 findErrorsInCache : { reviewOptions : ReviewOptionsData, ruleProjectVisitors : List RuleProjectVisitor, module_ : OpaqueProjectModule, project : ValidProject, moduleZipper : Zipper GraphModule, fixedErrors : FixedErrors, incoming : Graph.Adjacency () } -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, nextStep : NextStep, fixedErrors : FixedErrors }
 findErrorsInCache params =
-    case findFixInComputeModuleResults params params.ruleProjectVisitors of
+    case findFixInComputeModuleResults params of
         ContinueWithNextStep nextStepResult ->
             nextStepResult
 
@@ -4770,11 +4770,8 @@ type ComputeModuleFindFixResult projectContext moduleContext
     | ReComputeModule DataToComputeSingleModule
 
 
-findFixInComputeModuleResults :
-    DataToComputeSingleModule
-    -> List RuleProjectVisitor
-    -> ComputeModuleFindFixResult projectContext moduleContext
-findFixInComputeModuleResults ({ reviewOptions, module_, project, moduleZipper, fixedErrors } as params) outputRuleProjectVisitors =
+findFixInComputeModuleResults : DataToComputeSingleModule -> ComputeModuleFindFixResult projectContext moduleContext
+findFixInComputeModuleResults ({ reviewOptions, module_, project, moduleZipper, fixedErrors, ruleProjectVisitors } as params) =
     let
         modulePath : String
         modulePath =
@@ -4782,7 +4779,7 @@ findFixInComputeModuleResults ({ reviewOptions, module_, project, moduleZipper, 
 
         errors : List (Error {})
         errors =
-            List.concatMap (\(RuleProjectVisitor ruleProjectVisitor) -> ruleProjectVisitor.getErrorsForModule modulePath) outputRuleProjectVisitors
+            List.concatMap (\(RuleProjectVisitor ruleProjectVisitor) -> ruleProjectVisitor.getErrorsForModule modulePath) ruleProjectVisitors
     in
     case findFix reviewOptions project errors fixedErrors (Just moduleZipper) of
         Just ( postFixStatus, fixResult ) ->
@@ -4790,7 +4787,7 @@ findFixInComputeModuleResults ({ reviewOptions, module_, project, moduleZipper, 
                 ShouldAbort newFixedErrors ->
                     ContinueWithNextStep
                         { project = fixResult.project
-                        , ruleProjectVisitors = outputRuleProjectVisitors
+                        , ruleProjectVisitors = ruleProjectVisitors
                         , nextStep = NextStepAbort
                         , fixedErrors = newFixedErrors
                         }
@@ -4823,7 +4820,7 @@ findFixInComputeModuleResults ({ reviewOptions, module_, project, moduleZipper, 
                                     Just newModuleZipper ->
                                         ContinueWithNextStep
                                             { project = fixResult.project
-                                            , ruleProjectVisitors = outputRuleProjectVisitors
+                                            , ruleProjectVisitors = ruleProjectVisitors
                                             , nextStep = ModuleVisitStep (Just newModuleZipper)
                                             , fixedErrors = newFixedErrors
                                             }
@@ -4831,7 +4828,7 @@ findFixInComputeModuleResults ({ reviewOptions, module_, project, moduleZipper, 
                                     Nothing ->
                                         ContinueWithNextStep
                                             { project = project
-                                            , ruleProjectVisitors = outputRuleProjectVisitors
+                                            , ruleProjectVisitors = ruleProjectVisitors
                                             , nextStep = ModuleVisitStep (Zipper.next moduleZipper)
                                             , fixedErrors = fixedErrors
                                             }
@@ -4839,7 +4836,7 @@ findFixInComputeModuleResults ({ reviewOptions, module_, project, moduleZipper, 
                         FixedElmJson ->
                             ContinueWithNextStep
                                 { project = fixResult.project
-                                , ruleProjectVisitors = outputRuleProjectVisitors
+                                , ruleProjectVisitors = ruleProjectVisitors
                                 , nextStep = BackToElmJson
                                 , fixedErrors = FixedErrors.insert fixResult.error fixedErrors
                                 }
@@ -4847,7 +4844,7 @@ findFixInComputeModuleResults ({ reviewOptions, module_, project, moduleZipper, 
                         FixedReadme ->
                             ContinueWithNextStep
                                 { project = fixResult.project
-                                , ruleProjectVisitors = outputRuleProjectVisitors
+                                , ruleProjectVisitors = ruleProjectVisitors
                                 , nextStep = BackToReadme
                                 , fixedErrors = FixedErrors.insert fixResult.error fixedErrors
                                 }
@@ -4855,7 +4852,7 @@ findFixInComputeModuleResults ({ reviewOptions, module_, project, moduleZipper, 
         Nothing ->
             ContinueWithNextStep
                 { project = project
-                , ruleProjectVisitors = outputRuleProjectVisitors
+                , ruleProjectVisitors = ruleProjectVisitors
                 , nextStep = ModuleVisitStep (Zipper.next moduleZipper)
                 , fixedErrors = fixedErrors
                 }
