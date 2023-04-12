@@ -1,4 +1,4 @@
-module Review.Cache exposing (EntryNoOutputContext, ModuleEntry, ProjectFileCache, createEntryForProjectFileCache, createModuleEntry, createNoOutput, errors, errorsForMaybeProjectFileCache, errorsFromProjectFileCache, match, matchNoOutput, matchProjectFileCache, outputContext, outputContextForProjectFileCache, outputContextHash, outputContextHashForProjectFileCache, outputForNoOutput)
+module Review.Cache exposing (EntryNoOutputContext, ModuleEntry, ProjectFileCache, createEntryForProjectFileCache, createModuleEntry, createNoOutput, errors, errorsForMaybeProjectFileCache, errorsFromProjectFileCache, match, matchNoOutput, matchProjectFileCache, outputContext, outputContextForProjectFileCache, outputContextHash, outputContextHashForProjectFileCache, outputForNoOutput, setErrors)
 
 import Review.Cache.ContentHash as ContentHash exposing (ContentHash)
 import Review.Cache.ContextHash as ContextHash exposing (ComparableContextHash, ContextHash)
@@ -48,6 +48,11 @@ outputContextHash (ModuleEntry entry) =
 errors : ModuleEntry error context -> List error
 errors (ModuleEntry entry) =
     entry.errors
+
+
+setErrors : List error -> ModuleEntry error context -> ModuleEntry error context
+setErrors newErrors (ModuleEntry entry) =
+    ModuleEntry { entry | errors = newErrors }
 
 
 match : ContentHash -> ComparableContextHash context -> ModuleEntry error context -> { isFileIgnored : Bool, requestedData : RequestedData } -> Bool
