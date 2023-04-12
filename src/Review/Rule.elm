@@ -632,10 +632,6 @@ checkForConfigurationErrors project rules rulesToRunAcc =
                     Err (collectConfigurationErrors rules)
 
 
-
--- TODO Errors don't show as fixable anymore
-
-
 collectConfigurationErrors : List Rule -> List ReviewError
 collectConfigurationErrors rules =
     List.filterMap
