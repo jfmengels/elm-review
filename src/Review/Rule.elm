@@ -5172,13 +5172,7 @@ findFixHelp project fixablePredicate errors accErrors maybeModuleZipper =
                                                 )
                                     of
                                         Err fixProblem ->
-                                            -- TODO Save the fix problem into the error somehow
-                                            -- We can probably work directly on the errors in the cache?
-                                            let
-                                                _ =
-                                                    Review.Error.markFixesAsProblem fixProblem headError
-                                            in
-                                            findFixHelp project fixablePredicate restOfErrors (err :: accErrors) maybeModuleZipper
+                                            findFixHelp project fixablePredicate restOfErrors (Error (Review.Error.markFixesAsProblem fixProblem headError) :: accErrors) maybeModuleZipper
 
                                         Ok fixResult ->
                                             FoundFixHelp (errors ++ accErrors) fixResult
@@ -5197,12 +5191,7 @@ findFixHelp project fixablePredicate errors accErrors maybeModuleZipper =
                                                 )
                                     of
                                         Err fixProblem ->
-                                            -- TODO Save the fix problem into the error somehow
-                                            let
-                                                _ =
-                                                    Review.Error.markFixesAsProblem fixProblem headError
-                                            in
-                                            findFixHelp project fixablePredicate restOfErrors (err :: accErrors) maybeModuleZipper
+                                            findFixHelp project fixablePredicate restOfErrors (Error (Review.Error.markFixesAsProblem fixProblem headError) :: accErrors) maybeModuleZipper
 
                                         Ok newProject ->
                                             FoundFixHelp
@@ -5220,12 +5209,7 @@ findFixHelp project fixablePredicate errors accErrors maybeModuleZipper =
                                 Just readme ->
                                     case InternalFix.fixReadme fixes readme.content of
                                         Err fixProblem ->
-                                            -- TODO Save the fix problem into the error somehow
-                                            let
-                                                _ =
-                                                    Review.Error.markFixesAsProblem fixProblem headError
-                                            in
-                                            findFixHelp project fixablePredicate restOfErrors (err :: accErrors) maybeModuleZipper
+                                            findFixHelp project fixablePredicate restOfErrors (Error (Review.Error.markFixesAsProblem fixProblem headError) :: accErrors) maybeModuleZipper
 
                                         Ok content ->
                                             FoundFixHelp
