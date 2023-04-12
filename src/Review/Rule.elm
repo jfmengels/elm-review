@@ -4666,7 +4666,7 @@ computeModule params =
                 ( params.project, params.ruleProjectVisitors )
 
             else
-                computeModuleWithRuleVisitors params.project params.module_ inputRuleModuleVisitors requestedData rulesNotToRun
+                computeModuleWithRuleVisitors params.project params.fixedErrors params.module_ inputRuleModuleVisitors requestedData rulesNotToRun
     in
     case findFixInComputeModuleResults { params | project = newProject } newRules of
         ContinueWithNextStep nextStepResult ->
@@ -4704,8 +4704,8 @@ computeWhatsRequiredToAnalyze project module_ incoming ruleProjectVisitors =
         ruleProjectVisitors
 
 
-computeModuleWithRuleVisitors : ValidProject -> OpaqueProjectModule -> List (AvailableData -> RuleModuleVisitor) -> RequestedData -> List RuleProjectVisitor -> ( ValidProject, List RuleProjectVisitor )
-computeModuleWithRuleVisitors project module_ inputRuleModuleVisitors (RequestedData requestedData) rulesNotToRun =
+computeModuleWithRuleVisitors : ValidProject -> FixedErrors -> OpaqueProjectModule -> List (AvailableData -> RuleModuleVisitor) -> RequestedData -> List RuleProjectVisitor -> ( ValidProject, List RuleProjectVisitor )
+computeModuleWithRuleVisitors project fixedErrors module_ inputRuleModuleVisitors (RequestedData requestedData) rulesNotToRun =
     let
         ( moduleNameLookupTable, newProject ) =
             computeModuleNameLookupTable requestedData project module_
