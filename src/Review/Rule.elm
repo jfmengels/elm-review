@@ -4794,7 +4794,7 @@ findFixInComputeModuleResults ({ reviewOptions, module_, project, moduleZipper, 
                 errors =
                     ruleProjectVisitor.getErrorsForModule modulePath
             in
-            case findFix reviewOptions project errors fixedErrors (Just moduleZipper) of
+            case findFix reviewOptions project currentRule errors fixedErrors (Just moduleZipper) of
                 Just ( postFixStatus, fixResult ) ->
                     case postFixStatus of
                         ShouldAbort newFixedErrors ->
@@ -5063,7 +5063,7 @@ type PostFixStatus
 
 standardFindFix : ReviewOptionsData -> ValidProject -> FixedErrors -> RuleProjectVisitor -> List (Error a) -> Maybe { newProject : ValidProject, newRule : RuleProjectVisitor, step : Step, newFixedErrors : FixedErrors }
 standardFindFix reviewOptions project fixedErrors rule errors =
-    case findFix reviewOptions project errors fixedErrors Nothing of
+    case findFix reviewOptions project rule errors fixedErrors Nothing of
         Nothing ->
             Nothing
 
@@ -5089,8 +5089,8 @@ type FindFixResult
     | FoundFix ( PostFixStatus, { project : ValidProject, fixedFile : FixedFile, error : ReviewError } )
 
 
-findFix : ReviewOptionsData -> ValidProject -> List (Error a) -> FixedErrors -> Maybe (Zipper (Graph.NodeContext FilePath ())) -> Maybe ( PostFixStatus, { project : ValidProject, fixedFile : FixedFile, error : ReviewError } )
-findFix reviewOptions project errors fixedErrors maybeModuleZipper =
+findFix : ReviewOptionsData -> ValidProject -> RuleProjectVisitor -> List (Error a) -> FixedErrors -> Maybe (Zipper (Graph.NodeContext FilePath ())) -> Maybe ( PostFixStatus, { project : ValidProject, fixedFile : FixedFile, error : ReviewError } )
+findFix reviewOptions project rule errors fixedErrors maybeModuleZipper =
     case InternalOptions.shouldApplyFix reviewOptions of
         Nothing ->
             Nothing
