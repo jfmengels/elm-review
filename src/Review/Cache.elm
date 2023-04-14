@@ -1,4 +1,4 @@
-module Review.Cache exposing (EntryNoOutputContext, ModuleEntry, ProjectFileCache, createEntryForProjectFileCache, createModuleEntry, createNoOutput, errors, errorsForMaybeProjectFileCache, errorsFromProjectFileCache, match, matchNoOutput, matchProjectFileCache, outputContext, outputContextForProjectFileCache, outputContextHash, outputContextHashForProjectFileCache, outputForNoOutput, setErrorsForMaybeProjectFileCache, setErrorsForModule, setOutputForNoOutput)
+module Review.Cache exposing (FinalProjectEvaluationCache, ModuleEntry, ProjectFileCache, createEntryForProjectFileCache, createFinalProjectEvaluationCache, createModuleEntry, errors, errorsForFinalProjectEvaluationCache, errorsForMaybeProjectFileCache, errorsFromProjectFileCache, match, matchFinalProjectEvaluationCache, matchProjectFileCache, outputContext, outputContextForProjectFileCache, outputContextHash, outputContextHashForProjectFileCache, setErrorsForFinalProjectEvaluationCache, setErrorsForMaybeProjectFileCache, setErrorsForModule)
 
 import Review.Cache.ContentHash as ContentHash exposing (ContentHash)
 import Review.Cache.ContextHash as ContextHash exposing (ComparableContextHash, ContextHash)
@@ -139,33 +139,33 @@ matchProjectFileCache contentHash contexts (ProjectFileCache entry) =
 
 {-| Variant for final operations like the final evaluation or the extract
 -}
-type EntryNoOutputContext output context
+type FinalProjectEvaluationCache output context
     = EntryNoOutputContext
         { inputContextHashes : ComparableContextHash context
         , output : output
         }
 
 
-createNoOutput : ComparableContextHash context -> output -> EntryNoOutputContext output context
-createNoOutput inputContextHashes output =
+createFinalProjectEvaluationCache : ComparableContextHash context -> output -> FinalProjectEvaluationCache output context
+createFinalProjectEvaluationCache inputContextHashes output =
     EntryNoOutputContext
         { inputContextHashes = inputContextHashes
         , output = output
         }
 
 
-matchNoOutput : ComparableContextHash context -> EntryNoOutputContext error context -> Bool
-matchNoOutput context (EntryNoOutputContext entry) =
+matchFinalProjectEvaluationCache : ComparableContextHash context -> FinalProjectEvaluationCache error context -> Bool
+matchFinalProjectEvaluationCache context (EntryNoOutputContext entry) =
     context == entry.inputContextHashes
 
 
-outputForNoOutput : EntryNoOutputContext output context -> output
-outputForNoOutput (EntryNoOutputContext entry) =
+errorsForFinalProjectEvaluationCache : FinalProjectEvaluationCache output context -> output
+errorsForFinalProjectEvaluationCache (EntryNoOutputContext entry) =
     entry.output
 
 
-setOutputForNoOutput : output -> Maybe (EntryNoOutputContext output context) -> Maybe (EntryNoOutputContext output context)
-setOutputForNoOutput newOutput maybeEntry =
+setErrorsForFinalProjectEvaluationCache : output -> Maybe (FinalProjectEvaluationCache output context) -> Maybe (FinalProjectEvaluationCache output context)
+setErrorsForFinalProjectEvaluationCache newOutput maybeEntry =
     case maybeEntry of
         Just (EntryNoOutputContext entry) ->
             Just (EntryNoOutputContext { inputContextHashes = entry.inputContextHashes, output = newOutput })

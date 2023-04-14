@@ -4162,7 +4162,7 @@ type alias ProjectFileCache projectContext =
 
 
 type alias FinalProjectEvaluationCache projectContext =
-    Cache.EntryNoOutputContext (List (Error {})) projectContext
+    Cache.FinalProjectEvaluationCache (List (Error {})) projectContext
 
 
 type alias ExtractCache projectContext =
@@ -4293,7 +4293,7 @@ errorsFromCache cache =
         , Cache.errorsForMaybeProjectFileCache cache.elmJson
         , Cache.errorsForMaybeProjectFileCache cache.readme
         , Cache.errorsForMaybeProjectFileCache cache.dependencies
-        , Maybe.map Cache.outputForNoOutput cache.finalEvaluationErrors |> Maybe.withDefault []
+        , Maybe.map Cache.errorsForFinalProjectEvaluationCache cache.finalEvaluationErrors |> Maybe.withDefault []
         ]
 
 
@@ -5456,7 +5456,7 @@ createRuleProjectVisitor schema initialProject ruleData initialCache =
                 , setErrorsForElmJson = \newErrors -> raiseCache { cache | elmJson = Cache.setErrorsForMaybeProjectFileCache newErrors cache.elmJson }
                 , setErrorsForReadme = \newErrors -> raiseCache { cache | readme = Cache.setErrorsForMaybeProjectFileCache newErrors cache.readme }
                 , setErrorsForDependencies = \newErrors -> raiseCache { cache | dependencies = Cache.setErrorsForMaybeProjectFileCache newErrors cache.dependencies }
-                , setErrorsForFinalEvaluation = \newErrors -> raiseCache { cache | finalEvaluationErrors = Cache.setOutputForNoOutput newErrors cache.finalEvaluationErrors }
+                , setErrorsForFinalEvaluation = \newErrors -> raiseCache { cache | finalEvaluationErrors = Cache.setErrorsForFinalProjectEvaluationCache newErrors cache.finalEvaluationErrors }
                 , backToRule =
                     \() ->
                         Rule
@@ -5654,11 +5654,11 @@ createFinalProjectEvaluationVisitor schema { exceptions } raise cache =
 
                         cachePredicate : FinalProjectEvaluationCache projectContext -> Bool
                         cachePredicate entry =
-                            Cache.matchNoOutput inputContextHashes entry
+                            Cache.matchFinalProjectEvaluationCache inputContextHashes entry
                     in
                     case reuseProjectRuleCache cachePredicate .finalEvaluationErrors cache of
                         Just entry ->
-                            ( Cache.outputForNoOutput entry, raise cache )
+                            ( Cache.errorsForFinalProjectEvaluationCache entry, raise cache )
 
                         Nothing ->
                             let
@@ -5670,7 +5670,7 @@ createFinalProjectEvaluationVisitor schema { exceptions } raise cache =
                                         |> filterExceptionsAndSetName exceptions schema.name
                             in
                             ( errors
-                            , raise { cache | finalEvaluationErrors = Just (Cache.createNoOutput inputContextHashes errors) }
+                            , raise { cache | finalEvaluationErrors = Just (Cache.createFinalProjectEvaluationCache inputContextHashes errors) }
                             )
                 )
 
