@@ -1,70 +1,21 @@
-module Review.Cache exposing (FinalProjectEvaluationCache, ModuleEntry, ProjectFileCache, createEntryForProjectFileCache, createFinalProjectEvaluationCache, createModuleEntry, errors, errorsForFinalProjectEvaluationCache, errorsForMaybeProjectFileCache, errorsFromProjectFileCache, match, matchFinalProjectEvaluationCache, matchProjectFileCache, outputContext, outputContextForProjectFileCache, outputContextHash, outputContextHashForProjectFileCache, setErrorsForFinalProjectEvaluationCache, setErrorsForMaybeProjectFileCache, setErrorsForModule)
+module Review.Cache exposing
+    ( FinalProjectEvaluationCache
+    , ProjectFileCache
+    , createEntryForProjectFileCache
+    , createFinalProjectEvaluationCache
+    , errorsForFinalProjectEvaluationCache
+    , errorsForMaybeProjectFileCache
+    , errorsFromProjectFileCache
+    , matchFinalProjectEvaluationCache
+    , matchProjectFileCache
+    , outputContextForProjectFileCache
+    , outputContextHashForProjectFileCache
+    , setErrorsForFinalProjectEvaluationCache
+    , setErrorsForMaybeProjectFileCache
+    )
 
 import Review.Cache.ContentHash as ContentHash exposing (ContentHash)
 import Review.Cache.ContextHash as ContextHash exposing (ComparableContextHash, ContextHash)
-import Review.RequestedData exposing (RequestedData(..))
-
-
-type ModuleEntry error context
-    = ModuleEntry
-        { contentHash : ContentHash
-        , inputContextHashes : ComparableContextHash context
-        , isFileIgnored : Bool
-        , errors : List error
-        , outputContext : context
-        , outputContextHash : ContextHash context
-        }
-
-
-createModuleEntry :
-    { contentHash : ContentHash
-    , inputContextHashes : ComparableContextHash context
-    , isFileIgnored : Bool
-    , errors : List error
-    , outputContext : context
-    }
-    -> ModuleEntry error context
-createModuleEntry entry =
-    ModuleEntry
-        { contentHash = entry.contentHash
-        , inputContextHashes = entry.inputContextHashes
-        , isFileIgnored = entry.isFileIgnored
-        , errors = entry.errors
-        , outputContext = entry.outputContext
-        , outputContextHash = ContextHash.create entry.outputContext
-        }
-
-
-outputContext : ModuleEntry error context -> context
-outputContext (ModuleEntry entry) =
-    entry.outputContext
-
-
-outputContextHash : ModuleEntry error context -> ContextHash context
-outputContextHash (ModuleEntry entry) =
-    entry.outputContextHash
-
-
-errors : ModuleEntry error context -> List error
-errors (ModuleEntry entry) =
-    entry.errors
-
-
-setErrorsForModule : List error -> ModuleEntry error context -> ModuleEntry error context
-setErrorsForModule newErrors (ModuleEntry entry) =
-    ModuleEntry { entry | errors = newErrors }
-
-
-match : ContentHash -> ComparableContextHash context -> ModuleEntry error context -> { isFileIgnored : Bool, requestedData : RequestedData } -> Bool
-match contentHash inputContexts (ModuleEntry entry) { isFileIgnored, requestedData } =
-    ContentHash.areEqual contentHash entry.contentHash
-        && (inputContexts == entry.inputContextHashes)
-        && (not (ruleCaresAboutIgnoredFiles requestedData) || isFileIgnored == entry.isFileIgnored)
-
-
-ruleCaresAboutIgnoredFiles : RequestedData -> Bool
-ruleCaresAboutIgnoredFiles (RequestedData { ignoredFiles }) =
-    ignoredFiles
 
 
 {-| Variant where the content may be absent

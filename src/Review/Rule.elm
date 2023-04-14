@@ -310,6 +310,7 @@ import Json.Encode as Encode
 import Review.Cache as Cache
 import Review.Cache.ContentHash exposing (ContentHash)
 import Review.Cache.ContextHash as ContextHash exposing (ComparableContextHash, ContextHash)
+import Review.Cache.Module as ModuleCache
 import Review.ElmProjectEncoder
 import Review.Error exposing (InternalError)
 import Review.Exceptions as Exceptions exposing (Exceptions)
@@ -4154,7 +4155,7 @@ type alias GraphModule =
 
 
 type alias ModuleCacheEntry projectContext =
-    Cache.ModuleEntry (Error {}) projectContext
+    ModuleCache.Entry (Error {}) projectContext
 
 
 type alias ProjectFileCache projectContext =
@@ -4243,7 +4244,7 @@ computeFinalContextHashes schema cache =
     case getFolderFromTraversal traversalAndFolder of
         Just _ ->
             Dict.foldl
-                (\_ cacheEntry acc -> Cache.outputContextHash cacheEntry :: acc)
+                (\_ cacheEntry acc -> ModuleCache.outputContextHash cacheEntry :: acc)
                 projectContextHash
                 cache.moduleContexts
                 |> ContextHash.toComparable
@@ -4273,7 +4274,7 @@ computeFinalContext schema cache =
     case getFolderFromTraversal traversalAndFolder of
         Just { foldProjectContexts } ->
             Dict.foldl
-                (\_ cacheEntry acc -> foldProjectContexts (Cache.outputContext cacheEntry) acc)
+                (\_ cacheEntry acc -> foldProjectContexts (ModuleCache.outputContext cacheEntry) acc)
                 projectContext
                 cache.moduleContexts
 
@@ -4289,7 +4290,7 @@ setRuleName ruleName_ error_ =
 errorsFromCache : ProjectRuleCache projectContext -> List (Error {})
 errorsFromCache cache =
     List.concat
-        [ Dict.foldl (\_ cacheEntry acc -> List.append (Cache.errors cacheEntry) acc) [] cache.moduleContexts
+        [ Dict.foldl (\_ cacheEntry acc -> List.append (ModuleCache.errors cacheEntry) acc) [] cache.moduleContexts
         , Cache.errorsForMaybeProjectFileCache cache.elmJson
         , Cache.errorsForMaybeProjectFileCache cache.readme
         , Cache.errorsForMaybeProjectFileCache cache.dependencies
@@ -4946,7 +4947,7 @@ computeProjectContextHashes traversalAndFolder project cache incoming initial =
                             |> Maybe.andThen (\graphModule -> Dict.get graphModule.node.label cache)
                     of
                         Just importedModuleCache ->
-                            Cache.outputContextHash importedModuleCache :: acc
+                            ModuleCache.outputContextHash importedModuleCache :: acc
 
                         Nothing ->
                             acc
@@ -4981,7 +4982,7 @@ computeProjectContext traversalAndFolder project cache incoming initial =
                             |> Maybe.andThen (\graphModule -> Dict.get graphModule.node.label cache)
                     of
                         Just importedModuleCache ->
-                            foldProjectContexts (Cache.outputContext importedModuleCache) accContext
+                            foldProjectContexts (ModuleCache.outputContext importedModuleCache) accContext
 
                         Nothing ->
                             accContext
@@ -5452,7 +5453,7 @@ createRuleProjectVisitor schema initialProject ruleData initialCache =
 
                 -- TODO This is called at the wrong moment: This contains the state of the project with fixes that haven't been applied.
                 , getErrors = \() -> errorsFromCache (finalCacheMarker schema.name hidden.ruleData.ruleId cache)
-                , setErrorsForModule = \filePath newErrors -> raiseCache { cache | moduleContexts = Dict.update filePath (Maybe.map (\entry -> Cache.setErrorsForModule newErrors entry)) cache.moduleContexts }
+                , setErrorsForModule = \filePath newErrors -> raiseCache { cache | moduleContexts = Dict.update filePath (Maybe.map (\entry -> ModuleCache.setErrors newErrors entry)) cache.moduleContexts }
                 , setErrorsForElmJson = \newErrors -> raiseCache { cache | elmJson = Cache.setErrorsForMaybeProjectFileCache newErrors cache.elmJson }
                 , setErrorsForReadme = \newErrors -> raiseCache { cache | readme = Cache.setErrorsForMaybeProjectFileCache newErrors cache.readme }
                 , setErrorsForDependencies = \newErrors -> raiseCache { cache | dependencies = Cache.setErrorsForMaybeProjectFileCache newErrors cache.dependencies }
@@ -5778,9 +5779,9 @@ createModuleVisitorFromProjectVisitorHelp schema raise hidden traversalAndFolder
             isFileIgnored =
                 not (Exceptions.isFileWeWantReportsFor hidden.ruleData.exceptions filePath)
 
-            shouldReuseCache : Cache.ModuleEntry error projectContext -> Bool
+            shouldReuseCache : ModuleCacheEntry projectContext -> Bool
             shouldReuseCache cacheEntry =
-                Cache.match
+                ModuleCache.match
                     moduleContentHash
                     inputContextHashes
                     cacheEntry
@@ -5825,9 +5826,9 @@ createModuleVisitorFromProjectVisitorHelp schema raise hidden traversalAndFolder
                                             Nothing ->
                                                 schema.initialProjectContext
 
-                                    cacheEntry : Cache.ModuleEntry (Error {}) projectContext
+                                    cacheEntry : ModuleCacheEntry projectContext
                                     cacheEntry =
-                                        Cache.createModuleEntry
+                                        ModuleCache.create
                                             { contentHash = moduleContentHash
                                             , errors = errors
                                             , inputContextHashes = inputContextHashes
@@ -5849,7 +5850,7 @@ getErrorsForModule : ProjectRuleCache projectContext -> String -> List (Error {}
 getErrorsForModule cache filePath =
     case Dict.get filePath cache.moduleContexts of
         Just cacheEntry ->
-            Cache.errors cacheEntry
+            ModuleCache.errors cacheEntry
 
         Nothing ->
             []
