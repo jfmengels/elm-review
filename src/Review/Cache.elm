@@ -1,91 +1,12 @@
 module Review.Cache exposing
     ( FinalProjectEvaluationCache
-    , ProjectFileCache
-    , createEntryForProjectFileCache
     , createFinalProjectEvaluationCache
     , errorsForFinalProjectEvaluationCache
-    , errorsForMaybeProjectFileCache
-    , errorsFromProjectFileCache
     , matchFinalProjectEvaluationCache
-    , matchProjectFileCache
-    , outputContextForProjectFileCache
-    , outputContextHashForProjectFileCache
     , setErrorsForFinalProjectEvaluationCache
-    , setErrorsForMaybeProjectFileCache
     )
 
-import Review.Cache.ContentHash as ContentHash exposing (ContentHash)
-import Review.Cache.ContextHash as ContextHash exposing (ComparableContextHash, ContextHash)
-
-
-{-| Variant where the content may be absent
--}
-type ProjectFileCache error context
-    = ProjectFileCache
-        { contentHash : Maybe ContentHash
-        , inputContextHash : ComparableContextHash context
-        , errors : List error
-        , outputContext : context
-        , outputContextHash : ContextHash context
-        }
-
-
-createEntryForProjectFileCache :
-    { contentHash : Maybe ContentHash
-    , inputContextHash : ComparableContextHash context
-    , errors : List error
-    , outputContext : context
-    }
-    -> ProjectFileCache error context
-createEntryForProjectFileCache entry =
-    ProjectFileCache
-        { contentHash = entry.contentHash
-        , inputContextHash = entry.inputContextHash
-        , errors = entry.errors
-        , outputContext = entry.outputContext
-        , outputContextHash = ContextHash.create entry.outputContext
-        }
-
-
-outputContextForProjectFileCache : ProjectFileCache error context -> context
-outputContextForProjectFileCache (ProjectFileCache entry) =
-    entry.outputContext
-
-
-outputContextHashForProjectFileCache : ProjectFileCache error context -> ContextHash context
-outputContextHashForProjectFileCache (ProjectFileCache entry) =
-    entry.outputContextHash
-
-
-errorsFromProjectFileCache : ProjectFileCache error context -> List error
-errorsFromProjectFileCache (ProjectFileCache entry) =
-    entry.errors
-
-
-setErrorsForMaybeProjectFileCache : List error -> Maybe (ProjectFileCache error context) -> Maybe (ProjectFileCache error context)
-setErrorsForMaybeProjectFileCache newErrors maybeEntry =
-    case maybeEntry of
-        Just (ProjectFileCache entry) ->
-            Just (ProjectFileCache { entry | errors = newErrors })
-
-        Nothing ->
-            Nothing
-
-
-errorsForMaybeProjectFileCache : Maybe (ProjectFileCache error context) -> List error
-errorsForMaybeProjectFileCache maybeEntry =
-    case maybeEntry of
-        Just (ProjectFileCache entry) ->
-            entry.errors
-
-        Nothing ->
-            []
-
-
-matchProjectFileCache : Maybe ContentHash -> ComparableContextHash context -> ProjectFileCache error context -> Bool
-matchProjectFileCache contentHash contexts (ProjectFileCache entry) =
-    ContentHash.areEqualForMaybe contentHash entry.contentHash
-        && (contexts == entry.inputContextHash)
+import Review.Cache.ContextHash exposing (ComparableContextHash, ContextHash)
 
 
 {-| Variant for final operations like the final evaluation or the extract
