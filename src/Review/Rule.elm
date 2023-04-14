@@ -309,7 +309,7 @@ import Elm.Syntax.Range as Range exposing (Range)
 import Json.Encode as Encode
 import Review.Cache.ContentHash exposing (ContentHash)
 import Review.Cache.ContextHash as ContextHash exposing (ComparableContextHash, ContextHash)
-import Review.Cache.FinalProjectEvaluationCache as FinalProjectEvaluationCache
+import Review.Cache.EndAnalysis as EndAnalysisCache
 import Review.Cache.Module as ModuleCache
 import Review.Cache.ProjectFile as ProjectFileCache
 import Review.ElmProjectEncoder
@@ -4164,13 +4164,11 @@ type alias ProjectFileCache projectContext =
 
 
 type alias FinalProjectEvaluationCache projectContext =
-    FinalProjectEvaluationCache.Entry (List (Error {})) projectContext
+    EndAnalysisCache.Entry (List (Error {})) projectContext
 
 
 type alias ExtractCache projectContext =
-    { inputContextHashes : ComparableContextHash projectContext
-    , extract : Extract
-    }
+    EndAnalysisCache.Entry Extract projectContext
 
 
 qualifyErrors : { ruleName : String, exceptions : Exceptions, filePath : String } -> List (Error {}) -> List (Error {}) -> List (Error {})
@@ -4295,7 +4293,7 @@ errorsFromCache cache =
         , ProjectFileCache.errorsForMaybe cache.elmJson
         , ProjectFileCache.errorsForMaybe cache.readme
         , ProjectFileCache.errorsForMaybe cache.dependencies
-        , Maybe.map FinalProjectEvaluationCache.errors cache.finalEvaluationErrors |> Maybe.withDefault []
+        , Maybe.map EndAnalysisCache.output cache.finalEvaluationErrors |> Maybe.withDefault []
         ]
 
 
@@ -5458,7 +5456,7 @@ createRuleProjectVisitor schema initialProject ruleData initialCache =
                 , setErrorsForElmJson = \newErrors -> raiseCache { cache | elmJson = ProjectFileCache.setErrors newErrors cache.elmJson }
                 , setErrorsForReadme = \newErrors -> raiseCache { cache | readme = ProjectFileCache.setErrors newErrors cache.readme }
                 , setErrorsForDependencies = \newErrors -> raiseCache { cache | dependencies = ProjectFileCache.setErrors newErrors cache.dependencies }
-                , setErrorsForFinalEvaluation = \newErrors -> raiseCache { cache | finalEvaluationErrors = FinalProjectEvaluationCache.setErrors newErrors cache.finalEvaluationErrors }
+                , setErrorsForFinalEvaluation = \newErrors -> raiseCache { cache | finalEvaluationErrors = EndAnalysisCache.setOutput newErrors cache.finalEvaluationErrors }
                 , backToRule =
                     \() ->
                         Rule
@@ -5656,11 +5654,11 @@ createFinalProjectEvaluationVisitor schema { exceptions } raise cache =
 
                         cachePredicate : FinalProjectEvaluationCache projectContext -> Bool
                         cachePredicate entry =
-                            FinalProjectEvaluationCache.match inputContextHashes entry
+                            EndAnalysisCache.match inputContextHashes entry
                     in
                     case reuseProjectRuleCache cachePredicate .finalEvaluationErrors cache of
                         Just entry ->
-                            ( FinalProjectEvaluationCache.errors entry, raise cache )
+                            ( EndAnalysisCache.output entry, raise cache )
 
                         Nothing ->
                             let
@@ -5672,7 +5670,7 @@ createFinalProjectEvaluationVisitor schema { exceptions } raise cache =
                                         |> filterExceptionsAndSetName exceptions schema.name
                             in
                             ( errors
-                            , raise { cache | finalEvaluationErrors = Just (FinalProjectEvaluationCache.create inputContextHashes errors) }
+                            , raise { cache | finalEvaluationErrors = Just (EndAnalysisCache.create inputContextHashes errors) }
                             )
                 )
 
@@ -5699,12 +5697,12 @@ createDataExtractVisitor schema raise cache =
 
                         cachePredicate : ExtractCache projectContext -> Bool
                         cachePredicate extract =
-                            extract.inputContextHashes == inputContextHashes
+                            EndAnalysisCache.match inputContextHashes extract
 
                         ( Extract extractData, newCache ) =
                             case reuseProjectRuleCache cachePredicate .extract cache of
-                                Just { extract } ->
-                                    ( extract, cache )
+                                Just entry ->
+                                    ( EndAnalysisCache.output entry, cache )
 
                                 Nothing ->
                                     let
@@ -5717,7 +5715,7 @@ createDataExtractVisitor schema raise cache =
                                             dataExtractor inputContext
                                     in
                                     ( extract
-                                    , { cache | extract = Just { inputContextHashes = inputContextHashes, extract = extract } }
+                                    , { cache | extract = Just (EndAnalysisCache.create inputContextHashes extract) }
                                     )
                     in
                     ( Dict.insert schema.name extractData extracts

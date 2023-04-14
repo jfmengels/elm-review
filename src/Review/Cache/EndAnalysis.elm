@@ -1,18 +1,18 @@
-module Review.Cache.FinalProjectEvaluationCache exposing
+module Review.Cache.EndAnalysis exposing
     ( Entry, create
     , match
-    , errors, setErrors
+    , output, setOutput
     )
 
-{-| Cache for the result of the final project evaluation analysis.
+{-| Cache for the result of the final project evaluation analysis and data extract.
 
 @docs Entry, create
 @docs match
-@docs errors, setErrors
+@docs output, setOutput
 
 -}
 
-import Review.Cache.ContextHash exposing (ComparableContextHash, ContextHash)
+import Review.Cache.ContextHash exposing (ComparableContextHash)
 
 
 type Entry output context
@@ -23,10 +23,10 @@ type Entry output context
 
 
 create : ComparableContextHash context -> output -> Entry output context
-create inputContextHashes output =
+create inputContextHashes output_ =
     Entry
         { inputContextHashes = inputContextHashes
-        , output = output
+        , output = output_
         }
 
 
@@ -35,13 +35,13 @@ match context (Entry entry) =
     context == entry.inputContextHashes
 
 
-errors : Entry output context -> output
-errors (Entry entry) =
+output : Entry output context -> output
+output (Entry entry) =
     entry.output
 
 
-setErrors : output -> Maybe (Entry output context) -> Maybe (Entry output context)
-setErrors newOutput maybeEntry =
+setOutput : output -> Maybe (Entry output context) -> Maybe (Entry output context)
+setOutput newOutput maybeEntry =
     case maybeEntry of
         Just (Entry entry) ->
             Just (Entry { inputContextHashes = entry.inputContextHashes, output = newOutput })
