@@ -4155,10 +4155,14 @@ type alias GraphModule =
     Graph.NodeContext FilePath ()
 
 
+{-| TODO Breaking change: Remove the type variable and hardcode `Error {}` when Error has been moved to a separate module in v3.
+-}
 type alias ModuleCacheEntry projectContext =
     ModuleCache.Entry (Error {}) projectContext
 
 
+{-| TODO Breaking change: Remove the type variable and hardcode `Error {}` when Error has been moved to a separate module in v3.
+-}
 type alias ProjectFileCache projectContext =
     ProjectFileCache.Entry (Error {}) projectContext
 
