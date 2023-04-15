@@ -655,10 +655,7 @@ addToScope variableData innerContext =
     let
         newScopes : NonEmpty Scope
         newScopes =
-            registerVariable
-                variableData
-                (Node.value variableData.node)
-                innerContext.scopes
+            registerVariable variableData innerContext.scopes
     in
     { innerContext | scopes = newScopes }
 
@@ -775,10 +772,10 @@ recordUpdateToDocsType innerContext updates =
         updates
 
 
-registerVariable : VariableInfo -> String -> NonEmpty Scope -> NonEmpty Scope
-registerVariable variableInfo name scopes =
+registerVariable : VariableInfo -> NonEmpty Scope -> NonEmpty Scope
+registerVariable variableInfo scopes =
     NonEmpty.mapHead
-        (\scope -> { scope | names = Dict.insert name variableInfo scope.names })
+        (\scope -> { scope | names = Dict.insert (Node.value variableInfo.node) variableInfo scope.names })
         scopes
 
 
@@ -1226,17 +1223,10 @@ expressionEnterVisitor node context =
                         (\declaration scopes ->
                             case Node.value declaration of
                                 Expression.LetFunction function ->
-                                    let
-                                        nameNode : Node String
-                                        nameNode =
-                                            function.declaration
-                                                |> Node.value
-                                                |> .name
-                                    in
                                     registerVariable
-                                        { variableType = LetVariable, node = nameNode }
-                                        -- TODO Check if the name as 2nd arg is not redundant with the 1st argument's node field
-                                        (Node.value nameNode)
+                                        { variableType = LetVariable
+                                        , node = (Node.value function.declaration).name
+                                        }
                                         scopes
 
                                 Expression.LetDestructuring _ _ ->
