@@ -76,8 +76,6 @@ emptyScope =
 
 compute : ModuleName -> OpaqueProjectModule -> ValidProject -> ( ModuleNameLookupTable, ValidProject )
 compute moduleName module_ project =
-    -- TODO Reuse cache if the file has not changed. Maybe already done properly
-    -- TODO Skip computing the lookup table if no rule requires it, but still compute the modules and dependenciesModules
     let
         projectCache : ProjectCache
         projectCache =

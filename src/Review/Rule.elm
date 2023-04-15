@@ -1185,7 +1185,6 @@ type alias ProjectRuleSchemaData projectContext moduleContext =
 
 type TraversalType
     = AllModulesInParallel
-      -- TODO Add way to traverse in opposite order
     | ImportedModulesFirst
 
 
@@ -5454,8 +5453,6 @@ createRuleProjectVisitor schema initialProject ruleData initialCache =
                 , finalProjectEvaluation = createFinalProjectEvaluationVisitor schema hidden.ruleData raiseCache cache
                 , dataExtractVisitor = createDataExtractVisitor schema raiseCache cache
                 , getErrorsForModule = \filePath -> getErrorsForModule cache filePath
-
-                -- TODO This is called at the wrong moment: This contains the state of the project with fixes that haven't been applied.
                 , getErrors = \() -> errorsFromCache (finalCacheMarker schema.name hidden.ruleData.ruleId cache)
                 , setErrorsForModule = \filePath newErrors -> raiseCache { cache | moduleContexts = Dict.update filePath (Maybe.map (\entry -> ModuleCache.setErrors newErrors entry)) cache.moduleContexts }
                 , setErrorsForElmJson = \newErrors -> raiseCache { cache | elmJson = ProjectFileCache.setErrors newErrors cache.elmJson }
@@ -6152,7 +6149,7 @@ accumulate params visitor ( previousErrors, previousContext ) =
 
 
 -- INITIALIZING WITH CONTEXT
--- TODO Move this to a different module later on
+-- TODO Breaking change: Move this to a different module later on
 
 
 {-| Create a module context from a project context or the other way around.
@@ -6183,7 +6180,6 @@ requestedDataFromContextCreator (ContextCreator _ requestedData) =
 -}
 initContextCreator : (from -> to) -> ContextCreator from to
 initContextCreator fromProjectToModule =
-    -- TODO Try to get rid of the ()/from when using in a module rule
     ContextCreator
         (\_ _ -> fromProjectToModule)
         RequestedData.none
@@ -6594,7 +6590,3 @@ fixedError fixedErrors data =
     , ( "filePath", Encode.string data.filePath )
     , ( "count", Encode.int (FixedErrors.count fixedErrors) )
     ]
-
-
-
--- TODO Check that rules have a RequestedData relevant only to their implementatio, and not the combined one for all.

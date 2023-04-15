@@ -9,8 +9,6 @@ import Elm.Writer as Writer
 expressionToString : Range -> Expression -> String
 expressionToString range expr =
     Node.Node range expr
-        -- Writer expects a slightly different AST than parsing produces
-        -- TODO: log issue!
         |> fixAst
         |> Writer.writeExpression
         |> Writer.write
