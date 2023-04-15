@@ -418,6 +418,7 @@ addParsedModule { path, source, ast } maybeModuleZipper (ValidProject project) =
                 in
                 case Graph.checkAcyclic graph of
                     Err _ ->
+                        -- TODO Breaking change: Add a new kind of FixProblem about introducing import cycles
                         Nothing
 
                     Ok acyclicGraph ->
@@ -448,6 +449,7 @@ addParsedModule { path, source, ast } maybeModuleZipper (ValidProject project) =
 
         Nothing ->
             -- We don't support adding new files at the moment.
+            -- TODO Support creating a new file (only in known source-directories?)
             Nothing
 
 

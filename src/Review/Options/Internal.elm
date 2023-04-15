@@ -28,13 +28,7 @@ shouldApplyFix : ReviewOptionsData -> Maybe ({ ruleName : String, filePath : Str
 shouldApplyFix reviewOptionsData =
     case reviewOptionsData.fixMode of
         Enabled _ ->
-            -- TODO Breaking change: Re-add this condition (for performance)
-            -- Right now enabling this makes it so that some fixes get ignored
-            -- when the rule hasn't annotated that it would make fixes.
-            --if not providesFixes then
-            --    Nothing
-            --
-            --else
+            -- TODO Breaking change: Only look for errors in rules that mention they will provide fixes.
             if Dict.isEmpty reviewOptionsData.suppressions then
                 Just (\err -> not (reviewOptionsData.ignoreFix err))
 

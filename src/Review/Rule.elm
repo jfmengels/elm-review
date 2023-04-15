@@ -5171,7 +5171,8 @@ findFixHelp project fixablePredicate errors accErrors maybeModuleZipper =
                                                                 , error = errorToReviewError (Error headError)
                                                                 }
                                                             )
-                                                        -- TODO This is a dummy value. Figure out what makes sense
+                                                        -- TODO Breaking change: This is a dummy value. We should report
+                                                        -- an import cycle problem, or whatever else that might be the problem.
                                                         |> Result.fromMaybe FixProblem.Unchanged
                                                 )
                                     of

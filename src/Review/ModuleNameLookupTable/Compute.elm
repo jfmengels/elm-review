@@ -141,8 +141,7 @@ computeHelp cacheKey moduleName module_ project =
 
         deps : Dict ModuleName Elm.Docs.Module
         deps =
-            -- TODO Invalidate all the lookuptables if elm.json has changed? Or be smarter about it, but at least
-            -- avoid outdated results
+            -- TODO Only invalidate the lookup tables the dependencies in elm.json have changed?
             case projectCache.dependenciesModules of
                 Just cache ->
                     if elmJsonContentHash == cache.elmJsonContentHash then
@@ -685,11 +684,11 @@ registerExposedCustomType constructors name innerContext =
             { name = name
             , comment = ""
 
-            -- TODO
+            -- TODO Get the args from the type. Not useful now but useful when we will provide type information
             , args = []
             , tags =
                 constructors
-                    -- TODO Constructor args?
+                    -- TODO Get the constructor args from the type. Not useful now but useful when we will provide type information
                     |> List.map (\constructor -> ( Node.value (Node.value constructor).name, [] ))
             }
                 :: innerContext.exposedUnions
