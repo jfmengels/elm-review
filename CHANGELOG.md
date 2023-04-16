@@ -1,8 +1,33 @@
 # Changelog
 
+## [2.13.0] - 2023-04-16
+
+1) Changed the order in which rules are applied on modules. [#153](https://github.com/jfmengels/elm-review/pull/153)
+
+Instead of visiting the entire project for each rule sequentially, we now visit the entire project once but apply each 
+rule on each module. This should hopefully result in a small speed improvement, and make it more interesting to precompute
+interesting information to provide the rules (such as the module name lookup table)
+
+2) Made it less costly to compute whether cached analysis can be reused [#154](https://github.com/jfmengels/elm-review/pull/154) 
+
+The caching mechanism introduced in [2.11.0] felt inefficient. It improved the performance a bit but as significantly as expected.
+The reason for that was that the method to check whether a cached analysis could be re-used or not was extremely inefficient.
+Changing the representation of that key vastly improved the performance of the whole cache system, which now feels worth it.
+
+3) Applying fixes for all targets [#155](https://github.com/jfmengels/elm-review/pull/155)
+
+In [2.10.0] the package introduced the ability to apply fixes on its own, without the need of the CLI. It did however not
+support applying fixes for the `elm.json` file, as that can have important repercussions on the analysis (if
+`source-directories` or dependencies are changed). These fixes are now applied as well.
+
+Applying all fixes in the package means that there is no need to try and apply fixes in the CLI, which will be removed in its v2.10.0.
+The CLI was responsible for annotating fixes as failing, which is why this release introduces [`Review.Error.errorFixFailure`] to allow
+the CLI to show when a fix failed to apply.
+
+
 ## [2.12.2] - 2023-02-02
 
-Fixed a bug where errors were skipped/ignored when running `elm-review` after having run `elm-review --fix-all` [#150]
+Fixed a bug where errors were skipped/ignored when running `elm-review` after having run `elm-review --fix-all` [#150](https://github.com/jfmengels/elm-review/pull/150)
 
 ## [2.12.1] - 2023-01-25
 
@@ -30,7 +55,7 @@ opt out of this re-running mechanism.
 ## [2.11.0] - 2022-12-17
 
 - Adds [`Review.Rule.withIsFileIgnored`] ([#145](https://github.com/jfmengels/elm-review/pull/145))
-- Behind the scenes work to allow the CLI to save the internal result cache to the file system.
+- Behind the scenes work to allow the CLI to save the internal result cache to the file system. Adds as an internal function [`Review.Rule.withRuleId`] for that purpose.
 - Fixed the test failure message reported when a test was missing an expected extract (it reported the failure message for a different problem).
 
 ## [2.10.0] - 2022-11-08
@@ -68,7 +93,7 @@ center around the new `Review.Test.expect` function.
 ## [2.9.2] - 2022-10-12
 
 Bumps the dependency to [`elm-explorations/test`](https://package.elm-lang.org/packages/elm-explorations/test/latest/) to v2.
-We recommend to upgrade by using `elm-json`, like this:
+We recommend upgrading by using `elm-json`, like this:
 
 ```bash
 cd review/
@@ -130,8 +155,11 @@ Help would be appreciated to fill the blanks!
 
 [`NoDeprecated`]: https://package.elm-lang.org/packages/jfmengels/elm-review-common/latest/NoDeprecated
 [`Review.Rule.withIsFileIgnored`]: https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule#withIsFileIgnored
+[`Review.Rule.withRuleId`]: https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule#withRuleId
+[`Review.Rule.errorFixFailure`]: https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule#errorFixFailure
 [`Review.Test.ignoredFilesImpactResults`]: https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule-Test#ignoredFilesImpactResults
 
+[2.13.0]: https://github.com/jfmengels/elm-review/releases/tag/2.13.0
 [2.12.2]: https://github.com/jfmengels/elm-review/releases/tag/2.12.2
 [2.12.1]: https://github.com/jfmengels/elm-review/releases/tag/2.12.1
 [2.12.0]: https://github.com/jfmengels/elm-review/releases/tag/2.12.0
@@ -158,5 +186,3 @@ Help would be appreciated to fill the blanks!
 [fae198f186a7659fa98f6f3400bb57960be57b57]: https://github.com/jfmengels/elm-review/commit/fae198f186a7659fa98f6f3400bb57960be57b57
 [648d386d9d812f95c200ce6b6d94b6f5c2dd168d]: https://github.com/jfmengels/elm-review/commit/648d386d9d812f95c200ce6b6d94b6f5c2dd168d
 [d1c4102ec9113cd8e7fef1824554925e89d0b0f1]: https://github.com/jfmengels/elm-review/commit/d1c4102ec9113cd8e7fef1824554925e89d0b0f1
-
-[#150]: https://github.com/jfmengels/elm-review/pull/150
