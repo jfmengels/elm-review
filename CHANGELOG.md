@@ -10,7 +10,7 @@ interesting information to provide the rules (such as the module name lookup tab
 
 2) Made it less costly to compute whether cached analysis can be reused [#154](https://github.com/jfmengels/elm-review/pull/154) 
 
-The caching mechanism introduced in [2.11.0] felt inefficient. It improved the performance a bit but as significantly as expected.
+The caching mechanism introduced in [2.11.0] felt inefficient. It improved the performance a bit but not as significantly as expected.
 The reason for that was that the method to check whether a cached analysis could be re-used or not was extremely inefficient.
 Changing the representation of that key vastly improved the performance of the whole cache system, which now feels worth it.
 
