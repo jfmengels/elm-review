@@ -21,7 +21,7 @@ support applying fixes for the `elm.json` file, as that can have important reper
 `source-directories` or dependencies are changed). These fixes are now applied as well.
 
 Applying all fixes in the package means that there is no need to try and apply fixes in the CLI, which will be removed in its v2.10.0.
-The CLI was responsible for annotating fixes as failing, which is why this release introduces [`Review.Error.errorFixFailure`] to allow
+The CLI was responsible for annotating fixes as failing, which is why this release introduces [`Review.Rule.errorFixFailure`] to allow
 the CLI to show when a fix failed to apply.
 
 
