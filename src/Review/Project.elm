@@ -3,6 +3,7 @@ module Review.Project exposing
     , ProjectModule, addModule, addParsedModule, removeModule, modules, modulesThatFailedToParse, precomputeModuleGraph
     , addElmJson, elmJson
     , addReadme, readme
+    , addArbitraryFiles
     , addDependency, removeDependency, removeDependencies, directDependencies, dependencies
     )
 
@@ -33,6 +34,11 @@ does not look at project information (like the `elm.json`, dependencies, ...).
 # `README.md`
 
 @docs addReadme, readme
+
+
+# REPLACEME
+
+@docs addArbitraryFiles
 
 
 # Project dependencies
