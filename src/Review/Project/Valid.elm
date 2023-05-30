@@ -3,6 +3,7 @@ module Review.Project.Valid exposing
     , addElmJson
     , addParsedModule
     , addReadme
+    , arbitraryFiles
     , dependencies
     , dependenciesHash
     , directDependencies
@@ -309,6 +310,11 @@ readme (ValidProject project) =
 readmeHash : ValidProject -> Maybe ContentHash
 readmeHash (ValidProject project) =
     Maybe.map Tuple.second project.readme
+
+
+arbitraryFiles : ValidProject -> List { path : String, content : String }
+arbitraryFiles (ValidProject project) =
+    List.map Tuple.first project.arbitraryFiles
 
 
 dependencies : ValidProject -> Dict String Dependency
