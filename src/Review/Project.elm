@@ -79,6 +79,7 @@ new =
         , modulesThatFailedToParse = []
         , elmJson = Nothing
         , readme = Nothing
+        , arbitraryFiles = []
         , dependencies = Dict.empty
         , moduleGraph = Nothing
         , sourceDirectories = [ "src/" ]

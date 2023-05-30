@@ -50,6 +50,7 @@ type alias ValidProjectData =
     , modulesByModuleName : Dict ModuleName OpaqueProjectModule
     , elmJson : Maybe ( { path : String, raw : String, project : Elm.Project.Project }, ContentHash )
     , readme : Maybe ( { path : String, content : String }, ContentHash )
+    , arbitraryFiles : List ( { path : String, content : String }, ContentHash )
     , dependencies : Dict String Dependency
     , directDependencies : Dict String Dependency
     , dependencyModules : Set ModuleName
@@ -67,6 +68,7 @@ toRegularProject (ValidProject validProject) =
         , modulesThatFailedToParse = []
         , elmJson = validProject.elmJson
         , readme = validProject.readme
+        , arbitraryFiles = validProject.arbitraryFiles
         , dependencies = validProject.dependencies
         , moduleGraph = Just validProject.moduleGraph
         , sourceDirectories = validProject.sourceDirectories
@@ -133,6 +135,7 @@ fromProjectAndGraph moduleGraph_ acyclicGraph (Project project) =
         , modulesByModuleName = computeModulesByModuleName project.modules
         , elmJson = project.elmJson
         , readme = project.readme
+        , arbitraryFiles = project.arbitraryFiles
         , dependencies = project.dependencies
         , directDependencies = directDependencies_
         , dependencyModules = computeDependencyModules directDependencies_
