@@ -395,6 +395,7 @@ type alias ModuleRuleSchemaData moduleContext =
 
     -- Project visitors
     , elmJsonVisitor : Maybe (Maybe Elm.Project.Project -> moduleContext -> moduleContext)
+    , arbitraryFilesVisitor : Maybe (List { path : String, content : String } -> moduleContext -> moduleContext)
     , readmeVisitor : Maybe (Maybe String -> moduleContext -> moduleContext)
     , dependenciesVisitor : Maybe (Dict String Review.Project.Dependency.Dependency -> moduleContext -> moduleContext)
     , directDependenciesVisitor : Maybe (Dict String Review.Project.Dependency.Dependency -> moduleContext -> moduleContext)
@@ -1017,6 +1018,7 @@ newModuleRuleSchema name initialModuleContext =
         , caseBranchVisitorOnExit = Nothing
         , finalEvaluationFn = Nothing
         , elmJsonVisitor = Nothing
+        , arbitraryFilesVisitor = Nothing
         , readmeVisitor = Nothing
         , dependenciesVisitor = Nothing
         , directDependenciesVisitor = Nothing
@@ -1084,6 +1086,7 @@ newModuleRuleSchemaUsingContextCreator name moduleContextCreator =
         , finalEvaluationFn = Nothing
         , elmJsonVisitor = Nothing
         , readmeVisitor = Nothing
+        , arbitraryFilesVisitor = Nothing
         , dependenciesVisitor = Nothing
         , directDependenciesVisitor = Nothing
         , providesFixes = False
@@ -1363,6 +1366,7 @@ mergeModuleVisitorsHelp ruleName_ initialProjectContext moduleContextCreator vis
                 , finalEvaluationFn = Nothing
                 , elmJsonVisitor = Nothing
                 , readmeVisitor = Nothing
+                , arbitraryFilesVisitor = Nothing
                 , dependenciesVisitor = Nothing
                 , directDependenciesVisitor = Nothing
                 , providesFixes = False
