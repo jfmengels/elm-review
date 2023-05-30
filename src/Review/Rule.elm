@@ -4347,6 +4347,16 @@ computeStepsForProject reviewOptions { project, ruleProjectVisitors, fixedErrors
                 reviewOptions
                 (computeElmJson reviewOptions project fixedErrors elmJsonData ruleProjectVisitors [])
 
+        ArbitraryFiles ->
+            let
+                arbitraryFiles : List { path : String, content : String }
+                arbitraryFiles =
+                    ValidProject.arbitraryFiles project
+            in
+            computeStepsForProject
+                reviewOptions
+                (computeArbitraryFiles reviewOptions project fixedErrors arbitraryFiles ruleProjectVisitors [])
+
         Readme ->
             let
                 readmeData : Maybe { readmeKey : ReadmeKey, content : String }
@@ -4400,6 +4410,7 @@ computeStepsForProject reviewOptions { project, ruleProjectVisitors, fixedErrors
 
 type Step
     = ElmJson
+    | ArbitraryFiles
     | Readme
     | Dependencies
     | Modules (Zipper GraphModule)
@@ -4434,7 +4445,7 @@ computeElmJson reviewOptions project fixedErrors elmJsonData remainingRules accR
     case remainingRules of
         [] ->
             { project = project
-            , step = Readme
+            , step = ArbitraryFiles
             , ruleProjectVisitors = accRules
             , fixedErrors = fixedErrors
             }
@@ -4469,6 +4480,57 @@ computeElmJson reviewOptions project fixedErrors elmJsonData remainingRules accR
                         project
                         fixedErrors
                         elmJsonData
+                        rest
+                        (untouched :: accRules)
+
+
+computeArbitraryFiles :
+    ReviewOptionsData
+    -> ValidProject
+    -> FixedErrors
+    -> List { path : String, content : String }
+    -> List RuleProjectVisitor
+    -> List RuleProjectVisitor
+    -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, step : Step, fixedErrors : FixedErrors }
+computeArbitraryFiles reviewOptions project fixedErrors arbitraryFiles remainingRules accRules =
+    case remainingRules of
+        [] ->
+            { project = project
+            , step = Readme
+            , ruleProjectVisitors = accRules
+            , fixedErrors = fixedErrors
+            }
+
+        ((RuleProjectVisitor rule) as untouched) :: rest ->
+            case rule.arbitraryFilesVisitor of
+                Just visitor ->
+                    let
+                        ( errors, RuleProjectVisitor updatedRule ) =
+                            visitor project arbitraryFiles
+                    in
+                    case standardFindFix reviewOptions project fixedErrors updatedRule.setErrorsForReadme errors of
+                        FoundFixStandard { newProject, newRule, newFixedErrors, step } ->
+                            { project = newProject
+                            , ruleProjectVisitors = newRule :: (rest ++ accRules)
+                            , step = step
+                            , fixedErrors = newFixedErrors
+                            }
+
+                        FoundNoFixesStandard newRule ->
+                            computeArbitraryFiles
+                                reviewOptions
+                                project
+                                fixedErrors
+                                arbitraryFiles
+                                rest
+                                (newRule :: accRules)
+
+                Nothing ->
+                    computeArbitraryFiles
+                        reviewOptions
+                        project
+                        fixedErrors
+                        arbitraryFiles
                         rest
                         (untouched :: accRules)
 
