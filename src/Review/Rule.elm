@@ -307,6 +307,7 @@ import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern exposing (Pattern)
 import Elm.Syntax.Range as Range exposing (Range)
 import Json.Encode as Encode
+import Review.Cache.ArbitraryFile as ArbitraryFile
 import Review.Cache.ContentHash exposing (ContentHash)
 import Review.Cache.ContextHash as ContextHash exposing (ComparableContextHash, ContextHash)
 import Review.Cache.EndAnalysis as EndAnalysisCache
@@ -4164,6 +4165,10 @@ type alias ModuleCacheEntry projectContext =
 -}
 type alias ProjectFileCache projectContext =
     ProjectFileCache.Entry (Error {}) projectContext
+
+
+type alias ArbitraryFilesCache projectContext =
+    ArbitraryFile.Entry (Error {}) projectContext
 
 
 type alias FinalProjectEvaluationCache projectContext =
