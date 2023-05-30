@@ -4240,7 +4240,7 @@ computeFinalContextHashes : ProjectRuleSchemaData projectContext moduleContext -
 computeFinalContextHashes schema cache =
     let
         ( projectContextHash, _ ) =
-            findInitialInputContext schema.initialProjectContext [ cache.dependencies, cache.readme, cache.elmJson ]
+            findInitialInputContext cache AfterProjectFilesStep schema.initialProjectContext
 
         traversalAndFolder : TraversalAndFolder projectContext moduleContext
         traversalAndFolder =
@@ -4270,7 +4270,7 @@ computeFinalContext : ProjectRuleSchemaData projectContext moduleContext -> Proj
 computeFinalContext schema cache =
     let
         ( _, projectContext ) =
-            findInitialInputContext schema.initialProjectContext [ cache.dependencies, cache.readme, cache.elmJson ]
+            findInitialInputContext cache AfterProjectFilesStep schema.initialProjectContext
 
         traversalAndFolder : TraversalAndFolder projectContext moduleContext
         traversalAndFolder =
@@ -4406,6 +4406,13 @@ type Step
     | Modules (Zipper GraphModule)
     | FinalProjectEvaluation
     | EndAnalysis
+
+
+type StepToComputeContext
+    = ElmJsonStep
+    | ReadmeStep
+    | DependenciesStep
+    | AfterProjectFilesStep
 
 
 type NextStep
@@ -5458,8 +5465,8 @@ createRuleProjectVisitor schema initialProject ruleData initialCache =
                     raise { cache = newCache, ruleData = hidden.ruleData }
             in
             RuleProjectVisitor
-                { elmJsonVisitor = createProjectVisitor schema hidden schema.elmJsonVisitor [] ValidProject.elmJsonHash .elmJson (\entry -> raiseCache { cache | elmJson = Just entry }) (\() -> raise hidden)
-                , readmeVisitor = createProjectVisitor schema hidden schema.readmeVisitor [ cache.elmJson ] ValidProject.readmeHash .readme (\entry -> raiseCache { cache | readme = Just entry }) (\() -> raise hidden)
+                { elmJsonVisitor = createProjectVisitor schema hidden schema.elmJsonVisitor ElmJsonStep ValidProject.elmJsonHash .elmJson (\entry -> raiseCache { cache | elmJson = Just entry }) (\() -> raise hidden)
+                , readmeVisitor = createProjectVisitor schema hidden schema.readmeVisitor ReadmeStep ValidProject.readmeHash .readme (\entry -> raiseCache { cache | readme = Just entry }) (\() -> raise hidden)
                 , dependenciesVisitor = createDependenciesVisitor schema hidden.ruleData raiseCache cache { allVisitor = schema.dependenciesVisitor, directVisitor = schema.directDependenciesVisitor }
                 , createModuleVisitorFromProjectVisitor = createModuleVisitorFromProjectVisitor schema raiseCache hidden
                 , finalProjectEvaluation = createFinalProjectEvaluationVisitor schema hidden.ruleData raiseCache cache
@@ -5494,7 +5501,7 @@ createProjectVisitor :
     ProjectRuleSchemaData projectContext moduleContext
     -> RuleProjectVisitorHidden projectContext
     -> Maybe (data -> projectContext -> ( List (Error {}), projectContext ))
-    -> List (Maybe (ProjectFileCache projectContext))
+    -> StepToComputeContext
     -> (ValidProject -> Maybe ContentHash)
     -> (ProjectRuleCache projectContext -> Maybe (ProjectFileCache projectContext))
     -> (ProjectFileCache projectContext -> RuleProjectVisitor)
@@ -5505,7 +5512,7 @@ createProjectVisitor :
              -> data
              -> ( List (Error {}), RuleProjectVisitor )
             )
-createProjectVisitor schema hidden maybeVisitor possibleInputContexts computeContentHash cacheGetter toRuleProjectVisitor toRuleProjectVisitorWithoutChangingCache =
+createProjectVisitor schema hidden maybeVisitor step computeContentHash cacheGetter toRuleProjectVisitor toRuleProjectVisitorWithoutChangingCache =
     case maybeVisitor of
         Nothing ->
             Nothing
@@ -5515,7 +5522,7 @@ createProjectVisitor schema hidden maybeVisitor possibleInputContexts computeCon
                 (\project data ->
                     let
                         ( baseInputContextHash, inputContext ) =
-                            findInitialInputContext schema.initialProjectContext possibleInputContexts
+                            findInitialInputContext hidden.cache step schema.initialProjectContext
 
                         inputContextHash : ComparableContextHash projectContext
                         inputContextHash =
@@ -5579,7 +5586,7 @@ createDependenciesVisitor schema { exceptions } raise cache { allVisitor, direct
                 (\project { all, direct } ->
                     let
                         ( baseInputContextHash, inputContext ) =
-                            findInitialInputContext schema.initialProjectContext [ cache.readme, cache.elmJson ]
+                            findInitialInputContext cache DependenciesStep schema.initialProjectContext
 
                         inputContextHash : ComparableContextHash projectContext
                         inputContextHash =
@@ -5634,17 +5641,39 @@ createDependenciesVisitor schema { exceptions } raise cache { allVisitor, direct
                 )
 
 
-findInitialInputContext : projectContext -> List (Maybe (ProjectFileCache projectContext)) -> ( List (ContextHash projectContext), projectContext )
-findInitialInputContext defaultContext possibleInputContexts =
-    case possibleInputContexts of
-        [] ->
+findInitialInputContext :
+    ProjectRuleCache projectContext
+    -> StepToComputeContext
+    -> projectContext
+    -> ( List (ContextHash projectContext), projectContext )
+findInitialInputContext cache step defaultContext =
+    case step of
+        ElmJsonStep ->
             ( [], defaultContext )
 
-        (Just cacheEntry) :: _ ->
-            ( [ ProjectFileCache.outputContextHash cacheEntry ], ProjectFileCache.outputContext cacheEntry )
+        ReadmeStep ->
+            case cache.elmJson of
+                Just entry ->
+                    ( [ ProjectFileCache.outputContextHash entry ], ProjectFileCache.outputContext entry )
 
-        Nothing :: rest ->
-            findInitialInputContext defaultContext rest
+                Nothing ->
+                    findInitialInputContext cache ElmJsonStep defaultContext
+
+        DependenciesStep ->
+            case cache.readme of
+                Just entry ->
+                    ( [ ProjectFileCache.outputContextHash entry ], ProjectFileCache.outputContext entry )
+
+                Nothing ->
+                    findInitialInputContext cache ReadmeStep defaultContext
+
+        AfterProjectFilesStep ->
+            case cache.dependencies of
+                Just entry ->
+                    ( [ ProjectFileCache.outputContextHash entry ], ProjectFileCache.outputContext entry )
+
+                Nothing ->
+                    findInitialInputContext cache DependenciesStep defaultContext
 
 
 createFinalProjectEvaluationVisitor :
@@ -5782,7 +5811,7 @@ createModuleVisitorFromProjectVisitorHelp schema raise hidden traversalAndFolder
     \project filePath moduleContentHash incoming ->
         let
             ( initialProjectContextHash, initialProjectContext ) =
-                findInitialInputContext schema.initialProjectContext [ hidden.cache.dependencies, hidden.cache.readme, hidden.cache.elmJson ]
+                findInitialInputContext hidden.cache AfterProjectFilesStep schema.initialProjectContext
 
             inputContextHashes : ComparableContextHash projectContext
             inputContextHashes =
