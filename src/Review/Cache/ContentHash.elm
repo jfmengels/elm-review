@@ -1,4 +1,4 @@
-module Review.Cache.ContentHash exposing (ContentHash, areEqual, areEqualForMaybe, hash)
+module Review.Cache.ContentHash exposing (ContentHash, areEqual, areEqualForList, areEqualForMaybe, hash)
 
 import Vendor.Murmur3 as Murmur3
 
@@ -28,3 +28,18 @@ areEqualForMaybe a b =
 
         _ ->
             False
+
+
+areEqualForList : List ContentHash -> List ContentHash -> Bool
+areEqualForList aList bList =
+    case aList of
+        [] ->
+            List.isEmpty bList
+
+        a :: aTail ->
+            case bList of
+                [] ->
+                    False
+
+                b :: bTail ->
+                    areEqual a b && areEqualForList aTail bTail
