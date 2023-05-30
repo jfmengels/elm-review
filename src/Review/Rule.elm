@@ -4409,6 +4409,7 @@ type Step
 
 type StepToComputeContext
     = ElmJsonStep
+    | ArbitraryFilesStep
     | ReadmeStep
     | DependenciesStep
     | AfterProjectFilesStep
@@ -5650,13 +5651,21 @@ findInitialInputContext cache step defaultContext =
         ElmJsonStep ->
             ( [], defaultContext )
 
-        ReadmeStep ->
+        ArbitraryFilesStep ->
             case cache.elmJson of
                 Just entry ->
                     ( [ ProjectFileCache.outputContextHash entry ], ProjectFileCache.outputContext entry )
 
                 Nothing ->
                     findInitialInputContext cache ElmJsonStep defaultContext
+
+        ReadmeStep ->
+            case cache.arbitraryFiles of
+                Just entry ->
+                    ( [ ArbitraryFile.outputContextHash entry ], ArbitraryFile.outputContext entry )
+
+                Nothing ->
+                    findInitialInputContext cache ArbitraryFilesStep defaultContext
 
         DependenciesStep ->
             case cache.readme of
