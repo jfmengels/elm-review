@@ -1105,6 +1105,7 @@ fromModuleRuleSchema ((ModuleRuleSchema schema) as moduleVisitor) =
                 { name = schema.name
                 , initialProjectContext = initialModuleContext
                 , elmJsonVisitor = compactProjectDataVisitors (Maybe.map .project) schema.elmJsonVisitor
+                , arbitraryFilesVisitor = Nothing
                 , readmeVisitor = compactProjectDataVisitors (Maybe.map .content) schema.readmeVisitor
                 , directDependenciesVisitor = compactProjectDataVisitors identity schema.directDependenciesVisitor
                 , dependenciesVisitor = compactProjectDataVisitors identity schema.dependenciesVisitor
@@ -1123,6 +1124,7 @@ fromModuleRuleSchema ((ModuleRuleSchema schema) as moduleVisitor) =
                 { name = schema.name
                 , initialProjectContext = ()
                 , elmJsonVisitor = Nothing
+                , arbitraryFilesVisitor = Nothing
                 , readmeVisitor = Nothing
                 , directDependenciesVisitor = Nothing
                 , dependenciesVisitor = Nothing
@@ -1165,6 +1167,7 @@ type alias ProjectRuleSchemaData projectContext moduleContext =
     { name : String
     , initialProjectContext : projectContext
     , elmJsonVisitor : Maybe (Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> projectContext -> ( List (Error {}), projectContext ))
+    , arbitraryFilesVisitor : Maybe (List { path : String, content : String } -> projectContext -> ( List (Error {}), projectContext ))
     , readmeVisitor : Maybe (Maybe { readmeKey : ReadmeKey, content : String } -> projectContext -> ( List (Error {}), projectContext ))
     , directDependenciesVisitor : Maybe (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List (Error {}), projectContext ))
     , dependenciesVisitor : Maybe (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List (Error {}), projectContext ))
@@ -1225,6 +1228,7 @@ newProjectRuleSchema name initialProjectContext =
         { name = name
         , initialProjectContext = initialProjectContext
         , elmJsonVisitor = Nothing
+        , arbitraryFilesVisitor = Nothing
         , readmeVisitor = Nothing
         , directDependenciesVisitor = Nothing
         , dependenciesVisitor = Nothing
