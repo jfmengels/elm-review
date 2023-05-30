@@ -14,6 +14,7 @@ module Review.Rule exposing
     , providesFixesForModuleRule
     , withFinalModuleEvaluation
     , withElmJsonModuleVisitor, withReadmeModuleVisitor, withDirectDependenciesModuleVisitor, withDependenciesModuleVisitor
+    , withArbitraryFilesModuleVisitor
     , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitor, withModuleContext, withModuleContextUsingContextCreator, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDirectDependenciesProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withContextFromImportedModules
     , providesFixesForProjectRule
     , ContextCreator, initContextCreator, withModuleName, withModuleNameNode, withIsInSourceDirectories, withFilePath, withIsFileIgnored, withModuleNameLookupTable, withModuleKey, withSourceCodeExtractor, withFullAst, withModuleDocumentation
@@ -211,6 +212,7 @@ Evaluating/visiting a node means two things:
 ## Builder functions to analyze the project's data
 
 @docs withElmJsonModuleVisitor, withReadmeModuleVisitor, withDirectDependenciesModuleVisitor, withDependenciesModuleVisitor
+@docs withArbitraryFilesModuleVisitor
 
 
 ## Creating a project rule
@@ -2287,6 +2289,17 @@ withElmJsonModuleVisitor :
     -> ModuleRuleSchema { schemaState | canCollectProjectData : () } moduleContext
 withElmJsonModuleVisitor visitor (ModuleRuleSchema schema) =
     ModuleRuleSchema { schema | elmJsonVisitor = Just (combineContextOnlyVisitor visitor schema.elmJsonVisitor) }
+
+
+{-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit
+the project's `README.md` file.
+-}
+withArbitraryFilesModuleVisitor :
+    (List { path : String, content : String } -> moduleContext -> moduleContext)
+    -> ModuleRuleSchema { schemaState | canCollectProjectData : () } moduleContext
+    -> ModuleRuleSchema { schemaState | canCollectProjectData : () } moduleContext
+withArbitraryFilesModuleVisitor visitor (ModuleRuleSchema schema) =
+    ModuleRuleSchema { schema | arbitraryFilesVisitor = Just (combineContextOnlyVisitor visitor schema.arbitraryFilesVisitor) }
 
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit
