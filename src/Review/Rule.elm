@@ -5439,6 +5439,7 @@ The hidden state is `{ cache : ProjectRuleCache projectContext, ruleData : Chang
 type alias RuleProjectVisitorOperations =
     { elmJsonVisitor : Maybe (ValidProject -> Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> ( List (Error {}), RuleProjectVisitor ))
     , readmeVisitor : Maybe (ValidProject -> Maybe { readmeKey : ReadmeKey, content : String } -> ( List (Error {}), RuleProjectVisitor ))
+    , arbitraryFilesVisitor : Maybe (ValidProject -> List { path : String, content : String } -> ( List (Error {}), RuleProjectVisitor ))
     , dependenciesVisitor : Maybe (ValidProject -> { all : Dict String Review.Project.Dependency.Dependency, direct : Dict String Review.Project.Dependency.Dependency } -> ( List (Error {}), RuleProjectVisitor ))
     , createModuleVisitorFromProjectVisitor : Maybe (ValidProject -> String -> ContentHash -> Graph.Adjacency () -> Maybe (AvailableData -> RuleModuleVisitor))
     , finalProjectEvaluation : Maybe (() -> ( List (Error {}), RuleProjectVisitor ))
@@ -5467,6 +5468,7 @@ createRuleProjectVisitor schema initialProject ruleData initialCache =
             in
             RuleProjectVisitor
                 { elmJsonVisitor = createProjectVisitor schema hidden schema.elmJsonVisitor ElmJsonStep ValidProject.elmJsonHash .elmJson (\entry -> raiseCache { cache | elmJson = Just entry }) (\() -> raise hidden)
+                , arbitraryFilesVisitor = createProjectVisitor schema hidden schema.arbitraryFilesVisitor ArbitraryFilesStep ValidProject.readmeHash .readme (\entry -> raiseCache { cache | readme = Just entry }) (\() -> raise hidden)
                 , readmeVisitor = createProjectVisitor schema hidden schema.readmeVisitor ReadmeStep ValidProject.readmeHash .readme (\entry -> raiseCache { cache | readme = Just entry }) (\() -> raise hidden)
                 , dependenciesVisitor = createDependenciesVisitor schema hidden.ruleData raiseCache cache { allVisitor = schema.dependenciesVisitor, directVisitor = schema.directDependenciesVisitor }
                 , createModuleVisitorFromProjectVisitor = createModuleVisitorFromProjectVisitor schema raiseCache hidden
