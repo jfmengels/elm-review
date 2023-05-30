@@ -1276,6 +1276,7 @@ removeUnknownModulesFromInitialCache validProject projectRuleCache =
 emptyCache : ProjectRuleCache projectContext
 emptyCache =
     { elmJson = Nothing
+    , arbitraryFiles = Nothing
     , readme = Nothing
     , dependencies = Nothing
     , moduleContexts = Dict.empty
@@ -4311,6 +4312,7 @@ errorsFromCache cache =
 
 type alias ProjectRuleCache projectContext =
     { elmJson : Maybe (ProjectFileCache projectContext)
+    , arbitraryFiles : Maybe (ArbitraryFilesCache projectContext)
     , readme : Maybe (ProjectFileCache projectContext)
     , dependencies : Maybe (ProjectFileCache projectContext)
     , moduleContexts : Dict String (ModuleCacheEntry projectContext)
