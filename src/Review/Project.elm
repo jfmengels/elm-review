@@ -294,6 +294,13 @@ addReadme readme_ (Internal.Project project) =
     Internal.Project { project | readme = Just ( readme_, ContentHash.hash readme_.content ) }
 
 
+{-| REPLACEME
+-}
+addArbitraryFiles : List { path : String, content : String } -> Project -> Project
+addArbitraryFiles files (Internal.Project project) =
+    Internal.Project { project | arbitraryFiles = List.map (\file -> ( file, ContentHash.hash file.content )) files }
+
+
 {-| Get the contents of the `README.md` file, if available.
 -}
 readme : Project -> Maybe { path : String, content : String }
