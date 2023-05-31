@@ -26,6 +26,25 @@ a = 1
                           , details = [ "foo/some-file.css" ]
                           }
                         ]
+        , test "filters out files that were not requested" <|
+            \() ->
+                let
+                    arbitraryFiles : List { path : String, content : String }
+                    arbitraryFiles =
+                        [ { path = "foo/some-file.css", content = "#thing { color: red; }" }
+                        , { path = "foo/some-other-file.css", content = "#thing { color: red; }" }
+                        , { path = "bar/some-file.css", content = "#thing { color: red; }" }
+                        ]
+                in
+                """module A exposing (a)
+a = 1
+"""
+                    |> Review.Test.runWithProjectData (Project.addArbitraryFiles arbitraryFiles Project.new) rule
+                    |> Review.Test.expectGlobalErrors
+                        [ { message = "Found these files"
+                          , details = [ "foo/some-file.css" ]
+                          }
+                        ]
         ]
 
 
