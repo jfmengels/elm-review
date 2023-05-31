@@ -1,6 +1,5 @@
 module Review.Rule.WithArbitraryFilesVisitorTest exposing (all)
 
-import Elm.Syntax.Node as Node exposing (Node)
 import Review.Project as Project
 import Review.Rule as Rule exposing (Error, Rule)
 import Review.Test
