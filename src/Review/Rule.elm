@@ -1263,6 +1263,7 @@ fromProjectRuleSchema (ProjectRuleSchema schema) =
             RequestedData.combine
                 (Maybe.map requestedDataFromContextCreator schema.moduleContextCreator)
                 (Maybe.map (.fromModuleToProject >> requestedDataFromContextCreator) schema.folder)
+                |> RequestedData.withFiles schema.arbitraryFileRequest
         , providesFixes = schema.providesFixes
         , ruleProjectVisitor =
             Ok
