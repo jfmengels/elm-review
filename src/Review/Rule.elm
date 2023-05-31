@@ -2304,17 +2304,17 @@ withArbitraryFilesModuleVisitor :
     -> ModuleRuleSchema { schemaState | canCollectProjectData : () } moduleContext
     -> ModuleRuleSchema { schemaState | canCollectProjectData : () } moduleContext
 withArbitraryFilesModuleVisitor newRequestedFiles newVisitor (ModuleRuleSchema schema) =
-    let
-        arbitraryFilesVisitor : ( List { path : String, content : String } -> moduleContext -> moduleContext, ArbitraryFileRequest )
-        arbitraryFilesVisitor =
-            case schema.arbitraryFilesVisitor of
-                Just ( existingVisitor, existingRequestedFiles ) ->
-                    ( combineContextOnlyVisitor newVisitor (Just existingVisitor), newRequestedFiles ++ existingRequestedFiles )
+    ModuleRuleSchema { schema | arbitraryFilesVisitor = Just (combineArbitraryFilesModuleVisitor newRequestedFiles newVisitor schema) }
 
-                Nothing ->
-                    ( newVisitor, newRequestedFiles )
-    in
-    ModuleRuleSchema { schema | arbitraryFilesVisitor = Just arbitraryFilesVisitor }
+
+combineArbitraryFilesModuleVisitor : ArbitraryFileRequest -> (a -> context -> context) -> { b | arbitraryFilesVisitor : Maybe ( a -> context -> context, ArbitraryFileRequest ) } -> ( a -> context -> context, ArbitraryFileRequest )
+combineArbitraryFilesModuleVisitor newRequestedFiles newVisitor schema =
+    case schema.arbitraryFilesVisitor of
+        Just ( existingVisitor, existingRequestedFiles ) ->
+            ( combineContextOnlyVisitor newVisitor (Just existingVisitor), newRequestedFiles ++ existingRequestedFiles )
+
+        Nothing ->
+            ( newVisitor, newRequestedFiles )
 
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit
