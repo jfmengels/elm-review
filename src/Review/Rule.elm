@@ -24,7 +24,7 @@ module Review.Rule exposing
     , ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFilePath, errorTarget, errorFixes, errorFixFailure
     , ignoreErrorsForDirectories, ignoreErrorsForFiles, filterErrorsForFiles
     , withDataExtractor, preventExtract
-    , reviewV3, reviewV2, review, ProjectData, ruleName, ruleProvidesFixes, ruleKnowsAboutIgnoredFiles, withRuleId, getConfigurationError
+    , reviewV3, reviewV2, review, ProjectData, ruleName, ruleProvidesFixes, ruleKnowsAboutIgnoredFiles, ruleRequestedFiles, withRuleId, getConfigurationError
     , Required, Forbidden
     )
 
@@ -286,7 +286,7 @@ find the tools to extract data below.
 
 # Running rules
 
-@docs reviewV3, reviewV2, review, ProjectData, ruleName, ruleProvidesFixes, ruleKnowsAboutIgnoredFiles, withRuleId, getConfigurationError
+@docs reviewV3, reviewV2, review, ProjectData, ruleName, ruleProvidesFixes, ruleKnowsAboutIgnoredFiles, ruleRequestedFiles, withRuleId, getConfigurationError
 
 
 # Internals
@@ -874,6 +874,17 @@ ruleKnowsAboutIgnoredFiles (Rule rule) =
             rule.requestedData
     in
     requestedData.ignoredFiles
+
+
+{-| REPLACEME
+-}
+ruleRequestedFiles : Rule -> List String
+ruleRequestedFiles (Rule rule) =
+    let
+        (RequestedData requestedData) =
+            rule.requestedData
+    in
+    requestedData.files
 
 
 {-| Assign an id to a rule. This id should be unique.
