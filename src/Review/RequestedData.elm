@@ -1,4 +1,4 @@
-module Review.RequestedData exposing (RequestedData(..), combine, combineJust, none)
+module Review.RequestedData exposing (RequestedData(..), combine, combineJust, none, withFiles)
 
 
 type RequestedData
@@ -33,6 +33,15 @@ combine maybeA maybeB =
 
                 Nothing ->
                     a
+
+
+withFiles : List String -> RequestedData -> RequestedData
+withFiles files ((RequestedData requested) as untouched) =
+    if List.isEmpty files then
+        untouched
+
+    else
+        RequestedData { requested | files = files }
 
 
 combineJust : RequestedData -> RequestedData -> RequestedData
