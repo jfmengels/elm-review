@@ -1115,6 +1115,7 @@ fromModuleRuleSchema ((ModuleRuleSchema schema) as moduleVisitor) =
                 , initialProjectContext = initialModuleContext
                 , elmJsonVisitor = compactProjectDataVisitors (Maybe.map .project) schema.elmJsonVisitor
                 , arbitraryFilesVisitor = compactProjectDataVisitors identity (Maybe.map Tuple.first schema.arbitraryFilesVisitor)
+                , arbitraryFileRequest = Maybe.map Tuple.second schema.arbitraryFilesVisitor |> Maybe.withDefault []
                 , readmeVisitor = compactProjectDataVisitors (Maybe.map .content) schema.readmeVisitor
                 , directDependenciesVisitor = compactProjectDataVisitors identity schema.directDependenciesVisitor
                 , dependenciesVisitor = compactProjectDataVisitors identity schema.dependenciesVisitor
@@ -1134,6 +1135,7 @@ fromModuleRuleSchema ((ModuleRuleSchema schema) as moduleVisitor) =
                 , initialProjectContext = ()
                 , elmJsonVisitor = Nothing
                 , arbitraryFilesVisitor = Nothing
+                , arbitraryFileRequest = []
                 , readmeVisitor = Nothing
                 , directDependenciesVisitor = Nothing
                 , dependenciesVisitor = Nothing
@@ -1177,6 +1179,7 @@ type alias ProjectRuleSchemaData projectContext moduleContext =
     , initialProjectContext : projectContext
     , elmJsonVisitor : Maybe (Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> projectContext -> ( List (Error {}), projectContext ))
     , arbitraryFilesVisitor : Maybe (List { path : String, content : String } -> projectContext -> ( List (Error {}), projectContext ))
+    , arbitraryFileRequest : ArbitraryFileRequest
     , readmeVisitor : Maybe (Maybe { readmeKey : ReadmeKey, content : String } -> projectContext -> ( List (Error {}), projectContext ))
     , directDependenciesVisitor : Maybe (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List (Error {}), projectContext ))
     , dependenciesVisitor : Maybe (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List (Error {}), projectContext ))
@@ -1238,6 +1241,7 @@ newProjectRuleSchema name initialProjectContext =
         , initialProjectContext = initialProjectContext
         , elmJsonVisitor = Nothing
         , arbitraryFilesVisitor = Nothing
+        , arbitraryFileRequest = []
         , readmeVisitor = Nothing
         , directDependenciesVisitor = Nothing
         , dependenciesVisitor = Nothing
