@@ -1114,7 +1114,7 @@ fromModuleRuleSchema ((ModuleRuleSchema schema) as moduleVisitor) =
                 { name = schema.name
                 , initialProjectContext = initialModuleContext
                 , elmJsonVisitor = compactProjectDataVisitors (Maybe.map .project) schema.elmJsonVisitor
-                , arbitraryFilesVisitor = compactProjectDataVisitors identity (Maybe.map Tuple.first schema.arbitraryFilesVisitor)
+                , arbitraryFilesVisitor = compactArbitraryFilesVisitor schema.arbitraryFilesVisitor
                 , arbitraryFileRequest = Maybe.map Tuple.second schema.arbitraryFilesVisitor |> Maybe.withDefault []
                 , readmeVisitor = compactProjectDataVisitors (Maybe.map .content) schema.readmeVisitor
                 , directDependenciesVisitor = compactProjectDataVisitors identity schema.directDependenciesVisitor
@@ -1158,6 +1158,21 @@ compactProjectDataVisitors getData maybeVisitor =
 
         Just visitor ->
             Just (\rawData moduleContext -> ( [], visitor (getData rawData) moduleContext ))
+
+
+compactArbitraryFilesVisitor : Maybe ( List { a | path : String } -> moduleContext -> moduleContext, List String ) -> Maybe (List { a | path : String } -> moduleContext -> ( List nothing, moduleContext ))
+compactArbitraryFilesVisitor maybeArbitraryFilesVisitor =
+    case maybeArbitraryFilesVisitor of
+        Just ( arbitraryFilesVisitor, requestedFiles ) ->
+            let
+                predicate : { a | path : String } -> Bool
+                predicate file =
+                    List.member file.path requestedFiles
+            in
+            Just (\files moduleContext -> ( [], arbitraryFilesVisitor (List.filter predicate files) moduleContext ))
+
+        Nothing ->
+            Nothing
 
 
 
