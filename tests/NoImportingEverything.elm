@@ -62,6 +62,7 @@ rule exceptions =
             [ "CHANGELOG.md" ]
             (\files context ->
                 let
+                    -- TODO FIX NOT GETTING ANY FILE HERE
                     _ =
                         Debug.log "files" files
                 in
