@@ -397,11 +397,15 @@ type alias ModuleRuleSchemaData moduleContext =
 
     -- Project visitors
     , elmJsonVisitor : Maybe (Maybe Elm.Project.Project -> moduleContext -> moduleContext)
-    , arbitraryFilesVisitor : Maybe (List { path : String, content : String } -> moduleContext -> moduleContext)
+    , arbitraryFilesVisitor : Maybe ( List { path : String, content : String } -> moduleContext -> moduleContext, ArbitraryFileRequest )
     , readmeVisitor : Maybe (Maybe String -> moduleContext -> moduleContext)
     , dependenciesVisitor : Maybe (Dict String Review.Project.Dependency.Dependency -> moduleContext -> moduleContext)
     , directDependenciesVisitor : Maybe (Dict String Review.Project.Dependency.Dependency -> moduleContext -> moduleContext)
     }
+
+
+type alias ArbitraryFileRequest =
+    List String
 
 
 
@@ -1106,7 +1110,7 @@ fromModuleRuleSchema ((ModuleRuleSchema schema) as moduleVisitor) =
                 { name = schema.name
                 , initialProjectContext = initialModuleContext
                 , elmJsonVisitor = compactProjectDataVisitors (Maybe.map .project) schema.elmJsonVisitor
-                , arbitraryFilesVisitor = compactProjectDataVisitors identity schema.arbitraryFilesVisitor
+                , arbitraryFilesVisitor = compactProjectDataVisitors identity (Maybe.map Tuple.first schema.arbitraryFilesVisitor)
                 , readmeVisitor = compactProjectDataVisitors (Maybe.map .content) schema.readmeVisitor
                 , directDependenciesVisitor = compactProjectDataVisitors identity schema.directDependenciesVisitor
                 , dependenciesVisitor = compactProjectDataVisitors identity schema.dependenciesVisitor
@@ -2295,11 +2299,22 @@ withElmJsonModuleVisitor visitor (ModuleRuleSchema schema) =
 the project's `README.md` file.
 -}
 withArbitraryFilesModuleVisitor :
-    (List { path : String, content : String } -> moduleContext -> moduleContext)
+    ArbitraryFileRequest
+    -> (List { path : String, content : String } -> moduleContext -> moduleContext)
     -> ModuleRuleSchema { schemaState | canCollectProjectData : () } moduleContext
     -> ModuleRuleSchema { schemaState | canCollectProjectData : () } moduleContext
-withArbitraryFilesModuleVisitor visitor (ModuleRuleSchema schema) =
-    ModuleRuleSchema { schema | arbitraryFilesVisitor = Just (combineContextOnlyVisitor visitor schema.arbitraryFilesVisitor) }
+withArbitraryFilesModuleVisitor newRequestedFiles newVisitor (ModuleRuleSchema schema) =
+    let
+        arbitraryFilesVisitor : ( List { path : String, content : String } -> moduleContext -> moduleContext, ArbitraryFileRequest )
+        arbitraryFilesVisitor =
+            case schema.arbitraryFilesVisitor of
+                Just ( existingVisitor, existingRequestedFiles ) ->
+                    ( combineContextOnlyVisitor newVisitor (Just existingVisitor), newRequestedFiles ++ existingRequestedFiles )
+
+                Nothing ->
+                    ( newVisitor, newRequestedFiles )
+    in
+    ModuleRuleSchema { schema | arbitraryFilesVisitor = Just arbitraryFilesVisitor }
 
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit
