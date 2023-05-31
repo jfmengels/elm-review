@@ -37,7 +37,7 @@ type alias Context =
 rule : Rule
 rule =
     Rule.newModuleRuleSchema "WithCommentsVisitorTestRule" []
-        |> Rule.withArbitraryFilesModuleVisitor [ "foo/*.css" ] arbitraryFilesModuleVisitor
+        |> Rule.withArbitraryFilesModuleVisitor [ "foo/some-file.css" ] arbitraryFilesModuleVisitor
         |> Rule.withModuleDefinitionVisitor (\_ context -> ( [], context ))
         |> Rule.withFinalModuleEvaluation finalEvaluation
         |> Rule.fromModuleRuleSchema
