@@ -4368,6 +4368,7 @@ errorsFromCache cache =
     List.concat
         [ Dict.foldl (\_ cacheEntry acc -> List.append (ModuleCache.errors cacheEntry) acc) [] cache.moduleContexts
         , ProjectFileCache.errorsForMaybe cache.elmJson
+        , ArbitraryFile.errorsForMaybe cache.arbitraryFiles
         , ProjectFileCache.errorsForMaybe cache.readme
         , ProjectFileCache.errorsForMaybe cache.dependencies
         , Maybe.map EndAnalysisCache.output cache.finalEvaluationErrors |> Maybe.withDefault []
