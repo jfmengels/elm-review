@@ -5593,7 +5593,7 @@ createRuleProjectVisitor schema initialProject ruleData initialCache =
             in
             RuleProjectVisitor
                 { elmJsonVisitor = createProjectVisitor schema hidden schema.elmJsonVisitor ElmJsonStep ValidProject.elmJsonHash .elmJson (\entry -> raiseCache { cache | elmJson = Just entry }) (\() -> raise hidden)
-                , arbitraryFilesVisitor = createProjectVisitor schema hidden schema.arbitraryFilesVisitor ArbitraryFilesStep ValidProject.readmeHash .readme (\entry -> raiseCache { cache | readme = Just entry }) (\() -> raise hidden)
+                , arbitraryFilesVisitor = createArbitraryFilesVisitor schema hidden schema.arbitraryFilesVisitor ArbitraryFilesStep (\entry -> raiseCache { cache | arbitraryFiles = Just entry }) (\() -> raise hidden)
                 , readmeVisitor = createProjectVisitor schema hidden schema.readmeVisitor ReadmeStep ValidProject.readmeHash .readme (\entry -> raiseCache { cache | readme = Just entry }) (\() -> raise hidden)
                 , dependenciesVisitor = createDependenciesVisitor schema hidden.ruleData raiseCache cache { allVisitor = schema.dependenciesVisitor, directVisitor = schema.directDependenciesVisitor }
                 , createModuleVisitorFromProjectVisitor = createModuleVisitorFromProjectVisitor schema raiseCache hidden
@@ -5680,6 +5680,68 @@ createProjectVisitor schema hidden maybeVisitor step computeContentHash cacheGet
                             ( errors
                             , ProjectFileCache.create
                                 { contentHash = contentHash
+                                , errors = errors
+                                , inputContextHash = inputContextHash
+                                , outputContext = outputContext
+                                }
+                                |> toRuleProjectVisitor
+                            )
+                )
+
+
+createArbitraryFilesVisitor :
+    ProjectRuleSchemaData projectContext moduleContext
+    -> RuleProjectVisitorHidden projectContext
+    -> Maybe (data -> projectContext -> ( List (Error {}), projectContext ))
+    -> StepToComputeContext
+    -> (ArbitraryFilesCache projectContext -> RuleProjectVisitor)
+    -> (() -> RuleProjectVisitor)
+    ->
+        Maybe
+            (ValidProject
+             -> data
+             -> ( List (Error {}), RuleProjectVisitor )
+            )
+createArbitraryFilesVisitor schema hidden maybeVisitor step toRuleProjectVisitor toRuleProjectVisitorWithoutChangingCache =
+    case maybeVisitor of
+        Nothing ->
+            Nothing
+
+        Just visitor ->
+            Just
+                (\project data ->
+                    let
+                        ( baseInputContextHash, inputContext ) =
+                            findInitialInputContext hidden.cache step schema.initialProjectContext
+
+                        inputContextHash : ComparableContextHash projectContext
+                        inputContextHash =
+                            ContextHash.toComparable baseInputContextHash
+
+                        contentHashes : List ContentHash
+                        contentHashes =
+                            ValidProject.arbitraryFilesHash project
+
+                        cachePredicate : ArbitraryFilesCache projectContext -> Bool
+                        cachePredicate arbitraryFiles =
+                            ArbitraryFile.match contentHashes inputContextHash arbitraryFiles
+                    in
+                    case reuseProjectRuleCache cachePredicate .arbitraryFiles hidden.cache of
+                        Just entry ->
+                            ( ArbitraryFile.errors entry, toRuleProjectVisitorWithoutChangingCache () )
+
+                        Nothing ->
+                            let
+                                ( errorsForVisitor, outputContext ) =
+                                    visitor data inputContext
+
+                                errors : List (Error {})
+                                errors =
+                                    filterExceptionsAndSetName hidden.ruleData.exceptions schema.name errorsForVisitor
+                            in
+                            ( errors
+                            , ArbitraryFile.create
+                                { contentHashes = contentHashes
                                 , errors = errors
                                 , inputContextHash = inputContextHash
                                 , outputContext = outputContext
