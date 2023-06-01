@@ -5514,8 +5514,8 @@ createProjectVisitor schema hidden maybeVisitor possibleInputContexts computeCon
                             computeContentHash project
 
                         cachePredicate : ProjectFileCache projectContext -> Bool
-                        cachePredicate elmJson =
-                            ProjectFileCache.match contentHash inputContextHash elmJson
+                        cachePredicate cacheData =
+                            ProjectFileCache.match contentHash inputContextHash cacheData
                     in
                     case reuseProjectRuleCache cachePredicate cacheGetter hidden.cache of
                         Just entry ->
