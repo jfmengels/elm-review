@@ -4,6 +4,7 @@ module Review.Project.Valid exposing
     , addParsedModule
     , addReadme
     , arbitraryFiles
+    , arbitraryFilesHash
     , dependencies
     , dependenciesHash
     , directDependencies
@@ -315,6 +316,11 @@ readmeHash (ValidProject project) =
 arbitraryFiles : ValidProject -> List { path : String, content : String }
 arbitraryFiles (ValidProject project) =
     List.map Tuple.first project.arbitraryFiles
+
+
+arbitraryFilesHash : ValidProject -> List ContentHash
+arbitraryFilesHash (ValidProject project) =
+    List.map Tuple.second project.arbitraryFiles
 
 
 dependencies : ValidProject -> Dict String Dependency
