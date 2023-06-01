@@ -15,7 +15,7 @@ module Review.Rule exposing
     , withFinalModuleEvaluation
     , withElmJsonModuleVisitor, withReadmeModuleVisitor, withDirectDependenciesModuleVisitor, withDependenciesModuleVisitor
     , withArbitraryFilesModuleVisitor
-    , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitor, withModuleContext, withModuleContextUsingContextCreator, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDirectDependenciesProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withContextFromImportedModules
+    , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitor, withModuleContext, withModuleContextUsingContextCreator, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDirectDependenciesProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withArbitraryFilesProjectVisitor, withContextFromImportedModules
     , providesFixesForProjectRule
     , ContextCreator, initContextCreator, withModuleName, withModuleNameNode, withIsInSourceDirectories, withFilePath, withIsFileIgnored, withModuleNameLookupTable, withModuleKey, withSourceCodeExtractor, withFullAst, withModuleDocumentation
     , Metadata, withMetadata, moduleNameFromMetadata, moduleNameNodeFromMetadata, isInSourceDirectories
@@ -228,7 +228,7 @@ Project rules can also report errors in the `elm.json` or the `README.md` files.
 If you are new to writing rules, I would recommend learning [how to build a module rule](#creating-a-module-rule)
 first, as they are in practice a simpler version of project rules.
 
-@docs ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitor, withModuleContext, withModuleContextUsingContextCreator, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDirectDependenciesProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withContextFromImportedModules
+@docs ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitor, withModuleContext, withModuleContextUsingContextCreator, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDirectDependenciesProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withArbitraryFilesProjectVisitor, withContextFromImportedModules
 @docs providesFixesForProjectRule
 
 
@@ -1855,6 +1855,21 @@ withElmJsonProjectVisitor :
     -> ProjectRuleSchema { schemaState | hasAtLeastOneVisitor : () } projectContext moduleContext
 withElmJsonProjectVisitor visitor (ProjectRuleSchema schema) =
     ProjectRuleSchema { schema | elmJsonVisitor = Just (combineVisitors (removeErrorPhantomTypeFromVisitor visitor) schema.elmJsonVisitor) }
+
+
+{-| REPLACEME
+-}
+withArbitraryFilesProjectVisitor :
+    ArbitraryFileRequest
+    -> (List { path : String, content : String } -> projectContext -> ( List (Error { useErrorForModule : () }), projectContext ))
+    -> ProjectRuleSchema schemaState projectContext moduleContext
+    -> ProjectRuleSchema { schemaState | hasAtLeastOneVisitor : () } projectContext moduleContext
+withArbitraryFilesProjectVisitor newRequestedFiles visitor (ProjectRuleSchema schema) =
+    ProjectRuleSchema
+        { schema
+            | arbitraryFilesVisitor = Just (combineVisitors (removeErrorPhantomTypeFromVisitor visitor) schema.arbitraryFilesVisitor)
+            , arbitraryFileRequest = newRequestedFiles ++ schema.arbitraryFileRequest
+        }
 
 
 {-| Add a visitor to the [`ProjectRuleSchema`](#ProjectRuleSchema) which will visit
