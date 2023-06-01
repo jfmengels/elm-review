@@ -4572,7 +4572,7 @@ computeArbitraryFiles reviewOptions project fixedErrors arbitraryFiles remaining
                         ( errors, RuleProjectVisitor updatedRule ) =
                             visitor project arbitraryFiles
                     in
-                    case standardFindFix reviewOptions project fixedErrors updatedRule.setErrorsForReadme errors of
+                    case standardFindFix reviewOptions project fixedErrors updatedRule.setErrorsForArbitraryFiles errors of
                         FoundFixStandard { newProject, newRule, newFixedErrors, step } ->
                             { project = newProject
                             , ruleProjectVisitors = newRule :: (rest ++ accRules)
@@ -5573,6 +5573,7 @@ type alias RuleProjectVisitorOperations =
     , getErrors : () -> List (Error {})
     , setErrorsForModule : String -> List (Error {}) -> RuleProjectVisitor
     , setErrorsForElmJson : List (Error {}) -> RuleProjectVisitor
+    , setErrorsForArbitraryFiles : List (Error {}) -> RuleProjectVisitor
     , setErrorsForReadme : List (Error {}) -> RuleProjectVisitor
     , setErrorsForDependencies : List (Error {}) -> RuleProjectVisitor
     , setErrorsForFinalEvaluation : List (Error {}) -> RuleProjectVisitor
@@ -5603,6 +5604,7 @@ createRuleProjectVisitor schema initialProject ruleData initialCache =
                 , getErrors = \() -> errorsFromCache (finalCacheMarker schema.name hidden.ruleData.ruleId cache)
                 , setErrorsForModule = \filePath newErrors -> raiseCache { cache | moduleContexts = Dict.update filePath (Maybe.map (\entry -> ModuleCache.setErrors newErrors entry)) cache.moduleContexts }
                 , setErrorsForElmJson = \newErrors -> raiseCache { cache | elmJson = ProjectFileCache.setErrors newErrors cache.elmJson }
+                , setErrorsForArbitraryFiles = \newErrors -> raiseCache { cache | arbitraryFiles = ArbitraryFile.setErrors newErrors cache.arbitraryFiles }
                 , setErrorsForReadme = \newErrors -> raiseCache { cache | readme = ProjectFileCache.setErrors newErrors cache.readme }
                 , setErrorsForDependencies = \newErrors -> raiseCache { cache | dependencies = ProjectFileCache.setErrors newErrors cache.dependencies }
                 , setErrorsForFinalEvaluation = \newErrors -> raiseCache { cache | finalEvaluationErrors = EndAnalysisCache.setOutput newErrors cache.finalEvaluationErrors }
