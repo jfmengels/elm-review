@@ -5869,14 +5869,6 @@ findInitialInputContext cache step defaultContext =
             ( [], defaultContext )
 
         ReadmeStep ->
-            case cache.extraFiles of
-                Just entry ->
-                    ( [ ExtraFile.outputContextHash entry ], ExtraFile.outputContext entry )
-
-                Nothing ->
-                    findInitialInputContext cache ExtraFilesStep defaultContext
-
-        ExtraFilesStep ->
             case cache.elmJson of
                 Just entry ->
                     ( [ ProjectFileCache.outputContextHash entry ], ProjectFileCache.outputContext entry )
@@ -5884,13 +5876,21 @@ findInitialInputContext cache step defaultContext =
                 Nothing ->
                     findInitialInputContext cache ElmJsonStep defaultContext
 
-        DependenciesStep ->
+        ExtraFilesStep ->
             case cache.readme of
                 Just entry ->
                     ( [ ProjectFileCache.outputContextHash entry ], ProjectFileCache.outputContext entry )
 
                 Nothing ->
                     findInitialInputContext cache ReadmeStep defaultContext
+
+        DependenciesStep ->
+            case cache.extraFiles of
+                Just entry ->
+                    ( [ ExtraFile.outputContextHash entry ], ExtraFile.outputContext entry )
+
+                Nothing ->
+                    findInitialInputContext cache ExtraFilesStep defaultContext
 
         AfterProjectFilesStep ->
             case cache.dependencies of
