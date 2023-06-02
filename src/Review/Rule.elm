@@ -1257,6 +1257,7 @@ Project rules traverse the project in the following order:
   - Read and/or report errors in project files
       - The `elm.json` file, visited by [`withElmJsonProjectVisitor`](#withElmJsonProjectVisitor)
       - The `README.md` file, visited by [`withReadmeProjectVisitor`](#withReadmeProjectVisitor)
+      - TODO Extra files
       - The definition for dependencies, visited by [`withDependenciesProjectVisitor`](#withDependenciesProjectVisitor)
   - The Elm modules one by one, visited by [`withModuleVisitor`](#withModuleVisitor),
     following the same traversal order as for module rules but without reading the project files (`elm.json`, ...).
