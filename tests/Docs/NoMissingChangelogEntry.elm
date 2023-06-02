@@ -84,8 +84,17 @@ extraFilesVisitor : List { path : String, content : String } -> ProjectContext -
 extraFilesVisitor files context =
     case List.head files of
         Just { content } ->
-            ( [], context )
+            if String.contains context.elmJsonVersion content then
+                ( [], context )
+
+            else
+                ( [ Rule.globalError
+                        { message = "Missing entry in CHANGELOG.md for version " ++ context.elmJsonVersion
+                        , details = [ "It seems you have or are ready to release a new version of your package, but forgot to include releases notes for it in your CHANGELOG.md file." ]
+                        }
+                  ]
+                , context
+                )
 
         Nothing ->
-            --( [ Rule.error { useErrorForModule = () } "Missing CHANGELOG.md file" ], context
             ( [], context )
