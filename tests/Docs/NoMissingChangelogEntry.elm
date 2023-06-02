@@ -115,4 +115,19 @@ extraFilesVisitor files context =
                 )
 
         Nothing ->
-            ( [], context )
+            ( [ Rule.globalError
+                    { message = "Could not find the CHANGELOG.md file"
+                    , details =
+                        [ "I was looking for the CHANGELOG.md file next to your project's elm.json file but couldn't find it. Please make sure that the spelling is correct."
+                        , "If your changelog is named differently or is in a different location, then you can configure this rule to look for it in a different location:"
+                        , """    config =
+        [ Docs.NoMissingChangelogEntry.defaults
+            |> Docs.NoMissingChangelogEntry.changelogPath "path/to/your/changelog.md"
+            |> Docs.NoMissingChangelogEntry.rule
+        ]"""
+                        , "Note that the path is relative your project's elm.json file."
+                        ]
+                    }
+              ]
+            , context
+            )

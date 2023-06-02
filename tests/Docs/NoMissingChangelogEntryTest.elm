@@ -59,6 +59,26 @@ a = 1
                           , details = [ "It seems you have or are ready to release a new version of your package, but forgot to include releases notes for it in your CHANGELOG.md file." ]
                           }
                         ]
+        , test "should report an error when the changelog could not be found (default path)" <|
+            \() ->
+                """module A exposing (..)
+a = 1
+"""
+                    |> Review.Test.runWithProjectData package (rule Docs.NoMissingChangelogEntry.defaults)
+                    |> Review.Test.expectGlobalErrors
+                        [ { message = "Could not find the CHANGELOG.md file"
+                          , details =
+                                [ "I was looking for the CHANGELOG.md file next to your project's elm.json file but couldn't find it. Please make sure that the spelling is correct."
+                                , "If your changelog is named differently or is in a different location, then you can configure this rule to look for it in a different location:"
+                                , """    config =
+        [ Docs.NoMissingChangelogEntry.defaults
+            |> Docs.NoMissingChangelogEntry.changelogPath "path/to/your/changelog.md"
+            |> Docs.NoMissingChangelogEntry.rule
+        ]"""
+                                , "Note that the path is relative your project's elm.json file."
+                                ]
+                          }
+                        ]
         ]
 
 
