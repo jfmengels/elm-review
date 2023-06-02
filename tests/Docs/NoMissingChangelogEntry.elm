@@ -108,7 +108,7 @@ elmJsonVisitor maybeElmJsonData context =
             ( [], context )
 
 
-extraFilesVisitor : Maybe String -> List { path : String, content : String } -> ProjectContext -> ( List (Rule.Error { useErrorForModule : () }), ProjectContext )
+extraFilesVisitor : Maybe String -> List { fileKey : Rule.ExtraFileKey, path : String, content : String } -> ProjectContext -> ( List (Rule.Error { useErrorForModule : () }), ProjectContext )
 extraFilesVisitor changelogPath files context =
     case List.head files of
         Just { content } ->
