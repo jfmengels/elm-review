@@ -1173,8 +1173,8 @@ compactProjectDataVisitors getData maybeVisitor =
 compactArbitraryFilesVisitor : Maybe ( List { a | path : String } -> moduleContext -> moduleContext, List String ) -> Maybe (List { a | path : String } -> moduleContext -> ( List nothing, moduleContext ))
 compactArbitraryFilesVisitor maybeArbitraryFilesVisitor =
     case maybeArbitraryFilesVisitor of
-        Just ( arbitraryFilesVisitor, requestedFiles ) ->
-            Just (\files moduleContext -> ( [], arbitraryFilesVisitor (List.filter (globMatch requestedFiles) files) moduleContext ))
+        Just ( arbitraryFilesVisitor, _ ) ->
+            Just (\files moduleContext -> ( [], arbitraryFilesVisitor files moduleContext ))
 
         Nothing ->
             Nothing
