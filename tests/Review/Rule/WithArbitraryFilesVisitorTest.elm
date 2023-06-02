@@ -1,6 +1,6 @@
 module Review.Rule.WithArbitraryFilesVisitorTest exposing (all)
 
-import Review.Project as Project
+import Review.Project as Project exposing (Project)
 import Review.Rule as Rule exposing (Error, Rule)
 import Review.Test
 import Test exposing (Test, describe, test)
@@ -12,15 +12,16 @@ all =
         [ test "passes the list of arbitrary files to the rule" <|
             \() ->
                 let
-                    arbitraryFiles : List { path : String, content : String }
-                    arbitraryFiles =
-                        [ { path = "foo/some-file.css", content = "#thing { color: red; }" }
-                        ]
+                    project : Project
+                    project =
+                        createProject
+                            [ { path = "foo/some-file.css", content = "#thing { color: red; }" }
+                            ]
                 in
                 """module A exposing (a)
 a = 1
 """
-                    |> Review.Test.runWithProjectData (Project.addArbitraryFiles arbitraryFiles Project.new) rule
+                    |> Review.Test.runWithProjectData project rule
                     |> Review.Test.expectGlobalErrors
                         [ { message = "Found these files"
                           , details = [ "foo/some-file.css" ]
@@ -29,17 +30,18 @@ a = 1
         , test "filters out files that were not requested" <|
             \() ->
                 let
-                    arbitraryFiles : List { path : String, content : String }
-                    arbitraryFiles =
-                        [ { path = "foo/some-file.css", content = "#thing { color: red; }" }
-                        , { path = "foo/some-other-file.css", content = "#thing { color: red; }" }
-                        , { path = "bar/some-file.css", content = "#thing { color: red; }" }
-                        ]
+                    project : Project
+                    project =
+                        createProject
+                            [ { path = "foo/some-file.css", content = "#thing { color: red; }" }
+                            , { path = "foo/some-other-file.css", content = "#thing { color: red; }" }
+                            , { path = "bar/some-file.css", content = "#thing { color: red; }" }
+                            ]
                 in
                 """module A exposing (a)
 a = 1
 """
-                    |> Review.Test.runWithProjectData (Project.addArbitraryFiles arbitraryFiles Project.new) rule
+                    |> Review.Test.runWithProjectData project rule
                     |> Review.Test.expectGlobalErrors
                         [ { message = "Found these files"
                           , details = [ "foo/some-file.css" ]
@@ -73,3 +75,8 @@ finalEvaluation context =
         , details = context
         }
     ]
+
+
+createProject : List { path : String, content : String } -> Project
+createProject arbitraryFiles =
+    Project.addArbitraryFiles arbitraryFiles Project.new
