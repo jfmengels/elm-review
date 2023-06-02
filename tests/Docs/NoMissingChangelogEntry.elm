@@ -77,27 +77,32 @@ withPathToChangelog changelogPath _ =
 
 
 type alias ProjectContext =
-    { elmJsonVersion : String
+    { elmJsonVersion : Maybe String
     }
 
 
 initialProjectContext : ProjectContext
 initialProjectContext =
-    { elmJsonVersion = "1.0.0"
+    { elmJsonVersion = Nothing
     }
 
 
-elmJsonVisitor : Maybe { a | project : Project } -> ProjectContext -> ( List nothing, ProjectContext )
+elmJsonVisitor : Maybe { a | project : Project } -> ProjectContext -> ( List (Rule.Error scope), ProjectContext )
 elmJsonVisitor maybeElmJsonData context =
     case maybeElmJsonData of
         Just { project } ->
             case project of
                 Elm.Project.Package { version } ->
-                    ( [], { context | elmJsonVersion = Elm.Version.toString version } )
+                    ( [], { context | elmJsonVersion = Just (Elm.Version.toString version) } )
 
                 Elm.Project.Application _ ->
-                    -- TODO Report an error
-                    ( [], context )
+                    ( [ Rule.globalError
+                            { message = "The Elm project is unexpectedly an application"
+                            , details = [ "This rule only supports Elm packages, but doesn't support Elm applications as they don't have a version number. I recommend that you remove this rule from your review configuration." ]
+                            }
+                      ]
+                    , context
+                    )
 
         Nothing ->
             ( [], context )
@@ -107,17 +112,22 @@ extraFilesVisitor : Maybe String -> List { path : String, content : String } -> 
 extraFilesVisitor changelogPath files context =
     case List.head files of
         Just { content } ->
-            if String.contains context.elmJsonVersion content then
-                ( [], context )
+            case context.elmJsonVersion of
+                Nothing ->
+                    ( [], context )
 
-            else
-                ( [ Rule.globalError
-                        { message = "Missing entry in CHANGELOG.md for version " ++ context.elmJsonVersion
-                        , details = [ "It seems you have or are ready to release a new version of your package, but forgot to include releases notes for it in your CHANGELOG.md file." ]
-                        }
-                  ]
-                , context
-                )
+                Just elmJsonVersion ->
+                    if String.contains elmJsonVersion content then
+                        ( [], context )
+
+                    else
+                        ( [ Rule.globalError
+                                { message = "Missing entry in CHANGELOG.md for version " ++ elmJsonVersion
+                                , details = [ "It seems you have or are ready to release a new version of your package, but forgot to include releases notes for it in your CHANGELOG.md file." ]
+                                }
+                          ]
+                        , context
+                        )
 
         Nothing ->
             case changelogPath of

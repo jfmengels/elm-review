@@ -93,17 +93,38 @@ a = 1
                                 ]
                           }
                         ]
+        , test "should report an error when the project is an application" <|
+            \() ->
+                let
+                    project : Project
+                    project =
+                        Project.addExtraFiles
+                            [ { path = "CHANGELOG.md"
+                              , content = "# something"
+                              }
+                            ]
+                            application
+                in
+                """module A exposing (..)
+a = 1
+"""
+                    |> Review.Test.runWithProjectData project (rule defaults)
+                    |> Review.Test.expectGlobalErrors
+                        [ { message = "The Elm project is unexpectedly an application"
+                          , details = [ "This rule only supports Elm packages, but doesn't support Elm applications as they don't have a version number. I recommend that you remove this rule from your review configuration." ]
+                          }
+                        ]
         ]
 
 
 package : Project
 package =
-    case Decode.decodeString Elm.Project.decoder elmJson of
+    case Decode.decodeString Elm.Project.decoder packageElmJson of
         Ok project ->
             Project.new
                 |> Project.addElmJson
                     { path = "elm.json"
-                    , raw = elmJson
+                    , raw = packageElmJson
                     , project = project
                     }
 
@@ -111,8 +132,8 @@ package =
             Debug.todo ("Invalid elm.json supplied to test: " ++ Debug.toString err)
 
 
-elmJson : String
-elmJson =
+packageElmJson : String
+packageElmJson =
     """{
     "type": "package",
     "name": "author/package",
@@ -127,4 +148,40 @@ elmJson =
         "elm/core": "1.0.0 <= v < 2.0.0"
     },
     "test-dependencies": {}
+}"""
+
+
+application : Project
+application =
+    case Decode.decodeString Elm.Project.decoder applicationElmJson of
+        Ok project ->
+            Project.new
+                |> Project.addElmJson
+                    { path = "elm.json"
+                    , raw = applicationElmJson
+                    , project = project
+                    }
+
+        Err err ->
+            Debug.todo ("Invalid elm.json supplied to test: " ++ Debug.toString err)
+
+
+applicationElmJson : String
+applicationElmJson =
+    """{
+   "type": "application",
+   "source-directories": [
+       "src"
+   ],
+   "elm-version": "0.19.1",
+   "dependencies": {
+       "direct": {
+           "elm/core": "1.0.0"
+       },
+       "indirect": {}
+   },
+   "test-dependencies": {
+       "direct": {},
+       "indirect": {}
+   }
 }"""
