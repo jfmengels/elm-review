@@ -27,7 +27,7 @@ Stuff happened
 """
                               }
                             ]
-                            package
+                            (package "2.13.0")
                 in
                 "module A exposing (..)\na = 1"
                     |> Review.Test.runWithProjectData project (rule defaults)
@@ -48,7 +48,7 @@ Stuff happened
 """
                               }
                             ]
-                            package
+                            (package "2.13.0")
                 in
                 """module A exposing (..)
 a = 1
@@ -64,7 +64,7 @@ a = 1
                 """module A exposing (..)
 a = 1
 """
-                    |> Review.Test.runWithProjectData package (rule defaults)
+                    |> Review.Test.runWithProjectData (package "2.13.0") (rule defaults)
                     |> Review.Test.expectGlobalErrors
                         [ { message = "Could not find the CHANGELOG.md file"
                           , details =
@@ -84,7 +84,7 @@ a = 1
                 """module A exposing (..)
 a = 1
 """
-                    |> Review.Test.runWithProjectData package (defaults |> withPathToChangelog "path/not-found.md" |> rule)
+                    |> Review.Test.runWithProjectData (package "2.13.0") (defaults |> withPathToChangelog "path/not-found.md" |> rule)
                     |> Review.Test.expectGlobalErrors
                         [ { message = "Could not find the path/not-found.md changelog file"
                           , details =
@@ -117,14 +117,19 @@ a = 1
         ]
 
 
-package : Project
-package =
-    case Decode.decodeString Elm.Project.decoder packageElmJson of
+package : String -> Project
+package version =
+    let
+        raw : String
+        raw =
+            packageElmJson version
+    in
+    case Decode.decodeString Elm.Project.decoder raw of
         Ok project ->
             Project.new
                 |> Project.addElmJson
                     { path = "elm.json"
-                    , raw = packageElmJson
+                    , raw = raw
                     , project = project
                     }
 
@@ -132,14 +137,14 @@ package =
             Debug.todo ("Invalid elm.json supplied to test: " ++ Debug.toString err)
 
 
-packageElmJson : String
-packageElmJson =
+packageElmJson : String -> String
+packageElmJson version =
     """{
     "type": "package",
     "name": "author/package",
     "summary": "Summary",
     "license": "BSD-3-Clause",
-    "version": "2.13.0",
+    "version": \"""" ++ version ++ """",
     "exposed-modules": [
         "Exposed"
     ],
