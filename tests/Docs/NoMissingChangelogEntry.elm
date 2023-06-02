@@ -53,22 +53,27 @@ rule : Configuration -> Rule
 rule (Configuration { changelogPath }) =
     Rule.newProjectRuleSchema "Docs.NoMissingChangelogEntry" initialProjectContext
         |> Rule.withElmJsonProjectVisitor elmJsonVisitor
-        |> Rule.withExtraFilesProjectVisitor [ changelogPath ] extraFilesVisitor
+        |> Rule.withExtraFilesProjectVisitor [ Maybe.withDefault defaultPath changelogPath ] (extraFilesVisitor changelogPath)
         |> Rule.fromProjectRuleSchema
 
 
 type Configuration
-    = Configuration { changelogPath : String }
+    = Configuration { changelogPath : Maybe String }
 
 
 defaults : Configuration
 defaults =
-    Configuration { changelogPath = "CHANGELOG.md" }
+    Configuration { changelogPath = Nothing }
+
+
+defaultPath : String
+defaultPath =
+    "CHANGELOG.md"
 
 
 withPathToChangelog : String -> Configuration -> Configuration
 withPathToChangelog changelogPath _ =
-    Configuration { changelogPath = changelogPath }
+    Configuration { changelogPath = Just changelogPath }
 
 
 type alias ProjectContext =
@@ -98,8 +103,8 @@ elmJsonVisitor maybeElmJsonData context =
             ( [], context )
 
 
-extraFilesVisitor : List { path : String, content : String } -> ProjectContext -> ( List (Rule.Error { useErrorForModule : () }), ProjectContext )
-extraFilesVisitor files context =
+extraFilesVisitor : Maybe String -> List { path : String, content : String } -> ProjectContext -> ( List (Rule.Error { useErrorForModule : () }), ProjectContext )
+extraFilesVisitor changelogPath files context =
     case List.head files of
         Just { content } ->
             if String.contains context.elmJsonVersion content then
@@ -115,19 +120,33 @@ extraFilesVisitor files context =
                 )
 
         Nothing ->
-            ( [ Rule.globalError
-                    { message = "Could not find the CHANGELOG.md file"
-                    , details =
-                        [ "I was looking for the CHANGELOG.md file next to your project's elm.json file but couldn't find it. Please make sure that the spelling is correct."
-                        , "If your changelog is named differently or is in a different location, then you can configure this rule to look for it in a different location:"
-                        , """    config =
+            case changelogPath of
+                Nothing ->
+                    ( [ Rule.globalError
+                            { message = "Could not find the CHANGELOG.md file"
+                            , details =
+                                [ "I was looking for the CHANGELOG.md file next to your project's elm.json file but couldn't find it. Please make sure that the spelling is correct."
+                                , "If your changelog is named differently or is in a different location, then you can configure this rule to look for it in a different location:"
+                                , """    config =
         [ Docs.NoMissingChangelogEntry.defaults
-            |> Docs.NoMissingChangelogEntry.changelogPath "path/to/your/changelog.md"
+            |> Docs.NoMissingChangelogEntry.withPathToChangelog "path/to/your/changelog.md"
             |> Docs.NoMissingChangelogEntry.rule
         ]"""
-                        , "Note that the path is relative your project's elm.json file."
-                        ]
-                    }
-              ]
-            , context
-            )
+                                , "Note that the path is relative your project's elm.json file."
+                                ]
+                            }
+                      ]
+                    , context
+                    )
+
+                Just customPath ->
+                    ( [ Rule.globalError
+                            { message = "Could not find the " ++ customPath ++ " changelog file"
+                            , details =
+                                [ "I was looking for the " ++ customPath ++ " changelog file but couldn't find it. Please make sure that the path you specified through Docs.NoMissingChangelogEntry.withPathToChangelog is correct."
+                                , "Also note that the path you specify has to be relative to your project's elm.json file."
+                                ]
+                            }
+                      ]
+                    , context
+                    )
