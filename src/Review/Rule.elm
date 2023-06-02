@@ -2363,6 +2363,7 @@ withArbitraryFilesModuleVisitor requestedFiles baseVisitor (ModuleRuleSchema sch
     let
         visitor : List { path : String, content : String } -> moduleContext -> moduleContext
         visitor files context =
+            -- TODO We can skip the filter if there is only a single visitor
             baseVisitor (List.filter (globMatch requestedFiles) files) context
     in
     ModuleRuleSchema
