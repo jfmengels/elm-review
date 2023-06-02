@@ -58,7 +58,7 @@ rule : List String -> Rule
 rule exceptions =
     Rule.newModuleRuleSchema "NoImportingEverything" ()
         |> Rule.withSimpleImportVisitor (importVisitor <| exceptionsToSet exceptions)
-        |> Rule.withArbitraryFilesModuleVisitor
+        |> Rule.withExtraFilesModuleVisitor
             [ "CHANGELOG.md" ]
             (\files context ->
                 let

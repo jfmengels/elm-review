@@ -3,7 +3,7 @@ module Review.Project exposing
     , ProjectModule, addModule, addParsedModule, removeModule, modules, modulesThatFailedToParse, precomputeModuleGraph
     , addElmJson, elmJson
     , addReadme, readme
-    , addArbitraryFiles
+    , addExtraFiles
     , addDependency, removeDependency, removeDependencies, directDependencies, dependencies
     )
 
@@ -38,7 +38,7 @@ does not look at project information (like the `elm.json`, dependencies, ...).
 
 # REPLACEME
 
-@docs addArbitraryFiles
+@docs addExtraFiles
 
 
 # Project dependencies
@@ -85,7 +85,7 @@ new =
         , modulesThatFailedToParse = []
         , elmJson = Nothing
         , readme = Nothing
-        , arbitraryFiles = []
+        , extraFiles = []
         , dependencies = Dict.empty
         , moduleGraph = Nothing
         , sourceDirectories = [ "src/" ]
@@ -302,9 +302,9 @@ addReadme readme_ (Internal.Project project) =
 
 {-| REPLACEME
 -}
-addArbitraryFiles : List { path : String, content : String } -> Project -> Project
-addArbitraryFiles files (Internal.Project project) =
-    Internal.Project { project | arbitraryFiles = List.map (\file -> ( file, ContentHash.hash file.content )) files }
+addExtraFiles : List { path : String, content : String } -> Project -> Project
+addExtraFiles files (Internal.Project project) =
+    Internal.Project { project | extraFiles = List.map (\file -> ( file, ContentHash.hash file.content )) files }
 
 
 {-| Get the contents of the `README.md` file, if available.
