@@ -1,4 +1,4 @@
-module Review.Rule.WithArbitraryFilesVisitorTest exposing (all)
+module Review.Rule.WithExtraFilesVisitorTest exposing (all)
 
 import Review.Project as Project exposing (Project)
 import Review.Rule as Rule exposing (Error, Rule)
@@ -8,7 +8,7 @@ import Test exposing (Test, describe, test)
 
 all : Test
 all =
-    describe "Review.Rule.withArbitraryFilesVisitor"
+    describe "Review.Rule.withExtraFilesVisitor"
         [ test "passes the list of arbitrary files to the rule" <|
             \() ->
                 let
@@ -20,7 +20,7 @@ all =
 
                     rule : Rule
                     rule =
-                        createRule (Rule.withArbitraryFilesModuleVisitor [ "foo/some-file.css" ] arbitraryFilesModuleVisitor)
+                        createRule (Rule.withExtraFilesModuleVisitor [ "foo/some-file.css" ] extraFilesModuleVisitor)
                 in
                 """module A exposing (a)
 a = 1
@@ -44,7 +44,7 @@ a = 1
 
                     rule : Rule
                     rule =
-                        createRule (Rule.withArbitraryFilesModuleVisitor [ "foo/some-file.css" ] arbitraryFilesModuleVisitor)
+                        createRule (Rule.withExtraFilesModuleVisitor [ "foo/some-file.css" ] extraFilesModuleVisitor)
                 in
                 """module A exposing (a)
 a = 1
@@ -69,8 +69,8 @@ a = 1
                     rule : Rule
                     rule =
                         createRule
-                            (Rule.withArbitraryFilesModuleVisitor [ "a.txt", "c.txt" ] (reportsFileNames "A")
-                                >> Rule.withArbitraryFilesModuleVisitor [ "b.txt" ] (reportsFileNames "B")
+                            (Rule.withExtraFilesModuleVisitor [ "a.txt", "c.txt" ] (reportsFileNames "A")
+                                >> Rule.withExtraFilesModuleVisitor [ "b.txt" ] (reportsFileNames "B")
                             )
                 in
                 """module A exposing (a)
@@ -102,8 +102,8 @@ createRule modifier =
         |> Rule.fromModuleRuleSchema
 
 
-arbitraryFilesModuleVisitor : List { path : String, content : String } -> Context -> Context
-arbitraryFilesModuleVisitor files context =
+extraFilesModuleVisitor : List { path : String, content : String } -> Context -> Context
+extraFilesModuleVisitor files context =
     List.map .path files ++ context
 
 
@@ -122,5 +122,5 @@ finalEvaluation context =
 
 
 createProject : List { path : String, content : String } -> Project
-createProject arbitraryFiles =
-    Project.addArbitraryFiles arbitraryFiles Project.new
+createProject extraFiles =
+    Project.addExtraFiles extraFiles Project.new

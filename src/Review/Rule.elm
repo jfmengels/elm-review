@@ -14,8 +14,8 @@ module Review.Rule exposing
     , providesFixesForModuleRule
     , withFinalModuleEvaluation
     , withElmJsonModuleVisitor, withReadmeModuleVisitor, withDirectDependenciesModuleVisitor, withDependenciesModuleVisitor
-    , withArbitraryFilesModuleVisitor
-    , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitor, withModuleContext, withModuleContextUsingContextCreator, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDirectDependenciesProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withArbitraryFilesProjectVisitor, withContextFromImportedModules
+    , withExtraFilesModuleVisitor
+    , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitor, withModuleContext, withModuleContextUsingContextCreator, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDirectDependenciesProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withExtraFilesProjectVisitor, withContextFromImportedModules
     , providesFixesForProjectRule
     , ContextCreator, initContextCreator, withModuleName, withModuleNameNode, withIsInSourceDirectories, withFilePath, withIsFileIgnored, withModuleNameLookupTable, withModuleKey, withSourceCodeExtractor, withFullAst, withModuleDocumentation
     , Metadata, withMetadata, moduleNameFromMetadata, moduleNameNodeFromMetadata, isInSourceDirectories
@@ -212,7 +212,7 @@ Evaluating/visiting a node means two things:
 ## Builder functions to analyze the project's data
 
 @docs withElmJsonModuleVisitor, withReadmeModuleVisitor, withDirectDependenciesModuleVisitor, withDependenciesModuleVisitor
-@docs withArbitraryFilesModuleVisitor
+@docs withExtraFilesModuleVisitor
 
 
 ## Creating a project rule
@@ -228,7 +228,7 @@ Project rules can also report errors in the `elm.json` or the `README.md` files.
 If you are new to writing rules, I would recommend learning [how to build a module rule](#creating-a-module-rule)
 first, as they are in practice a simpler version of project rules.
 
-@docs ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitor, withModuleContext, withModuleContextUsingContextCreator, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDirectDependenciesProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withArbitraryFilesProjectVisitor, withContextFromImportedModules
+@docs ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitor, withModuleContext, withModuleContextUsingContextCreator, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDirectDependenciesProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withExtraFilesProjectVisitor, withContextFromImportedModules
 @docs providesFixesForProjectRule
 
 
@@ -309,10 +309,10 @@ import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern exposing (Pattern)
 import Elm.Syntax.Range as Range exposing (Range)
 import Json.Encode as Encode
-import Review.Cache.ArbitraryFile as ArbitraryFile
 import Review.Cache.ContentHash exposing (ContentHash)
 import Review.Cache.ContextHash as ContextHash exposing (ComparableContextHash, ContextHash)
 import Review.Cache.EndAnalysis as EndAnalysisCache
+import Review.Cache.ExtraFile as ExtraFile
 import Review.Cache.Module as ModuleCache
 import Review.Cache.ProjectFile as ProjectFileCache
 import Review.ElmProjectEncoder
@@ -397,15 +397,15 @@ type alias ModuleRuleSchemaData moduleContext =
 
     -- Project visitors
     , elmJsonVisitor : Maybe (Maybe Elm.Project.Project -> moduleContext -> moduleContext)
-    , arbitraryFilesVisitor : Maybe (List { path : String, content : String } -> moduleContext -> moduleContext)
-    , arbitraryFileRequest : ArbitraryFileRequest
+    , extraFilesVisitor : Maybe (List { path : String, content : String } -> moduleContext -> moduleContext)
+    , extraFileRequest : ExtraFileRequest
     , readmeVisitor : Maybe (Maybe String -> moduleContext -> moduleContext)
     , dependenciesVisitor : Maybe (Dict String Review.Project.Dependency.Dependency -> moduleContext -> moduleContext)
     , directDependenciesVisitor : Maybe (Dict String Review.Project.Dependency.Dependency -> moduleContext -> moduleContext)
     }
 
 
-type alias ArbitraryFileRequest =
+type alias ExtraFileRequest =
     List String
 
 
@@ -1039,8 +1039,8 @@ newModuleRuleSchema name initialModuleContext =
         , caseBranchVisitorOnExit = Nothing
         , finalEvaluationFn = Nothing
         , elmJsonVisitor = Nothing
-        , arbitraryFilesVisitor = Nothing
-        , arbitraryFileRequest = []
+        , extraFilesVisitor = Nothing
+        , extraFileRequest = []
         , readmeVisitor = Nothing
         , dependenciesVisitor = Nothing
         , directDependenciesVisitor = Nothing
@@ -1109,8 +1109,8 @@ newModuleRuleSchemaUsingContextCreator name moduleContextCreator =
         , finalEvaluationFn = Nothing
         , elmJsonVisitor = Nothing
         , readmeVisitor = Nothing
-        , arbitraryFilesVisitor = Nothing
-        , arbitraryFileRequest = []
+        , extraFilesVisitor = Nothing
+        , extraFileRequest = []
         , dependenciesVisitor = Nothing
         , directDependenciesVisitor = Nothing
         , providesFixes = False
@@ -1128,8 +1128,8 @@ fromModuleRuleSchema ((ModuleRuleSchema schema) as moduleVisitor) =
                 { name = schema.name
                 , initialProjectContext = initialModuleContext
                 , elmJsonVisitor = compactProjectDataVisitors (Maybe.map .project) schema.elmJsonVisitor
-                , arbitraryFilesVisitor = compactArbitraryFilesVisitor schema.arbitraryFilesVisitor
-                , arbitraryFileRequest = schema.arbitraryFileRequest
+                , extraFilesVisitor = compactExtraFilesVisitor schema.extraFilesVisitor
+                , extraFileRequest = schema.extraFileRequest
                 , readmeVisitor = compactProjectDataVisitors (Maybe.map .content) schema.readmeVisitor
                 , directDependenciesVisitor = compactProjectDataVisitors identity schema.directDependenciesVisitor
                 , dependenciesVisitor = compactProjectDataVisitors identity schema.dependenciesVisitor
@@ -1148,8 +1148,8 @@ fromModuleRuleSchema ((ModuleRuleSchema schema) as moduleVisitor) =
                 { name = schema.name
                 , initialProjectContext = ()
                 , elmJsonVisitor = Nothing
-                , arbitraryFilesVisitor = Nothing
-                , arbitraryFileRequest = []
+                , extraFilesVisitor = Nothing
+                , extraFileRequest = []
                 , readmeVisitor = Nothing
                 , directDependenciesVisitor = Nothing
                 , dependenciesVisitor = Nothing
@@ -1174,11 +1174,11 @@ compactProjectDataVisitors getData maybeVisitor =
             Just (\rawData moduleContext -> ( [], visitor (getData rawData) moduleContext ))
 
 
-compactArbitraryFilesVisitor : Maybe (List { a | path : String } -> moduleContext -> moduleContext) -> Maybe (List { a | path : String } -> moduleContext -> ( List nothing, moduleContext ))
-compactArbitraryFilesVisitor maybeArbitraryFilesVisitor =
-    case maybeArbitraryFilesVisitor of
-        Just arbitraryFilesVisitor ->
-            Just (\files moduleContext -> ( [], arbitraryFilesVisitor files moduleContext ))
+compactExtraFilesVisitor : Maybe (List { a | path : String } -> moduleContext -> moduleContext) -> Maybe (List { a | path : String } -> moduleContext -> ( List nothing, moduleContext ))
+compactExtraFilesVisitor maybeExtraFilesVisitor =
+    case maybeExtraFilesVisitor of
+        Just extraFilesVisitor ->
+            Just (\files moduleContext -> ( [], extraFilesVisitor files moduleContext ))
 
         Nothing ->
             Nothing
@@ -1207,8 +1207,8 @@ type alias ProjectRuleSchemaData projectContext moduleContext =
     { name : String
     , initialProjectContext : projectContext
     , elmJsonVisitor : Maybe (Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> projectContext -> ( List (Error {}), projectContext ))
-    , arbitraryFilesVisitor : Maybe (List { path : String, content : String } -> projectContext -> ( List (Error {}), projectContext ))
-    , arbitraryFileRequest : ArbitraryFileRequest
+    , extraFilesVisitor : Maybe (List { path : String, content : String } -> projectContext -> ( List (Error {}), projectContext ))
+    , extraFileRequest : ExtraFileRequest
     , readmeVisitor : Maybe (Maybe { readmeKey : ReadmeKey, content : String } -> projectContext -> ( List (Error {}), projectContext ))
     , directDependenciesVisitor : Maybe (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List (Error {}), projectContext ))
     , dependenciesVisitor : Maybe (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List (Error {}), projectContext ))
@@ -1269,8 +1269,8 @@ newProjectRuleSchema name initialProjectContext =
         { name = name
         , initialProjectContext = initialProjectContext
         , elmJsonVisitor = Nothing
-        , arbitraryFilesVisitor = Nothing
-        , arbitraryFileRequest = []
+        , extraFilesVisitor = Nothing
+        , extraFileRequest = []
         , readmeVisitor = Nothing
         , directDependenciesVisitor = Nothing
         , dependenciesVisitor = Nothing
@@ -1296,7 +1296,7 @@ fromProjectRuleSchema (ProjectRuleSchema schema) =
             RequestedData.combine
                 (Maybe.map requestedDataFromContextCreator schema.moduleContextCreator)
                 (Maybe.map (.fromModuleToProject >> requestedDataFromContextCreator) schema.folder)
-                |> RequestedData.withFiles schema.arbitraryFileRequest
+                |> RequestedData.withFiles schema.extraFileRequest
         , providesFixes = schema.providesFixes
         , ruleProjectVisitor =
             Ok
@@ -1323,7 +1323,7 @@ removeUnknownModulesFromInitialCache validProject projectRuleCache =
 emptyCache : ProjectRuleCache projectContext
 emptyCache =
     { elmJson = Nothing
-    , arbitraryFiles = Nothing
+    , extraFiles = Nothing
     , readme = Nothing
     , dependencies = Nothing
     , moduleContexts = Dict.empty
@@ -1410,8 +1410,8 @@ mergeModuleVisitorsHelp ruleName_ initialProjectContext moduleContextCreator vis
                 , finalEvaluationFn = Nothing
                 , elmJsonVisitor = Nothing
                 , readmeVisitor = Nothing
-                , arbitraryFilesVisitor = Nothing
-                , arbitraryFileRequest = []
+                , extraFilesVisitor = Nothing
+                , extraFileRequest = []
                 , dependenciesVisitor = Nothing
                 , directDependenciesVisitor = Nothing
                 , providesFixes = False
@@ -1862,12 +1862,12 @@ withElmJsonProjectVisitor visitor (ProjectRuleSchema schema) =
 
 {-| REPLACEME
 -}
-withArbitraryFilesProjectVisitor :
-    ArbitraryFileRequest
+withExtraFilesProjectVisitor :
+    ExtraFileRequest
     -> (List { path : String, content : String } -> projectContext -> ( List (Error { useErrorForModule : () }), projectContext ))
     -> ProjectRuleSchema schemaState projectContext moduleContext
     -> ProjectRuleSchema { schemaState | hasAtLeastOneVisitor : () } projectContext moduleContext
-withArbitraryFilesProjectVisitor requestedFiles baseVisitor (ProjectRuleSchema schema) =
+withExtraFilesProjectVisitor requestedFiles baseVisitor (ProjectRuleSchema schema) =
     let
         visitor : List { path : String, content : String } -> projectContext -> ( List (Error {}), projectContext )
         visitor files context =
@@ -1876,8 +1876,8 @@ withArbitraryFilesProjectVisitor requestedFiles baseVisitor (ProjectRuleSchema s
     in
     ProjectRuleSchema
         { schema
-            | arbitraryFilesVisitor = Just (combineVisitors visitor schema.arbitraryFilesVisitor)
-            , arbitraryFileRequest = requestedFiles ++ schema.arbitraryFileRequest
+            | extraFilesVisitor = Just (combineVisitors visitor schema.extraFilesVisitor)
+            , extraFileRequest = requestedFiles ++ schema.extraFileRequest
         }
 
 
@@ -2353,12 +2353,12 @@ withElmJsonModuleVisitor visitor (ModuleRuleSchema schema) =
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit
 the project's `README.md` file.
 -}
-withArbitraryFilesModuleVisitor :
-    ArbitraryFileRequest
+withExtraFilesModuleVisitor :
+    ExtraFileRequest
     -> (List { path : String, content : String } -> moduleContext -> moduleContext)
     -> ModuleRuleSchema { schemaState | canCollectProjectData : () } moduleContext
     -> ModuleRuleSchema { schemaState | canCollectProjectData : () } moduleContext
-withArbitraryFilesModuleVisitor requestedFiles baseVisitor (ModuleRuleSchema schema) =
+withExtraFilesModuleVisitor requestedFiles baseVisitor (ModuleRuleSchema schema) =
     let
         visitor : List { path : String, content : String } -> moduleContext -> moduleContext
         visitor files context =
@@ -2367,8 +2367,8 @@ withArbitraryFilesModuleVisitor requestedFiles baseVisitor (ModuleRuleSchema sch
     in
     ModuleRuleSchema
         { schema
-            | arbitraryFilesVisitor = Just (combineContextOnlyVisitor visitor schema.arbitraryFilesVisitor)
-            , arbitraryFileRequest = requestedFiles ++ schema.arbitraryFileRequest
+            | extraFilesVisitor = Just (combineContextOnlyVisitor visitor schema.extraFilesVisitor)
+            , extraFileRequest = requestedFiles ++ schema.extraFileRequest
         }
 
 
@@ -4260,8 +4260,8 @@ type alias ProjectFileCache projectContext =
     ProjectFileCache.Entry (Error {}) projectContext
 
 
-type alias ArbitraryFilesCache projectContext =
-    ArbitraryFile.Entry (Error {}) projectContext
+type alias ExtraFilesCache projectContext =
+    ExtraFile.Entry (Error {}) projectContext
 
 
 type alias FinalProjectEvaluationCache projectContext =
@@ -4392,7 +4392,7 @@ errorsFromCache cache =
     List.concat
         [ Dict.foldl (\_ cacheEntry acc -> List.append (ModuleCache.errors cacheEntry) acc) [] cache.moduleContexts
         , ProjectFileCache.errorsForMaybe cache.elmJson
-        , ArbitraryFile.errorsForMaybe cache.arbitraryFiles
+        , ExtraFile.errorsForMaybe cache.extraFiles
         , ProjectFileCache.errorsForMaybe cache.readme
         , ProjectFileCache.errorsForMaybe cache.dependencies
         , Maybe.map EndAnalysisCache.output cache.finalEvaluationErrors |> Maybe.withDefault []
@@ -4405,7 +4405,7 @@ errorsFromCache cache =
 
 type alias ProjectRuleCache projectContext =
     { elmJson : Maybe (ProjectFileCache projectContext)
-    , arbitraryFiles : Maybe (ArbitraryFilesCache projectContext)
+    , extraFiles : Maybe (ExtraFilesCache projectContext)
     , readme : Maybe (ProjectFileCache projectContext)
     , dependencies : Maybe (ProjectFileCache projectContext)
     , moduleContexts : Dict String (ModuleCacheEntry projectContext)
@@ -4436,15 +4436,15 @@ computeStepsForProject reviewOptions { project, ruleProjectVisitors, fixedErrors
                 reviewOptions
                 (computeElmJson reviewOptions project fixedErrors elmJsonData ruleProjectVisitors [])
 
-        ArbitraryFiles ->
+        ExtraFiles ->
             let
-                arbitraryFiles : List { path : String, content : String }
-                arbitraryFiles =
-                    ValidProject.arbitraryFiles project
+                extraFiles : List { path : String, content : String }
+                extraFiles =
+                    ValidProject.extraFiles project
             in
             computeStepsForProject
                 reviewOptions
-                (computeArbitraryFiles reviewOptions project fixedErrors arbitraryFiles ruleProjectVisitors [])
+                (computeExtraFiles reviewOptions project fixedErrors extraFiles ruleProjectVisitors [])
 
         Readme ->
             let
@@ -4499,7 +4499,7 @@ computeStepsForProject reviewOptions { project, ruleProjectVisitors, fixedErrors
 
 type Step
     = ElmJson
-    | ArbitraryFiles
+    | ExtraFiles
     | Readme
     | Dependencies
     | Modules (Zipper GraphModule)
@@ -4509,7 +4509,7 @@ type Step
 
 type StepToComputeContext
     = ElmJsonStep
-    | ArbitraryFilesStep
+    | ExtraFilesStep
     | ReadmeStep
     | DependenciesStep
     | AfterProjectFilesStep
@@ -4534,7 +4534,7 @@ computeElmJson reviewOptions project fixedErrors elmJsonData remainingRules accR
     case remainingRules of
         [] ->
             { project = project
-            , step = ArbitraryFiles
+            , step = ExtraFiles
             , ruleProjectVisitors = accRules
             , fixedErrors = fixedErrors
             }
@@ -4573,7 +4573,7 @@ computeElmJson reviewOptions project fixedErrors elmJsonData remainingRules accR
                         (untouched :: accRules)
 
 
-computeArbitraryFiles :
+computeExtraFiles :
     ReviewOptionsData
     -> ValidProject
     -> FixedErrors
@@ -4581,7 +4581,7 @@ computeArbitraryFiles :
     -> List RuleProjectVisitor
     -> List RuleProjectVisitor
     -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, step : Step, fixedErrors : FixedErrors }
-computeArbitraryFiles reviewOptions project fixedErrors arbitraryFiles remainingRules accRules =
+computeExtraFiles reviewOptions project fixedErrors extraFiles remainingRules accRules =
     case remainingRules of
         [] ->
             { project = project
@@ -4591,13 +4591,13 @@ computeArbitraryFiles reviewOptions project fixedErrors arbitraryFiles remaining
             }
 
         ((RuleProjectVisitor rule) as untouched) :: rest ->
-            case rule.arbitraryFilesVisitor of
+            case rule.extraFilesVisitor of
                 Just visitor ->
                     let
                         ( errors, RuleProjectVisitor updatedRule ) =
-                            visitor project arbitraryFiles
+                            visitor project extraFiles
                     in
-                    case standardFindFix reviewOptions project fixedErrors updatedRule.setErrorsForArbitraryFiles errors of
+                    case standardFindFix reviewOptions project fixedErrors updatedRule.setErrorsForExtraFiles errors of
                         FoundFixStandard { newProject, newRule, newFixedErrors, step } ->
                             { project = newProject
                             , ruleProjectVisitors = newRule :: (rest ++ accRules)
@@ -4606,20 +4606,20 @@ computeArbitraryFiles reviewOptions project fixedErrors arbitraryFiles remaining
                             }
 
                         FoundNoFixesStandard newRule ->
-                            computeArbitraryFiles
+                            computeExtraFiles
                                 reviewOptions
                                 project
                                 fixedErrors
-                                arbitraryFiles
+                                extraFiles
                                 rest
                                 (newRule :: accRules)
 
                 Nothing ->
-                    computeArbitraryFiles
+                    computeExtraFiles
                         reviewOptions
                         project
                         fixedErrors
-                        arbitraryFiles
+                        extraFiles
                         rest
                         (untouched :: accRules)
 
@@ -5589,7 +5589,7 @@ The hidden state is `{ cache : ProjectRuleCache projectContext, ruleData : Chang
 type alias RuleProjectVisitorOperations =
     { elmJsonVisitor : Maybe (ValidProject -> Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> ( List (Error {}), RuleProjectVisitor ))
     , readmeVisitor : Maybe (ValidProject -> Maybe { readmeKey : ReadmeKey, content : String } -> ( List (Error {}), RuleProjectVisitor ))
-    , arbitraryFilesVisitor : Maybe (ValidProject -> List { path : String, content : String } -> ( List (Error {}), RuleProjectVisitor ))
+    , extraFilesVisitor : Maybe (ValidProject -> List { path : String, content : String } -> ( List (Error {}), RuleProjectVisitor ))
     , dependenciesVisitor : Maybe (ValidProject -> { all : Dict String Review.Project.Dependency.Dependency, direct : Dict String Review.Project.Dependency.Dependency } -> ( List (Error {}), RuleProjectVisitor ))
     , createModuleVisitorFromProjectVisitor : Maybe (ValidProject -> String -> ContentHash -> Graph.Adjacency () -> Maybe (AvailableData -> RuleModuleVisitor))
     , finalProjectEvaluation : Maybe (() -> ( List (Error {}), RuleProjectVisitor ))
@@ -5598,7 +5598,7 @@ type alias RuleProjectVisitorOperations =
     , getErrors : () -> List (Error {})
     , setErrorsForModule : String -> List (Error {}) -> RuleProjectVisitor
     , setErrorsForElmJson : List (Error {}) -> RuleProjectVisitor
-    , setErrorsForArbitraryFiles : List (Error {}) -> RuleProjectVisitor
+    , setErrorsForExtraFiles : List (Error {}) -> RuleProjectVisitor
     , setErrorsForReadme : List (Error {}) -> RuleProjectVisitor
     , setErrorsForDependencies : List (Error {}) -> RuleProjectVisitor
     , setErrorsForFinalEvaluation : List (Error {}) -> RuleProjectVisitor
@@ -5619,7 +5619,7 @@ createRuleProjectVisitor schema initialProject ruleData initialCache =
             in
             RuleProjectVisitor
                 { elmJsonVisitor = createProjectVisitor schema hidden schema.elmJsonVisitor ElmJsonStep ValidProject.elmJsonHash .elmJson (\entry -> raiseCache { cache | elmJson = Just entry }) (\() -> raise hidden)
-                , arbitraryFilesVisitor = createArbitraryFilesVisitor schema hidden schema.arbitraryFilesVisitor ArbitraryFilesStep (\entry -> raiseCache { cache | arbitraryFiles = Just entry }) (\() -> raise hidden)
+                , extraFilesVisitor = createExtraFilesVisitor schema hidden schema.extraFilesVisitor ExtraFilesStep (\entry -> raiseCache { cache | extraFiles = Just entry }) (\() -> raise hidden)
                 , readmeVisitor = createProjectVisitor schema hidden schema.readmeVisitor ReadmeStep ValidProject.readmeHash .readme (\entry -> raiseCache { cache | readme = Just entry }) (\() -> raise hidden)
                 , dependenciesVisitor = createDependenciesVisitor schema hidden.ruleData raiseCache cache { allVisitor = schema.dependenciesVisitor, directVisitor = schema.directDependenciesVisitor }
                 , createModuleVisitorFromProjectVisitor = createModuleVisitorFromProjectVisitor schema raiseCache hidden
@@ -5629,7 +5629,7 @@ createRuleProjectVisitor schema initialProject ruleData initialCache =
                 , getErrors = \() -> errorsFromCache (finalCacheMarker schema.name hidden.ruleData.ruleId cache)
                 , setErrorsForModule = \filePath newErrors -> raiseCache { cache | moduleContexts = Dict.update filePath (Maybe.map (\entry -> ModuleCache.setErrors newErrors entry)) cache.moduleContexts }
                 , setErrorsForElmJson = \newErrors -> raiseCache { cache | elmJson = ProjectFileCache.setErrors newErrors cache.elmJson }
-                , setErrorsForArbitraryFiles = \newErrors -> raiseCache { cache | arbitraryFiles = ArbitraryFile.setErrors newErrors cache.arbitraryFiles }
+                , setErrorsForExtraFiles = \newErrors -> raiseCache { cache | extraFiles = ExtraFile.setErrors newErrors cache.extraFiles }
                 , setErrorsForReadme = \newErrors -> raiseCache { cache | readme = ProjectFileCache.setErrors newErrors cache.readme }
                 , setErrorsForDependencies = \newErrors -> raiseCache { cache | dependencies = ProjectFileCache.setErrors newErrors cache.dependencies }
                 , setErrorsForFinalEvaluation = \newErrors -> raiseCache { cache | finalEvaluationErrors = EndAnalysisCache.setOutput newErrors cache.finalEvaluationErrors }
@@ -5716,12 +5716,12 @@ createProjectVisitor schema hidden maybeVisitor step computeContentHash cacheGet
                 )
 
 
-createArbitraryFilesVisitor :
+createExtraFilesVisitor :
     ProjectRuleSchemaData projectContext moduleContext
     -> RuleProjectVisitorHidden projectContext
     -> Maybe (data -> projectContext -> ( List (Error {}), projectContext ))
     -> StepToComputeContext
-    -> (ArbitraryFilesCache projectContext -> RuleProjectVisitor)
+    -> (ExtraFilesCache projectContext -> RuleProjectVisitor)
     -> (() -> RuleProjectVisitor)
     ->
         Maybe
@@ -5729,7 +5729,7 @@ createArbitraryFilesVisitor :
              -> data
              -> ( List (Error {}), RuleProjectVisitor )
             )
-createArbitraryFilesVisitor schema hidden maybeVisitor step toRuleProjectVisitor toRuleProjectVisitorWithoutChangingCache =
+createExtraFilesVisitor schema hidden maybeVisitor step toRuleProjectVisitor toRuleProjectVisitorWithoutChangingCache =
     case maybeVisitor of
         Nothing ->
             Nothing
@@ -5747,15 +5747,15 @@ createArbitraryFilesVisitor schema hidden maybeVisitor step toRuleProjectVisitor
 
                         contentHashes : List ContentHash
                         contentHashes =
-                            ValidProject.arbitraryFilesHash project
+                            ValidProject.extraFilesHash project
 
-                        cachePredicate : ArbitraryFilesCache projectContext -> Bool
-                        cachePredicate arbitraryFiles =
-                            ArbitraryFile.match contentHashes inputContextHash arbitraryFiles
+                        cachePredicate : ExtraFilesCache projectContext -> Bool
+                        cachePredicate extraFiles =
+                            ExtraFile.match contentHashes inputContextHash extraFiles
                     in
-                    case reuseProjectRuleCache cachePredicate .arbitraryFiles hidden.cache of
+                    case reuseProjectRuleCache cachePredicate .extraFiles hidden.cache of
                         Just entry ->
-                            ( ArbitraryFile.errors entry, toRuleProjectVisitorWithoutChangingCache () )
+                            ( ExtraFile.errors entry, toRuleProjectVisitorWithoutChangingCache () )
 
                         Nothing ->
                             let
@@ -5767,7 +5767,7 @@ createArbitraryFilesVisitor schema hidden maybeVisitor step toRuleProjectVisitor
                                     filterExceptionsAndSetName hidden.ruleData.exceptions schema.name errorsForVisitor
                             in
                             ( errors
-                            , ArbitraryFile.create
+                            , ExtraFile.create
                                 { contentHashes = contentHashes
                                 , errors = errors
                                 , inputContextHash = inputContextHash
@@ -5868,7 +5868,7 @@ findInitialInputContext cache step defaultContext =
         ElmJsonStep ->
             ( [], defaultContext )
 
-        ArbitraryFilesStep ->
+        ExtraFilesStep ->
             case cache.elmJson of
                 Just entry ->
                     ( [ ProjectFileCache.outputContextHash entry ], ProjectFileCache.outputContext entry )
@@ -5877,12 +5877,12 @@ findInitialInputContext cache step defaultContext =
                     findInitialInputContext cache ElmJsonStep defaultContext
 
         ReadmeStep ->
-            case cache.arbitraryFiles of
+            case cache.extraFiles of
                 Just entry ->
-                    ( [ ArbitraryFile.outputContextHash entry ], ArbitraryFile.outputContext entry )
+                    ( [ ExtraFile.outputContextHash entry ], ExtraFile.outputContext entry )
 
                 Nothing ->
-                    findInitialInputContext cache ArbitraryFilesStep defaultContext
+                    findInitialInputContext cache ExtraFilesStep defaultContext
 
         DependenciesStep ->
             case cache.readme of
