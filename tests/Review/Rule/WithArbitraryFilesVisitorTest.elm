@@ -17,6 +17,10 @@ all =
                         createProject
                             [ { path = "foo/some-file.css", content = "#thing { color: red; }" }
                             ]
+
+                    rule : Rule
+                    rule =
+                        createRule (Rule.withArbitraryFilesModuleVisitor [ "foo/some-file.css" ] arbitraryFilesModuleVisitor)
                 in
                 """module A exposing (a)
 a = 1
@@ -37,6 +41,10 @@ a = 1
                             , { path = "foo/some-other-file.css", content = "#thing { color: red; }" }
                             , { path = "bar/some-file.css", content = "#thing { color: red; }" }
                             ]
+
+                    rule : Rule
+                    rule =
+                        createRule (Rule.withArbitraryFilesModuleVisitor [ "foo/some-file.css" ] arbitraryFilesModuleVisitor)
                 in
                 """module A exposing (a)
 a = 1
@@ -54,10 +62,10 @@ type alias Context =
     List String
 
 
-rule : Rule
-rule =
+createRule : (Rule.ModuleRuleSchema { canCollectProjectData : () } (List a) -> Rule.ModuleRuleSchema schemaState Context) -> Rule
+createRule modifier =
     Rule.newModuleRuleSchema "WithCommentsVisitorTestRule" []
-        |> Rule.withArbitraryFilesModuleVisitor [ "foo/some-file.css" ] arbitraryFilesModuleVisitor
+        |> modifier
         |> Rule.withModuleDefinitionVisitor (\_ context -> ( [], context ))
         |> Rule.withFinalModuleEvaluation finalEvaluation
         |> Rule.fromModuleRuleSchema
