@@ -4535,7 +4535,7 @@ computeElmJson reviewOptions project fixedErrors elmJsonData remainingRules accR
     case remainingRules of
         [] ->
             { project = project
-            , step = ExtraFiles
+            , step = Readme
             , ruleProjectVisitors = accRules
             , fixedErrors = fixedErrors
             }
@@ -4586,7 +4586,7 @@ computeReadme reviewOptions project fixedErrors readmeData remainingRules accRul
     case remainingRules of
         [] ->
             { project = project
-            , step = Dependencies
+            , step = ExtraFiles
             , ruleProjectVisitors = accRules
             , fixedErrors = fixedErrors
             }
@@ -4637,7 +4637,7 @@ computeExtraFiles reviewOptions project fixedErrors extraFiles remainingRules ac
     case remainingRules of
         [] ->
             { project = project
-            , step = Readme
+            , step = Dependencies
             , ruleProjectVisitors = accRules
             , fixedErrors = fixedErrors
             }
