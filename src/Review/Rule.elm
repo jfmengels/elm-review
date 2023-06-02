@@ -1129,7 +1129,7 @@ fromModuleRuleSchema ((ModuleRuleSchema schema) as moduleVisitor) =
                 , initialProjectContext = initialModuleContext
                 , elmJsonVisitor = compactProjectDataVisitors (Maybe.map .project) schema.elmJsonVisitor
                 , arbitraryFilesVisitor = compactArbitraryFilesVisitor schema.arbitraryFilesVisitor
-                , arbitraryFileRequest = Maybe.map Tuple.second schema.arbitraryFilesVisitor |> Maybe.withDefault []
+                , arbitraryFileRequest = schema.arbitraryFileRequest
                 , readmeVisitor = compactProjectDataVisitors (Maybe.map .content) schema.readmeVisitor
                 , directDependenciesVisitor = compactProjectDataVisitors identity schema.directDependenciesVisitor
                 , dependenciesVisitor = compactProjectDataVisitors identity schema.dependenciesVisitor
@@ -2364,7 +2364,11 @@ withArbitraryFilesModuleVisitor requestedFiles baseVisitor (ModuleRuleSchema sch
         visitor files context =
             baseVisitor (List.filter (globMatch requestedFiles) files) context
     in
-    ModuleRuleSchema { schema | arbitraryFilesVisitor = Just (combineArbitraryFilesModuleVisitor requestedFiles visitor schema) }
+    ModuleRuleSchema
+        { schema
+            | arbitraryFilesVisitor = Just (combineArbitraryFilesModuleVisitor requestedFiles visitor schema)
+            , arbitraryFileRequest = requestedFiles ++ schema.arbitraryFileRequest
+        }
 
 
 combineArbitraryFilesModuleVisitor : ArbitraryFileRequest -> (a -> context -> context) -> { b | arbitraryFilesVisitor : Maybe ( a -> context -> context, ArbitraryFileRequest ) } -> ( a -> context -> context, ArbitraryFileRequest )
