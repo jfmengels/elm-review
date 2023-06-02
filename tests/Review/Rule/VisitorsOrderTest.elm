@@ -5,6 +5,7 @@ import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Import exposing (Import)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern exposing (Pattern)
+import Review.Project as Project exposing (Project)
 import Review.Rule as Rule exposing (Error, Rule)
 import Review.Test
 import Test exposing (Test, test)
@@ -31,28 +32,30 @@ all =
                             |> Rule.withElmJsonModuleVisitor (\_ context -> context ++ "\n1.2 - withElmJsonModuleVisitor")
                             |> Rule.withReadmeModuleVisitor (\_ context -> context ++ "\n2.1 - withReadmeModuleVisitor")
                             |> Rule.withReadmeModuleVisitor (\_ context -> context ++ "\n2.2 - withReadmeModuleVisitor")
-                            |> Rule.withDirectDependenciesModuleVisitor (\_ context -> context ++ "\n3.1 - withDirectDependenciesModuleVisitor")
-                            |> Rule.withDirectDependenciesModuleVisitor (\_ context -> context ++ "\n3.2 - withDirectDependenciesModuleVisitor")
-                            |> Rule.withDependenciesModuleVisitor (\_ context -> context ++ "\n3.3 - withDependenciesModuleVisitor")
-                            |> Rule.withDependenciesModuleVisitor (\_ context -> context ++ "\n3.4 - withDependenciesModuleVisitor")
-                            |> Rule.withModuleDefinitionVisitor (\_ context -> ( [], context ++ "\n4.1 - withModuleDefinitionVisitor" ))
-                            |> Rule.withModuleDefinitionVisitor (\_ context -> ( [], context ++ "\n4.2 - withModuleDefinitionVisitor" ))
-                            |> Rule.withModuleDocumentationVisitor (\_ context -> ( [], context ++ "\n5.1 - withModuleDocumentationVisitor" ))
-                            |> Rule.withModuleDocumentationVisitor (\_ context -> ( [], context ++ "\n5.2 - withModuleDocumentationVisitor" ))
-                            |> Rule.withCommentsVisitor (\_ context -> ( [], context ++ "\n6.1 - withCommentsVisitor" ))
-                            |> Rule.withCommentsVisitor (\_ context -> ( [], context ++ "\n6.2 - withCommentsVisitor" ))
-                            |> Rule.withImportVisitor (\import_ context -> ( [], context ++ "\n7.1 - withImportVisitor " ++ importName import_ ))
-                            |> Rule.withImportVisitor (\import_ context -> ( [], context ++ "\n7.2 - withImportVisitor " ++ importName import_ ))
-                            |> Rule.withDeclarationListVisitor (\_ context -> ( [], context ++ "\n8.1 - withDeclarationListVisitor" ))
-                            |> Rule.withDeclarationListVisitor (\_ context -> ( [], context ++ "\n8.2 - withDeclarationListVisitor" ))
-                            |> Rule.withDeclarationEnterVisitor (\_ context -> ( [], context ++ "\n9.1 - withDeclarationEnterVisitor" ))
-                            |> Rule.withDeclarationEnterVisitor (\_ context -> ( [], context ++ "\n9.2 - withDeclarationEnterVisitor" ))
-                            |> Rule.withDeclarationExitVisitor (\_ context -> ( [], context ++ "\n12.2 - withDeclarationExitVisitor" ))
-                            |> Rule.withDeclarationExitVisitor (\_ context -> ( [], context ++ "\n12.1 - withDeclarationExitVisitor" ))
-                            |> Rule.withExpressionEnterVisitor (\_ context -> ( [], context ++ "\n10.1 - withExpressionEnterVisitor" ))
-                            |> Rule.withExpressionEnterVisitor (\_ context -> ( [], context ++ "\n10.2 - withExpressionEnterVisitor" ))
-                            |> Rule.withExpressionExitVisitor (\_ context -> ( [], context ++ "\n11.2 - withExpressionExitVisitor" ))
-                            |> Rule.withExpressionExitVisitor (\_ context -> ( [], context ++ "\n11.1 - withExpressionExitVisitor" ))
+                            |> Rule.withExtraFilesModuleVisitor [ "first.txt" ] (\files context -> context ++ "\n3.1 - withExtraFilesModuleVisitor " ++ (List.map .path files |> String.join ", "))
+                            |> Rule.withExtraFilesModuleVisitor [ "last.txt" ] (\files context -> context ++ "\n3.2 - withExtraFilesModuleVisitor " ++ (List.map .path files |> String.join ", "))
+                            |> Rule.withDirectDependenciesModuleVisitor (\_ context -> context ++ "\n4.1 - withDirectDependenciesModuleVisitor")
+                            |> Rule.withDirectDependenciesModuleVisitor (\_ context -> context ++ "\n4.2 - withDirectDependenciesModuleVisitor")
+                            |> Rule.withDependenciesModuleVisitor (\_ context -> context ++ "\n4.3 - withDependenciesModuleVisitor")
+                            |> Rule.withDependenciesModuleVisitor (\_ context -> context ++ "\n4.4 - withDependenciesModuleVisitor")
+                            |> Rule.withModuleDefinitionVisitor (\_ context -> ( [], context ++ "\n5.1 - withModuleDefinitionVisitor" ))
+                            |> Rule.withModuleDefinitionVisitor (\_ context -> ( [], context ++ "\n5.2 - withModuleDefinitionVisitor" ))
+                            |> Rule.withModuleDocumentationVisitor (\_ context -> ( [], context ++ "\n6.1 - withModuleDocumentationVisitor" ))
+                            |> Rule.withModuleDocumentationVisitor (\_ context -> ( [], context ++ "\n6.2 - withModuleDocumentationVisitor" ))
+                            |> Rule.withCommentsVisitor (\_ context -> ( [], context ++ "\n7.1 - withCommentsVisitor" ))
+                            |> Rule.withCommentsVisitor (\_ context -> ( [], context ++ "\n7.2 - withCommentsVisitor" ))
+                            |> Rule.withImportVisitor (\import_ context -> ( [], context ++ "\n8.1 - withImportVisitor " ++ importName import_ ))
+                            |> Rule.withImportVisitor (\import_ context -> ( [], context ++ "\n8.2 - withImportVisitor " ++ importName import_ ))
+                            |> Rule.withDeclarationListVisitor (\_ context -> ( [], context ++ "\n9.1 - withDeclarationListVisitor" ))
+                            |> Rule.withDeclarationListVisitor (\_ context -> ( [], context ++ "\n9.2 - withDeclarationListVisitor" ))
+                            |> Rule.withDeclarationEnterVisitor (\_ context -> ( [], context ++ "\n10.1 - withDeclarationEnterVisitor" ))
+                            |> Rule.withDeclarationEnterVisitor (\_ context -> ( [], context ++ "\n10.2 - withDeclarationEnterVisitor" ))
+                            |> Rule.withDeclarationExitVisitor (\_ context -> ( [], context ++ "\n13.2 - withDeclarationExitVisitor" ))
+                            |> Rule.withDeclarationExitVisitor (\_ context -> ( [], context ++ "\n13.1 - withDeclarationExitVisitor" ))
+                            |> Rule.withExpressionEnterVisitor (\_ context -> ( [], context ++ "\n11.1 - withExpressionEnterVisitor" ))
+                            |> Rule.withExpressionEnterVisitor (\_ context -> ( [], context ++ "\n11.2 - withExpressionEnterVisitor" ))
+                            |> Rule.withExpressionExitVisitor (\_ context -> ( [], context ++ "\n12.2 - withExpressionExitVisitor" ))
+                            |> Rule.withExpressionExitVisitor (\_ context -> ( [], context ++ "\n12.1 - withExpressionExitVisitor" ))
                             |> Rule.withFinalModuleEvaluation finalEvaluation
                             |> Rule.fromModuleRuleSchema
 
@@ -63,13 +66,18 @@ all =
                             , end = { row = 1, column = 7 }
                             }
                         ]
+
+                    project : Project
+                    project =
+                        Project.new
+                            |> Project.addExtraFiles [ { path = "first.txt", content = "" }, { path = "last.txt", content = "" } ]
                 in
                 """module A exposing (..)
 import B
 import C
 a = 1
 """
-                    |> Review.Test.run rule
+                    |> Review.Test.runWithProjectData project rule
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = """
@@ -78,30 +86,32 @@ a = 1
 1.2 - withElmJsonModuleVisitor
 2.1 - withReadmeModuleVisitor
 2.2 - withReadmeModuleVisitor
-3.1 - withDirectDependenciesModuleVisitor
-3.2 - withDirectDependenciesModuleVisitor
-3.3 - withDependenciesModuleVisitor
-3.4 - withDependenciesModuleVisitor
-4.1 - withModuleDefinitionVisitor
-4.2 - withModuleDefinitionVisitor
-5.1 - withModuleDocumentationVisitor
-5.2 - withModuleDocumentationVisitor
-6.1 - withCommentsVisitor
-6.2 - withCommentsVisitor
-7.1 - withImportVisitor B
-7.2 - withImportVisitor B
-7.1 - withImportVisitor C
-7.2 - withImportVisitor C
-8.1 - withDeclarationListVisitor
-8.2 - withDeclarationListVisitor
-9.1 - withDeclarationEnterVisitor
-9.2 - withDeclarationEnterVisitor
-10.1 - withExpressionEnterVisitor
-10.2 - withExpressionEnterVisitor
-11.1 - withExpressionExitVisitor
-11.2 - withExpressionExitVisitor
-12.1 - withDeclarationExitVisitor
-12.2 - withDeclarationExitVisitor"""
+3.1 - withExtraFilesModuleVisitor first.txt
+3.2 - withExtraFilesModuleVisitor last.txt
+4.1 - withDirectDependenciesModuleVisitor
+4.2 - withDirectDependenciesModuleVisitor
+4.3 - withDependenciesModuleVisitor
+4.4 - withDependenciesModuleVisitor
+5.1 - withModuleDefinitionVisitor
+5.2 - withModuleDefinitionVisitor
+6.1 - withModuleDocumentationVisitor
+6.2 - withModuleDocumentationVisitor
+7.1 - withCommentsVisitor
+7.2 - withCommentsVisitor
+8.1 - withImportVisitor B
+8.2 - withImportVisitor B
+8.1 - withImportVisitor C
+8.2 - withImportVisitor C
+9.1 - withDeclarationListVisitor
+9.2 - withDeclarationListVisitor
+10.1 - withDeclarationEnterVisitor
+10.2 - withDeclarationEnterVisitor
+11.1 - withExpressionEnterVisitor
+11.2 - withExpressionEnterVisitor
+12.1 - withExpressionExitVisitor
+12.2 - withExpressionExitVisitor
+13.1 - withDeclarationExitVisitor
+13.2 - withDeclarationExitVisitor"""
                             , details = [ "details" ]
                             , under = "module"
                             }
