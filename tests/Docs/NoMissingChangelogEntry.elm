@@ -49,6 +49,7 @@ rule : Rule
 rule =
     Rule.newProjectRuleSchema "Docs.NoMissingChangelogEntry" initialProjectContext
         |> Rule.withElmJsonProjectVisitor elmJsonVisitor
+        |> Rule.withExtraFilesProjectVisitor [ "CHANGELOG.md" ] extraFilesVisitor
         |> Rule.fromProjectRuleSchema
 
 
@@ -76,4 +77,15 @@ elmJsonVisitor maybeElmJsonData context =
                     ( [], context )
 
         Nothing ->
+            ( [], context )
+
+
+extraFilesVisitor : List { path : String, content : String } -> ProjectContext -> ( List (Rule.Error { useErrorForModule : () }), ProjectContext )
+extraFilesVisitor files context =
+    case List.head files of
+        Just { content } ->
+            ( [], context )
+
+        Nothing ->
+            --( [ Rule.error { useErrorForModule = () } "Missing CHANGELOG.md file" ], context
             ( [], context )
