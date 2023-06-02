@@ -116,6 +116,9 @@ extraFilesVisitor changelogPath files context =
                 Nothing ->
                     ( [], context )
 
+                Just "1.0.0" ->
+                    ( [], context )
+
                 Just elmJsonVersion ->
                     if String.contains elmJsonVersion content then
                         ( [], context )
@@ -130,33 +133,42 @@ extraFilesVisitor changelogPath files context =
                         )
 
         Nothing ->
-            case changelogPath of
+            case context.elmJsonVersion of
                 Nothing ->
-                    ( [ Rule.globalError
-                            { message = "Could not find the CHANGELOG.md file"
-                            , details =
-                                [ "I was looking for the CHANGELOG.md file next to your project's elm.json file but couldn't find it. Please make sure that the spelling is correct."
-                                , "If your changelog is named differently or is in a different location, then you can configure this rule to look for it in a different location:"
-                                , """    config =
+                    ( [], context )
+
+                Just "1.0.0" ->
+                    -- TODO Report an error with a changelog skeleton
+                    ( [], context )
+
+                Just _ ->
+                    case changelogPath of
+                        Nothing ->
+                            ( [ Rule.globalError
+                                    { message = "Could not find the CHANGELOG.md file"
+                                    , details =
+                                        [ "I was looking for the CHANGELOG.md file next to your project's elm.json file but couldn't find it. Please make sure that the spelling is correct."
+                                        , "If your changelog is named differently or is in a different location, then you can configure this rule to look for it in a different location:"
+                                        , """    config =
         [ Docs.NoMissingChangelogEntry.defaults
             |> Docs.NoMissingChangelogEntry.withPathToChangelog "path/to/your/changelog.md"
             |> Docs.NoMissingChangelogEntry.rule
         ]"""
-                                , "Note that the path is relative your project's elm.json file."
-                                ]
-                            }
-                      ]
-                    , context
-                    )
+                                        , "Note that the path is relative your project's elm.json file."
+                                        ]
+                                    }
+                              ]
+                            , context
+                            )
 
-                Just customPath ->
-                    ( [ Rule.globalError
-                            { message = "Could not find the " ++ customPath ++ " changelog file"
-                            , details =
-                                [ "I was looking for the " ++ customPath ++ " changelog file but couldn't find it. Please make sure that the path you specified through Docs.NoMissingChangelogEntry.withPathToChangelog is correct."
-                                , "Also note that the path you specify has to be relative to your project's elm.json file."
-                                ]
-                            }
-                      ]
-                    , context
-                    )
+                        Just customPath ->
+                            ( [ Rule.globalError
+                                    { message = "Could not find the " ++ customPath ++ " changelog file"
+                                    , details =
+                                        [ "I was looking for the " ++ customPath ++ " changelog file but couldn't find it. Please make sure that the path you specified through Docs.NoMissingChangelogEntry.withPathToChangelog is correct."
+                                        , "Also note that the path you specify has to be relative to your project's elm.json file."
+                                        ]
+                                    }
+                              ]
+                            , context
+                            )

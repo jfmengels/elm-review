@@ -114,6 +114,30 @@ a = 1
                           , details = [ "This rule only supports Elm packages, but doesn't support Elm applications as they don't have a version number. I recommend that you remove this rule from your review configuration." ]
                           }
                         ]
+        , test "should not report an error when the version is 1.0.0 (no changelog)" <|
+            \() ->
+                """module A exposing (..)
+a = 1
+"""
+                    |> Review.Test.runWithProjectData (package "1.0.0") (rule defaults)
+                    |> Review.Test.expectNoErrors
+        , test "should not report an error when the version is 1.0.0 (empty changelog)" <|
+            \() ->
+                let
+                    project : Project
+                    project =
+                        Project.addExtraFiles
+                            [ { path = "CHANGELOG.md"
+                              , content = ""
+                              }
+                            ]
+                            (package "1.0.0")
+                in
+                """module A exposing (..)
+a = 1
+"""
+                    |> Review.Test.runWithProjectData project (rule defaults)
+                    |> Review.Test.expectNoErrors
         ]
 
 
