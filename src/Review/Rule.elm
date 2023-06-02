@@ -3911,6 +3911,9 @@ withFixes fixes error_ =
                     Review.Error.Readme ->
                         { err | fixes = Review.Error.Available fixes }
 
+                    Review.Error.ExtraFile ->
+                        { err | fixes = Review.Error.Available fixes }
+
                     Review.Error.ElmJson ->
                         err
 
