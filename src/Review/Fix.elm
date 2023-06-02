@@ -212,6 +212,12 @@ fix target fixes sourceCode =
                 sourceCode
                 (always True)
 
+        Error.ExtraFile ->
+            tryToApplyFix
+                fixes
+                sourceCode
+                (always True)
+
         Error.ElmJson ->
             tryToApplyFix
                 fixes

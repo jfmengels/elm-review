@@ -13,6 +13,7 @@ type Target
     = Module
     | ElmJson
     | Readme
+    | ExtraFile
     | Global
     | UserGlobal
 
