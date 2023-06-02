@@ -5621,7 +5621,7 @@ createRuleProjectVisitor schema initialProject ruleData initialCache =
             RuleProjectVisitor
                 { elmJsonVisitor = createProjectVisitor schema hidden schema.elmJsonVisitor ElmJsonStep ValidProject.elmJsonHash .elmJson (\entry -> raiseCache { cache | elmJson = Just entry }) (\() -> raise hidden)
                 , readmeVisitor = createProjectVisitor schema hidden schema.readmeVisitor ReadmeStep ValidProject.readmeHash .readme (\entry -> raiseCache { cache | readme = Just entry }) (\() -> raise hidden)
-                , extraFilesVisitor = createExtraFilesVisitor schema hidden raise (\entry -> raiseCache { cache | extraFiles = Just entry }) (\() -> raise hidden)
+                , extraFilesVisitor = createExtraFilesVisitor schema hidden raise (\entry -> raiseCache { cache | extraFiles = Just entry })
                 , dependenciesVisitor = createDependenciesVisitor schema hidden.ruleData raiseCache cache { allVisitor = schema.dependenciesVisitor, directVisitor = schema.directDependenciesVisitor }
                 , createModuleVisitorFromProjectVisitor = createModuleVisitorFromProjectVisitor schema raiseCache hidden
                 , finalProjectEvaluation = createFinalProjectEvaluationVisitor schema hidden.ruleData raiseCache cache
@@ -5722,14 +5722,13 @@ createExtraFilesVisitor :
     -> RuleProjectVisitorHidden projectContext
     -> ({ cache : ProjectRuleCache projectContext, ruleData : ChangeableRuleData } -> RuleProjectVisitor)
     -> (ExtraFilesCache projectContext -> RuleProjectVisitor)
-    -> (() -> RuleProjectVisitor)
     ->
         Maybe
             (ValidProject
              -> List { content : String, path : String }
              -> ( List (Error {}), RuleProjectVisitor )
             )
-createExtraFilesVisitor schema hidden raise toRuleProjectVisitor toRuleProjectVisitorWithoutChangingCache =
+createExtraFilesVisitor schema hidden raise toRuleProjectVisitor =
     case schema.extraFilesVisitor of
         Nothing ->
             Nothing
@@ -5755,7 +5754,7 @@ createExtraFilesVisitor schema hidden raise toRuleProjectVisitor toRuleProjectVi
                     in
                     case reuseProjectRuleCache cachePredicate .extraFiles hidden.cache of
                         Just entry ->
-                            ( ExtraFile.errors entry, toRuleProjectVisitorWithoutChangingCache () )
+                            ( ExtraFile.errors entry, raise hidden )
 
                         Nothing ->
                             let
