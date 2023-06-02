@@ -1867,11 +1867,17 @@ withArbitraryFilesProjectVisitor :
     -> (List { path : String, content : String } -> projectContext -> ( List (Error { useErrorForModule : () }), projectContext ))
     -> ProjectRuleSchema schemaState projectContext moduleContext
     -> ProjectRuleSchema { schemaState | hasAtLeastOneVisitor : () } projectContext moduleContext
-withArbitraryFilesProjectVisitor newRequestedFiles visitor (ProjectRuleSchema schema) =
+withArbitraryFilesProjectVisitor requestedFiles baseVisitor (ProjectRuleSchema schema) =
+    let
+        visitor : List { path : String, content : String } -> projectContext -> ( List (Error {}), projectContext )
+        visitor files context =
+            baseVisitor (List.filter (globMatch requestedFiles) files) context
+                |> Tuple.mapFirst removeErrorPhantomTypes
+    in
     ProjectRuleSchema
         { schema
-            | arbitraryFilesVisitor = Just (combineVisitors (removeErrorPhantomTypeFromVisitor visitor) schema.arbitraryFilesVisitor)
-            , arbitraryFileRequest = newRequestedFiles ++ schema.arbitraryFileRequest
+            | arbitraryFilesVisitor = Just (combineVisitors visitor schema.arbitraryFilesVisitor)
+            , arbitraryFileRequest = requestedFiles ++ schema.arbitraryFileRequest
         }
 
 
