@@ -2,34 +2,7 @@
 
 ## [Unreleased]
 
-## [2.13.1] - 2023-06-17
-
-Fixed an issue where the module name lookup table would yield an incorrect result. [#159](https://github.com/jfmengels/elm-review/pull/159)
-
-## [2.13.0] - 2023-04-16
-
-1) Changed the order in which rules are applied on modules. [#153](https://github.com/jfmengels/elm-review/pull/153)
-
-Instead of visiting the entire project for each rule sequentially, we now visit the entire project once but apply each 
-rule on each module. This should hopefully result in a small speed improvement, and make it more interesting to precompute
-interesting information to provide the rules (such as the module name lookup table)
-
-2) Made it less costly to compute whether cached analysis can be reused [#154](https://github.com/jfmengels/elm-review/pull/154) 
-
-The caching mechanism introduced in [2.11.0] felt inefficient. It improved the performance a bit but not as significantly as expected.
-The reason for that was that the method to check whether a cached analysis could be re-used or not was extremely inefficient.
-Changing the representation of that key vastly improved the performance of the whole cache system, which now feels worth it.
-
-3) Applying fixes for all targets [#155](https://github.com/jfmengels/elm-review/pull/155)
-
-In [2.10.0] the package introduced the ability to apply fixes on its own, without the need of the CLI. It did however not
-support applying fixes for the `elm.json` file, as that can have important repercussions on the analysis (if
-`source-directories` or dependencies are changed). These fixes are now applied as well.
-
-Applying all fixes in the package means that there is no need to try and apply fixes in the CLI, which will be removed in its v2.10.0.
-The CLI was responsible for annotating fixes as failing, which is why this release introduces [`Review.Rule.errorFixFailure`] to allow
-the CLI to show when a fix failed to apply.
-
+Stuff happened
 
 ## [2.12.2] - 2023-02-02
 
@@ -165,9 +138,6 @@ Help would be appreciated to fill the blanks!
 [`Review.Rule.errorFixFailure`]: https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule#errorFixFailure
 [`Review.Test.ignoredFilesImpactResults`]: https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule-Test#ignoredFilesImpactResults
 
-[Unreleased]: https://github.com/jfmengels/elm-review-unused/compare/v2.13.1...HEAD
-[2.13.1]: https://github.com/jfmengels/elm-review/releases/tag/2.13.1
-[2.13.0]: https://github.com/jfmengels/elm-review/releases/tag/2.13.0
 [2.12.2]: https://github.com/jfmengels/elm-review/releases/tag/2.12.2
 [2.12.1]: https://github.com/jfmengels/elm-review/releases/tag/2.12.1
 [2.12.0]: https://github.com/jfmengels/elm-review/releases/tag/2.12.0
