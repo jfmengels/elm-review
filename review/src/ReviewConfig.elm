@@ -12,6 +12,7 @@ when inside the directory containing this file.
 -}
 
 import Docs.NoMissing exposing (exposedModules, onlyExposed)
+import Docs.NoMissingChangelogEntry
 import Docs.ReviewAtDocs
 import Docs.ReviewLinksAndSections
 import Docs.UpToDateReadmeLinks
@@ -44,6 +45,7 @@ config =
     , Docs.ReviewAtDocs.rule
         |> Rule.ignoreErrorsForDirectories [ "tests/" ]
     , Docs.NoMissing.rule { document = onlyExposed, from = exposedModules }
+    , Docs.NoMissingChangelogEntry.rule
     , NoDebug.Log.rule
     , NoDebug.TodoOrToString.rule
         |> Rule.ignoreErrorsForDirectories [ "tests/" ]
