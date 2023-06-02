@@ -2353,8 +2353,8 @@ withArbitraryFilesModuleVisitor :
     -> (List { path : String, content : String } -> moduleContext -> moduleContext)
     -> ModuleRuleSchema { schemaState | canCollectProjectData : () } moduleContext
     -> ModuleRuleSchema { schemaState | canCollectProjectData : () } moduleContext
-withArbitraryFilesModuleVisitor newRequestedFiles newVisitor (ModuleRuleSchema schema) =
-    ModuleRuleSchema { schema | arbitraryFilesVisitor = Just (combineArbitraryFilesModuleVisitor newRequestedFiles newVisitor schema) }
+withArbitraryFilesModuleVisitor requestedFiles visitor (ModuleRuleSchema schema) =
+    ModuleRuleSchema { schema | arbitraryFilesVisitor = Just (combineArbitraryFilesModuleVisitor requestedFiles visitor schema) }
 
 
 combineArbitraryFilesModuleVisitor : ArbitraryFileRequest -> (a -> context -> context) -> { b | arbitraryFilesVisitor : Maybe ( a -> context -> context, ArbitraryFileRequest ) } -> ( a -> context -> context, ArbitraryFileRequest )
