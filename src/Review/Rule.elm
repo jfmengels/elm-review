@@ -1175,15 +1175,15 @@ compactArbitraryFilesVisitor : Maybe ( List { a | path : String } -> moduleConte
 compactArbitraryFilesVisitor maybeArbitraryFilesVisitor =
     case maybeArbitraryFilesVisitor of
         Just ( arbitraryFilesVisitor, requestedFiles ) ->
-            let
-                predicate : { a | path : String } -> Bool
-                predicate file =
-                    List.member file.path requestedFiles
-            in
-            Just (\files moduleContext -> ( [], arbitraryFilesVisitor (List.filter predicate files) moduleContext ))
+            Just (\files moduleContext -> ( [], arbitraryFilesVisitor (List.filter (globMatch requestedFiles) files) moduleContext ))
 
         Nothing ->
             Nothing
+
+
+globMatch : List String -> { a | path : String } -> Bool
+globMatch requestedFiles file =
+    List.member file.path requestedFiles
 
 
 
