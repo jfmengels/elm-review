@@ -22,7 +22,7 @@ module Review.Rule exposing
     , Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix
     , ElmJsonKey, errorForElmJson, errorForElmJsonWithFix
     , ReadmeKey, errorForReadme, errorForReadmeWithFix
-    , ExtraFileKey
+    , ExtraFileKey, errorForExtraFile, errorForExtraFileWithFix
     , globalError, configurationError
     , ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFilePath, errorTarget, errorFixes, errorFixFailure
     , ignoreErrorsForDirectories, ignoreErrorsForFiles, filterErrorsForFiles
@@ -250,7 +250,7 @@ first, as they are in practice a simpler version of project rules.
 @docs Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix
 @docs ElmJsonKey, errorForElmJson, errorForElmJsonWithFix
 @docs ReadmeKey, errorForReadme, errorForReadmeWithFix
-@docs ExtraFileKey
+@docs ExtraFileKey, errorForExtraFile, errorForExtraFileWithFix
 @docs globalError, configurationError
 @docs ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFilePath, errorTarget, errorFixes, errorFixFailure
 
@@ -3794,6 +3794,30 @@ type ExtraFileKey
         { path : String
         , content : String
         }
+
+
+{-| REPLACEME
+-}
+errorForExtraFile : ExtraFileKey -> { message : String, details : List String } -> Range -> Error scope
+errorForExtraFile (ExtraFileKey { path }) { message, details } range =
+    Error
+        { message = message
+        , ruleName = ""
+        , filePath = path
+        , details = details
+        , range = range
+        , fixes = Review.Error.NoFixes
+        , target = Review.Error.ExtraFile
+        , preventsExtract = False
+        }
+
+
+{-| REPLACEME
+-}
+errorForExtraFileWithFix : ExtraFileKey -> { message : String, details : List String } -> Range -> List Fix -> Error scope
+errorForExtraFileWithFix readmeKey info range fixes =
+    errorForExtraFile readmeKey info range
+        |> withFixes fixes
 
 
 elmReviewGlobalError : { message : String, details : List String } -> Error scope
