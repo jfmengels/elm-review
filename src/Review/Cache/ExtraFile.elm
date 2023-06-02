@@ -1,4 +1,4 @@
-module Review.Cache.ArbitraryFile exposing
+module Review.Cache.ExtraFile exposing
     ( Entry, create
     , match
     , errors, errorsForMaybe, setErrors

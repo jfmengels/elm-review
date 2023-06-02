@@ -3,14 +3,14 @@ module Review.Project.Valid exposing
     , addElmJson
     , addParsedModule
     , addReadme
-    , arbitraryFiles
-    , arbitraryFilesHash
     , dependencies
     , dependenciesHash
     , directDependencies
     , doesModuleExist
     , elmJson
     , elmJsonHash
+    , extraFiles
+    , extraFilesHash
     , getModuleByPath
     , moduleGraph
     , moduleZipper
@@ -52,7 +52,7 @@ type alias ValidProjectData =
     , modulesByModuleName : Dict ModuleName OpaqueProjectModule
     , elmJson : Maybe ( { path : String, raw : String, project : Elm.Project.Project }, ContentHash )
     , readme : Maybe ( { path : String, content : String }, ContentHash )
-    , arbitraryFiles : List ( { path : String, content : String }, ContentHash )
+    , extraFiles : List ( { path : String, content : String }, ContentHash )
     , dependencies : Dict String Dependency
     , directDependencies : Dict String Dependency
     , dependencyModules : Set ModuleName
@@ -70,7 +70,7 @@ toRegularProject (ValidProject validProject) =
         , modulesThatFailedToParse = []
         , elmJson = validProject.elmJson
         , readme = validProject.readme
-        , arbitraryFiles = validProject.arbitraryFiles
+        , extraFiles = validProject.extraFiles
         , dependencies = validProject.dependencies
         , moduleGraph = Just validProject.moduleGraph
         , sourceDirectories = validProject.sourceDirectories
@@ -137,7 +137,7 @@ fromProjectAndGraph moduleGraph_ acyclicGraph (Project project) =
         , modulesByModuleName = computeModulesByModuleName project.modules
         , elmJson = project.elmJson
         , readme = project.readme
-        , arbitraryFiles = project.arbitraryFiles
+        , extraFiles = project.extraFiles
         , dependencies = project.dependencies
         , directDependencies = directDependencies_
         , dependencyModules = computeDependencyModules directDependencies_
@@ -313,14 +313,14 @@ readmeHash (ValidProject project) =
     Maybe.map Tuple.second project.readme
 
 
-arbitraryFiles : ValidProject -> List { path : String, content : String }
-arbitraryFiles (ValidProject project) =
-    List.map Tuple.first project.arbitraryFiles
+extraFiles : ValidProject -> List { path : String, content : String }
+extraFiles (ValidProject project) =
+    List.map Tuple.first project.extraFiles
 
 
-arbitraryFilesHash : ValidProject -> List ContentHash
-arbitraryFilesHash (ValidProject project) =
-    List.map Tuple.second project.arbitraryFiles
+extraFilesHash : ValidProject -> List ContentHash
+extraFilesHash (ValidProject project) =
+    List.map Tuple.second project.extraFiles
 
 
 dependencies : ValidProject -> Dict String Dependency

@@ -25,7 +25,7 @@ type Project
         , modulesThatFailedToParse : List { path : String, source : String }
         , elmJson : Maybe ( { path : String, raw : String, project : Elm.Project.Project }, ContentHash )
         , readme : Maybe ( { path : String, content : String }, ContentHash )
-        , arbitraryFiles : List ( { path : String, content : String }, ContentHash )
+        , extraFiles : List ( { path : String, content : String }, ContentHash )
         , dependencies : Dict String Dependency
         , moduleGraph : Maybe (Graph FilePath ())
         , sourceDirectories : List String
