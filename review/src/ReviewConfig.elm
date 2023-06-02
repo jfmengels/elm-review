@@ -45,7 +45,7 @@ config =
     , Docs.ReviewAtDocs.rule
         |> Rule.ignoreErrorsForDirectories [ "tests/" ]
     , Docs.NoMissing.rule { document = onlyExposed, from = exposedModules }
-    , Docs.NoMissingChangelogEntry.rule
+    , Docs.NoMissingChangelogEntry.rule Docs.NoMissingChangelogEntry.defaults
     , NoDebug.Log.rule
     , NoDebug.TodoOrToString.rule
         |> Rule.ignoreErrorsForDirectories [ "tests/" ]

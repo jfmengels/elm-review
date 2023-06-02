@@ -1,21 +1,17 @@
-module Docs.NoMissingChangelogEntry exposing (rule)
+module Docs.NoMissingChangelogEntry exposing
+    ( rule
+    , Configuration, defaults, withPathToChangelog
+    )
 
 {-|
 
 @docs rule
 
--}
-
-import Elm.Project exposing (Project)
-import Elm.Version
-import Review.Rule as Rule exposing (Rule)
-
-
-{-| Reports... REPLACEME
-
     config =
-        [ Docs.NoMissingChangelogEntry.rule
+        [ Docs.NoMissingChangelogEntry.rule Docs.NoMissingChangelogEntry.defaults
         ]
+
+@docs Configuration, defaults, withPathToChangelog
 
 
 ## Fail
@@ -45,12 +41,34 @@ elm-review --template jfmengels/elm-review/example --rules Docs.NoMissingChangel
 ```
 
 -}
-rule : Rule
-rule =
+
+import Elm.Project exposing (Project)
+import Elm.Version
+import Review.Rule as Rule exposing (Rule)
+
+
+{-| Reports... REPLACEME
+-}
+rule : Configuration -> Rule
+rule (Configuration { changelogPath }) =
     Rule.newProjectRuleSchema "Docs.NoMissingChangelogEntry" initialProjectContext
         |> Rule.withElmJsonProjectVisitor elmJsonVisitor
-        |> Rule.withExtraFilesProjectVisitor [ "CHANGELOG.md" ] extraFilesVisitor
+        |> Rule.withExtraFilesProjectVisitor [ changelogPath ] extraFilesVisitor
         |> Rule.fromProjectRuleSchema
+
+
+type Configuration
+    = Configuration { changelogPath : String }
+
+
+defaults : Configuration
+defaults =
+    Configuration { changelogPath = "CHANGELOG.md" }
+
+
+withPathToChangelog : String -> Configuration -> Configuration
+withPathToChangelog changelogPath _ =
+    Configuration { changelogPath = changelogPath }
 
 
 type alias ProjectContext =

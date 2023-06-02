@@ -30,7 +30,7 @@ Stuff happened
                             package
                 in
                 "module A exposing (..)\na = 1"
-                    |> Review.Test.runWithProjectData project rule
+                    |> Review.Test.runWithProjectData project (rule Docs.NoMissingChangelogEntry.defaults)
                     |> Review.Test.expectNoErrors
         , test "should report an error when the version in the elm.json is not found in the changelog" <|
             \() ->
@@ -53,7 +53,7 @@ Stuff happened
                 """module A exposing (..)
 a = 1
 """
-                    |> Review.Test.runWithProjectData project rule
+                    |> Review.Test.runWithProjectData project (rule Docs.NoMissingChangelogEntry.defaults)
                     |> Review.Test.expectGlobalErrors
                         [ { message = "Missing entry in CHANGELOG.md for version 2.13.0"
                           , details = [ "It seems you have or are ready to release a new version of your package, but forgot to include releases notes for it in your CHANGELOG.md file." ]
