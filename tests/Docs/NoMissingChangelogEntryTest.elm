@@ -1,6 +1,6 @@
 module Docs.NoMissingChangelogEntryTest exposing (all)
 
-import Docs.NoMissingChangelogEntry exposing (rule)
+import Docs.NoMissingChangelogEntry exposing (defaults, rule, withPathToChangelog)
 import Elm.Project
 import Json.Decode as Decode
 import Review.Project as Project exposing (Project)
@@ -30,7 +30,7 @@ Stuff happened
                             package
                 in
                 "module A exposing (..)\na = 1"
-                    |> Review.Test.runWithProjectData project (rule Docs.NoMissingChangelogEntry.defaults)
+                    |> Review.Test.runWithProjectData project (rule defaults)
                     |> Review.Test.expectNoErrors
         , test "should report an error when the version in the elm.json is not found in the changelog" <|
             \() ->
@@ -53,7 +53,7 @@ Stuff happened
                 """module A exposing (..)
 a = 1
 """
-                    |> Review.Test.runWithProjectData project (rule Docs.NoMissingChangelogEntry.defaults)
+                    |> Review.Test.runWithProjectData project (rule defaults)
                     |> Review.Test.expectGlobalErrors
                         [ { message = "Missing entry in CHANGELOG.md for version 2.13.0"
                           , details = [ "It seems you have or are ready to release a new version of your package, but forgot to include releases notes for it in your CHANGELOG.md file." ]
@@ -64,7 +64,7 @@ a = 1
                 """module A exposing (..)
 a = 1
 """
-                    |> Review.Test.runWithProjectData package (rule Docs.NoMissingChangelogEntry.defaults)
+                    |> Review.Test.runWithProjectData package (rule defaults)
                     |> Review.Test.expectGlobalErrors
                         [ { message = "Could not find the CHANGELOG.md file"
                           , details =
@@ -72,10 +72,24 @@ a = 1
                                 , "If your changelog is named differently or is in a different location, then you can configure this rule to look for it in a different location:"
                                 , """    config =
         [ Docs.NoMissingChangelogEntry.defaults
-            |> Docs.NoMissingChangelogEntry.changelogPath "path/to/your/changelog.md"
+            |> Docs.NoMissingChangelogEntry.withPathToChangelog "path/to/your/changelog.md"
             |> Docs.NoMissingChangelogEntry.rule
         ]"""
                                 , "Note that the path is relative your project's elm.json file."
+                                ]
+                          }
+                        ]
+        , test "should report an error when the changelog could not be found (custom path)" <|
+            \() ->
+                """module A exposing (..)
+a = 1
+"""
+                    |> Review.Test.runWithProjectData package (defaults |> withPathToChangelog "path/not-found.md" |> rule)
+                    |> Review.Test.expectGlobalErrors
+                        [ { message = "Could not find the path/not-found.md changelog file"
+                          , details =
+                                [ "I was looking for the path/not-found.md changelog file but couldn't find it. Please make sure that the path you specified through Docs.NoMissingChangelogEntry.withPathToChangelog is correct."
+                                , "Also note that the path you specify has to be relative to your project's elm.json file."
                                 ]
                           }
                         ]
