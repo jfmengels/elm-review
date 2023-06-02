@@ -397,7 +397,7 @@ type alias ModuleRuleSchemaData moduleContext =
 
     -- Project visitors
     , elmJsonVisitor : Maybe (Maybe Elm.Project.Project -> moduleContext -> moduleContext)
-    , arbitraryFilesVisitor : Maybe ( List { path : String, content : String } -> moduleContext -> moduleContext, ArbitraryFileRequest )
+    , arbitraryFilesVisitor : Maybe (List { path : String, content : String } -> moduleContext -> moduleContext)
     , arbitraryFileRequest : ArbitraryFileRequest
     , readmeVisitor : Maybe (Maybe String -> moduleContext -> moduleContext)
     , dependenciesVisitor : Maybe (Dict String Review.Project.Dependency.Dependency -> moduleContext -> moduleContext)
@@ -1170,10 +1170,10 @@ compactProjectDataVisitors getData maybeVisitor =
             Just (\rawData moduleContext -> ( [], visitor (getData rawData) moduleContext ))
 
 
-compactArbitraryFilesVisitor : Maybe ( List { a | path : String } -> moduleContext -> moduleContext, List String ) -> Maybe (List { a | path : String } -> moduleContext -> ( List nothing, moduleContext ))
+compactArbitraryFilesVisitor : Maybe (List { a | path : String } -> moduleContext -> moduleContext) -> Maybe (List { a | path : String } -> moduleContext -> ( List nothing, moduleContext ))
 compactArbitraryFilesVisitor maybeArbitraryFilesVisitor =
     case maybeArbitraryFilesVisitor of
-        Just ( arbitraryFilesVisitor, _ ) ->
+        Just arbitraryFilesVisitor ->
             Just (\files moduleContext -> ( [], arbitraryFilesVisitor files moduleContext ))
 
         Nothing ->
@@ -2367,19 +2367,9 @@ withArbitraryFilesModuleVisitor requestedFiles baseVisitor (ModuleRuleSchema sch
     in
     ModuleRuleSchema
         { schema
-            | arbitraryFilesVisitor = Just (combineArbitraryFilesModuleVisitor requestedFiles visitor schema)
+            | arbitraryFilesVisitor = Just (combineContextOnlyVisitor visitor schema.arbitraryFilesVisitor)
             , arbitraryFileRequest = requestedFiles ++ schema.arbitraryFileRequest
         }
-
-
-combineArbitraryFilesModuleVisitor : ArbitraryFileRequest -> (a -> context -> context) -> { b | arbitraryFilesVisitor : Maybe ( a -> context -> context, ArbitraryFileRequest ) } -> ( a -> context -> context, ArbitraryFileRequest )
-combineArbitraryFilesModuleVisitor newRequestedFiles newVisitor schema =
-    case schema.arbitraryFilesVisitor of
-        Just ( existingVisitor, existingRequestedFiles ) ->
-            ( combineContextOnlyVisitor newVisitor (Just existingVisitor), newRequestedFiles ++ existingRequestedFiles )
-
-        Nothing ->
-            ( newVisitor, newRequestedFiles )
 
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit
