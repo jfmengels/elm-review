@@ -111,7 +111,7 @@ elmJsonVisitor maybeElmJsonData context =
 extraFilesVisitor : Maybe String -> List { fileKey : Rule.ExtraFileKey, path : String, content : String } -> ProjectContext -> ( List (Rule.Error { useErrorForModule : () }), ProjectContext )
 extraFilesVisitor changelogPath files context =
     case List.head files of
-        Just { content } ->
+        Just { fileKey, content } ->
             case context.elmJsonVersion of
                 Nothing ->
                     ( [], context )
@@ -124,10 +124,12 @@ extraFilesVisitor changelogPath files context =
                         ( [], context )
 
                     else
-                        ( [ Rule.globalError
+                        ( [ Rule.errorForExtraFile
+                                fileKey
                                 { message = "Missing entry in CHANGELOG.md for version " ++ elmJsonVersion
                                 , details = [ "It seems you have or are ready to release a new version of your package, but forgot to include releases notes for it in your CHANGELOG.md file." ]
                                 }
+                                { start = { row = 1, column = 1 }, end = { row = 1, column = 5 } }
                           ]
                         , context
                         )
