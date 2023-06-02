@@ -3,7 +3,7 @@ module Review.Project exposing
     , ProjectModule, addModule, addParsedModule, removeModule, modules, modulesThatFailedToParse, precomputeModuleGraph
     , addElmJson, elmJson
     , addReadme, readme
-    , addExtraFiles
+    , addExtraFiles, extraFiles
     , addDependency, removeDependency, removeDependencies, directDependencies, dependencies
     )
 
@@ -38,7 +38,7 @@ does not look at project information (like the `elm.json`, dependencies, ...).
 
 # REPLACEME
 
-@docs addExtraFiles
+@docs addExtraFiles, extraFiles
 
 
 # Project dependencies
@@ -300,6 +300,13 @@ addReadme readme_ (Internal.Project project) =
     Internal.Project { project | readme = Just ( readme_, ContentHash.hash readme_.content ) }
 
 
+{-| Get the contents of the `README.md` file, if available.
+-}
+readme : Project -> Maybe { path : String, content : String }
+readme (Internal.Project project) =
+    Maybe.map Tuple.first project.readme
+
+
 {-| REPLACEME
 -}
 addExtraFiles : List { path : String, content : String } -> Project -> Project
@@ -307,11 +314,9 @@ addExtraFiles files (Internal.Project project) =
     Internal.Project { project | extraFiles = List.map (\file -> ( file, ContentHash.hash file.content )) files }
 
 
-{-| Get the contents of the `README.md` file, if available.
--}
-readme : Project -> Maybe { path : String, content : String }
-readme (Internal.Project project) =
-    Maybe.map Tuple.first project.readme
+extraFiles : Project -> List { path : String, content : String }
+extraFiles (Internal.Project project) =
+    List.map Tuple.first project.extraFiles
 
 
 {-| Add a dependency to the project. These will be available for rules to make
