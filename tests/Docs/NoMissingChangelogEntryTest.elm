@@ -54,10 +54,15 @@ Stuff happened
 a = 1
 """
                     |> Review.Test.runWithProjectData project (rule defaults)
-                    |> Review.Test.expectGlobalErrors
-                        [ { message = "Missing entry in CHANGELOG.md for version 2.13.0"
-                          , details = [ "It seems you have or are ready to release a new version of your package, but forgot to include releases notes for it in your CHANGELOG.md file." ]
-                          }
+                    |> Review.Test.expectErrorsForModules
+                        [ ( "CHANGELOG.md"
+                          , [ Review.Test.error
+                                { message = "Missing entry in CHANGELOG.md for version 2.13.0"
+                                , details = [ "It seems you have or are ready to release a new version of your package, but forgot to include releases notes for it in your CHANGELOG.md file." ]
+                                , under = "# Cha"
+                                }
+                            ]
+                          )
                         ]
         , test "should report an error when the changelog could not be found (default path)" <|
             \() ->
