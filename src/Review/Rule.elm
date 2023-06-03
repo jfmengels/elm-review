@@ -5436,7 +5436,13 @@ findFixHelp project fixablePredicate errors accErrors maybeModuleZipper =
                                                 , error = errorToReviewError (Error headError)
                                                 }
 
-                        _ ->
+                        Review.Error.ExtraFile ->
+                            findFixHelp project fixablePredicate restOfErrors (err :: accErrors) maybeModuleZipper
+
+                        Review.Error.Global ->
+                            findFixHelp project fixablePredicate restOfErrors (err :: accErrors) maybeModuleZipper
+
+                        Review.Error.UserGlobal ->
                             findFixHelp project fixablePredicate restOfErrors (err :: accErrors) maybeModuleZipper
 
 
