@@ -125,7 +125,7 @@ for this module.
 -}
 
 import Array exposing (Array)
-import Dict
+import Dict exposing (Dict)
 import Elm.Syntax.Module as Module
 import Elm.Syntax.Node as Node
 import Elm.Syntax.Range exposing (Range)
@@ -464,6 +464,7 @@ runOnModulesWithProjectDataHelp project rule sources =
                                             [ List.map (\module_ -> moduleToRunResult errors module_) modules
                                             , elmJsonRunResult errors projectWithModules
                                             , readmeRunResult errors projectWithModules
+                                            , extraFileRunResult errors projectWithModules
                                             ]
 
                                     foundGlobalErrors : List GlobalError
@@ -539,6 +540,52 @@ readmeRunResult errors project =
 
         Nothing ->
             []
+
+
+extraFileRunResult : List ReviewError -> Project -> List SuccessfulRunResult
+extraFileRunResult errors project =
+    let
+        extraFilePaths : Dict String { path : String, content : String }
+        extraFilePaths =
+            Project.extraFiles project
+                |> List.map (\file -> ( file.path, file ))
+                |> Dict.fromList
+    in
+    Dict.foldl
+        (\path errorsForFile acc ->
+            case Dict.get path extraFilePaths of
+                Just file ->
+                    { moduleName = path
+                    , inspector = codeInspectorForSource False file.content
+                    , errors = errorsForFile
+                    }
+                        :: acc
+
+                Nothing ->
+                    acc
+        )
+        []
+        (errorsPerFile errors)
+
+
+errorsPerFile : List ReviewError -> Dict String (List ReviewError)
+errorsPerFile reviewErrors =
+    List.foldl
+        (\error_ acc ->
+            Dict.update
+                (Rule.errorFilePath error_)
+                (\maybePreviousErrors ->
+                    case maybePreviousErrors of
+                        Nothing ->
+                            Just [ error_ ]
+
+                        Just previousErrors ->
+                            Just (error_ :: previousErrors)
+                )
+                acc
+        )
+        Dict.empty
+        reviewErrors
 
 
 indexOf : a -> List a -> Maybe Int
