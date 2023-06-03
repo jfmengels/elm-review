@@ -178,39 +178,29 @@ reportError fileKey elmJsonVersion content =
         lines =
             String.lines content
 
-        unreleasedRange : Maybe Range
-        unreleasedRange =
-            findUnreleasedRange lines
+        unreleased : Maybe ( Int, String )
+        unreleased =
+            findLineWithUnreleased 0 lines
     in
     Rule.errorForExtraFileWithFix
         fileKey
         { message = "Missing entry in CHANGELOG.md for version " ++ elmJsonVersion
         , details = [ "It seems you have or are ready to release a new version of your package, but forgot to include releases notes for it in your CHANGELOG.md file." ]
         }
-        (case unreleasedRange of
-            Just range ->
-                range
+        (case unreleased of
+            Just ( lineNumber, line ) ->
+                { start = { row = lineNumber, column = 1 }, end = { row = lineNumber, column = String.length line + 1 } }
 
             Nothing ->
                 { start = { row = 1, column = 1 }, end = { row = 1, column = String.length (List.head lines |> Maybe.withDefault "") + 1 } }
         )
-        (case unreleasedRange of
-            Just range ->
+        (case unreleased of
+            Just ( lineNumber, _ ) ->
                 []
 
             Nothing ->
                 []
         )
-
-
-findUnreleasedRange : List String -> Maybe Range
-findUnreleasedRange lines =
-    case findLineWithUnreleased 0 lines of
-        Just ( lineNumber, line ) ->
-            Just { start = { row = lineNumber, column = 1 }, end = { row = lineNumber, column = String.length line + 1 } }
-
-        Nothing ->
-            Nothing
 
 
 findLineWithUnreleased : Int -> List String -> Maybe ( Int, String )
