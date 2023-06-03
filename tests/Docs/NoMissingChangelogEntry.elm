@@ -177,13 +177,17 @@ reportError fileKey elmJsonVersion content =
         lines : List String
         lines =
             String.lines content
+
+        unreleasedRange : Maybe Range
+        unreleasedRange =
+            findUnreleasedRange lines
     in
     Rule.errorForExtraFile
         fileKey
         { message = "Missing entry in CHANGELOG.md for version " ++ elmJsonVersion
         , details = [ "It seems you have or are ready to release a new version of your package, but forgot to include releases notes for it in your CHANGELOG.md file." ]
         }
-        (case findUnreleasedRange lines of
+        (case unreleasedRange of
             Just range ->
                 range
 
