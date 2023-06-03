@@ -178,7 +178,13 @@ reportError fileKey elmJsonVersion content =
         { message = "Missing entry in CHANGELOG.md for version " ++ elmJsonVersion
         , details = [ "It seems you have or are ready to release a new version of your package, but forgot to include releases notes for it in your CHANGELOG.md file." ]
         }
-        { start = { row = 1, column = 1 }, end = { row = 1, column = 70 } }
+        (case findUnreleasedRange content of
+            Just range ->
+                range
+
+            Nothing ->
+                { start = { row = 1, column = 1 }, end = { row = 1, column = 70 } }
+        )
 
 
 findUnreleasedRange : String -> Maybe Range
