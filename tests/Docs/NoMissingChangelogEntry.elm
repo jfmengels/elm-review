@@ -194,7 +194,13 @@ reportError fileKey elmJsonVersion content =
             Nothing ->
                 { start = { row = 1, column = 1 }, end = { row = 1, column = String.length (List.head lines |> Maybe.withDefault "") + 1 } }
         )
-        []
+        (case unreleasedRange of
+            Just range ->
+                []
+
+            Nothing ->
+                []
+        )
 
 
 findUnreleasedRange : List String -> Maybe Range
