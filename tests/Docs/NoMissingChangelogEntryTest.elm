@@ -63,7 +63,7 @@ a = 1
                           , [ Review.Test.error
                                 { message = "Missing entry in CHANGELOG.md for version 2.13.0"
                                 , details = [ "It seems you have or are ready to release a new version of your package, but forgot to include releases notes for it in your CHANGELOG.md file." ]
-                                , under = "# Changelog"
+                                , under = "## [Unreleased]"
                                 }
                             ]
                           )
