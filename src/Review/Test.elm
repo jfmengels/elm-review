@@ -926,6 +926,7 @@ doCheckResultsAreTheSameWhenIgnoringFiles allErrors rule project =
             Project.modules project
                 |> List.map .path
                 |> maybeCons .path (Project.elmJson project)
+                -- TODO Add extra files? Are there other remaining places?
                 |> maybeCons .path (Project.readme project)
 
         combinationsOfFilesToIgnore : List (List String)
