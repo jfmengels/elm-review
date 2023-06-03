@@ -43,6 +43,7 @@ elm-review --template jfmengels/elm-review/example --rules Docs.NoMissingChangel
 -}
 
 import Elm.Project exposing (Project)
+import Elm.Syntax.Range exposing (Range)
 import Elm.Version
 import Review.Rule as Rule exposing (Rule)
 
@@ -178,3 +179,27 @@ reportError fileKey elmJsonVersion content =
         , details = [ "It seems you have or are ready to release a new version of your package, but forgot to include releases notes for it in your CHANGELOG.md file." ]
         }
         { start = { row = 1, column = 1 }, end = { row = 1, column = 70 } }
+
+
+findUnreleasedRange : String -> Maybe Range
+findUnreleasedRange content =
+    case findLineWithUnreleased 0 (String.lines content) of
+        Just ( lineNumber, line ) ->
+            Just { start = { row = lineNumber, column = 1 }, end = { row = lineNumber, column = String.length line + 1 } }
+
+        Nothing ->
+            Nothing
+
+
+findLineWithUnreleased : Int -> List String -> Maybe ( Int, String )
+findLineWithUnreleased index lines =
+    case lines of
+        [] ->
+            Nothing
+
+        line :: rest ->
+            if String.contains "# [Unreleased]" line then
+                Just ( index + 1, line )
+
+            else
+                findLineWithUnreleased (index + 1) rest
