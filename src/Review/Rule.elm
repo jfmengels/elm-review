@@ -344,6 +344,7 @@ import Review.Project.Valid as ValidProject exposing (ValidProject)
 import Review.RequestedData as RequestedData exposing (RequestedData(..))
 import Vendor.Graph as Graph exposing (Graph)
 import Vendor.IntDict as IntDict
+import Vendor.ListExtra as ListExtra
 import Vendor.Zipper as Zipper exposing (Zipper)
 
 
@@ -5460,7 +5461,22 @@ findFixHelp project fixablePredicate errors accErrors maybeModuleZipper =
                                                 }
 
                         Review.Error.ExtraFile ->
-                            findFixHelp project fixablePredicate restOfErrors (err :: accErrors) maybeModuleZipper
+                            case ListExtra.find (\file -> file.path == headError.filePath) (ValidProject.extraFiles project) of
+                                Nothing ->
+                                    findFixHelp project fixablePredicate restOfErrors (err :: accErrors) maybeModuleZipper
+
+                                Just file ->
+                                    case InternalFix.fixExtraFile fixes file.content of
+                                        Err fixProblem ->
+                                            findFixHelp project fixablePredicate restOfErrors (Error (Review.Error.markFixesAsProblem fixProblem headError) :: accErrors) maybeModuleZipper
+
+                                        Ok newFileContent ->
+                                            FoundFixHelp
+                                                (errors ++ accErrors)
+                                                { project = ValidProject.addExtraFile { path = headError.filePath, content = newFileContent } project
+                                                , fixedFile = FixedExtraFile
+                                                , error = errorToReviewError (Error headError)
+                                                }
 
                         Review.Error.Global ->
                             findFixHelp project fixablePredicate restOfErrors (err :: accErrors) maybeModuleZipper

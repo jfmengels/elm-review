@@ -1,4 +1,4 @@
-module Review.Fix.Internal exposing (Fix(..), applyFix, containRangeCollisions, fixElmJson, fixModule, fixReadme, rangePosition)
+module Review.Fix.Internal exposing (Fix(..), applyFix, containRangeCollisions, fixElmJson, fixExtraFile, fixModule, fixReadme, rangePosition)
 
 import Array
 import Elm.Project
@@ -121,6 +121,13 @@ fixElmJson fixes originalSourceCode =
 -}
 fixReadme : List Fix -> String -> Result FixProblem.FixProblem String
 fixReadme fixes originalSourceCode =
+    tryToApplyFix fixes originalSourceCode
+
+
+{-| Apply the changes on an extra file.
+-}
+fixExtraFile : List Fix -> String -> Result FixProblem.FixProblem String
+fixExtraFile fixes originalSourceCode =
     tryToApplyFix fixes originalSourceCode
 
 
