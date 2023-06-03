@@ -4562,6 +4562,7 @@ type NextStep
     = ModuleVisitStep (Maybe (Zipper GraphModule))
     | BackToElmJson
     | BackToReadme
+    | BackToExtraFiles
     | NextStepAbort
 
 
@@ -5076,6 +5077,14 @@ findFixInComputeModuleResults ({ reviewOptions, module_, project, moduleZipper, 
                                         , fixedErrors = FixedErrors.insert fixResult.error fixedErrors
                                         }
 
+                                FixedExtraFile ->
+                                    ContinueWithNextStep
+                                        { project = fixResult.project
+                                        , ruleProjectVisitors = newRule :: (rest ++ rulesSoFar)
+                                        , nextStep = BackToExtraFiles
+                                        , fixedErrors = FixedErrors.insert fixResult.error fixedErrors
+                                        }
+
                 FoundNoFixes newRule ->
                     findFixInComputeModuleResults
                         params
@@ -5126,6 +5135,13 @@ computeModules reviewOptions maybeModuleZipper initialProject ruleProjectVisitor
                     { project = result.project
                     , ruleProjectVisitors = result.ruleProjectVisitors
                     , step = Readme
+                    , fixedErrors = result.fixedErrors
+                    }
+
+                BackToExtraFiles ->
+                    { project = result.project
+                    , ruleProjectVisitors = result.ruleProjectVisitors
+                    , step = ExtraFiles
                     , fixedErrors = result.fixedErrors
                     }
 
@@ -5266,6 +5282,7 @@ type FixedFile
     = FixedElmModule { source : String, ast : File } (Zipper (Graph.NodeContext FilePath ()))
     | FixedElmJson
     | FixedReadme
+    | FixedExtraFile
 
 
 type PostFixStatus
@@ -5299,6 +5316,9 @@ standardFindFix reviewOptions project fixedErrors updateErrors errors =
 
                                 FixedReadme ->
                                     Readme
+
+                                FixedExtraFile ->
+                                    ExtraFiles
 
                                 FixedElmModule _ zipper ->
                                     Modules zipper
