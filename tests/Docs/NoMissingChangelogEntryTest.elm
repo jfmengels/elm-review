@@ -20,6 +20,8 @@ all =
                             [ { path = "CHANGELOG.md"
                               , content = """
 # Changelog
+## [Unreleased]
+Stuff
 ## 2.13.0
 More stuff happened
 ## 2.12.0
@@ -41,6 +43,8 @@ Stuff happened
                             [ { path = "CHANGELOG.md"
                               , content = """
 # Changelog
+## [Unreleased]
+Stuff
 ## 1.13.0
 More stuff happened
 ## 1.12.0
