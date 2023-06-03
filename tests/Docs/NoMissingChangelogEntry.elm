@@ -124,13 +124,7 @@ extraFilesVisitor changelogPath files context =
                         ( [], context )
 
                     else
-                        ( [ Rule.errorForExtraFile
-                                fileKey
-                                { message = "Missing entry in CHANGELOG.md for version " ++ elmJsonVersion
-                                , details = [ "It seems you have or are ready to release a new version of your package, but forgot to include releases notes for it in your CHANGELOG.md file." ]
-                                }
-                                { start = { row = 2, column = 1 }, end = { row = 2, column = 12 } }
-                          ]
+                        ( [ reportError fileKey elmJsonVersion content ]
                         , context
                         )
 
@@ -174,3 +168,13 @@ extraFilesVisitor changelogPath files context =
                               ]
                             , context
                             )
+
+
+reportError : Rule.ExtraFileKey -> String -> String -> Rule.Error scope
+reportError fileKey elmJsonVersion content =
+    Rule.errorForExtraFile
+        fileKey
+        { message = "Missing entry in CHANGELOG.md for version " ++ elmJsonVersion
+        , details = [ "It seems you have or are ready to release a new version of your package, but forgot to include releases notes for it in your CHANGELOG.md file." ]
+        }
+        { start = { row = 1, column = 1 }, end = { row = 1, column = 70 } }
