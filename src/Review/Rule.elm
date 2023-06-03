@@ -5293,15 +5293,17 @@ standardFindFix reviewOptions project fixedErrors updateErrors errors =
                             ( newFixedErrors_, EndAnalysis )
 
                         ShouldContinue newFixedErrors_ ->
-                            case fixResult.fixedFile of
+                            ( newFixedErrors_
+                            , case fixResult.fixedFile of
                                 FixedElmJson ->
-                                    ( newFixedErrors_, ElmJson )
+                                    ElmJson
 
                                 FixedReadme ->
-                                    ( newFixedErrors_, Readme )
+                                    Readme
 
                                 FixedElmModule _ zipper ->
-                                    ( newFixedErrors_, Modules zipper )
+                                    Modules zipper
+                            )
             in
             FoundFixStandard { newProject = fixResult.project, newRule = newRule, newFixedErrors = newFixedErrors, step = step }
 
