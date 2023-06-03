@@ -45,6 +45,7 @@ elm-review --template jfmengels/elm-review/example --rules Docs.NoMissingChangel
 import Elm.Project exposing (Project)
 import Elm.Syntax.Range exposing (Range)
 import Elm.Version
+import Review.Fix as Fix
 import Review.Rule as Rule exposing (Rule)
 
 
@@ -55,6 +56,7 @@ rule (Configuration { changelogPath }) =
     Rule.newProjectRuleSchema "Docs.NoMissingChangelogEntry" initialProjectContext
         |> Rule.withElmJsonProjectVisitor elmJsonVisitor
         |> Rule.withExtraFilesProjectVisitor [ Maybe.withDefault defaultPath changelogPath ] (extraFilesVisitor changelogPath)
+        |> Rule.providesFixesForProjectRule
         |> Rule.fromProjectRuleSchema
 
 
@@ -196,7 +198,7 @@ reportError fileKey elmJsonVersion content =
         )
         (case unreleased of
             Just ( lineNumber, _ ) ->
-                []
+                [ Fix.insertAt { row = lineNumber + 1, column = 1 } ("\n## [" ++ elmJsonVersion ++ "]\n\n") ]
 
             Nothing ->
                 []

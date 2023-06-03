@@ -41,8 +41,7 @@ Stuff happened
                     project =
                         Project.addExtraFiles
                             [ { path = "CHANGELOG.md"
-                              , content = """
-# Changelog
+                              , content = """# Changelog
 ## [Unreleased]
 Stuff
 ## 1.13.0
@@ -65,6 +64,17 @@ a = 1
                                 , details = [ "It seems you have or are ready to release a new version of your package, but forgot to include releases notes for it in your CHANGELOG.md file." ]
                                 , under = "## [Unreleased]"
                                 }
+                                |> Review.Test.whenFixed """# Changelog
+## [Unreleased]
+
+## [2.13.0]
+
+Stuff
+## 1.13.0
+More stuff happened
+## 1.12.0
+Stuff happened
+"""
                             ]
                           )
                         ]
