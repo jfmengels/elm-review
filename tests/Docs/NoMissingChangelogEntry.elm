@@ -182,7 +182,7 @@ reportError fileKey elmJsonVersion content =
         unreleasedRange =
             findUnreleasedRange lines
     in
-    Rule.errorForExtraFile
+    Rule.errorForExtraFileWithFix
         fileKey
         { message = "Missing entry in CHANGELOG.md for version " ++ elmJsonVersion
         , details = [ "It seems you have or are ready to release a new version of your package, but forgot to include releases notes for it in your CHANGELOG.md file." ]
@@ -194,6 +194,7 @@ reportError fileKey elmJsonVersion content =
             Nothing ->
                 { start = { row = 1, column = 1 }, end = { row = 1, column = String.length (List.head lines |> Maybe.withDefault "") + 1 } }
         )
+        []
 
 
 findUnreleasedRange : List String -> Maybe Range
