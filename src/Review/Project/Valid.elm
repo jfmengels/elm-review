@@ -1,6 +1,7 @@
 module Review.Project.Valid exposing
     ( ValidProject
     , addElmJson
+    , addExtraFile
     , addParsedModule
     , addReadme
     , dependencies
@@ -509,6 +510,30 @@ available for rules to access using
 addReadme : { path : String, content : String } -> ValidProject -> ValidProject
 addReadme readme_ (ValidProject project) =
     ValidProject { project | readme = Just ( readme_, ContentHash.hash readme_.content ) }
+
+
+{-| Add the content of the `README.md` file to the project, making it
+available for rules to access using
+[`Review.Rule.withReadmeModuleVisitor`](./Review-Rule#withReadmeModuleVisitor) and
+[`Review.Rule.withReadmeProjectVisitor`](./Review-Rule#withReadmeProjectVisitor).
+-}
+addExtraFile : { path : String, content : String } -> ValidProject -> ValidProject
+addExtraFile newFile (ValidProject project) =
+    -- TODO Make faster
+    -- TODO Add file if it doesn't already exist
+    ValidProject
+        { project
+            | extraFiles =
+                List.map
+                    (\(( file, _ ) as untouched) ->
+                        if file.path == newFile.path then
+                            ( newFile, ContentHash.hash newFile.content )
+
+                        else
+                            untouched
+                    )
+                    project.extraFiles
+        }
 
 
 addElmJson : { path : String, raw : String, project : Elm.Project.Project } -> ValidProject -> ValidProject
