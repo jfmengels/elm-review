@@ -173,23 +173,28 @@ extraFilesVisitor changelogPath files context =
 
 reportError : Rule.ExtraFileKey -> String -> String -> Rule.Error scope
 reportError fileKey elmJsonVersion content =
+    let
+        lines : List String
+        lines =
+            String.lines content
+    in
     Rule.errorForExtraFile
         fileKey
         { message = "Missing entry in CHANGELOG.md for version " ++ elmJsonVersion
         , details = [ "It seems you have or are ready to release a new version of your package, but forgot to include releases notes for it in your CHANGELOG.md file." ]
         }
-        (case findUnreleasedRange content of
+        (case findUnreleasedRange lines of
             Just range ->
                 range
 
             Nothing ->
-                { start = { row = 1, column = 1 }, end = { row = 1, column = 70 } }
+                { start = { row = 1, column = 1 }, end = { row = 1, column = String.length (List.head lines |> Maybe.withDefault "") + 1 } }
         )
 
 
-findUnreleasedRange : String -> Maybe Range
-findUnreleasedRange content =
-    case findLineWithUnreleased 0 (String.lines content) of
+findUnreleasedRange : List String -> Maybe Range
+findUnreleasedRange lines =
+    case findLineWithUnreleased 0 lines of
         Just ( lineNumber, line ) ->
             Just { start = { row = lineNumber, column = 1 }, end = { row = lineNumber, column = String.length line + 1 } }
 
