@@ -86,7 +86,6 @@ Stuff happened
                         Project.addExtraFiles
                             [ { path = "CHANGELOG.md"
                               , content = """# Changelog
-Stuff
 ## 1.13.0
 More stuff happened
 ## 1.12.0
