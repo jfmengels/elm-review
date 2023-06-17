@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+## [2.13.1] - 2023-06-17
+
+Fixed an issue where the module name lookup table would yield an incorrect result. [#159](https://github.com/jfmengels/elm-review/pull/159)
+
 ## [2.13.0] - 2023-04-16
 
 1) Changed the order in which rules are applied on modules. [#153](https://github.com/jfmengels/elm-review/pull/153)
@@ -159,6 +165,8 @@ Help would be appreciated to fill the blanks!
 [`Review.Rule.errorFixFailure`]: https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule#errorFixFailure
 [`Review.Test.ignoredFilesImpactResults`]: https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule-Test#ignoredFilesImpactResults
 
+[Unreleased]: https://github.com/jfmengels/elm-review-unused/compare/v2.13.1...HEAD
+[2.13.1]: https://github.com/jfmengels/elm-review/releases/tag/2.13.1
 [2.13.0]: https://github.com/jfmengels/elm-review/releases/tag/2.13.0
 [2.12.2]: https://github.com/jfmengels/elm-review/releases/tag/2.12.2
 [2.12.1]: https://github.com/jfmengels/elm-review/releases/tag/2.12.1
