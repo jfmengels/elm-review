@@ -690,7 +690,7 @@ collectPatterns lookupFunction context node =
             collectPatterns lookupFunction context subPattern
 
         _ ->
-            Debug.todo "Other patterns in case expressions are not handled"
+            Debug.todo ("Other patterns in case expressions are not handled: " ++ Debug.toString node)
 
 
 getRealName : (ModuleNameLookupTable -> Range -> Maybe ModuleName) -> ModuleContext -> ModuleName -> Range -> String -> String
