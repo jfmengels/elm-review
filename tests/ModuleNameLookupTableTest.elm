@@ -93,6 +93,10 @@ a = localValue
  True
  Just
  Cmd.none
+ (let foo get = get
+  in
+  get
+ )
  (+)
  (117 + 3)
  (<?>)
@@ -155,6 +159,8 @@ Http.get -> Http.get
 <nothing>.True -> Basics.True
 <nothing>.Just -> Maybe.Just
 Cmd.none -> Platform.Cmd.none
+<nothing>.get -> <nothing>.get
+<nothing>.get -> Http.get
 <nothing>.+ -> Basics.+
 <nothing>.+ -> Basics.+
 <nothing>.<?> -> Url.Parser.<?>
@@ -688,6 +694,9 @@ collectPatterns lookupFunction context node =
 
         Pattern.AsPattern subPattern _ ->
             collectPatterns lookupFunction context subPattern
+
+        Pattern.VarPattern _ ->
+            []
 
         _ ->
             Debug.todo ("Other patterns in case expressions are not handled: " ++ Debug.toString node)

@@ -1220,11 +1220,28 @@ expressionEnterVisitor node context =
                         (\declaration scopes ->
                             case Node.value declaration of
                                 Expression.LetFunction function ->
-                                    registerVariable
-                                        { variableType = LetVariable
-                                        , node = (Node.value function.declaration).name
-                                        }
-                                        scopes
+                                    let
+                                        { name, expression, arguments } =
+                                            Node.value function.declaration
+
+                                        withLetVariable : NonEmpty Scope
+                                        withLetVariable =
+                                            registerVariable
+                                                { variableType = LetVariable
+                                                , node = name
+                                                }
+                                                scopes
+                                    in
+                                    if List.isEmpty arguments then
+                                        withLetVariable
+
+                                    else
+                                        let
+                                            names : Dict String VariableInfo
+                                            names =
+                                                collectNamesFromPattern PatternVariable arguments Dict.empty
+                                        in
+                                        NonEmpty.mapHead (\scope -> { scope | cases = ( expression, names ) :: scope.cases }) withLetVariable
 
                                 Expression.LetDestructuring _ _ ->
                                     scopes
