@@ -2359,8 +2359,7 @@ withElmJsonModuleVisitor visitor (ModuleRuleSchema schema) =
     ModuleRuleSchema { schema | elmJsonVisitor = Just (combineContextOnlyVisitor visitor schema.elmJsonVisitor) }
 
 
-{-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit
-the project's `README.md` file.
+{-| REPLACEME
 -}
 withExtraFilesModuleVisitor :
     ExtraFileRequest
