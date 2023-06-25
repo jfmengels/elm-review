@@ -434,6 +434,16 @@ b = B
 """
                     |> Review.Test.runWithProjectData packageProject rule
                     |> Review.Test.expectNoErrors
+        , test "should not report args for type constructors starting with a non-ASCII letter used in an equality expression (==)" <|
+            \() ->
+                """
+module MyModule exposing (a, b)
+type Foo = Ö_Unused Int | Ö_B
+a = Ö_Unused 0 == b
+b = Ö_B
+"""
+                    |> Review.Test.runWithProjectData packageProject rule
+                    |> Review.Test.expectNoErrors
         , test "should not report args for type constructors used in an inequality expression (/=)" <|
             \() ->
                 """
@@ -451,6 +461,22 @@ module MyModule exposing (a, b)
 type Foo = Unused Int | B
 a = Unused <| b
 b = B
+"""
+                    |> Review.Test.runWithProjectData packageProject rule
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = message
+                            , details = details
+                            , under = "Int"
+                            }
+                        ]
+        , test "should report args for type constructors starting with a non-ASCII letter used in non-equality operator expressions" <|
+            \() ->
+                """
+module MyModule exposing (a, b)
+type Foo = Ö_Unused Int | Ö_B
+a = Ö_Unused <| b
+b = Ö_B
 """
                     |> Review.Test.runWithProjectData packageProject rule
                     |> Review.Test.expectErrors

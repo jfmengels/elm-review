@@ -292,23 +292,27 @@ finalEvaluationForProject projectContext =
                 projectContext.used
                 projectContext.used
 
-        ( usedModules, unusedModules ) =
-            projectContext.modules
-                |> removeExposedPackages projectContext
-                |> Dict.partition (\moduleName _ -> Set.member moduleName projectContext.usedModules)
+        filterExposedPackage_ : ModuleName -> Bool
+        filterExposedPackage_ =
+            filterExposedPackage projectContext
     in
-    List.concat
-        [ usedModules
-            |> Dict.toList
-            |> List.concatMap (errorsForModule projectContext used)
-        , unusedModules
-            |> Dict.toList
-            |> List.map unusedModuleError
-        ]
+    Dict.foldl
+        (\moduleName module_ acc ->
+            if not (filterExposedPackage_ moduleName) then
+                acc
+
+            else if Set.member moduleName projectContext.usedModules then
+                errorsForModule projectContext used moduleName module_ acc
+
+            else
+                unusedModuleError moduleName module_ :: acc
+        )
+        []
+        projectContext.modules
 
 
-unusedModuleError : ( ModuleName, { a | moduleKey : Rule.ModuleKey, moduleNameLocation : Range } ) -> Error scope
-unusedModuleError ( moduleName, { moduleKey, moduleNameLocation } ) =
+unusedModuleError : ModuleName -> { a | moduleKey : Rule.ModuleKey, moduleNameLocation : Range } -> Error scope
+unusedModuleError moduleName { moduleKey, moduleNameLocation } =
     Rule.errorForModule moduleKey
         { message = "Module `" ++ String.join "." moduleName ++ "` is never used."
         , details = [ "This module is never used. You may want to remove it to keep your project clean, and maybe detect some unused code in your project." ]
@@ -316,15 +320,14 @@ unusedModuleError ( moduleName, { moduleKey, moduleNameLocation } ) =
         moduleNameLocation
 
 
-errorsForModule : ProjectContext -> Set ( ModuleName, String ) -> ( ModuleName, { a | moduleKey : Rule.ModuleKey, exposed : Dict String ExposedElement } ) -> List (Error scope)
-errorsForModule projectContext used ( moduleName, { moduleKey, exposed } ) =
-    exposed
-        |> removeApplicationExceptions projectContext
-        |> removeReviewConfig moduleName
-        |> Dict.filter (\name _ -> not <| Set.member ( moduleName, name ) used)
-        |> Dict.toList
-        |> List.concatMap
-            (\( name, element ) ->
+errorsForModule : ProjectContext -> Set ( ModuleName, String ) -> ModuleName -> { a | moduleKey : Rule.ModuleKey, exposed : Dict String ExposedElement } -> List (Error scope) -> List (Error scope)
+errorsForModule projectContext used moduleName { moduleKey, exposed } acc =
+    Dict.foldl
+        (\name element subAcc ->
+            if isUsedOrException projectContext used moduleName name then
+                subAcc
+
+            else
                 let
                     what : String
                     what =
@@ -338,48 +341,46 @@ errorsForModule projectContext used ( moduleName, { moduleKey, exposed } ) =
                             ExposedType _ ->
                                 "Exposed type"
                 in
-                [ Rule.errorForModuleWithFix moduleKey
+                Rule.errorForModuleWithFix moduleKey
                     { message = what ++ " `" ++ name ++ "` is never used outside this module."
                     , details = [ "This exposed element is never used. You may want to remove it to keep your project clean, and maybe detect some unused code in your project." ]
                     }
                     element.range
                     (List.map Fix.removeRange element.rangesToRemove)
-                ]
-            )
+                    :: subAcc
+        )
+        acc
+        exposed
 
 
-removeExposedPackages : ProjectContext -> Dict ModuleName a -> Dict ModuleName a
-removeExposedPackages projectContext dict =
+filterExposedPackage : ProjectContext -> ModuleName -> Bool
+filterExposedPackage projectContext =
     case projectContext.projectType of
         IsApplication _ ->
-            dict
+            always True
 
         IsPackage exposedModuleNames ->
-            Dict.filter (\name _ -> not <| Set.member name exposedModuleNames) dict
+            \moduleName -> not <| Set.member moduleName exposedModuleNames
 
 
-removeApplicationExceptions : ProjectContext -> Dict String a -> Dict String a
-removeApplicationExceptions projectContext dict =
+isUsedOrException : ProjectContext -> Set ( ModuleName, String ) -> List String -> String -> Bool
+isUsedOrException projectContext used moduleName name =
+    Set.member ( moduleName, name ) used
+        || isApplicationException projectContext name
+        || (moduleName == [ "ReviewConfig" ])
+
+
+isApplicationException : ProjectContext -> String -> Bool
+isApplicationException projectContext name =
     case projectContext.projectType of
         IsPackage _ ->
-            dict
+            False
 
         IsApplication ElmApplication ->
-            Dict.remove "main" dict
+            name == "main"
 
         IsApplication LamderaApplication ->
-            dict
-                |> Dict.remove "main"
-                |> Dict.remove "app"
-
-
-removeReviewConfig : ModuleName -> Dict String a -> Dict String a
-removeReviewConfig moduleName dict =
-    if moduleName == [ "ReviewConfig" ] then
-        Dict.remove "config" dict
-
-    else
-        dict
+            name == "main" || name == "app"
 
 
 getRangesToRemove : List ( Int, String ) -> Bool -> String -> Int -> Maybe Range -> Range -> Range -> List Range

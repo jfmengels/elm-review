@@ -225,10 +225,10 @@ report context =
                             )
             in
             ( errors
-            , List.foldl
+            , Set.foldl
                 useValue
                 restOfScopes
-                (Set.toList nonUsedVars)
+                nonUsedVars
             )
 
         _ ->

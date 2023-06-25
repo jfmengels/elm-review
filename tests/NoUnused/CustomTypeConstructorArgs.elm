@@ -22,6 +22,7 @@ import List.Extra
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Rule as Rule exposing (Error, Rule)
 import Set exposing (Set)
+import String.Extra
 
 
 {-| Reports arguments of custom type constructors that are never used.
@@ -194,13 +195,13 @@ fromModuleToProject =
 replaceLocalModuleNameForSet : ModuleName -> Set ( ModuleName, comparable ) -> Set ( ModuleName, comparable )
 replaceLocalModuleNameForSet moduleName set =
     Set.map
-        (\( moduleNameForType, name ) ->
+        (\(( moduleNameForType, name ) as untouched) ->
             case moduleNameForType of
                 [] ->
                     ( moduleName, name )
 
                 _ ->
-                    ( moduleNameForType, name )
+                    untouched
         )
         set
 
@@ -208,13 +209,18 @@ replaceLocalModuleNameForSet moduleName set =
 replaceLocalModuleNameForDict : ModuleName -> Dict ( ModuleName, comparable ) b -> Dict ( ModuleName, comparable ) b
 replaceLocalModuleNameForDict moduleName dict =
     Dict.foldl
-        (\( moduleNameForType, name ) value acc ->
-            case moduleNameForType of
-                [] ->
-                    Dict.insert ( moduleName, name ) value acc
+        (\(( moduleNameForType, name ) as key) value acc ->
+            let
+                newKey : ( ModuleName, comparable )
+                newKey =
+                    case moduleNameForType of
+                        [] ->
+                            ( moduleName, name )
 
-                _ ->
-                    Dict.insert ( moduleNameForType, name ) value acc
+                        _ ->
+                            key
+            in
+            Dict.insert newKey value acc
         )
         Dict.empty
         dict
@@ -231,22 +237,22 @@ getNonExposedCustomTypes moduleContext =
                 let
                     exposedCustomTypes : Set String
                     exposedCustomTypes =
-                        list
-                            |> List.filterMap
-                                (\exposed ->
-                                    case Node.value exposed of
-                                        Exposing.TypeExpose { name, open } ->
-                                            case open of
-                                                Just _ ->
-                                                    Just name
+                        List.foldl
+                            (\exposed acc ->
+                                case Node.value exposed of
+                                    Exposing.TypeExpose { name, open } ->
+                                        case open of
+                                            Just _ ->
+                                                Set.insert name acc
 
-                                                Nothing ->
-                                                    Nothing
+                                            Nothing ->
+                                                acc
 
-                                        _ ->
-                                            Nothing
-                                )
-                            |> Set.fromList
+                                    _ ->
+                                        acc
+                            )
+                            Set.empty
+                            list
                 in
                 List.foldl
                     (\( typeName, args ) acc ->
@@ -451,7 +457,7 @@ findCustomTypesHelp lookupTable nodes acc =
         node :: restOfNodes ->
             case Node.value node of
                 Expression.FunctionOrValue rawModuleName functionName ->
-                    if isCustomTypeConstructor functionName then
+                    if String.Extra.isCapitalized functionName then
                         case ModuleNameLookupTable.moduleNameFor lookupTable node of
                             Just moduleName ->
                                 findCustomTypesHelp lookupTable restOfNodes (( moduleName, functionName ) :: acc)
@@ -469,7 +475,7 @@ findCustomTypesHelp lookupTable nodes acc =
                     findCustomTypesHelp lookupTable (expression :: restOfNodes) acc
 
                 Expression.Application (((Node _ (Expression.FunctionOrValue _ functionName)) as first) :: expressions) ->
-                    if isCustomTypeConstructor functionName then
+                    if String.Extra.isCapitalized functionName then
                         findCustomTypesHelp lookupTable (first :: (expressions ++ restOfNodes)) acc
 
                     else
@@ -486,12 +492,6 @@ findCustomTypesHelp lookupTable nodes acc =
 
                 _ ->
                     findCustomTypesHelp lookupTable restOfNodes acc
-
-
-isCustomTypeConstructor : String -> Bool
-isCustomTypeConstructor functionName =
-    String.slice 0 1 functionName
-        |> String.all Char.isUpper
 
 
 registerUsedPatterns : List ( ( ModuleName, String ), Set Int ) -> Dict ( ModuleName, String ) (Set Int) -> Dict ( ModuleName, String ) (Set Int)

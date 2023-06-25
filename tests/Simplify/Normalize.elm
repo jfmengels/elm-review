@@ -2,6 +2,7 @@ module Simplify.Normalize exposing (Comparison(..), areAllTheSame, compare, comp
 
 import Dict
 import Elm.Syntax.Expression as Expression exposing (Expression)
+import Elm.Syntax.Infix as Infix
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern as Pattern exposing (Pattern)
 import Elm.Syntax.Range as Range
@@ -67,6 +68,9 @@ normalize resources node =
             addToFunctionCall
                 (normalize resources function)
                 (normalize resources extraArgument)
+
+        Expression.OperatorApplication "<<" _ left right ->
+            toNode (Expression.OperatorApplication ">>" Infix.Right (normalize resources right) (normalize resources left))
 
         Expression.OperatorApplication "::" infixDirection element list ->
             let
