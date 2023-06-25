@@ -34,6 +34,7 @@ import NoUnused.Patterns
 import NoUnused.Variables
 import Review.Rule as Rule exposing (Rule)
 import NoUnused.CustomTypeConstructorArgs
+import Simplify
 
 config : List Rule
 config =
@@ -69,6 +70,7 @@ config =
     , NoUnused.Variables.rule
     , NoSimpleLetBody.rule
     , NoPrematureLetComputation.rule
+    , Simplify.rule Simplify.defaults
     , NoForbiddenWords.rule [ "REPLACEME" ]
     ]
         |> List.map (Rule.ignoreErrorsForDirectories [ "src/Vendor/", "tests/Vendor/" ])
