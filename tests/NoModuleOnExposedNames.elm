@@ -124,28 +124,32 @@ rememberExposedNames { moduleName, moduleAlias, exposingList } context =
 
 valueVisitor : Node ( ModuleName, String ) -> Context.Module -> ( List (Error {}), Context.Module )
 valueVisitor node context =
-    case Node.value node of
-        ( moduleName, name ) ->
-            if Context.isFunctionExposed context moduleName name then
-                ( [ moduleOnExposedValueError name (Node.range node) ]
-                , context
-                )
+    let
+        ( moduleName, name ) =
+            Node.value node
+    in
+    if Context.isFunctionExposed context moduleName name then
+        ( [ moduleOnExposedValueError name (Node.range node) ]
+        , context
+        )
 
-            else
-                ( [], context )
+    else
+        ( [], context )
 
 
 typeVisitor : Node ( ModuleName, String ) -> Context.Module -> ( List (Error {}), Context.Module )
 typeVisitor node context =
-    case Node.value node of
-        ( moduleName, name ) ->
-            if Context.isTypeExposed context moduleName name then
-                ( [ moduleOnExposedTypeError name (Node.range node) ]
-                , context
-                )
+    let
+        ( moduleName, name ) =
+            Node.value node
+    in
+    if Context.isTypeExposed context moduleName name then
+        ( [ moduleOnExposedTypeError name (Node.range node) ]
+        , context
+        )
 
-            else
-                ( [], context )
+    else
+        ( [], context )
 
 
 moduleOnExposedValueError : String -> Range -> Error {}

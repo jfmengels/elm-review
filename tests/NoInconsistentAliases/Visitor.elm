@@ -83,9 +83,11 @@ rememberBadAlias { lookupAlias, canMissAliases } (Node moduleNameRange moduleNam
 
 moduleCallVisitor : Node ( ModuleName, String ) -> Context.Module -> ( List (Error {}), Context.Module )
 moduleCallVisitor node context =
-    case Node.value node of
-        ( moduleName, function ) ->
-            ( [], Context.addModuleCall moduleName function (Node.range node) context )
+    let
+        ( moduleName, function ) =
+            Node.value node
+    in
+    ( [], Context.addModuleCall moduleName function (Node.range node) context )
 
 
 finalEvaluation : Options.AliasLookup -> Context.Module -> List (Error {})
