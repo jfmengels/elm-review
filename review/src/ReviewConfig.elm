@@ -71,6 +71,10 @@ config =
     , NoSimpleLetBody.rule
     , NoPrematureLetComputation.rule
     , Simplify.rule Simplify.defaults
+        |> Rule.ignoreErrorsForFiles
+            [ "src/Review/Test/Dependencies/Unsafe.elm"
+            , "src/Review/Logger.elm"
+            ]
     , NoForbiddenWords.rule [ "REPLACEME" ]
     ]
         |> List.map (Rule.ignoreErrorsForDirectories [ "src/Vendor/", "tests/Vendor/" ])
