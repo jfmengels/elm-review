@@ -960,9 +960,6 @@ what happens in other parts of the module. If you don't need a context, I
 recommend specifying `()`, and using functions from this module with names
 starting with "withSimple".
 
-**NOTE**: Do not store functions, JSON values or regular expressions in your contexts, as they will be
-compared internally, which [may cause Elm to crash](https://package.elm-lang.org/packages/elm/core/latest/Basics#==).
-
     module My.Rule.Name exposing (rule)
 
     import Review.Rule as Rule exposing (Rule)
@@ -1027,7 +1024,6 @@ newModuleRuleSchema name initialModuleContext =
 
 
 {-| Same as [`newModuleRuleSchema`](#newModuleRuleSchema), except that you can request for data to help initialize the context.
-compared internally, which [may cause Elm to crash](https://package.elm-lang.org/packages/elm/core/latest/Basics#==).
 
     module My.Rule.Name exposing (rule)
 
@@ -1198,7 +1194,7 @@ The second argument is the initial `projectContext`, i.e. the data that the rule
 accumulate as the project will be traversed, and allows the rule to know/remember
 what happens in other parts of the project.
 
-**NOTE**: Do not store functions, JSON values or regular expressions in your contexts, as they will be
+**NOTE**: Do not store functions, JSON values or regular expressions in your project context, as they will be
 compared internally, which [may cause Elm to crash](https://package.elm-lang.org/packages/elm/core/latest/Basics#==).
 
 Project rules traverse the project in the following order:
