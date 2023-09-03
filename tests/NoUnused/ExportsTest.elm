@@ -1,6 +1,6 @@
 module NoUnused.ExportsTest exposing (all)
 
-import NoUnused.Exports exposing (rule)
+import NoUnused.Exports exposing (annotatedBy, defaults, definedInModule, prefixedBy, reportUnusedProductionExports, rule, suffixedBy, toRule)
 import Review.Test
 import Test exposing (Test, describe, test)
 import TestProject exposing (application, lamderaApplication, package)
@@ -28,6 +28,7 @@ all =
         , importsTests
         , lamderaTests
         , unusedModuleTests
+        , reportUnusedProductionExportsTest
 
         -- TODO Add tests that report exposing the type's variants if they are never used.
         ]
@@ -1218,4 +1219,333 @@ main = text ""
 """
                     |> Review.Test.runWithProjectData lamderaApplication rule
                     |> Review.Test.expectNoErrors
+        ]
+
+
+reportUnusedProductionExportsTest : Test
+reportUnusedProductionExportsTest =
+    describe "reportUnusedProductionExports"
+        [ test "should report functions that are only used in ignored files (no helpers defined)" <|
+            \() ->
+                [ """
+module Main exposing (main)
+import A
+main = A.used
+""", """
+module A exposing (used, unusedInProductionCode)
+used = 1
+unusedInProductionCode = 2
+""", """
+module ATest exposing (..)
+import A
+import Test
+a = A.unusedInProductionCode
+""" ]
+                    |> Review.Test.runOnModules
+                        (defaults
+                            |> reportUnusedProductionExports
+                                { isProductionFile = \{ moduleName } -> String.join "." moduleName |> String.endsWith "Test" |> not
+                                , exceptionsAre = []
+                                }
+                            |> toRule
+                        )
+                    |> Review.Test.expectErrorsForModules
+                        [ ( "A"
+                          , [ Review.Test.error
+                                { message = "Exposed function or value `unusedInProductionCode` is never used in production code."
+                                , details =
+                                    [ "This exposed element is only used in files you have marked as non-production code (e.g. the tests folder), and should therefore be removed along with the places it's used in. This will help reduce the amount of code you will need to maintain."
+                                    , "It is possible that this element is meant to enable work in your ignored folder (test helpers for instance), in which case you should keep it. To avoid this problem being reported again, please read the documentation on how to configure the rule."
+                                    ]
+                                , under = "unusedInProductionCode"
+                                }
+                                |> Review.Test.atExactly { start = { row = 2, column = 26 }, end = { row = 2, column = 48 } }
+                            ]
+                          )
+                        ]
+        , test "should report functions that are only used in ignored files (helpers defined)" <|
+            \() ->
+                [ """
+module Main exposing (main)
+import A
+main = A.used
+""", """
+module A exposing (used, unusedInProductionCode)
+used = 1
+unusedInProductionCode = 2
+""", """
+module ATest exposing (..)
+import A
+import Test
+a = A.unusedInProductionCode
+""" ]
+                    |> Review.Test.runOnModules
+                        (defaults
+                            |> reportUnusedProductionExports
+                                { isProductionFile = \{ moduleName } -> String.join "." moduleName |> String.endsWith "Test" |> not
+                                , exceptionsAre =
+                                    [ annotatedBy "@helper"
+                                    , annotatedBy "@test-helper"
+                                    , suffixedBy "_FOR_TESTS"
+                                    , prefixedBy "test_"
+                                    ]
+                                }
+                            |> toRule
+                        )
+                    |> Review.Test.expectErrorsForModules
+                        [ ( "A"
+                          , [ Review.Test.error
+                                { message = "Exposed function or value `unusedInProductionCode` is never used in production code."
+                                , details =
+                                    [ "This exposed element is only used in files you have marked as non-production code (e.g. the tests folder), and should therefore be removed along with the places it's used in. This will help reduce the amount of code you will need to maintain."
+                                    , "It is possible that this element is meant to enable work in your ignored folder (test helpers for instance), in which case you should keep it. To avoid this problem being reported again, you can:"
+                                    , """- Include @helper in the documentation of the element
+- Include @test-helper in the documentation of the element
+- Rename the element to end with _FOR_TESTS
+- Rename the element to start with test_"""
+                                    ]
+                                , under = "unusedInProductionCode"
+                                }
+                                |> Review.Test.atExactly { start = { row = 2, column = 26 }, end = { row = 2, column = 48 } }
+                            ]
+                          )
+                        ]
+        , test "should not report exposed tests even if they're in an ignored module" <|
+            \() ->
+                [ """
+module Main exposing (main)
+main = 1
+""", """
+module ATest exposing (tests)
+import Test exposing (Test)
+tests : Test
+tests = Test.describe "thing" []
+""" ]
+                    |> Review.Test.runOnModules
+                        (defaults
+                            |> reportUnusedProductionExports
+                                { isProductionFile = \{ moduleName } -> String.join "." moduleName |> String.endsWith "Test" |> not
+                                , exceptionsAre = []
+                                }
+                            |> toRule
+                        )
+                    |> Review.Test.expectNoErrors
+        , test "should not report elements from ignored modules used in other ignored modules exposed tests even if they're in an ignored module" <|
+            \() ->
+                [ """
+module ATest exposing (tests)
+import BTest
+import Test exposing (Test)
+tests : Test
+tests = Test.describe "thing" BTest.helper
+""", """
+module BTest exposing (helper)
+helper = 1
+""" ]
+                    |> Review.Test.runOnModules
+                        (defaults
+                            |> reportUnusedProductionExports
+                                { isProductionFile = \{ moduleName } -> String.join "." moduleName |> String.endsWith "Test" |> not
+                                , exceptionsAre = []
+                                }
+                            |> toRule
+                        )
+                    |> Review.Test.expectNoErrors
+        , test "should not report elements only used in ignored modules if they're annotated with a tag" <|
+            \() ->
+                [ """
+module ATest exposing (tests)
+import B
+import Test exposing (Test)
+tests : Test
+tests = Test.describe "thing" B.helper
+""", """
+module B exposing (helper)
+{-| @ignore-helper -}
+helper = 1
+""" ]
+                    |> Review.Test.runOnModules
+                        (defaults
+                            |> reportUnusedProductionExports
+                                { isProductionFile = \{ moduleName } -> String.join "." moduleName |> String.endsWith "Test" |> not
+                                , exceptionsAre = [ annotatedBy "@ignore-helper" ]
+                                }
+                            |> toRule
+                        )
+                    |> Review.Test.expectNoErrors
+        , test "should not report elements from ignored modules if they're imported only in tests but also used locally in the module" <|
+            \() ->
+                [ """
+module Main exposing (main)
+import B
+main = B.exposed
+""", """
+module ATest exposing (tests)
+import B
+import Test exposing (Test)
+tests : Test
+tests = Test.describe "thing" B.usedLocally
+""", """
+module B exposing (exposed, usedLocally)
+exposed = usedLocally + 1
+usedLocally = 1
+""" ]
+                    |> Review.Test.runOnModules
+                        (defaults
+                            |> reportUnusedProductionExports
+                                { isProductionFile = \{ moduleName } -> String.join "." moduleName |> String.endsWith "Test" |> not
+                                , exceptionsAre = []
+                                }
+                            |> toRule
+                        )
+                    |> Review.Test.expectNoErrors
+        , test "should report elements never used anywhere even if they're annotated with a tag" <|
+            \() ->
+                [ """
+module ATest exposing (tests)
+import Test exposing (Test)
+import B
+tests : Test
+tests = Test.describe "thing" []
+""", """
+module B exposing (helper)
+{-| @ignore-helper -}
+helper = 1
+""" ]
+                    |> Review.Test.runOnModules
+                        (defaults
+                            |> reportUnusedProductionExports
+                                { isProductionFile = \{ moduleName } -> String.join "." moduleName |> String.endsWith "Test" |> not
+                                , exceptionsAre = []
+                                }
+                            |> toRule
+                        )
+                    |> Review.Test.expectErrorsForModules
+                        [ ( "B"
+                          , [ Review.Test.error
+                                { message = "Exposed function or value `helper` is never used outside this module."
+                                , details = unusedExposedElementDetails
+                                , under = "helper"
+                                }
+                                |> Review.Test.atExactly { start = { row = 2, column = 20 }, end = { row = 2, column = 26 } }
+                            ]
+                          )
+                        ]
+        , test "should report elements never used anywhere even if their name ends with the configured suffix" <|
+            \() ->
+                [ """
+module Main exposing (main)
+import B
+main = B.b
+""", """
+module ATest exposing (tests)
+import B
+import Test exposing (Test)
+tests : Test
+tests = Test.describe "thing" B.helperTEST
+""", """
+module B exposing (b, helperTEST)
+b = 1
+helperTEST = 1
+""" ]
+                    |> Review.Test.runOnModules
+                        (defaults
+                            |> reportUnusedProductionExports
+                                { isProductionFile = \{ moduleName } -> String.join "." moduleName |> String.endsWith "Test" |> not
+                                , exceptionsAre = [ suffixedBy "TEST" ]
+                                }
+                            |> toRule
+                        )
+                    |> Review.Test.expectNoErrors
+        , test "should report elements never used anywhere even if their name starts with the configured suffix" <|
+            \() ->
+                [ """
+module Main exposing (main)
+import B
+main = B.b
+""", """
+module ATest exposing (tests)
+import B
+import Test exposing (Test)
+tests : Test
+tests = Test.describe "thing" B.test_helper
+""", """
+module B exposing (b, test_helper)
+b = 1
+test_helper = 1
+""" ]
+                    |> Review.Test.runOnModules
+                        (defaults
+                            |> reportUnusedProductionExports
+                                { isProductionFile = \{ moduleName } -> String.join "." moduleName |> String.endsWith "Test" |> not
+                                , exceptionsAre = [ prefixedBy "test_" ]
+                                }
+                            |> toRule
+                        )
+                    |> Review.Test.expectNoErrors
+        , test "should report elements never used anywhere even if they're defined in a module marked as an exception" <|
+            \() ->
+                [ """
+module Main exposing (main)
+import Project.Utils.B as B
+main = B.b
+""", """
+module ATest exposing (tests)
+import Project.Utils.B as B
+import Test exposing (Test)
+tests : Test
+tests = Test.describe "thing" B.helper
+""", """
+module Project.Utils.B exposing (b, helper)
+b = 1
+helper = 1
+""" ]
+                    |> Review.Test.runOnModules
+                        (defaults
+                            |> reportUnusedProductionExports
+                                { isProductionFile = \{ moduleName } -> String.join "." moduleName |> String.endsWith "Test" |> not
+                                , exceptionsAre = [ definedInModule (\{ moduleName } -> List.member "Utils" moduleName) ]
+                                }
+                            |> toRule
+                        )
+                    |> Review.Test.expectNoErrors
+        , test "should report unused exports in ignored files as regular errors" <|
+            \() ->
+                [ """
+module Main exposing (main)
+import B
+main = B.b
+""", """
+module ATest exposing (tests, unused)
+import Test exposing (Test)
+tests : Test
+tests = Test.describe "thing" []
+unused = 1
+""" ]
+                    |> Review.Test.runOnModules
+                        (defaults
+                            |> reportUnusedProductionExports
+                                { isProductionFile = \{ moduleName } -> String.join "." moduleName |> String.endsWith "Test" |> not
+                                , exceptionsAre = [ prefixedBy "test_" ]
+                                }
+                            |> toRule
+                        )
+                    |> Review.Test.expectErrorsForModules
+                        [ ( "ATest"
+                          , [ Review.Test.error
+                                { message = "Exposed function or value `unused` is never used outside this module."
+                                , details = unusedExposedElementDetails
+                                , under = "unused"
+                                }
+                                |> Review.Test.atExactly { start = { row = 2, column = 31 }, end = { row = 2, column = 37 } }
+                                |> Review.Test.whenFixed """
+module ATest exposing (tests)
+import Test exposing (Test)
+tests : Test
+tests = Test.describe "thing" []
+unused = 1
+"""
+                            ]
+                          )
+                        ]
         ]
