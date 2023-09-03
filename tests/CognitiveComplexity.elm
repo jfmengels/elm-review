@@ -337,32 +337,7 @@ expressionEnterVisitorHelp : Node Expression -> ModuleContext -> ModuleContext
 expressionEnterVisitorHelp node context =
     case Node.value node of
         Expression.IfBlock _ _ else_ ->
-            if not (List.member (Node.range node) context.elseIfToIgnore) then
-                { context
-                    | increases =
-                        { line = (Node.range node).start
-                        , increase = context.nesting + 1
-                        , nesting = context.nesting
-                        , kind = If
-                        }
-                            :: context.increases
-                    , nesting = context.nesting + 1
-                    , elseIfToIgnore = Node.range else_ :: context.elseIfToIgnore
-                }
-
-            else
-                -- This if expression is an else if
-                -- We want to increase the complexity but keep the same nesting as the parent if
-                { context
-                    | increases =
-                        { line = (Node.range node).start
-                        , increase = context.nesting
-                        , nesting = context.nesting - 1
-                        , kind = ElseIf
-                        }
-                            :: context.increases
-                    , elseIfToIgnore = Node.range else_ :: context.elseIfToIgnore
-                }
+            visitElseExpression (Node.range node) else_ context
 
         Expression.CaseExpression _ ->
             { context
@@ -408,19 +383,60 @@ expressionEnterVisitorHelp node context =
             { context | nesting = context.nesting + 1 }
 
         Expression.FunctionOrValue [] name ->
-            { context
-                | references =
-                    if Dict.member name context.references then
-                        -- The reference already exists, and we want to keep the first reference
-                        -- for a better presentation
-                        context.references
+            if isFunctionReference name then
+                { context
+                    | references =
+                        if Dict.member name context.references then
+                            -- The reference already exists, and we want to keep the first reference
+                            -- for a better presentation
+                            context.references
 
-                    else
-                        Dict.insert name (Node.range node).start context.references
-            }
+                        else
+                            Dict.insert name (Node.range node).start context.references
+                }
+
+            else
+                context
 
         _ ->
             context
+
+
+visitElseExpression : Range -> Node a -> ModuleContext -> ModuleContext
+visitElseExpression ifExprRange else_ context =
+    if not (List.member ifExprRange context.elseIfToIgnore) then
+        { context
+            | increases =
+                { line = ifExprRange.start
+                , increase = context.nesting + 1
+                , nesting = context.nesting
+                , kind = If
+                }
+                    :: context.increases
+            , nesting = context.nesting + 1
+            , elseIfToIgnore = Node.range else_ :: context.elseIfToIgnore
+        }
+
+    else
+        -- This if expression is an else if
+        -- We want to increase the complexity but keep the same nesting as the parent if
+        { context
+            | increases =
+                { line = ifExprRange.start
+                , increase = context.nesting
+                , nesting = context.nesting - 1
+                , kind = ElseIf
+                }
+                    :: context.increases
+            , elseIfToIgnore = Node.range else_ :: context.elseIfToIgnore
+        }
+
+
+isFunctionReference : String -> Bool
+isFunctionReference name =
+    name
+        |> String.left 1
+        |> String.all Char.isLower
 
 
 computeRangesForLetDeclarations : List (Node Expression.LetDeclaration) -> List Range
@@ -704,19 +720,18 @@ findRecursiveCalls : Dict String (Dict String a) -> RecursiveCalls
 findRecursiveCalls graph =
     graph
         |> Dict.foldl
-            (\vertice _ ( recursiveCalls, visited ) ->
+            (\vertice _ recursiveCalls ->
                 let
                     res : { recursiveCalls : RecursiveCalls, visited : Visited, stack : List String }
                     res =
                         processDFSTree
                             graph
                             [ vertice ]
-                            (Dict.insert vertice InStack visited)
+                            (Dict.singleton vertice InStack)
                 in
-                ( mergeRecursiveCallsDict res.recursiveCalls recursiveCalls, res.visited )
+                mergeRecursiveCallsDict res.recursiveCalls recursiveCalls
             )
-            ( Dict.empty, Dict.empty )
-        |> Tuple.first
+            Dict.empty
 
 
 mergeRecursiveCallsDict : RecursiveCalls -> RecursiveCalls -> RecursiveCalls
@@ -732,45 +747,53 @@ mergeRecursiveCallsDict left right =
 
 processDFSTree : Dict String (Dict String a) -> List String -> Visited -> { recursiveCalls : RecursiveCalls, visited : Visited, stack : List String }
 processDFSTree graph stack visited =
-    let
-        vertices : List String
-        vertices =
-            List.head stack
-                |> Maybe.andThen (\v -> Dict.get v graph)
-                |> Maybe.withDefault Dict.empty
-                |> Dict.keys
-    in
-    List.foldl
-        (\vertice acc ->
-            case Dict.get vertice visited of
-                Just InStack ->
-                    { acc | recursiveCalls = insertCycle stack vertice acc.recursiveCalls }
+    case stack of
+        [] ->
+            { recursiveCalls = Dict.empty, visited = visited, stack = [] }
 
-                Just Done ->
-                    acc
+        head :: restOfStack ->
+            let
+                vertices : List String
+                vertices =
+                    Dict.get head graph
+                        |> Maybe.withDefault Dict.empty
+                        |> Dict.keys
+            in
+            List.foldl
+                (\vertice acc ->
+                    case Dict.get vertice visited of
+                        Just InStack ->
+                            { acc | recursiveCalls = insertCycle stack vertice acc.recursiveCalls }
 
-                Nothing ->
-                    let
-                        res : { recursiveCalls : RecursiveCalls, visited : Visited, stack : List String }
-                        res =
-                            processDFSTree
-                                graph
-                                (vertice :: stack)
-                                (Dict.insert vertice InStack visited)
-                    in
-                    { recursiveCalls = mergeRecursiveCallsDict res.recursiveCalls acc.recursiveCalls, visited = res.visited }
-        )
-        { recursiveCalls = Dict.empty, visited = visited }
-        vertices
-        |> (\res ->
-                { recursiveCalls = res.recursiveCalls
-                , visited =
-                    List.head stack
-                        |> Maybe.map (\v -> Dict.insert v Done res.visited)
-                        |> Maybe.withDefault res.visited
-                , stack = List.drop 1 stack
-                }
-           )
+                        Just Done ->
+                            acc
+
+                        Nothing ->
+                            let
+                                res : { recursiveCalls : RecursiveCalls, visited : Visited, stack : List String }
+                                res =
+                                    processDFSTree
+                                        graph
+                                        (vertice :: stack)
+                                        (Dict.insert vertice InStack visited)
+                            in
+                            { recursiveCalls = mergeRecursiveCallsDict res.recursiveCalls acc.recursiveCalls, visited = res.visited }
+                )
+                { recursiveCalls = Dict.empty, visited = visited }
+                vertices
+                |> updateStack head restOfStack
+
+
+updateStack :
+    String
+    -> List String
+    -> { recursiveCalls : RecursiveCalls, visited : Visited }
+    -> { recursiveCalls : RecursiveCalls, visited : Visited, stack : List String }
+updateStack head stack res =
+    { recursiveCalls = res.recursiveCalls
+    , visited = Dict.insert head Done res.visited
+    , stack = stack
+    }
 
 
 dataExtractor : ProjectContext -> Encode.Value

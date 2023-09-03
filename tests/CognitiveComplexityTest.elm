@@ -611,6 +611,41 @@ fun5 n =
                             "fun5": 1
                           }
                        }"""
+        , test "recursive call complexity should not depend on alphabetical order" <|
+            \() ->
+                """module A exposing (..)
+
+b () = b ()
+
+a = b ()
+
+c = b ()
+"""
+                    |> expectAtExactly
+                        [ { name = "a"
+                          , complexity = 1
+                          , atExactly = { start = { row = 5, column = 1 }, end = { row = 5, column = 2 } }
+                          , details = [ "Line 5: +1 for the indirect recursive call to b" ]
+                          }
+                        , { name = "b"
+                          , complexity = 1
+                          , atExactly = { start = { row = 3, column = 1 }, end = { row = 3, column = 2 } }
+                          , details = [ "Line 3: +1 for the recursive call" ]
+                          }
+                        , { name = "c"
+                          , complexity = 1
+                          , atExactly = { start = { row = 7, column = 1 }, end = { row = 7, column = 2 } }
+                          , details = [ "Line 7: +1 for the indirect recursive call to b" ]
+                          }
+                        ]
+                        """
+                        {
+                          "A": {
+                            "a": 1,
+                            "b": 1,
+                            "c": 1
+                          }
+                       }"""
         , test "the complexity of a function should not affect another function's computed complexity" <|
             \() ->
                 """module A exposing (..)
