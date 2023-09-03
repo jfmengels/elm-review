@@ -594,19 +594,22 @@ registerDeclaration declaration innerContext =
                 |> registerIfExposed (\name ctx -> registerExposedValue function name ctx) (Node.value nameNode)
 
         Declaration.AliasDeclaration alias ->
-            { innerContext | localTypes = Set.insert (Node.value alias.name) innerContext.localTypes }
-                |> (\ctx ->
-                        case Node.value alias.typeAnnotation of
-                            TypeAnnotation.Record _ ->
-                                addToScope
-                                    { variableType = TopLevelVariable
-                                    , node = alias.name
-                                    }
-                                    ctx
-
-                            _ ->
+            let
+                registerAlias : Context -> Context
+                registerAlias ctx =
+                    case Node.value alias.typeAnnotation of
+                        TypeAnnotation.Record _ ->
+                            addToScope
+                                { variableType = TopLevelVariable
+                                , node = alias.name
+                                }
                                 ctx
-                   )
+
+                        _ ->
+                            ctx
+            in
+            { innerContext | localTypes = Set.insert (Node.value alias.name) innerContext.localTypes }
+                |> registerAlias
                 |> registerIfExposed registerExposedTypeAlias (Node.value alias.name)
 
         Declaration.CustomTypeDeclaration { name, constructors } ->
