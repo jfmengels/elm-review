@@ -148,6 +148,9 @@ normalize resources node =
                 Expression.Floatable float ->
                     toNode (Expression.Floatable -float)
 
+                Expression.Negation subExpr ->
+                    subExpr
+
                 _ ->
                     toNode (Expression.Negation normalized)
 
@@ -377,6 +380,14 @@ compareHelp leftNode right canFlip =
 
         Expression.Floatable left ->
             compareNumbers left right
+
+        Expression.Negation left ->
+            case Node.value (removeParens right) of
+                Expression.Negation rightValue ->
+                    compareHelp left rightValue canFlip
+
+                _ ->
+                    fallback ()
 
         Expression.OperatorApplication leftOp _ leftLeft leftRight ->
             if List.member leftOp [ "+", "-", "*", "/" ] then

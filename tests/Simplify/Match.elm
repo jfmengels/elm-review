@@ -1,14 +1,12 @@
 module Simplify.Match exposing
     ( Match(..)
-    , map
-    , maybeAndThen
+    , map, traverse
     )
 
 {-|
 
 @docs Match
-@docs map
-@docs maybeAndThen
+@docs map, traverse
 
 -}
 
@@ -28,11 +26,24 @@ map mapper match =
             Undetermined
 
 
-maybeAndThen : (a -> Match b) -> Maybe a -> Match b
-maybeAndThen fn maybe =
-    case maybe of
-        Just a ->
-            fn a
+{-| If all mapped elements are Determined, returns a List of the Determined values.
+If any match is Undetermined, returns Undetermined
+-}
+traverse : (a -> Match b) -> List a -> Match (List b)
+traverse f list =
+    traverseHelp f list []
 
-        Nothing ->
-            Undetermined
+
+traverseHelp : (a -> Match b) -> List a -> List b -> Match (List b)
+traverseHelp f list acc =
+    case list of
+        head :: tail ->
+            case f head of
+                Determined a ->
+                    traverseHelp f tail (a :: acc)
+
+                Undetermined ->
+                    Undetermined
+
+        [] ->
+            Determined (List.reverse acc)

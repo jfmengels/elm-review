@@ -1,42 +1,57 @@
 module Simplify.AstHelpers exposing
-    ( boolToString
-    , declarationListBindings
-    , emptyStringAsString
-    , getBool
-    , getBooleanPattern
-    , getCollapsedCons
-    , getListLiteral
-    , getListSingleton
-    , getListSingletonCall
-    , getNotFunction
-    , getOrder
-    , getSpecificFunction
-    , getSpecificFunctionCall
-    , getSpecificReducedFunction
-    , getSpecificReducedFunctionCall
-    , getSpecificValueOrFunction
+    ( removeParens, removeParensFromPattern
+    , getComposition, getValueOrFunctionOrFunctionCall
+    , getSpecificFunctionCall, getSpecificValueOrFunction
+    , isIdentity, getAlwaysResult, isSpecificUnappliedBinaryOperation
+    , isTupleFirstAccess, isTupleSecondAccess
+    , getOrder, getSpecificBool, getBool, getBoolPattern, getUncomputedNumberValue
+    , getCollapsedCons, getListLiteral, getListSingleton
     , getTuple
-    , getTypeExposeIncludingVariants
-    , getUncomputedNumberValue
-    , isBinaryOperation
-    , isEmptyList
-    , isIdentity
-    , isListLiteral
-    , isSpecificBool
-    , isSpecificCall
-    , isSpecificValueOrFunction
-    , isTupleFirstAccess
-    , isTupleSecondAccess
-    , letDeclarationListBindings
-    , moduleNameFromString
-    , nameOfExpose
-    , orderToString
-    , patternBindings
-    , patternListBindings
-    , qualifiedToString
-    , removeParens
-    , removeParensFromPattern
+    , boolToString, orderToString, emptyStringAsString
+    , moduleNameFromString, qualifiedToString
+    , declarationListBindings, letDeclarationListBindings, patternBindings, patternListBindings
+    , getTypeExposeIncludingVariants, nameOfExpose
     )
+
+{-|
+
+
+### remove parens
+
+@docs removeParens, removeParensFromPattern
+
+
+### value/function/function call/composition
+
+@docs getComposition, getValueOrFunctionOrFunctionCall
+@docs getSpecificFunctionCall, getSpecificValueOrFunction
+
+
+### certain kind
+
+@docs isIdentity, getAlwaysResult, isSpecificUnappliedBinaryOperation
+@docs isTupleFirstAccess, isTupleSecondAccess
+@docs getOrder, getSpecificBool, getBool, getBoolPattern, getUncomputedNumberValue
+@docs getCollapsedCons, getListLiteral, getListSingleton
+@docs getTuple
+
+
+### literal as string
+
+@docs boolToString, orderToString, emptyStringAsString
+
+
+### qualification
+
+@docs moduleNameFromString, qualifiedToString
+
+
+### misc
+
+@docs declarationListBindings, letDeclarationListBindings, patternBindings, patternListBindings
+@docs getTypeExposeIncludingVariants, nameOfExpose
+
+-}
 
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Exposing as Exposing
@@ -51,110 +66,58 @@ import Simplify.Infer as Infer
 import Simplify.Normalize as Normalize
 
 
+{-| Keep removing parens from the outside until we have something different from a `ParenthesizedExpression`
+-}
 removeParens : Node Expression -> Node Expression
-removeParens node =
-    case Node.value node of
-        Expression.ParenthesizedExpression expr ->
-            removeParens expr
+removeParens expressionNode =
+    case Node.value expressionNode of
+        Expression.ParenthesizedExpression expressionInsideOnePairOfParensNode ->
+            removeParens expressionInsideOnePairOfParensNode
 
         _ ->
-            node
+            expressionNode
 
 
+{-| Keep removing parens from the outside until we have something different from a `ParenthesizedPattern`
+-}
 removeParensFromPattern : Node Pattern -> Node Pattern
-removeParensFromPattern node =
-    case Node.value node of
-        Pattern.ParenthesizedPattern pattern ->
-            removeParensFromPattern pattern
+removeParensFromPattern patternNode =
+    case Node.value patternNode of
+        Pattern.ParenthesizedPattern patternInsideOnePairOfParensNode ->
+            removeParensFromPattern patternInsideOnePairOfParensNode
 
         _ ->
-            node
+            patternNode
 
 
-isSpecificValueOrFunction : ModuleName -> String -> ModuleNameLookupTable -> Node Expression -> Bool
-isSpecificValueOrFunction moduleName fnName lookupTable node =
-    case removeParens node of
-        Node noneRange (Expression.FunctionOrValue _ foundFnName) ->
-            (foundFnName == fnName)
-                && (ModuleNameLookupTable.moduleNameAt lookupTable noneRange == Just moduleName)
-
-        _ ->
-            False
-
-
-getSpecificValueOrFunction : ( ModuleName, String ) -> ModuleNameLookupTable -> Node Expression -> Maybe { fnRange : Range }
-getSpecificValueOrFunction ( moduleName, fnName ) lookupTable node =
-    case removeParens node of
-        Node noneRange (Expression.FunctionOrValue _ foundFnName) ->
-            if
-                (foundFnName == fnName)
-                    && (ModuleNameLookupTable.moduleNameAt lookupTable noneRange == Just moduleName)
-            then
-                Just { fnRange = noneRange }
-
-            else
-                Nothing
-
-        _ ->
-            Nothing
-
-
-isSpecificCall : ModuleName -> String -> ModuleNameLookupTable -> Node Expression -> Bool
-isSpecificCall moduleName fnName lookupTable node =
-    case Node.value (removeParens node) of
-        Expression.Application ((Node noneRange (Expression.FunctionOrValue _ foundFnName)) :: _ :: []) ->
-            (foundFnName == fnName)
-                && (ModuleNameLookupTable.moduleNameAt lookupTable noneRange == Just moduleName)
-
-        _ ->
-            False
-
-
+{-| Parse an expression of type list that contains only a single element.
+Could be a call to `List.singleton` or a list literal with one element: `[ a ]`
+-}
 getListSingleton : ModuleNameLookupTable -> Node Expression -> Maybe { element : Node Expression }
-getListSingleton lookupTable baseNode =
-    case Node.value (removeParens baseNode) of
-        Expression.ListExpr [ element ] ->
+getListSingleton lookupTable expressionNode =
+    case expressionNode of
+        Node _ (Expression.ListExpr (element :: [])) ->
             Just { element = element }
 
-        Expression.ListExpr _ ->
+        Node _ (Expression.ListExpr _) ->
             Nothing
 
-        _ ->
-            getListSingletonCall lookupTable baseNode
+        nonListLiteralNode ->
+            case getSpecificFunctionCall ( [ "List" ], "singleton" ) lookupTable nonListLiteralNode of
+                Just singletonCall ->
+                    case singletonCall.argsAfterFirst of
+                        [] ->
+                            Just { element = singletonCall.firstArg }
 
+                        _ :: _ ->
+                            Nothing
 
-getListSingletonCall : ModuleNameLookupTable -> Node Expression -> Maybe { element : Node Expression }
-getListSingletonCall lookupTable expressionNode =
-    case getSpecificFunctionCall ( [ "List" ], "singleton" ) lookupTable expressionNode of
-        Just singletonCall ->
-            case singletonCall.argsAfterFirst of
-                [] ->
-                    Just { element = singletonCall.firstArg }
-
-                _ :: _ ->
+                Nothing ->
                     Nothing
 
-        Nothing ->
-            Nothing
 
-
-getSpecificFunction : ( ModuleName, String ) -> ModuleNameLookupTable -> Node Expression -> Maybe Range
-getSpecificFunction ( moduleName, name ) lookupTable baseNode =
-    case removeParens baseNode of
-        Node fnRange (Expression.FunctionOrValue _ foundName) ->
-            if
-                (foundName == name)
-                    && (ModuleNameLookupTable.moduleNameAt lookupTable fnRange == Just moduleName)
-            then
-                Just fnRange
-
-            else
-                Nothing
-
-        _ ->
-            Nothing
-
-
+{-| Parses calls and lambdas that are reducible to a call of a function with the given name
+-}
 getSpecificFunctionCall :
     ( ModuleName, String )
     -> ModuleNameLookupTable
@@ -166,98 +129,35 @@ getSpecificFunctionCall :
             , firstArg : Node Expression
             , argsAfterFirst : List (Node Expression)
             }
-getSpecificFunctionCall ( moduleName, name ) lookupTable baseNode =
-    getFunctionCall baseNode
-        |> Maybe.andThen
-            (\call ->
-                if
-                    (call.fnName /= name)
-                        || (ModuleNameLookupTable.moduleNameAt lookupTable call.fnRange /= Just moduleName)
-                then
+getSpecificFunctionCall ( moduleName, name ) lookupTable expressionNode =
+    case getValueOrFunctionOrFunctionCall expressionNode of
+        Just call ->
+            case call.args of
+                firstArg :: argsAfterFirst ->
+                    if
+                        (call.fnName /= name)
+                            || (ModuleNameLookupTable.moduleNameAt lookupTable call.fnRange /= Just moduleName)
+                    then
+                        Nothing
+
+                    else
+                        Just
+                            { nodeRange = call.nodeRange
+                            , fnRange = call.fnRange
+                            , firstArg = firstArg
+                            , argsAfterFirst = argsAfterFirst
+                            }
+
+                [] ->
                     Nothing
 
-                else
-                    Just
-                        { nodeRange = call.nodeRange
-                        , fnRange = call.fnRange
-                        , firstArg = call.firstArg
-                        , argsAfterFirst = call.argsAfterFirst
-                        }
-            )
-
-
-getFunctionCall :
-    Node Expression
-    ->
-        Maybe
-            { nodeRange : Range
-            , fnName : String
-            , fnRange : Range
-            , firstArg : Node Expression
-            , argsAfterFirst : List (Node Expression)
-            }
-getFunctionCall baseNode =
-    case Node.value (removeParens baseNode) of
-        Expression.Application ((Node fnRange (Expression.FunctionOrValue _ fnName)) :: firstArg :: argsAfterFirst) ->
-            Just
-                { nodeRange = Node.range baseNode
-                , fnRange = fnRange
-                , fnName = fnName
-                , firstArg = firstArg
-                , argsAfterFirst = argsAfterFirst
-                }
-
-        Expression.OperatorApplication "|>" _ firstArg fedFunction ->
-            case fedFunction of
-                Node fnRange (Expression.FunctionOrValue _ fnName) ->
-                    Just
-                        { nodeRange = Node.range baseNode
-                        , fnRange = fnRange
-                        , fnName = fnName
-                        , firstArg = firstArg
-                        , argsAfterFirst = []
-                        }
-
-                Node _ (Expression.Application ((Node fnRange (Expression.FunctionOrValue _ fnName)) :: argsAfterFirst)) ->
-                    Just
-                        { nodeRange = Node.range baseNode
-                        , fnRange = fnRange
-                        , fnName = fnName
-                        , firstArg = firstArg
-                        , argsAfterFirst = argsAfterFirst
-                        }
-
-                _ ->
-                    Nothing
-
-        Expression.OperatorApplication "<|" _ fedFunction firstArg ->
-            case fedFunction of
-                Node fnRange (Expression.FunctionOrValue _ fnName) ->
-                    Just
-                        { nodeRange = Node.range baseNode
-                        , fnRange = fnRange
-                        , fnName = fnName
-                        , firstArg = firstArg
-                        , argsAfterFirst = []
-                        }
-
-                Node _ (Expression.Application ((Node fnRange (Expression.FunctionOrValue _ fnName)) :: argsAfterFirst)) ->
-                    Just
-                        { nodeRange = Node.range baseNode
-                        , fnRange = fnRange
-                        , fnName = fnName
-                        , firstArg = firstArg
-                        , argsAfterFirst = argsAfterFirst
-                        }
-
-                _ ->
-                    Nothing
-
-        _ ->
+        Nothing ->
             Nothing
 
 
-getCollapsedValueOrFunction :
+{-| Parse a value or the collapsed function or a lambda fully reduced to a function
+-}
+getValueOrFunctionOrFunctionCall :
     Node Expression
     ->
         Maybe
@@ -266,7 +166,86 @@ getCollapsedValueOrFunction :
             , fnRange : Range
             , args : List (Node Expression)
             }
-getCollapsedValueOrFunction baseNode =
+getValueOrFunctionOrFunctionCall expressionNode =
+    case getCollapsedUnreducedValueOrFunctionCall expressionNode of
+        Just valueOrCall ->
+            Just valueOrCall
+
+        Nothing ->
+            case getReducedLambda expressionNode of
+                Just reducedLambda ->
+                    case ( reducedLambda.lambdaPatterns, reducedLambda.callArguments ) of
+                        ( [], args ) ->
+                            Just
+                                { nodeRange = reducedLambda.nodeRange
+                                , fnName = reducedLambda.fnName
+                                , fnRange = reducedLambda.fnRange
+                                , args = args
+                                }
+
+                        ( _ :: _, _ ) ->
+                            Nothing
+
+                Nothing ->
+                    Nothing
+
+
+{-| Parses either a value reference with the given name,
+a function reference with the given name without arguments
+or a lambda that is reducible to a function with the given name without arguments
+-}
+getSpecificValueOrFunction : ( ModuleName, String ) -> ModuleNameLookupTable -> Node Expression -> Maybe Range
+getSpecificValueOrFunction ( moduleName, name ) lookupTable expressionNode =
+    case getValueOrFunction expressionNode of
+        Just normalFn ->
+            if
+                (normalFn.name /= name)
+                    || (ModuleNameLookupTable.moduleNameAt lookupTable normalFn.range /= Just moduleName)
+            then
+                Nothing
+
+            else
+                Just normalFn.range
+
+        Nothing ->
+            Nothing
+
+
+{-| Parses either a value reference, a function reference without arguments or a lambda that is reducible to a function without arguments
+-}
+getValueOrFunction : Node Expression -> Maybe { name : String, range : Range }
+getValueOrFunction expressionNode =
+    case removeParens expressionNode of
+        Node rangeInParens (Expression.FunctionOrValue _ foundName) ->
+            Just { range = rangeInParens, name = foundName }
+
+        nonFunctionOrValueNode ->
+            case getReducedLambda nonFunctionOrValueNode of
+                Just reducedLambdaToFn ->
+                    case ( reducedLambdaToFn.lambdaPatterns, reducedLambdaToFn.callArguments ) of
+                        ( [], [] ) ->
+                            Just { range = reducedLambdaToFn.fnRange, name = reducedLambdaToFn.fnName }
+
+                        ( _ :: _, _ ) ->
+                            Nothing
+
+                        ( _, _ :: _ ) ->
+                            Nothing
+
+                Nothing ->
+                    Nothing
+
+
+getCollapsedUnreducedValueOrFunctionCall :
+    Node Expression
+    ->
+        Maybe
+            { nodeRange : Range
+            , fnName : String
+            , fnRange : Range
+            , args : List (Node Expression)
+            }
+getCollapsedUnreducedValueOrFunctionCall baseNode =
     let
         step :
             { firstArg : Node Expression, argsAfterFirst : List (Node Expression), fed : Node Expression }
@@ -280,7 +259,7 @@ getCollapsedValueOrFunction baseNode =
                     , args = fed.args ++ (layer.firstArg :: layer.argsAfterFirst)
                     }
                 )
-                (getCollapsedValueOrFunction layer.fed)
+                (getCollapsedUnreducedValueOrFunctionCall layer.fed)
     in
     case removeParens baseNode of
         Node fnRange (Expression.FunctionOrValue _ fnName) ->
@@ -316,29 +295,66 @@ getCollapsedValueOrFunction baseNode =
             Nothing
 
 
-getNotFunction : ModuleNameLookupTable -> Node Expression -> Maybe Range
-getNotFunction lookupTable baseNode =
-    getSpecificFunction ( [ "Basics" ], "not" ) lookupTable baseNode
+{-| Parse a << or >> operation.
+
+  - `earlier` is the operation applied first
+  - `later` is the operation applied next, directly after `earlier`, not all that are applied next
+  - `parentRange` covers the range between and including `earlier` and `later`
+
+Example: f << g << h
+
+  - `parentRange` only covers `g << h`
+  - `h` is `earlier`
+  - `f << g` is `later`
+
+-}
+getComposition : Node Expression -> Maybe { parentRange : Range, earlier : Node Expression, later : Node Expression }
+getComposition expressionNode =
+    let
+        inParensNode : Node Expression
+        inParensNode =
+            removeParens expressionNode
+    in
+    case Node.value inParensNode of
+        Expression.OperatorApplication "<<" _ composedLater earlier ->
+            let
+                ( later, parentRange ) =
+                    case composedLater of
+                        Node _ (Expression.OperatorApplication "<<" _ _ later_) ->
+                            ( later_, { start = (Node.range later_).start, end = (Node.range earlier).end } )
+
+                        endLater ->
+                            ( endLater, Node.range inParensNode )
+            in
+            Just { earlier = earlier, later = later, parentRange = parentRange }
+
+        Expression.OperatorApplication ">>" _ earlier composedLater ->
+            let
+                ( later, parentRange ) =
+                    case composedLater of
+                        Node _ (Expression.OperatorApplication ">>" _ later_ _) ->
+                            ( later_, { start = (Node.range earlier).start, end = (Node.range later_).end } )
+
+                        endLater ->
+                            ( endLater, Node.range inParensNode )
+            in
+            Just { earlier = earlier, later = later, parentRange = parentRange }
+
+        _ ->
+            Nothing
 
 
+{-| Whether it's a function that accesses a tuple's first part.
+Either a function reducible to `Tuple.first` or `\( first, ... ) -> first`.
+-}
 isTupleFirstAccess : ModuleNameLookupTable -> Node Expression -> Bool
 isTupleFirstAccess lookupTable expressionNode =
-    case getSpecificReducedFunction ( [ "Tuple" ], "first" ) lookupTable expressionNode of
+    case getSpecificValueOrFunction ( [ "Tuple" ], "first" ) lookupTable expressionNode of
         Just _ ->
             True
 
         Nothing ->
             isTupleFirstPatternLambda expressionNode
-
-
-isTupleSecondAccess : ModuleNameLookupTable -> Node Expression -> Bool
-isTupleSecondAccess lookupTable expressionNode =
-    case getSpecificReducedFunction ( [ "Tuple" ], "second" ) lookupTable expressionNode of
-        Just _ ->
-            True
-
-        Nothing ->
-            isTupleSecondPatternLambda expressionNode
 
 
 isTupleFirstPatternLambda : Node Expression -> Bool
@@ -347,12 +363,7 @@ isTupleFirstPatternLambda expressionNode =
         Expression.LambdaExpression lambda ->
             case lambda.args of
                 [ Node _ (Pattern.TuplePattern [ Node _ (Pattern.VarPattern firstVariableName), _ ]) ] ->
-                    case Node.value lambda.expression of
-                        Expression.FunctionOrValue [] resultName ->
-                            resultName == firstVariableName
-
-                        _ ->
-                            False
+                    Node.value lambda.expression == Expression.FunctionOrValue [] firstVariableName
 
                 _ ->
                     False
@@ -361,18 +372,26 @@ isTupleFirstPatternLambda expressionNode =
             False
 
 
+{-| Whether it's a function that accesses a tuple's second part.
+Either a function reducible to `Tuple.second` or `\( ..., second ) -> second`.
+-}
+isTupleSecondAccess : ModuleNameLookupTable -> Node Expression -> Bool
+isTupleSecondAccess lookupTable expressionNode =
+    case getSpecificValueOrFunction ( [ "Tuple" ], "second" ) lookupTable expressionNode of
+        Just _ ->
+            True
+
+        Nothing ->
+            isTupleSecondPatternLambda expressionNode
+
+
 isTupleSecondPatternLambda : Node Expression -> Bool
 isTupleSecondPatternLambda expressionNode =
     case Node.value (removeParens expressionNode) of
         Expression.LambdaExpression lambda ->
             case lambda.args of
                 [ Node _ (Pattern.TuplePattern [ _, Node _ (Pattern.VarPattern firstVariableName) ]) ] ->
-                    case Node.value lambda.expression of
-                        Expression.FunctionOrValue [] resultName ->
-                            resultName == firstVariableName
-
-                        _ ->
-                            False
+                    Node.value lambda.expression == Expression.FunctionOrValue [] firstVariableName
 
                 _ ->
                     False
@@ -382,8 +401,8 @@ isTupleSecondPatternLambda expressionNode =
 
 
 getUncomputedNumberValue : Node Expression -> Maybe Float
-getUncomputedNumberValue node =
-    case Node.value (removeParens node) of
+getUncomputedNumberValue expressionNode =
+    case Node.value (removeParens expressionNode) of
         Expression.Integer n ->
             Just (toFloat n)
 
@@ -400,24 +419,21 @@ getUncomputedNumberValue node =
             Nothing
 
 
+{-| Whether it's a function that returns any given input unchanged.
+Either a function reducible to `Basics.identity` or `\a -> a`.
+-}
 isIdentity : ModuleNameLookupTable -> Node Expression -> Bool
-isIdentity lookupTable baseNode =
-    let
-        node : Node Expression
-        node =
-            removeParens baseNode
-    in
-    case Node.value node of
-        Expression.FunctionOrValue _ "identity" ->
-            ModuleNameLookupTable.moduleNameFor lookupTable node == Just [ "Basics" ]
+isIdentity lookupTable baseExpressionNode =
+    case getSpecificValueOrFunction ( [ "Basics" ], "identity" ) lookupTable baseExpressionNode of
+        Just _ ->
+            True
 
-        Expression.LambdaExpression { args, expression } ->
-            case args of
-                arg :: [] ->
-                    case getVarPattern arg of
-                        Just patternName ->
-                            getExpressionName expression
-                                == Just patternName
+        Nothing ->
+            case removeParens baseExpressionNode of
+                Node _ (Expression.LambdaExpression lambda) ->
+                    case lambda.args of
+                        arg :: [] ->
+                            variableMatchesPattern lambda.expression arg
 
                         _ ->
                             False
@@ -425,129 +441,46 @@ isIdentity lookupTable baseNode =
                 _ ->
                     False
 
-        _ ->
-            False
 
-
-{-| Parses variables and lambdas that are reducible to a variable
+{-| Parse a function that returns the same for any given input and return the result expression node.
+Either a function reducible to `Basics.always x`, `\_ -> x` or even for example `\_ a -> a x` where the result expression node would be `\a -> a x`.
 -}
-getSpecificReducedFunction : ( ModuleName, String ) -> ModuleNameLookupTable -> Node Expression -> Maybe { fnRange : Range }
-getSpecificReducedFunction ( moduleName, name ) lookupTable expressionNode =
-    Maybe.andThen
-        (\reducedFunction ->
-            if
-                (reducedFunction.fnName /= name)
-                    || (ModuleNameLookupTable.moduleNameAt lookupTable reducedFunction.fnRange /= Just moduleName)
-            then
-                Nothing
-
-            else
-                Just { fnRange = reducedFunction.fnRange }
-        )
-        (getReducedFunction expressionNode)
-
-
-{-| Parses variables and lambdas that are reducible to a variable
--}
-getReducedFunction : Node Expression -> Maybe { fnRange : Range, fnName : String }
-getReducedFunction expressionNode =
-    case removeParens expressionNode of
-        Node fnRange (Expression.FunctionOrValue _ fnName) ->
-            Just { fnRange = fnRange, fnName = fnName }
-
-        _ ->
-            Maybe.andThen
-                (\reducedLambdaToCall ->
-                    case ( reducedLambdaToCall.lambdaPatterns, reducedLambdaToCall.callArguments ) of
-                        ( [], [] ) ->
-                            Just { fnRange = reducedLambdaToCall.fnRange, fnName = reducedLambdaToCall.fnName }
-
-                        ( _ :: _, [] ) ->
-                            Nothing
-
-                        ( [], _ :: _ ) ->
-                            Nothing
-
-                        ( _ :: _, _ :: _ ) ->
-                            Nothing
-                )
-                (getReducedLambdaToCall expressionNode)
-
-
-{-| Parses calls and lambdas that are reducible to a call
--}
-getSpecificReducedFunctionCall :
-    ( ModuleName, String )
-    -> ModuleNameLookupTable
-    -> Node Expression
-    ->
-        Maybe
-            { nodeRange : Range
-            , fnRange : Range
-            , firstArg : Node Expression
-            , argsAfterFirst : List (Node Expression)
-            }
-getSpecificReducedFunctionCall ( moduleName, name ) lookupTable expressionNode =
-    case getSpecificFunctionCall ( moduleName, name ) lookupTable expressionNode of
-        Just call ->
-            Just call
+getAlwaysResult : ModuleNameLookupTable -> Node Expression -> Maybe (Node Expression)
+getAlwaysResult lookupTable expressionNode =
+    case getSpecificFunctionCall ( [ "Basics" ], "always" ) lookupTable expressionNode of
+        Just alwaysCall ->
+            Just alwaysCall.firstArg
 
         Nothing ->
-            Maybe.andThen
-                (\reducedLambdaToCall ->
-                    case ( reducedLambdaToCall.lambdaPatterns, reducedLambdaToCall.callArguments ) of
-                        ( [], [] ) ->
-                            Nothing
+            getIgnoreFirstLambdaResult expressionNode
 
-                        ( _ :: _, [] ) ->
-                            Nothing
 
-                        ( _ :: _, _ :: _ ) ->
-                            Nothing
+getIgnoreFirstLambdaResult : Node Expression -> Maybe (Node Expression)
+getIgnoreFirstLambdaResult expressionNode =
+    case removeParens expressionNode of
+        Node _ (Expression.LambdaExpression lambda) ->
+            case lambda.args of
+                (Node _ Pattern.AllPattern) :: [] ->
+                    Just lambda.expression
 
-                        ( [], firstArg :: argsAfterFirst ) ->
-                            Just
-                                { nodeRange = reducedLambdaToCall.nodeRange
-                                , fnRange = reducedLambdaToCall.fnRange
-                                , firstArg = firstArg
-                                , argsAfterFirst = argsAfterFirst
+                (Node _ Pattern.AllPattern) :: pattern1 :: pattern2Up ->
+                    Just
+                        (Node (Node.range expressionNode)
+                            (Expression.LambdaExpression
+                                { args = pattern1 :: pattern2Up
+                                , expression = lambda.expression
                                 }
-                )
-                (getSpecificReducedLambdaToCall ( moduleName, name ) lookupTable expressionNode)
+                            )
+                        )
 
-
-getSpecificReducedLambdaToCall :
-    ( ModuleName, String )
-    -> ModuleNameLookupTable
-    -> Node Expression
-    ->
-        Maybe
-            { nodeRange : Range
-            , fnRange : Range
-            , callArguments : List (Node Expression)
-            , lambdaPatterns : List (Node Pattern)
-            }
-getSpecificReducedLambdaToCall ( moduleName, name ) lookupTable expressionNode =
-    getReducedLambdaToCall expressionNode
-        |> Maybe.andThen
-            (\reducedLambdaToCall ->
-                if
-                    (reducedLambdaToCall.fnName /= name)
-                        || (ModuleNameLookupTable.moduleNameAt lookupTable reducedLambdaToCall.fnRange /= Just moduleName)
-                then
+                _ ->
                     Nothing
 
-                else
-                    Just
-                        { nodeRange = reducedLambdaToCall.nodeRange
-                        , fnRange = reducedLambdaToCall.fnRange
-                        , callArguments = reducedLambdaToCall.callArguments
-                        , lambdaPatterns = reducedLambdaToCall.lambdaPatterns
-                        }
-            )
+        _ ->
+            Nothing
 
 
-getReducedLambdaToCall :
+getReducedLambda :
     Node Expression
     ->
         Maybe
@@ -557,28 +490,16 @@ getReducedLambdaToCall :
             , callArguments : List (Node Expression)
             , lambdaPatterns : List (Node Pattern)
             }
-getReducedLambdaToCall expressionNode =
+getReducedLambda expressionNode =
     -- maybe a version of this is better located in Normalize?
     case getCollapsedLambda expressionNode of
         Just lambda ->
-            case getCollapsedValueOrFunction lambda.expression of
+            case getCollapsedUnreducedValueOrFunctionCall lambda.expression of
                 Just call ->
                     let
                         ( reducedCallArguments, reducedLambdaPatterns ) =
                             drop2EndingsWhile
-                                (\( argument, pattern ) ->
-                                    case Node.value (removeParens argument) of
-                                        Expression.FunctionOrValue [] argument0Name ->
-                                            case getVarPattern pattern of
-                                                Just pattern0Name ->
-                                                    pattern0Name == argument0Name
-
-                                                _ ->
-                                                    False
-
-                                        _ ->
-                                            False
-                                )
+                                (\( argument, pattern ) -> variableMatchesPattern argument pattern)
                                 ( call.args
                                 , lambda.patterns
                                 )
@@ -596,6 +517,16 @@ getReducedLambdaToCall expressionNode =
 
         _ ->
             Nothing
+
+
+variableMatchesPattern : Node Expression -> Node Pattern -> Bool
+variableMatchesPattern expression pattern =
+    case ( removeParensFromPattern pattern, removeParens expression ) of
+        ( Node _ (Pattern.VarPattern patternName), Node _ (Expression.FunctionOrValue [] argumentName) ) ->
+            patternName == argumentName
+
+        _ ->
+            False
 
 
 {-| Remove elements at the end of both given lists, then repeat for the previous elements until a given test returns False
@@ -632,8 +563,8 @@ drop2BeginningsWhile shouldDrop listPair =
 
 getCollapsedLambda : Node Expression -> Maybe { patterns : List (Node Pattern), expression : Node Expression }
 getCollapsedLambda expressionNode =
-    case Node.value (removeParens expressionNode) of
-        Expression.LambdaExpression lambda ->
+    case removeParens expressionNode of
+        Node _ (Expression.LambdaExpression lambda) ->
             case getCollapsedLambda lambda.expression of
                 Nothing ->
                     Just
@@ -646,19 +577,6 @@ getCollapsedLambda expressionNode =
                         { patterns = lambda.args ++ innerCollapsedLambda.patterns
                         , expression = innerCollapsedLambda.expression
                         }
-
-        _ ->
-            Nothing
-
-
-getVarPattern : Node Pattern -> Maybe String
-getVarPattern node =
-    case Node.value node of
-        Pattern.VarPattern name ->
-            Just name
-
-        Pattern.ParenthesizedPattern pattern ->
-            getVarPattern pattern
 
         _ ->
             Nothing
@@ -765,26 +683,6 @@ letDeclarationListBindings letDeclarationList =
         |> List.foldl (\bindings soFar -> Set.union soFar bindings) Set.empty
 
 
-getExpressionName : Node Expression -> Maybe String
-getExpressionName node =
-    case Node.value (removeParens node) of
-        Expression.FunctionOrValue [] name ->
-            Just name
-
-        _ ->
-            Nothing
-
-
-isListLiteral : Node Expression -> Bool
-isListLiteral node =
-    case Node.value node of
-        Expression.ListExpr _ ->
-            True
-
-        _ ->
-            False
-
-
 getListLiteral : Node Expression -> Maybe (List (Node Expression))
 getListLiteral expressionNode =
     case Node.value expressionNode of
@@ -817,19 +715,22 @@ getCollapsedCons expressionNode =
 
 getBool : ModuleNameLookupTable -> Node Expression -> Maybe Bool
 getBool lookupTable expressionNode =
-    if isSpecificBool True lookupTable expressionNode then
-        Just True
+    case getSpecificBool True lookupTable expressionNode of
+        Just _ ->
+            Just True
 
-    else if isSpecificBool False lookupTable expressionNode then
-        Just False
+        Nothing ->
+            case getSpecificBool False lookupTable expressionNode of
+                Just _ ->
+                    Just False
 
-    else
-        Nothing
+                Nothing ->
+                    Nothing
 
 
-isSpecificBool : Bool -> ModuleNameLookupTable -> Node Expression -> Bool
-isSpecificBool specificBool lookupTable expressionNode =
-    isSpecificValueOrFunction [ "Basics" ] (boolToString specificBool) lookupTable expressionNode
+getSpecificBool : Bool -> ModuleNameLookupTable -> Node Expression -> Maybe Range
+getSpecificBool specificBool lookupTable expressionNode =
+    getSpecificValueOrFunction ( [ "Basics" ], boolToString specificBool ) lookupTable expressionNode
 
 
 getTuple : Node Expression -> Maybe { range : Range, first : Node Expression, second : Node Expression }
@@ -842,72 +743,70 @@ getTuple expressionNode =
             Nothing
 
 
-getBooleanPattern : ModuleNameLookupTable -> Node Pattern -> Maybe Bool
-getBooleanPattern lookupTable node =
-    case Node.value node of
-        Pattern.NamedPattern { name } _ ->
-            case name of
+getBoolPattern : ModuleNameLookupTable -> Node Pattern -> Maybe Bool
+getBoolPattern lookupTable basePatternNode =
+    case removeParensFromPattern basePatternNode of
+        Node variantPatternRange (Pattern.NamedPattern variantPattern _) ->
+            case variantPattern.name of
                 "True" ->
-                    if ModuleNameLookupTable.moduleNameFor lookupTable node == Just [ "Basics" ] then
-                        Just True
+                    case ModuleNameLookupTable.moduleNameAt lookupTable variantPatternRange of
+                        Just [ "Basics" ] ->
+                            Just True
 
-                    else
-                        Nothing
+                        _ ->
+                            Nothing
 
                 "False" ->
-                    if ModuleNameLookupTable.moduleNameFor lookupTable node == Just [ "Basics" ] then
-                        Just False
+                    case ModuleNameLookupTable.moduleNameAt lookupTable variantPatternRange of
+                        Just [ "Basics" ] ->
+                            Just False
 
-                    else
-                        Nothing
+                        _ ->
+                            Nothing
 
                 _ ->
                     Nothing
-
-        Pattern.ParenthesizedPattern pattern ->
-            getBooleanPattern lookupTable pattern
 
         _ ->
             Nothing
 
 
+getSpecificOrder : Order -> ModuleNameLookupTable -> Node Expression -> Maybe Range
+getSpecificOrder specificOrder lookupTable expression =
+    getSpecificValueOrFunction ( [ "Basics" ], orderToString specificOrder ) lookupTable expression
+
+
 getOrder : ModuleNameLookupTable -> Node Expression -> Maybe Order
 getOrder lookupTable expression =
-    if isSpecificValueOrFunction [ "Basics" ] "LT" lookupTable expression then
-        Just LT
+    case getSpecificOrder LT lookupTable expression of
+        Just _ ->
+            Just LT
 
-    else if isSpecificValueOrFunction [ "Basics" ] "EQ" lookupTable expression then
-        Just EQ
+        Nothing ->
+            case getSpecificOrder EQ lookupTable expression of
+                Just _ ->
+                    Just EQ
 
-    else if isSpecificValueOrFunction [ "Basics" ] "GT" lookupTable expression then
-        Just GT
+                Nothing ->
+                    case getSpecificOrder GT lookupTable expression of
+                        Just _ ->
+                            Just GT
 
-    else
-        Nothing
-
-
-isEmptyList : Node Expression -> Bool
-isEmptyList node =
-    case Node.value (removeParens node) of
-        Expression.ListExpr [] ->
-            True
-
-        _ ->
-            False
+                        Nothing ->
+                            Nothing
 
 
-isBinaryOperation : String -> Infer.Resources a -> Node Expression -> Bool
-isBinaryOperation symbol checkInfo expression =
+{-| Whether a given expression can be called with 2 operands and produces the same result as an operation with a given operator.
+Is either a function reducible to the operator in prefix notation `(op)` or a lambda `\a b -> a op b`.
+-}
+isSpecificUnappliedBinaryOperation : String -> Infer.Resources a -> Node Expression -> Bool
+isSpecificUnappliedBinaryOperation symbol checkInfo expression =
     case expression |> Normalize.normalize checkInfo |> Node.value of
         Expression.PrefixOperator operatorSymbol ->
             operatorSymbol == symbol
 
         Expression.LambdaExpression lambda ->
             case lambda.args of
-                -- invalid syntax
-                [] ->
-                    False
-
                 [ Node _ (Pattern.VarPattern element) ] ->
                     case Node.value lambda.expression of
                         Expression.Application [ Node _ (Expression.PrefixOperator operatorSymbol), Node _ (Expression.FunctionOrValue [] argument) ] ->
@@ -935,7 +834,6 @@ isBinaryOperation symbol checkInfo expression =
                         _ ->
                             False
 
-                -- too many/unsimplified patterns
                 _ ->
                     False
 
@@ -977,8 +875,8 @@ nameOfExpose topLevelExpose =
         Exposing.InfixExpose name ->
             name
 
-        Exposing.TypeExpose { name } ->
-            name
+        Exposing.TypeExpose typeExpose ->
+            typeExpose.name
 
 
 
@@ -1017,11 +915,12 @@ If desired, call in combination with `qualify`
 -}
 qualifiedToString : ( ModuleName, String ) -> String
 qualifiedToString ( moduleName, name ) =
-    if List.isEmpty moduleName then
-        name
+    case moduleName of
+        [] ->
+            name
 
-    else
-        moduleNameToString moduleName ++ "." ++ name
+        _ :: _ ->
+            moduleNameToString moduleName ++ "." ++ name
 
 
 moduleNameToString : ModuleName -> String

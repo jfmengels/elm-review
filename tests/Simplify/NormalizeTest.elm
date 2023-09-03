@@ -236,7 +236,7 @@ simpleNormalizationTests =
                             , n (OperatorApplication "^" Infix.Right (n (FunctionOrValue [] "a")) (n (FunctionOrValue [] "b")))
                             , n (OperatorApplication "&&" Infix.Right (n (FunctionOrValue [] "a")) (n (FunctionOrValue [] "b")))
                             , n (OperatorApplication "||" Infix.Right (n (FunctionOrValue [] "a")) (n (FunctionOrValue [] "b")))
-                            , n (OperatorApplication "</>" Infix.Left (n (FunctionOrValue [] "a")) (n (FunctionOrValue [] "b")))
+                            , n (OperatorApplication "</>" Infix.Right (n (FunctionOrValue [] "a")) (n (FunctionOrValue [] "b")))
                             , n (OperatorApplication "<?>" Infix.Left (n (FunctionOrValue [] "a")) (n (FunctionOrValue [] "b")))
                             , n (OperatorApplication "|." Infix.Left (n (FunctionOrValue [] "a")) (n (FunctionOrValue [] "b")))
                             , n (OperatorApplication "|=" Infix.Left (n (FunctionOrValue [] "a")) (n (FunctionOrValue [] "b")))

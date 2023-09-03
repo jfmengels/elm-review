@@ -2,7 +2,7 @@ module SimplifyTest exposing (all)
 
 import Review.Rule exposing (Rule)
 import Review.Test
-import Simplify exposing (defaults, ignoreCaseOfForTypes, rule)
+import Simplify exposing (defaults, expectNaN, ignoreCaseOfForTypes, rule)
 import Test exposing (Test, describe, test)
 
 
@@ -35,14 +35,21 @@ all =
         , parserTests
         , jsonDecodeTests
         , htmlAttributesTests
+        , randomTests
         , recordAccessTests
         , letTests
+        , pipelineTests
         ]
 
 
 ruleWithDefaults : Rule
 ruleWithDefaults =
     rule defaults
+
+
+ruleExpectingNaN : Rule
+ruleExpectingNaN =
+    rule (expectNaN defaults)
 
 
 
@@ -1489,8 +1496,8 @@ a = not >> not
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "Unnecessary double negation"
-                            , details = [ "Composing `not` with `not` cancel each other out." ]
+                            { message = "Unnecessary double Basics.not"
+                            , details = [ "Composing Basics.not with Basics.not cancels each other out." ]
                             , under = "not >> not"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -1505,8 +1512,8 @@ a = a >> not >> not
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "Unnecessary double negation"
-                            , details = [ "Composing `not` with `not` cancel each other out." ]
+                            { message = "Unnecessary double Basics.not"
+                            , details = [ "Composing Basics.not with Basics.not cancels each other out." ]
                             , under = "not >> not"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -1521,8 +1528,8 @@ a = not >> not >> a
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "Unnecessary double negation"
-                            , details = [ "Composing `not` with `not` cancel each other out." ]
+                            { message = "Unnecessary double Basics.not"
+                            , details = [ "Composing Basics.not with Basics.not cancels each other out." ]
                             , under = "not >> not"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -1537,8 +1544,8 @@ a = not << not
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "Unnecessary double negation"
-                            , details = [ "Composing `not` with `not` cancel each other out." ]
+                            { message = "Unnecessary double Basics.not"
+                            , details = [ "Composing Basics.not with Basics.not cancels each other out." ]
                             , under = "not << not"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -1553,8 +1560,8 @@ a = not << not << a
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "Unnecessary double negation"
-                            , details = [ "Composing `not` with `not` cancel each other out." ]
+                            { message = "Unnecessary double Basics.not"
+                            , details = [ "Composing Basics.not with Basics.not cancels each other out." ]
                             , under = "not << not"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -1569,8 +1576,8 @@ a = a << not << not
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "Unnecessary double negation"
-                            , details = [ "Composing `not` with `not` cancel each other out." ]
+                            { message = "Unnecessary double Basics.not"
+                            , details = [ "Composing Basics.not with Basics.not cancels each other out." ]
                             , under = "not << not"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -1585,8 +1592,8 @@ a = (not >> a) << not
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "Unnecessary double negation"
-                            , details = [ "Composing `not` with `not` cancel each other out." ]
+                            { message = "Unnecessary double Basics.not"
+                            , details = [ "Composing Basics.not with Basics.not cancels each other out." ]
                             , under = "not >> a) << not"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -1608,12 +1615,12 @@ a = not (not x)
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "Unnecessary double negation"
-                            , details = [ "Composing `not` with `not` cancel each other out." ]
+                            { message = "Unnecessary double Basics.not"
+                            , details = [ "Composing Basics.not with Basics.not cancels each other out." ]
                             , under = "not (not"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
-a = (x)
+a = x
 """
                         ]
         , test "should simplify 'x |> not |> not' to x" <|
@@ -1624,8 +1631,8 @@ a = x |> not |> not
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "Unnecessary double negation"
-                            , details = [ "Composing `not` with `not` cancel each other out." ]
+                            { message = "Unnecessary double Basics.not"
+                            , details = [ "Composing Basics.not with Basics.not cancels each other out." ]
                             , under = "not |> not"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -1640,12 +1647,12 @@ a = (x |> not) |> not
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "Unnecessary double negation"
-                            , details = [ "Composing `not` with `not` cancel each other out." ]
+                            { message = "Unnecessary double Basics.not"
+                            , details = [ "Composing Basics.not with Basics.not cancels each other out." ]
                             , under = "not) |> not"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
-a = (x)
+a = x
 """
                         ]
         , test "should simplify '(not <| x) |> not' to x" <|
@@ -1656,12 +1663,12 @@ a = (not <| x) |> not
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "Unnecessary double negation"
-                            , details = [ "Composing `not` with `not` cancel each other out." ]
+                            { message = "Unnecessary double Basics.not"
+                            , details = [ "Composing Basics.not with Basics.not cancels each other out." ]
                             , under = "not <| x) |> not"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
-a = (x)
+a = x
 """
                         ]
         , test "should simplify 'not x |> not' to x" <|
@@ -1672,8 +1679,8 @@ a = not x |> not
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "Unnecessary double negation"
-                            , details = [ "Composing `not` with `not` cancel each other out." ]
+                            { message = "Unnecessary double Basics.not"
+                            , details = [ "Composing Basics.not with Basics.not cancels each other out." ]
                             , under = "not x |> not"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -1688,12 +1695,108 @@ a = not <| not x
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "Unnecessary double negation"
-                            , details = [ "Composing `not` with `not` cancel each other out." ]
+                            { message = "Unnecessary double Basics.not"
+                            , details = [ "Composing Basics.not with Basics.not cancels each other out." ]
                             , under = "not <| not"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 a = x
+"""
+                        ]
+        , test "should simplify 'not (b < c) to (b >= c)" <|
+            \() ->
+                """module A exposing (..)
+a = not (b < c)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "`not` is used on a negatable boolean operation"
+                            , details = [ "You can remove the `not` call and use `>=` instead." ]
+                            , under = "not"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (b >= c)
+"""
+                        ]
+        , test "should simplify 'not (b <= c) to (b > c)" <|
+            \() ->
+                """module A exposing (..)
+a = not (b <= c)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "`not` is used on a negatable boolean operation"
+                            , details = [ "You can remove the `not` call and use `>` instead." ]
+                            , under = "not"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (b > c)
+"""
+                        ]
+        , test "should simplify 'not (b > c) to (b <= c)" <|
+            \() ->
+                """module A exposing (..)
+a = not (b > c)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "`not` is used on a negatable boolean operation"
+                            , details = [ "You can remove the `not` call and use `<=` instead." ]
+                            , under = "not"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (b <= c)
+"""
+                        ]
+        , test "should simplify 'not (b >= c) to (b < c)" <|
+            \() ->
+                """module A exposing (..)
+a = not (b >= c)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "`not` is used on a negatable boolean operation"
+                            , details = [ "You can remove the `not` call and use `<` instead." ]
+                            , under = "not"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (b < c)
+"""
+                        ]
+        , test "should simplify 'not (b == c) to (b /= c)" <|
+            \() ->
+                """module A exposing (..)
+a = not (b == c)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "`not` is used on a negatable boolean operation"
+                            , details = [ "You can remove the `not` call and use `/=` instead." ]
+                            , under = "not"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (b /= c)
+"""
+                        ]
+        , test "should simplify 'not (b /= c) to (b == c)" <|
+            \() ->
+                """module A exposing (..)
+a = not (b /= c)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "`not` is used on a negatable boolean operation"
+                            , details = [ "You can remove the `not` call and use `==` instead." ]
+                            , under = "not"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (b == c)
 """
                         ]
         ]
@@ -2105,7 +2208,7 @@ a = n + 0
                         [ Review.Test.error
                             { message = "Unnecessary addition with 0"
                             , details = [ "Adding 0 does not change the value of the number." ]
-                            , under = " + 0"
+                            , under = "+ 0"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 a = n
@@ -2121,7 +2224,7 @@ a = n + 0.0
                         [ Review.Test.error
                             { message = "Unnecessary addition with 0"
                             , details = [ "Adding 0 does not change the value of the number." ]
-                            , under = " + 0.0"
+                            , under = "+ 0.0"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 a = n
@@ -2137,12 +2240,51 @@ a = 0 + n
                         [ Review.Test.error
                             { message = "Unnecessary addition with 0"
                             , details = [ "Adding 0 does not change the value of the number." ]
-                            , under = "0 + "
+                            , under = "0 +"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 a = n
 """
                         ]
+        , test "should simplify n + (-n) to 0" <|
+            \() ->
+                """module A exposing (..)
+a = n + (-n)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Addition always results in 0"
+                            , details = [ "These two expressions have an equal absolute value but an opposite sign. This means adding them they will cancel out to 0." ]
+                            , under = "n + (-n)"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = 0
+"""
+                        ]
+        , test "should simplify -n + n to 0" <|
+            \() ->
+                """module A exposing (..)
+a = -n + n
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Addition always results in 0"
+                            , details = [ "These two expressions have an equal absolute value but an opposite sign. This means adding them they will cancel out to 0." ]
+                            , under = "-n + n"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = 0
+"""
+                        ]
+        , test "should not simplify n + (-n) to 0 when expecting NaN" <|
+            \() ->
+                """module A exposing (..)
+a = n + (-n) to 0
+"""
+                    |> Review.Test.run ruleExpectingNaN
+                    |> Review.Test.expectNoErrors
         ]
 
 
@@ -2167,7 +2309,7 @@ a = n - 0
                         [ Review.Test.error
                             { message = "Unnecessary subtraction with 0"
                             , details = [ "Subtracting 0 does not change the value of the number." ]
-                            , under = " - 0"
+                            , under = "- 0"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 a = n
@@ -2183,7 +2325,7 @@ a = n - 0.0
                         [ Review.Test.error
                             { message = "Unnecessary subtraction with 0"
                             , details = [ "Subtracting 0 does not change the value of the number." ]
-                            , under = " - 0.0"
+                            , under = "- 0.0"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 a = n
@@ -2199,7 +2341,7 @@ a = 0 - n
                         [ Review.Test.error
                             { message = "Unnecessary subtracting from 0"
                             , details = [ "You can negate the expression on the right like `-n`." ]
-                            , under = "0 - "
+                            , under = "0 -"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 a = -n
@@ -2215,12 +2357,35 @@ a = 0 - List.length list
                         [ Review.Test.error
                             { message = "Unnecessary subtracting from 0"
                             , details = [ "You can negate the expression on the right like `-n`." ]
-                            , under = "0 - "
+                            , under = "0 -"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 a = -(List.length list)
 """
                         ]
+        , test "should simplify n - n to 0" <|
+            \() ->
+                """module A exposing (..)
+a = n - n
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Subtraction always results in 0"
+                            , details = [ "These two expressions have the same value, which means they will cancel add when subtracting one by the other." ]
+                            , under = "n - n"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = 0
+"""
+                        ]
+        , test "should not simplify n - n to 0 when expecting NaN" <|
+            \() ->
+                """module A exposing (..)
+a = n - n
+"""
+                    |> Review.Test.run ruleExpectingNaN
+                    |> Review.Test.expectNoErrors
         ]
 
 
@@ -2245,7 +2410,7 @@ a = n * 1
                         [ Review.Test.error
                             { message = "Unnecessary multiplication by 1"
                             , details = [ "Multiplying by 1 does not change the value of the number." ]
-                            , under = " * 1"
+                            , under = "* 1"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 a = n
@@ -2261,7 +2426,7 @@ a = n * 1.0
                         [ Review.Test.error
                             { message = "Unnecessary multiplication by 1"
                             , details = [ "Multiplying by 1 does not change the value of the number." ]
-                            , under = " * 1.0"
+                            , under = "* 1.0"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 a = n
@@ -2277,13 +2442,13 @@ a = 1 * n
                         [ Review.Test.error
                             { message = "Unnecessary multiplication by 1"
                             , details = [ "Multiplying by 1 does not change the value of the number." ]
-                            , under = "1 * "
+                            , under = "1 *"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 a = n
 """
                         ]
-        , test "should report but not fix n * 0" <|
+        , test "should simplify n * 0 by 0" <|
             \() ->
                 """module A exposing (..)
 a = n * 0
@@ -2300,10 +2465,33 @@ by explicitly checking for `Basics.isNaN` and `Basics.isInfinite`."""
                                 , """Basics.isNaN: https://package.elm-lang.org/packages/elm/core/latest/Basics#isNaN
 Basics.isInfinite: https://package.elm-lang.org/packages/elm/core/latest/Basics#isInfinite"""
                                 ]
-                            , under = " * 0"
+                            , under = "* 0"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = 0
+"""
+                        ]
+        , test "should report but not fix n * 0 when expecting NaN" <|
+            \() ->
+                """module A exposing (..)
+a = n * 0
+"""
+                    |> Review.Test.run ruleExpectingNaN
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Multiplication by 0 should be replaced"
+                            , details =
+                                [ "Multiplying by 0 will turn finite numbers into 0 and keep NaN and (-)Infinity"
+                                , "Most likely, multiplying by 0 was unintentional and you had a different factor in mind."
+                                , """If you do want the described behavior, though, make your intention clear for the reader
+by explicitly checking for `Basics.isNaN` and `Basics.isInfinite`."""
+                                , """Basics.isNaN: https://package.elm-lang.org/packages/elm/core/latest/Basics#isNaN
+Basics.isInfinite: https://package.elm-lang.org/packages/elm/core/latest/Basics#isInfinite"""
+                                ]
+                            , under = "* 0"
                             }
                         ]
-        , test "should report but not fix simplify n * 0.0" <|
+        , test "should simplify n * 0.0 to 0" <|
             \() ->
                 """module A exposing (..)
 a = n * 0.0
@@ -2320,10 +2508,33 @@ by explicitly checking for `Basics.isNaN` and `Basics.isInfinite`."""
                                 , """Basics.isNaN: https://package.elm-lang.org/packages/elm/core/latest/Basics#isNaN
 Basics.isInfinite: https://package.elm-lang.org/packages/elm/core/latest/Basics#isInfinite"""
                                 ]
-                            , under = " * 0.0"
+                            , under = "* 0.0"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = 0
+"""
+                        ]
+        , test "should report but not fix n * 0.0 when expecting NaN" <|
+            \() ->
+                """module A exposing (..)
+a = n * 0.0
+"""
+                    |> Review.Test.run ruleExpectingNaN
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Multiplication by 0 should be replaced"
+                            , details =
+                                [ "Multiplying by 0 will turn finite numbers into 0 and keep NaN and (-)Infinity"
+                                , "Most likely, multiplying by 0 was unintentional and you had a different factor in mind."
+                                , """If you do want the described behavior, though, make your intention clear for the reader
+by explicitly checking for `Basics.isNaN` and `Basics.isInfinite`."""
+                                , """Basics.isNaN: https://package.elm-lang.org/packages/elm/core/latest/Basics#isNaN
+Basics.isInfinite: https://package.elm-lang.org/packages/elm/core/latest/Basics#isInfinite"""
+                                ]
+                            , under = "* 0.0"
                             }
                         ]
-        , test "should report but not fix 0 * n" <|
+        , test "should simplify 0 * n to 0" <|
             \() ->
                 """module A exposing (..)
 a = 0 * n
@@ -2340,10 +2551,13 @@ by explicitly checking for `Basics.isNaN` and `Basics.isInfinite`."""
                                 , """Basics.isNaN: https://package.elm-lang.org/packages/elm/core/latest/Basics#isNaN
 Basics.isInfinite: https://package.elm-lang.org/packages/elm/core/latest/Basics#isInfinite"""
                                 ]
-                            , under = "0 * "
+                            , under = "0 *"
                             }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = 0
+"""
                         ]
-        , test "should report but not fix 0.0 * n" <|
+        , test "should simplify 0.0 * n to 0" <|
             \() ->
                 """module A exposing (..)
 a = 0.0 * n
@@ -2360,8 +2574,11 @@ by explicitly checking for `Basics.isNaN` and `Basics.isInfinite`."""
                                 , """Basics.isNaN: https://package.elm-lang.org/packages/elm/core/latest/Basics#isNaN
 Basics.isInfinite: https://package.elm-lang.org/packages/elm/core/latest/Basics#isInfinite"""
                                 ]
-                            , under = "0.0 * "
+                            , under = "0.0 *"
                             }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = 0
+"""
                         ]
         ]
 
@@ -2387,7 +2604,7 @@ a = n / 1
                         [ Review.Test.error
                             { message = "Unnecessary division by 1"
                             , details = [ "Dividing by 1 does not change the value of the number." ]
-                            , under = " / 1"
+                            , under = "/ 1"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 a = n
@@ -2403,10 +2620,48 @@ a = n / 1.0
                         [ Review.Test.error
                             { message = "Unnecessary division by 1"
                             , details = [ "Dividing by 1 does not change the value of the number." ]
-                            , under = " / 1.0"
+                            , under = "/ 1.0"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 a = n
+"""
+                        ]
+        , test "should simplify 0 / n to 0" <|
+            \() ->
+                """module A exposing (..)
+a = 0 / n
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Dividing 0 always returns 0"
+                            , details =
+                                [ "Dividing 0 by anything, even infinite numbers, gives 0 which means you can replace the whole division operation by 0."
+                                , "Most likely, dividing 0 was unintentional and you had a different number in mind."
+                                ]
+                            , under = "0 /"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = 0
+"""
+                        ]
+        , test "should simplify 0.0 / n to 0.0" <|
+            \() ->
+                """module A exposing (..)
+a = 0.0 / n
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Dividing 0 always returns 0"
+                            , details =
+                                [ "Dividing 0 by anything, even infinite numbers, gives 0 which means you can replace the whole division operation by 0."
+                                , "Most likely, dividing 0 was unintentional and you had a different number in mind."
+                                ]
+                            , under = "0.0 /"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = 0.0
 """
                         ]
         ]
@@ -2469,8 +2724,8 @@ a = negate >> negate
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "Unnecessary double negation"
-                            , details = [ "Composing `negate` with `negate` cancel each other out." ]
+                            { message = "Unnecessary double Basics.negate"
+                            , details = [ "Composing Basics.negate with Basics.negate cancels each other out." ]
                             , under = "negate >> negate"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -2485,8 +2740,8 @@ a = a >> negate >> negate
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "Unnecessary double negation"
-                            , details = [ "Composing `negate` with `negate` cancel each other out." ]
+                            { message = "Unnecessary double Basics.negate"
+                            , details = [ "Composing Basics.negate with Basics.negate cancels each other out." ]
                             , under = "negate >> negate"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -2501,8 +2756,8 @@ a = negate >> negate >> a
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "Unnecessary double negation"
-                            , details = [ "Composing `negate` with `negate` cancel each other out." ]
+                            { message = "Unnecessary double Basics.negate"
+                            , details = [ "Composing Basics.negate with Basics.negate cancels each other out." ]
                             , under = "negate >> negate"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -2517,8 +2772,8 @@ a = negate << negate
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "Unnecessary double negation"
-                            , details = [ "Composing `negate` with `negate` cancel each other out." ]
+                            { message = "Unnecessary double Basics.negate"
+                            , details = [ "Composing Basics.negate with Basics.negate cancels each other out." ]
                             , under = "negate << negate"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -2533,8 +2788,8 @@ a = negate << negate << a
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "Unnecessary double negation"
-                            , details = [ "Composing `negate` with `negate` cancel each other out." ]
+                            { message = "Unnecessary double Basics.negate"
+                            , details = [ "Composing Basics.negate with Basics.negate cancels each other out." ]
                             , under = "negate << negate"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -2549,8 +2804,8 @@ a = a << negate << negate
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "Unnecessary double negation"
-                            , details = [ "Composing `negate` with `negate` cancel each other out." ]
+                            { message = "Unnecessary double Basics.negate"
+                            , details = [ "Composing Basics.negate with Basics.negate cancels each other out." ]
                             , under = "negate << negate"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -2565,8 +2820,8 @@ a = (negate >> a) << negate
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "Unnecessary double negation"
-                            , details = [ "Composing `negate` with `negate` cancel each other out." ]
+                            { message = "Unnecessary double Basics.negate"
+                            , details = [ "Composing Basics.negate with Basics.negate cancels each other out." ]
                             , under = "negate >> a) << negate"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -2588,8 +2843,8 @@ a = negate <| negate x
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "Unnecessary double negation"
-                            , details = [ "Composing `negate` with `negate` cancel each other out." ]
+                            { message = "Unnecessary double Basics.negate"
+                            , details = [ "Composing Basics.negate with Basics.negate cancels each other out." ]
                             , under = "negate <| negate"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -2728,7 +2983,7 @@ a = x == True
                         [ Review.Test.error
                             { message = "Unnecessary comparison with boolean"
                             , details = [ "The result of the expression will be the same with or without the comparison." ]
-                            , under = "x == True"
+                            , under = "== True"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 a = x
@@ -2751,7 +3006,7 @@ a = True == x
                         [ Review.Test.error
                             { message = "Unnecessary comparison with boolean"
                             , details = [ "The result of the expression will be the same with or without the comparison." ]
-                            , under = "True == x"
+                            , under = "True =="
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 a = x
@@ -2781,7 +3036,7 @@ a = x /= False
                         [ Review.Test.error
                             { message = "Unnecessary comparison with boolean"
                             , details = [ "The result of the expression will be the same with or without the comparison." ]
-                            , under = "x /= False"
+                            , under = "/= False"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 a = x
@@ -2804,7 +3059,7 @@ a = False /= x
                         [ Review.Test.error
                             { message = "Unnecessary comparison with boolean"
                             , details = [ "The result of the expression will be the same with or without the comparison." ]
-                            , under = "False /= x"
+                            , under = "False /="
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 a = x
@@ -2858,6 +3113,13 @@ a = x == x
 a = True
 """
                         ]
+        , test "should not simplify x == x when expecting NaN" <|
+            \() ->
+                """module A exposing (..)
+a = x == x
+"""
+                    |> Review.Test.run ruleExpectingNaN
+                    |> Review.Test.expectNoErrors
         , test "should simplify x == (x) to True" <|
             \() ->
                 """module A exposing (..)
@@ -3692,7 +3954,7 @@ a = if condition then False else True
                             , under = "if"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
-a = not (condition)
+a = not condition
 """
                         ]
         , test "should replace the expression by the branch if both branches have the same value" <|
@@ -5004,12 +5266,10 @@ a =
 appliedLambdaTests : Test
 appliedLambdaTests =
     describe "Applied lambda functions"
-        [ test "should not report okay function/lambda calls" <|
+        [ test "should not report okay function calls" <|
             \() ->
-                """
-module A exposing (..)
+                """module A exposing (..)
 a = f ()
-b = (\\x y -> x + y) n
 """
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectNoErrors
@@ -5029,9 +5289,9 @@ a = (\\() -> x) ()
                             , under = "()"
                             }
                             |> Review.Test.atExactly { start = { row = 2, column = 7 }, end = { row = 2, column = 9 } }
-                            |> Review.Test.whenFixed ("""module A exposing (..)
-a = (x)$
-""" |> String.replace "$" " ")
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = x
+"""
                         ]
         , test "should replace (\\_ -> x) a by x" <|
             \() ->
@@ -5048,9 +5308,9 @@ a = (\\_ -> x) a
                                 ]
                             , under = "_"
                             }
-                            |> Review.Test.whenFixed ("""module A exposing (..)
-a = (x)$
-""" |> String.replace "$" " ")
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = x
+"""
                         ]
         , test "should replace (\\() y -> x) () by (\\y -> x)" <|
             \() ->
@@ -5068,9 +5328,9 @@ a = (\\() y -> x) ()
                             , under = "()"
                             }
                             |> Review.Test.atExactly { start = { row = 2, column = 7 }, end = { row = 2, column = 9 } }
-                            |> Review.Test.whenFixed ("""module A exposing (..)
-a = (\\y -> x)$
-""" |> String.replace "$" " ")
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (\\y -> x)
+"""
                         ]
         , test "should replace (\\_ y -> x) a by (\\y -> x)" <|
             \() ->
@@ -5088,10 +5348,84 @@ a = (\\_ y -> x) a
                             , under = "_"
                             }
                             |> Review.Test.atExactly { start = { row = 2, column = 7 }, end = { row = 2, column = 8 } }
-                            |> Review.Test.whenFixed ("""module A exposing (..)
-a = (\\y -> x)$
-""" |> String.replace "$" " ")
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (\\y -> x)
+"""
                         ]
+        , test "should report but not fix non-simplifiable lambdas that are directly called with an argument" <|
+            \() ->
+                """module A exposing (..)
+a = (\\x y -> x + y) n
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Anonymous function is immediately invoked"
+                            , details =
+                                [ "This expression defines a function which then gets called directly afterwards, which overly complexifies the intended computation."
+                                , "While there are reasonable uses for this in languages like JavaScript, the same benefits aren't there in Elm because of not allowing name shadowing."
+                                , "Here are a few ways you can simplify this:"
+                                , """- Remove the lambda and reference the arguments directly instead of giving them new names
+- Remove the lambda and use let variables to give names to the current arguments
+- Extract the lambda to a named function (at the top-level or defined in a let expression)"""
+                                ]
+                            , under = "\\x y -> x + y"
+                            }
+                        ]
+        , test "should report but not fix non-simplifiable lambdas that are directly called in a |> pipeline" <|
+            \() ->
+                """module A exposing (..)
+a = n |> (\\x y -> x + y)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Anonymous function is immediately invoked"
+                            , details =
+                                [ "This expression defines a function which then gets called directly afterwards, which overly complexifies the intended computation."
+                                , "While there are reasonable uses for this in languages like JavaScript, the same benefits aren't there in Elm because of not allowing name shadowing."
+                                , "Here are a few ways you can simplify this:"
+                                , """- Remove the lambda and reference the arguments directly instead of giving them new names
+- Remove the lambda and use let variables to give names to the current arguments
+- Extract the lambda to a named function (at the top-level or defined in a let expression)"""
+                                ]
+                            , under = "\\x y -> x + y"
+                            }
+                        ]
+        , test "should not report lambdas that are directly called in a |> pipeline if the argument is a pipeline itself" <|
+            \() ->
+                """module A exposing (..)
+a = n |> f |> (\\x y -> x + y)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectNoErrors
+        , test "should report but not fix non-simplifiable lambdas that are directly called in a <| pipeline" <|
+            \() ->
+                """module A exposing (..)
+a = (\\x y -> x + y) <| n
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Anonymous function is immediately invoked"
+                            , details =
+                                [ "This expression defines a function which then gets called directly afterwards, which overly complexifies the intended computation."
+                                , "While there are reasonable uses for this in languages like JavaScript, the same benefits aren't there in Elm because of not allowing name shadowing."
+                                , "Here are a few ways you can simplify this:"
+                                , """- Remove the lambda and reference the arguments directly instead of giving them new names
+- Remove the lambda and use let variables to give names to the current arguments
+- Extract the lambda to a named function (at the top-level or defined in a let expression)"""
+                                ]
+                            , under = "\\x y -> x + y"
+                            }
+                        ]
+        , test "should not report lambdas that are directly called in a <| pipeline if the argument is a pipeline itself" <|
+            \() ->
+                """module A exposing (..)
+a = (\\x y -> x + y) <| f <| n
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectNoErrors
         ]
 
 
@@ -5133,7 +5467,7 @@ a = "a" ++ ""
                         [ Review.Test.error
                             { message = "Unnecessary concatenation with an empty string"
                             , details = [ "You should remove the concatenation with the empty string." ]
-                            , under = "\"\""
+                            , under = "++ \"\""
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 a = "a"
@@ -5156,7 +5490,7 @@ a = "" ++ "a"
                         [ Review.Test.error
                             { message = "Unnecessary concatenation with an empty string"
                             , details = [ "You should remove the concatenation with the empty string." ]
-                            , under = "\"\""
+                            , under = "\"\" ++"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 a = "a"
@@ -5202,9 +5536,9 @@ a = [] ++ something
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "Concatenating with a single list doesn't have any effect"
+                            { message = "Unnecessary concatenation with an empty list"
                             , details = [ "You should remove the concatenation with the empty list." ]
-                            , under = "[]"
+                            , under = "[] ++"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 a = something
@@ -5218,9 +5552,9 @@ a = something ++ []
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "Concatenating with a single list doesn't have any effect"
+                            { message = "Unnecessary concatenation with an empty list"
                             , details = [ "You should remove the concatenation with the empty list." ]
-                            , under = "[]"
+                            , under = "++ []"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 a = something
@@ -6321,17 +6655,103 @@ b = 1 :: foo bar
         , test "should report using :: to a list literal" <|
             \() ->
                 """module A exposing (..)
-a = 1 :: [ 2, 3]
+a = 1::[ 2, 3 ]
 """
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Element added to the beginning of the list could be included in the list"
                             , details = [ "Try moving the element inside the list it is being added to." ]
-                            , under = "1"
+                            , under = "::"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
-a = [ 1, 2, 3]
+a = [ 1, 2, 3 ]
+"""
+                        ]
+        , test
+            "should report using :: to a list literal, between is additional white space"
+          <|
+            \() ->
+                """module A exposing (..)
+a =
+  1
+
+
+    ::     [ 2, 3 ]
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Element added to the beginning of the list could be included in the list"
+                            , details = [ "Try moving the element inside the list it is being added to." ]
+                            , under = "::"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a =
+  [ 1
+
+
+    ,      2, 3 ]
+"""
+                        ]
+        , test "should report using :: to a list literal, between is additional white space and different comments" <|
+            \() ->
+                """module A exposing (..)
+a =
+  1
+    {- -- comment {- nested -} here we go! -}
+    -- important
+    ::     [ 2, 3 ]
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Element added to the beginning of the list could be included in the list"
+                            , details = [ "Try moving the element inside the list it is being added to." ]
+                            , under = "::"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a =
+  [ 1
+    {- -- comment {- nested -} here we go! -}
+    -- important
+    ,      2, 3 ]
+"""
+                        ]
+        , test "should report using :: to a list literal, between is additional white space and different comments that use the operator symbol" <|
+            \() ->
+                """module A exposing (..)
+a =
+  1
+    {- -- comment {-
+     nested :: -} here we :: go!
+         -}
+    -- important: ::
+    ::
+    -- why is there a rabbit in here ::)
+           [ 2, 3 ]
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Element added to the beginning of the list could be included in the list"
+                            , details = [ "Try moving the element inside the list it is being added to." ]
+                            , under = "::"
+                            }
+                            |> Review.Test.atExactly
+                                { start = { row = 8, column = 5 }
+                                , end = { row = 8, column = 7 }
+                                }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a =
+  [ 1
+    {- -- comment {-
+     nested :: -} here we :: go!
+         -}
+    -- important: ::
+    ,
+    -- why is there a rabbit in here ::)
+            2, 3 ]
 """
                         ]
         , test "should report using :: to an empty list literal" <|
@@ -6344,7 +6764,7 @@ a = 1 :: []
                         [ Review.Test.error
                             { message = "Element added to the beginning of the list could be included in the list"
                             , details = [ "Try moving the element inside the list it is being added to." ]
-                            , under = "1"
+                            , under = "::"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 a = [ 1 ]
@@ -6650,7 +7070,39 @@ a = List.concat [ [ 1, 2, 3 ], [ 4, 5, 6] ]
                             , under = "List.concat [ [ 1, 2, 3 ], [ 4, 5, 6] ]"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
-a =  [  1, 2, 3 ,  4, 5, 6 ]
+a = [  1, 2, 3 ,  4, 5, 6 ]
+"""
+                        ]
+        , test "should report List.concat that only contains list literals, using (<|)" <|
+            \() ->
+                """module A exposing (..)
+a = List.concat <| [ [ 1, 2, 3 ], [ 4, 5, 6 ] ]
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Expression could be simplified to be a single List"
+                            , details = [ "Try moving all the elements into a single list." ]
+                            , under = "List.concat <| [ [ 1, 2, 3 ], [ 4, 5, 6 ] ]"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = [  1, 2, 3 ,  4, 5, 6  ]
+"""
+                        ]
+        , test "should report List.concat that only contains list literals, using (|>)" <|
+            \() ->
+                """module A exposing (..)
+a = [ [ 1, 2, 3 ], [ 4, 5, 6 ] ] |> List.concat
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Expression could be simplified to be a single List"
+                            , details = [ "Try moving all the elements into a single list." ]
+                            , under = "[ [ 1, 2, 3 ], [ 4, 5, 6 ] ] |> List.concat"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = [  1, 2, 3 ,  4, 5, 6  ]
 """
                         ]
         , test "should concatenate consecutive list literals in passed to List.concat" <|
@@ -6667,6 +7119,38 @@ a = List.concat [ a, [ 0 ], b, [ 1, 2, 3 ], [ 4, 5, 6], [7], c, [8], [9 ] ]
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 a = List.concat [ a, [ 0 ], b, [ 1, 2, 3 ,  4, 5, 6, 7], c, [8, 9 ] ]
+"""
+                        ]
+        , test "should remove empty list literals passed to List.concat (last item)" <|
+            \() ->
+                """module A exposing (..)
+a = List.concat [ a, [] ]
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Found empty list in the list given List.concat"
+                            , details = [ "This element is unnecessary and can be removed." ]
+                            , under = "[]"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.concat [ a ]
+"""
+                        ]
+        , test "should remove empty list literals passed to List.concat (first item)" <|
+            \() ->
+                """module A exposing (..)
+a = List.concat [ [], b ]
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Found empty list in the list given List.concat"
+                            , details = [ "This element is unnecessary and can be removed." ]
+                            , under = "[]"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.concat [ b ]
 """
                         ]
         , test "should replace List.concat (List.map f x) by List.concatMap f x" <|
@@ -6923,6 +7407,38 @@ a = List.concatMap f [ a ]
 a =  f a
 """
                         ]
+        , test "should replace List.concatMap f [ b c ] by f (b c)" <|
+            \() ->
+                """module A exposing (..)
+a = List.concatMap f [ b c ]
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Using List.concatMap on an element with a single item is the same as calling the function directly on that lone element."
+                            , details = [ "You can replace this call by a call to the function directly." ]
+                            , under = "List.concatMap"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a =  f (b c)
+"""
+                        ]
+        , test "should replace List.concatMap f <| [ a ] by f <| a" <|
+            \() ->
+                """module A exposing (..)
+a = List.concatMap f <| [ a ]
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Using List.concatMap on an element with a single item is the same as calling the function directly on that lone element."
+                            , details = [ "You can replace this call by a call to the function directly." ]
+                            , under = "List.concatMap"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a =  f <| a
+"""
+                        ]
         , test "should replace List.concatMap f <| [ b c ] by f <| (b c)" <|
             \() ->
                 """module A exposing (..)
@@ -6939,7 +7455,7 @@ a = List.concatMap f <| [ b c ]
 a =  f <| (b c)
 """
                         ]
-        , test "should replace List.concatMap f <| [ c ] by c |> f" <|
+        , test "should replace [ c ] |> List.concatMap f by c |> f" <|
             \() ->
                 """module A exposing (..)
 a = [ c ] |> List.concatMap f
@@ -6955,7 +7471,7 @@ a = [ c ] |> List.concatMap f
 a = c |>  f
 """
                         ]
-        , test "should replace List.concatMap f <| [ b c ] by (b c) |> f" <|
+        , test "should replace [ b c ] |> List.concatMap f by (b c) |> f" <|
             \() ->
                 """module A exposing (..)
 a = [ b c ] |> List.concatMap f
@@ -7305,7 +7821,7 @@ d = List.member g (List.filter f list)
 """
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectNoErrors
-        , test "should replace List.member [] by Nothing" <|
+        , test "should replace List.member a [] by Nothing" <|
             \() ->
                 """module A exposing (..)
 a = List.member a []
@@ -7337,6 +7853,13 @@ a = List.member b (List.singleton b)
 a = True
 """
                         ]
+        , test "should not report List.member a (List.singleton a) when expecting NaN" <|
+            \() ->
+                """module A exposing (..)
+a = List.member b (List.singleton b)
+"""
+                    |> Review.Test.run ruleExpectingNaN
+                    |> Review.Test.expectNoErrors
         , test "should replace List.member b (List.singleton a) by b == a" <|
             \() ->
                 """module A exposing (..)
@@ -8384,10 +8907,10 @@ a = List.filterMap (\\a -> Nothing) x
 a = []
 """
                         ]
-        , test "should replace List.filterMap (\\a -> Just a) x by x" <|
+        , test "should replace List.filterMap (\\a -> Just b) x by x" <|
             \() ->
                 """module A exposing (..)
-a = List.filterMap (\\a -> Just a) x
+a = List.filterMap (\\a -> Just b) x
 """
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
@@ -8397,13 +8920,13 @@ a = List.filterMap (\\a -> Just a) x
                             , under = "List.filterMap"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
-a = List.map (\\a -> a) x
+a = List.map (\\a -> b) x
 """
                         ]
-        , test "should replace List.filterMap (\\a -> Just a) by identity" <|
+        , test "should replace List.filterMap (\\a -> Just b) by identity" <|
             \() ->
                 """module A exposing (..)
-a = List.filterMap (\\a -> Just a)
+a = List.filterMap (\\a -> Just b)
 """
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
@@ -8413,7 +8936,7 @@ a = List.filterMap (\\a -> Just a)
                             , under = "List.filterMap"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
-a = List.map (\\a -> a)
+a = List.map (\\a -> b)
 """
                         ]
         , test "should replace List.map (\\a -> Just b) x by List.filterMap (\\a -> b) x" <|
@@ -8448,7 +8971,7 @@ a = List.filterMap identity (List.map f x)
 a = (List.filterMap f x)
 """
                         ]
-        , test "should replace List.filterMap identity <| List.map f <| x by List.filterMap f <| x" <|
+        , test "should replace List.filterMap identity <| List.map f <| x by (List.filterMap f <| x)" <|
             \() ->
                 """module A exposing (..)
 a = List.filterMap identity <| List.map f <| x
@@ -8461,10 +8984,10 @@ a = List.filterMap identity <| List.map f <| x
                             , under = "List.filterMap identity"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
-a = List.filterMap f <| x
+a = (List.filterMap f <| x)
 """
                         ]
-        , test "should replace x |> List.map f |> List.filterMap identity by x |> List.filterMap f" <|
+        , test "should replace x |> List.map f |> List.filterMap identity by (x |> List.filterMap f)" <|
             \() ->
                 """module A exposing (..)
 a = x |> List.map f |> List.filterMap identity
@@ -8477,7 +9000,7 @@ a = x |> List.map f |> List.filterMap identity
                             , under = "List.filterMap identity"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
-a = x |> List.filterMap f
+a = (x |> List.filterMap f)
 """
                         ]
         , test "should replace List.map f >> List.filterMap identity by List.filterMap f" <|
@@ -8589,7 +9112,7 @@ a = List.indexedMap (\\_ y -> y) x
                         [ Review.Test.error
                             { message = "Use List.map instead"
                             , details = [ "Using List.indexedMap while ignoring the first argument is the same thing as calling List.map." ]
-                            , under = "_"
+                            , under = "List.indexedMap"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 a = List.map (\\y -> y) x
@@ -8605,7 +9128,7 @@ a = List.indexedMap (\\_ -> f) x
                         [ Review.Test.error
                             { message = "Use List.map instead"
                             , details = [ "Using List.indexedMap while ignoring the first argument is the same thing as calling List.map." ]
-                            , under = "_"
+                            , under = "List.indexedMap"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 a = List.map (f) x
@@ -8621,10 +9144,10 @@ a = List.indexedMap (always f) x
                         [ Review.Test.error
                             { message = "Use List.map instead"
                             , details = [ "Using List.indexedMap while ignoring the first argument is the same thing as calling List.map." ]
-                            , under = "always"
+                            , under = "List.indexedMap"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
-a = List.map (f) x
+a = List.map f x
 """
                         ]
         , test "should replace List.indexedMap (always <| f y) x by List.map (f y) x" <|
@@ -8637,7 +9160,7 @@ a = List.indexedMap (always <| f y) x
                         [ Review.Test.error
                             { message = "Use List.map instead"
                             , details = [ "Using List.indexedMap while ignoring the first argument is the same thing as calling List.map." ]
-                            , under = "always"
+                            , under = "List.indexedMap"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 a = List.map (f y) x
@@ -8653,7 +9176,7 @@ a = List.indexedMap (f y |> always) x
                         [ Review.Test.error
                             { message = "Use List.map instead"
                             , details = [ "Using List.indexedMap while ignoring the first argument is the same thing as calling List.map." ]
-                            , under = "always"
+                            , under = "List.indexedMap"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 a = List.map (f y) x
@@ -9944,16 +10467,6 @@ a = List.foldr (\\el soFar -> soFar - el) 20 list
 """
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectNoErrors
-        , test "should not report List.foldr ... << Set.toList ... used with wrong amount of arguments" <|
-            \() ->
-                """module A exposing (..)
-a = List.foldr reduce init << Set.toList list
-a = List.foldr reduce init compileTimeError << Set.toList
-a = List.foldr reduce << Set.toList
-a = List.foldr << Set.toList
-"""
-                    |> Review.Test.run ruleWithDefaults
-                    |> Review.Test.expectNoErrors
         , test "should replace List.foldr fn x [] by x" <|
             \() ->
                 """module A exposing (..)
@@ -11026,6 +11539,61 @@ a = List.any (always False)
 a = (always False)
 """
                         ]
+        , test "should replace List.any ((==) x) by List.member x" <|
+            \() ->
+                """module A exposing (..)
+a = List.any ((==) x)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Use List.member instead"
+                            , details = [ "This call to List.any checks for the presence of a value, which what List.member is for." ]
+                            , under = "List.any"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.member x
+"""
+                        ]
+        , test "should replace List.any (\\y -> y == x) by List.member x" <|
+            \() ->
+                """module A exposing (..)
+a = List.any (\\y -> y == x)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Use List.member instead"
+                            , details = [ "This call to List.any checks for the presence of a value, which what List.member is for." ]
+                            , under = "List.any"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.member x
+"""
+                        ]
+        , test "should replace List.any (\\y -> x == y) by List.member x" <|
+            \() ->
+                """module A exposing (..)
+a = List.any (\\y -> x == y)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Use List.member instead"
+                            , details = [ "This call to List.any checks for the presence of a value, which what List.member is for." ]
+                            , under = "List.any"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.member x
+"""
+                        ]
+        , test "should not replace List.any (\\z -> x == y)" <|
+            \() ->
+                """module A exposing (..)
+a = List.any (\\z -> x == y)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectNoErrors
         ]
 
 
@@ -12832,7 +13400,7 @@ a = Maybe.map f (Just x)
                             , under = "Maybe.map"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
-a = Just (f (x))
+a = Just (f x)
 """
                         ]
         , test "should replace Maybe.map f <| Just x by Just (f x)" <|
@@ -13040,10 +13608,10 @@ a = Maybe.andThen (always Nothing) x
 a = Nothing
 """
                         ]
-        , test "should replace Maybe.andThen (\\b -> Just b) x by Maybe.map (\\b -> b) x" <|
+        , test "should replace Maybe.andThen (\\b -> Just c) x by Maybe.map (\\b -> c) x" <|
             \() ->
                 """module A exposing (..)
-a = Maybe.andThen (\\b -> Just b) x
+a = Maybe.andThen (\\b -> Just c) x
 """
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
@@ -13053,7 +13621,7 @@ a = Maybe.andThen (\\b -> Just b) x
                             , under = "Maybe.andThen"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
-a = Maybe.map (\\b -> b) x
+a = Maybe.map (\\b -> c) x
 """
                         ]
         , test "should replace Maybe.andThen (\\b -> if cond then Just b else Just c) x by Maybe.map (\\b -> if cond then b else c) x" <|
@@ -13145,7 +13713,7 @@ a = Maybe.andThen (
 """
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectNoErrors
-        , test "should replace Maybe.andThen f (Just x) by f (x)" <|
+        , test "should replace Maybe.andThen f (Just x) by f x" <|
             \() ->
                 """module A exposing (..)
 a = Maybe.andThen f (Just x)
@@ -13158,7 +13726,7 @@ a = Maybe.andThen f (Just x)
                             , under = "Maybe.andThen"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
-a = f (x)
+a = f x
 """
                         ]
         , test "should replace Just x |> Maybe.andThen f by f (x)" <|
@@ -13219,7 +13787,7 @@ a = Maybe.withDefault x (Just y)
                             , under = "Maybe.withDefault"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
-a = (y)
+a = y
 """
                         ]
         , test "should replace Maybe.withDefault x <| (Just y) by y" <|
@@ -13235,7 +13803,7 @@ a = Maybe.withDefault x <| (Just y)
                             , under = "Maybe.withDefault"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
-a = (y)
+a = y
 """
                         ]
         , test "should replace (Just y) |> Maybe.withDefault x by y" <|
@@ -13251,7 +13819,7 @@ a = (Just y) |> Maybe.withDefault x
                             , under = "Maybe.withDefault"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
-a = (y)
+a = y
 """
                         ]
         , test "should replace y |> Just |> Maybe.withDefault x by y" <|
@@ -13455,7 +14023,7 @@ a = Result.map f (Ok x)
                             , under = "Result.map"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
-a = Ok (f (x))
+a = Ok (f x)
 """
                         ]
         , test "should replace Result.map f <| Ok x by Ok (f x)" <|
@@ -13769,8 +14337,8 @@ a = Result.mapError f (Err x)
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "Using Result.mapError on Err will result in Err with the function applied to the error"
-                            , details = [ "You can replace this call by Err with the function directly applied to the error itself." ]
+                            { message = "Calling Result.mapError on a value that is Err"
+                            , details = [ "The function can be called without Result.mapError." ]
                             , under = "Result.mapError"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -13785,8 +14353,8 @@ a = Result.mapError f <| Err x
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "Using Result.mapError on Err will result in Err with the function applied to the error"
-                            , details = [ "You can replace this call by Err with the function directly applied to the error itself." ]
+                            { message = "Calling Result.mapError on a value that is Err"
+                            , details = [ "The function can be called without Result.mapError." ]
                             , under = "Result.mapError"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -13801,8 +14369,8 @@ a = Err x |> Result.mapError f
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "Using Result.mapError on Err will result in Err with the function applied to the error"
-                            , details = [ "You can replace this call by Err with the function directly applied to the error itself." ]
+                            { message = "Calling Result.mapError on a value that is Err"
+                            , details = [ "The function can be called without Result.mapError." ]
                             , under = "Result.mapError"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -13817,8 +14385,8 @@ a = x |> Err |> Result.mapError f
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "Using Result.mapError on Err will result in Err with the function applied to the error"
-                            , details = [ "You can replace this call by Err with the function directly applied to the error itself." ]
+                            { message = "Calling Result.mapError on a value that is Err"
+                            , details = [ "The function can be called without Result.mapError." ]
                             , under = "Result.mapError"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -13833,8 +14401,8 @@ a = Result.mapError f <| Err <| x
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "Using Result.mapError on Err will result in Err with the function applied to the error"
-                            , details = [ "You can replace this call by Err with the function directly applied to the error itself." ]
+                            { message = "Calling Result.mapError on a value that is Err"
+                            , details = [ "The function can be called without Result.mapError." ]
                             , under = "Result.mapError"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -13973,10 +14541,10 @@ a = Result.andThen Ok x
 a = x
 """
                         ]
-        , test "should replace Result.andThen (\\b -> Ok b) x by Result.map (\\b -> b) x" <|
+        , test "should replace Result.andThen (\\b -> Ok c) x by Result.map (\\b -> c) x" <|
             \() ->
                 """module A exposing (..)
-a = Result.andThen (\\b -> Ok b) x
+a = Result.andThen (\\b -> Ok c) x
 """
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
@@ -13986,7 +14554,7 @@ a = Result.andThen (\\b -> Ok b) x
                             , under = "Result.andThen"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
-a = Result.map (\\b -> b) x
+a = Result.map (\\b -> c) x
 """
                         ]
         , test "should replace Result.andThen (\\b -> let y = 1 in Ok y) x by Result.map (\\b -> let y = 1 in y) x" <|
@@ -14041,7 +14609,7 @@ a = Result.andThen f (Ok x)
                             , under = "Result.andThen"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
-a = f (x)
+a = f x
 """
                         ]
         , test "should replace Ok x |> Result.andThen f by f (x)" <|
@@ -14102,7 +14670,7 @@ a = Result.withDefault x (Ok y)
                             , under = "Result.withDefault"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
-a = (y)
+a = y
 """
                         ]
         , test "should replace Result.withDefault x <| (Ok y) by y" <|
@@ -14118,7 +14686,7 @@ a = Result.withDefault x <| (Ok y)
                             , under = "Result.withDefault"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
-a = (y)
+a = y
 """
                         ]
         , test "should replace (Ok y) |> Result.withDefault x by y" <|
@@ -14134,7 +14702,7 @@ a = (Ok y) |> Result.withDefault x
                             , under = "Result.withDefault"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
-a = (y)
+a = y
 """
                         ]
         , test "should replace y |> Ok |> Result.withDefault x by y" <|
@@ -14196,7 +14764,7 @@ a = Result.toMaybe (Ok b)
                             , under = "Result.toMaybe"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
-a = Just (b)
+a = Just b
 """
                         ]
         , test "should replace Result.toMaybe <| Ok a by Just <| a" <|
@@ -14311,6 +14879,7 @@ setMapTests =
         [ test "should not report Set.map used with okay arguments" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.map f x
 """
                     |> Review.Test.run ruleWithDefaults
@@ -14318,6 +14887,7 @@ a = Set.map f x
         , test "should replace Set.map f Set.empty by Set.empty" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.map f Set.empty
 """
                     |> Review.Test.run ruleWithDefaults
@@ -14328,12 +14898,14 @@ a = Set.map f Set.empty
                             , under = "Set.map"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = Set.empty
 """
                         ]
         , test "should replace Set.map f <| Set.empty by Set.empty" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.map f <| Set.empty
 """
                     |> Review.Test.run ruleWithDefaults
@@ -14344,12 +14916,14 @@ a = Set.map f <| Set.empty
                             , under = "Set.map"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = Set.empty
 """
                         ]
         , test "should replace Set.empty |> Set.map f by Set.empty" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.empty |> Set.map f
 """
                     |> Review.Test.run ruleWithDefaults
@@ -14360,12 +14934,14 @@ a = Set.empty |> Set.map f
                             , under = "Set.map"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = Set.empty
 """
                         ]
         , test "should replace Set.map identity x by x" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.map identity x
 """
                     |> Review.Test.run ruleWithDefaults
@@ -14376,12 +14952,14 @@ a = Set.map identity x
                             , under = "Set.map"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = x
 """
                         ]
         , test "should replace Set.map identity <| x by x" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.map identity <| x
 """
                     |> Review.Test.run ruleWithDefaults
@@ -14392,12 +14970,14 @@ a = Set.map identity <| x
                             , under = "Set.map"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = x
 """
                         ]
         , test "should replace x |> Set.map identity by x" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = x |> Set.map identity
 """
                     |> Review.Test.run ruleWithDefaults
@@ -14408,12 +14988,14 @@ a = x |> Set.map identity
                             , under = "Set.map"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = x
 """
                         ]
         , test "should replace Set.map identity by identity" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.map identity
 """
                     |> Review.Test.run ruleWithDefaults
@@ -14424,12 +15006,14 @@ a = Set.map identity
                             , under = "Set.map"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = identity
 """
                         ]
         , test "should replace Set.map <| identity by identity" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.map <| identity
 """
                     |> Review.Test.run ruleWithDefaults
@@ -14440,12 +15024,14 @@ a = Set.map <| identity
                             , under = "Set.map"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = identity
 """
                         ]
         , test "should replace identity |> Set.map by identity" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = identity |> Set.map
 """
                     |> Review.Test.run ruleWithDefaults
@@ -14456,6 +15042,7 @@ a = identity |> Set.map
                             , under = "Set.map"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = identity
 """
                         ]
@@ -14468,6 +15055,7 @@ setFilterTests =
         [ test "should not report Set.filter used with okay arguments" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.filter f x
 """
                     |> Review.Test.run ruleWithDefaults
@@ -14475,6 +15063,7 @@ a = Set.filter f x
         , test "should replace Set.filter f Set.empty by Set.empty" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.filter f Set.empty
 """
                     |> Review.Test.run ruleWithDefaults
@@ -14485,12 +15074,14 @@ a = Set.filter f Set.empty
                             , under = "Set.filter"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = Set.empty
 """
                         ]
         , test "should replace Set.filter f <| Set.empty by Set.empty" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.filter f <| Set.empty
 """
                     |> Review.Test.run ruleWithDefaults
@@ -14501,12 +15092,14 @@ a = Set.filter f <| Set.empty
                             , under = "Set.filter"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = Set.empty
 """
                         ]
         , test "should replace Set.empty |> Set.filter f by Set.empty" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.empty |> Set.filter f
 """
                     |> Review.Test.run ruleWithDefaults
@@ -14517,12 +15110,14 @@ a = Set.empty |> Set.filter f
                             , under = "Set.filter"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = Set.empty
 """
                         ]
         , test "should replace Set.filter (always True) x by x" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.filter (always True) x
 """
                     |> Review.Test.run ruleWithDefaults
@@ -14533,12 +15128,14 @@ a = Set.filter (always True) x
                             , under = "Set.filter"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = x
 """
                         ]
         , test "should replace Set.filter (\\x -> True) x by x" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.filter (\\x -> True) x
 """
                     |> Review.Test.run ruleWithDefaults
@@ -14549,12 +15146,14 @@ a = Set.filter (\\x -> True) x
                             , under = "Set.filter"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = x
 """
                         ]
         , test "should replace Set.filter (always True) by identity" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.filter (always True)
 """
                     |> Review.Test.run ruleWithDefaults
@@ -14565,12 +15164,14 @@ a = Set.filter (always True)
                             , under = "Set.filter"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = identity
 """
                         ]
         , test "should replace Set.filter <| (always True) by identity" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.filter <| (always True)
 """
                     |> Review.Test.run ruleWithDefaults
@@ -14581,12 +15182,14 @@ a = Set.filter <| (always True)
                             , under = "Set.filter"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = identity
 """
                         ]
         , test "should replace always True |> Set.filter by identity" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = always True |> Set.filter
 """
                     |> Review.Test.run ruleWithDefaults
@@ -14597,12 +15200,14 @@ a = always True |> Set.filter
                             , under = "Set.filter"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = identity
 """
                         ]
         , test "should replace Set.filter (always False) x by Set.empty" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.filter (always False) x
 """
                     |> Review.Test.run ruleWithDefaults
@@ -14613,12 +15218,14 @@ a = Set.filter (always False) x
                             , under = "Set.filter"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = Set.empty
 """
                         ]
         , test "should replace Set.filter (\\x -> False) x by Set.empty" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.filter (\\x -> False) x
 """
                     |> Review.Test.run ruleWithDefaults
@@ -14629,12 +15236,14 @@ a = Set.filter (\\x -> False) x
                             , under = "Set.filter"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = Set.empty
 """
                         ]
         , test "should replace Set.filter (always False) <| x by Set.empty" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.filter (always False) <| x
 """
                     |> Review.Test.run ruleWithDefaults
@@ -14645,12 +15254,14 @@ a = Set.filter (always False) <| x
                             , under = "Set.filter"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = Set.empty
 """
                         ]
         , test "should replace x |> Set.filter (always False) by Set.empty" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = x |> Set.filter (always False)
 """
                     |> Review.Test.run ruleWithDefaults
@@ -14661,12 +15272,14 @@ a = x |> Set.filter (always False)
                             , under = "Set.filter"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = Set.empty
 """
                         ]
         , test "should replace Set.filter (always False) by always Set.empty" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.filter (always False)
 """
                     |> Review.Test.run ruleWithDefaults
@@ -14677,12 +15290,14 @@ a = Set.filter (always False)
                             , under = "Set.filter"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = always Set.empty
 """
                         ]
         , test "should replace Set.filter <| (always False) by always Set.empty" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.filter <| (always False)
 """
                     |> Review.Test.run ruleWithDefaults
@@ -14693,12 +15308,14 @@ a = Set.filter <| (always False)
                             , under = "Set.filter"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = always Set.empty
 """
                         ]
         , test "should replace always False |> Set.filter by always Set.empty" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = always False |> Set.filter
 """
                     |> Review.Test.run ruleWithDefaults
@@ -14709,6 +15326,7 @@ a = always False |> Set.filter
                             , under = "Set.filter"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = always Set.empty
 """
                         ]
@@ -14721,6 +15339,7 @@ setSizeTests =
         [ test "should not report Set.size used with okay arguments" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.size
 a = Set.size b
 """
@@ -14729,6 +15348,7 @@ a = Set.size b
         , test "should replace Set.size Set.empty by 0" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.size Set.empty
 """
                     |> Review.Test.run ruleWithDefaults
@@ -14739,12 +15359,14 @@ a = Set.size Set.empty
                             , under = "Set.size"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = 0
 """
                         ]
         , test "should not replace Set.size (Set.fromList [b, c, d])" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.size (Set.fromList [b, c, d])
 """
                     |> Review.Test.run ruleWithDefaults
@@ -14752,6 +15374,7 @@ a = Set.size (Set.fromList [b, c, d])
         , test "should replace Set.size (Set.fromList []) by 0" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.size (Set.fromList [])
 """
                     |> Review.Test.run ruleWithDefaults
@@ -14762,6 +15385,7 @@ a = Set.size (Set.fromList [])
                             , under = "Set.fromList"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = Set.size (Set.empty)
 """
                         , Review.Test.error
@@ -14770,12 +15394,14 @@ a = Set.size (Set.empty)
                             , under = "Set.size"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = 0
 """
                         ]
         , test "should replace Set.size (Set.fromList [a]) by 1" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.size (Set.fromList [a])
 """
                     |> Review.Test.run ruleWithDefaults
@@ -14786,6 +15412,7 @@ a = Set.size (Set.fromList [a])
                             , under = "Set.size"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = 1
 """
                         , Review.Test.error
@@ -14794,12 +15421,14 @@ a = 1
                             , under = "Set.fromList"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = Set.size (Set.singleton a)
 """
                         ]
         , test "should replace Set.size (Set.fromList [1, 2, 3]) by 3" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.size (Set.fromList [1, 2, 3])
 """
                     |> Review.Test.run ruleWithDefaults
@@ -14810,12 +15439,14 @@ a = Set.size (Set.fromList [1, 2, 3])
                             , under = "Set.size"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = 3
 """
                         ]
         , test "should replace Set.size (Set.fromList [1, 2, 3, 3, 0x3]) by 3" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.size (Set.fromList [1, 2, 3, 3, 0x3])
 """
                     |> Review.Test.run ruleWithDefaults
@@ -14826,12 +15457,14 @@ a = Set.size (Set.fromList [1, 2, 3, 3, 0x3])
                             , under = "Set.size"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = 3
 """
                         ]
         , test "should replace Set.size (Set.fromList [2, -2, -(-2)]) by 2" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.size (Set.fromList [2, -2, -2])
 """
                     |> Review.Test.run ruleWithDefaults
@@ -14842,12 +15475,14 @@ a = Set.size (Set.fromList [2, -2, -2])
                             , under = "Set.size"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = 2
 """
                         ]
         , test "should replace Set.size (Set.fromList [1.3, -1.3, 2.1, 2.1]) by 3" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.size (Set.fromList [1.3, -1.3, 2.1, 2.1])
 """
                     |> Review.Test.run ruleWithDefaults
@@ -14858,12 +15493,14 @@ a = Set.size (Set.fromList [1.3, -1.3, 2.1, 2.1])
                             , under = "Set.size"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = 3
 """
                         ]
         , test "should replace Set.size (Set.fromList [\"foo\", \"bar\", \"foo\"]) by 2" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.size (Set.fromList ["foo", "bar", "foo"])
 """
                     |> Review.Test.run ruleWithDefaults
@@ -14874,12 +15511,14 @@ a = Set.size (Set.fromList ["foo", "bar", "foo"])
                             , under = "Set.size"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = 2
 """
                         ]
         , test "should replace Set.size (Set.fromList ['a', 'b', ('a')]) by 2" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.size (Set.fromList ['a', 'b', ('a')])
 """
                     |> Review.Test.run ruleWithDefaults
@@ -14890,12 +15529,14 @@ a = Set.size (Set.fromList ['a', 'b', ('a')])
                             , under = "Set.size"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = 2
 """
                         ]
         , test "should replace Set.size (Set.fromList [([1, 2], [3, 4]), ([1, 2], [3, 4]), ([], [1])]) by 2" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.size (Set.fromList [([1, 2], [3, 4]), ([1, 2], [3, 4]), ([], [1])])
 """
                     |> Review.Test.run ruleWithDefaults
@@ -14906,12 +15547,14 @@ a = Set.size (Set.fromList [([1, 2], [3, 4]), ([1, 2], [3, 4]), ([], [1])])
                             , under = "Set.size"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = 2
 """
                         ]
         , test "should replace Set.empty |> Set.size by 0" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.empty |> Set.size
 """
                     |> Review.Test.run ruleWithDefaults
@@ -14922,12 +15565,14 @@ a = Set.empty |> Set.size
                             , under = "Set.size"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = 0
 """
                         ]
         , test "should replace Set.singleton x |> Set.size by 1" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.singleton x |> Set.size
 """
                     |> Review.Test.run ruleWithDefaults
@@ -14938,6 +15583,7 @@ a = Set.singleton x |> Set.size
                             , under = "Set.size"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = 1
 """
                         ]
@@ -14950,6 +15596,7 @@ setIsEmptyTests =
         [ test "should not report Set.isEmpty with okay arguments" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.isEmpty
 b = Set.isEmpty list
 """
@@ -14958,6 +15605,7 @@ b = Set.isEmpty list
         , test "should replace Set.isEmpty Set.empty by True" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.isEmpty Set.empty
 """
                     |> Review.Test.run ruleWithDefaults
@@ -14968,12 +15616,14 @@ a = Set.isEmpty Set.empty
                             , under = "Set.isEmpty"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = True
 """
                         ]
         , test "should replace Set.isEmpty (Set.fromList [x]) by False" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.isEmpty (Set.fromList [x])
 """
                     |> Review.Test.run ruleWithDefaults
@@ -14984,6 +15634,7 @@ a = Set.isEmpty (Set.fromList [x])
                             , under = "Set.isEmpty"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = False
 """
                         , Review.Test.error
@@ -14992,12 +15643,14 @@ a = False
                             , under = "Set.fromList"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = Set.isEmpty (Set.singleton x)
 """
                         ]
         , test "should replace Set.isEmpty (Set.fromList []) by False" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.isEmpty (Set.fromList [])
 """
                     |> Review.Test.run ruleWithDefaults
@@ -15008,6 +15661,7 @@ a = Set.isEmpty (Set.fromList [])
                             , under = "Set.isEmpty"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = True
 """
                         , Review.Test.error
@@ -15016,12 +15670,14 @@ a = True
                             , under = "Set.fromList"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = Set.isEmpty (Set.empty)
 """
                         ]
         , test "should replace Set.isEmpty (Set.singleton x) by False" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.isEmpty (Set.singleton x)
 """
                     |> Review.Test.run ruleWithDefaults
@@ -15032,12 +15688,14 @@ a = Set.isEmpty (Set.singleton x)
                             , under = "Set.isEmpty"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = False
 """
                         ]
         , test "should replace x :: xs |> Set.isEmpty by False" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.singleton x |> Set.isEmpty
 """
                     |> Review.Test.run ruleWithDefaults
@@ -15048,6 +15706,7 @@ a = Set.singleton x |> Set.isEmpty
                             , under = "Set.isEmpty"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = False
 """
                         ]
@@ -15060,6 +15719,7 @@ setFromListTests =
         [ test "should not report Set.fromList with okay arguments" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.fromList
 b = Set.fromList list
 c = Set.fromList (x :: ys)
@@ -15070,6 +15730,7 @@ d = Set.fromList [x, y]
         , test "should replace Set.fromList [] by Set.empty" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.fromList []
 """
                     |> Review.Test.run ruleWithDefaults
@@ -15080,12 +15741,14 @@ a = Set.fromList []
                             , under = "Set.fromList"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = Set.empty
 """
                         ]
         , test "should replace Set.fromList [ a ] by Set.singleton a" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.fromList [ b ]
 """
                     |> Review.Test.run (rule defaults)
@@ -15096,12 +15759,14 @@ a = Set.fromList [ b ]
                             , under = "Set.fromList"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = Set.singleton b
 """
                         ]
         , test "should replace Set.fromList [ f a ] by Set.singleton (f a)" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.fromList [ f b ]
 """
                     |> Review.Test.run (rule defaults)
@@ -15112,12 +15777,14 @@ a = Set.fromList [ f b ]
                             , under = "Set.fromList"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = Set.singleton (f b)
 """
                         ]
         , test "should replace Set.fromList (List.singleton a) by Set.singleton a" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.fromList (List.singleton b)
 """
                     |> Review.Test.run (rule defaults)
@@ -15128,12 +15795,14 @@ a = Set.fromList (List.singleton b)
                             , under = "Set.fromList"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = Set.singleton b
 """
                         ]
         , test "should replace Set.fromList <| List.singleton a by Set.singleton <| a" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.fromList <| List.singleton b
 """
                     |> Review.Test.run (rule defaults)
@@ -15144,12 +15813,14 @@ a = Set.fromList <| List.singleton b
                             , under = "Set.fromList"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = Set.singleton <| b
 """
                         ]
         , test "should replace List.singleton a |> Set.fromList by a |> Set.singleton" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = List.singleton b |> Set.fromList
 """
                     |> Review.Test.run (rule defaults)
@@ -15160,12 +15831,14 @@ a = List.singleton b |> Set.fromList
                             , under = "Set.fromList"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = b |> Set.singleton
 """
                         ]
         , test "should replace List.singleton >> Set.fromList by Set.singleton" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = List.singleton >> Set.fromList
 """
                     |> Review.Test.run (rule defaults)
@@ -15176,12 +15849,14 @@ a = List.singleton >> Set.fromList
                             , under = "Set.fromList"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = Set.singleton
 """
                         ]
         , test "should replace Set.fromList << List.singleton by Set.singleton" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.fromList << List.singleton
 """
                     |> Review.Test.run (rule defaults)
@@ -15192,6 +15867,7 @@ a = Set.fromList << List.singleton
                             , under = "Set.fromList"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = Set.singleton
 """
                         ]
@@ -15204,6 +15880,7 @@ setToListTests =
         [ test "should not report Set.toList with okay arguments" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.toList
 b = Set.toList list
 c = Set.toList set
@@ -15213,6 +15890,7 @@ c = Set.toList set
         , test "should replace Set.toList Set.empty by []" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.toList Set.empty
 """
                     |> Review.Test.run ruleWithDefaults
@@ -15223,6 +15901,7 @@ a = Set.toList Set.empty
                             , under = "Set.toList"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = []
 """
                         ]
@@ -15235,6 +15914,7 @@ setPartitionTests =
         [ test "should not report Set.partition used with okay arguments" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.partition f x
 """
                     |> Review.Test.run ruleWithDefaults
@@ -15242,6 +15922,7 @@ a = Set.partition f x
         , test "should replace Set.partition f Set.empty by ( Set.empty, Set.empty )" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.partition f Set.empty
 """
                     |> Review.Test.run ruleWithDefaults
@@ -15252,12 +15933,14 @@ a = Set.partition f Set.empty
                             , under = "Set.partition"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = ( Set.empty, Set.empty )
 """
                         ]
         , test "should replace Set.partition f <| Set.empty by ( Set.empty, Set.empty )" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.partition f <| Set.empty
 """
                     |> Review.Test.run ruleWithDefaults
@@ -15268,12 +15951,14 @@ a = Set.partition f <| Set.empty
                             , under = "Set.partition"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = ( Set.empty, Set.empty )
 """
                         ]
         , test "should replace Set.empty |> Set.partition f by ( Set.empty, Set.empty )" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.empty |> Set.partition f
 """
                     |> Review.Test.run ruleWithDefaults
@@ -15284,12 +15969,14 @@ a = Set.empty |> Set.partition f
                             , under = "Set.partition"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = ( Set.empty, Set.empty )
 """
                         ]
         , test "should replace Set.partition (always True) x by ( x, Set.empty )" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.partition (always True) x
 """
                     |> Review.Test.run ruleWithDefaults
@@ -15300,6 +15987,7 @@ a = Set.partition (always True) x
                             , under = "Set.partition"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = ( x, Set.empty )
 """
                         ]
@@ -15309,6 +15997,7 @@ a = ( x, Set.empty )
             -- so that we can generate a unique variable.
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.partition (always True)
 """
                     |> Review.Test.run ruleWithDefaults
@@ -15316,6 +16005,7 @@ a = Set.partition (always True)
         , test "should replace Set.partition (always False) x by ( Set.empty, x )" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.partition (always False) x
 """
                     |> Review.Test.run ruleWithDefaults
@@ -15326,12 +16016,14 @@ a = Set.partition (always False) x
                             , under = "Set.partition"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = ( Set.empty, x )
 """
                         ]
         , test "should replace Set.partition (always False) by (Tuple.pair Set.empty)" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.partition (always False)
 """
                     |> Review.Test.run ruleWithDefaults
@@ -15342,12 +16034,14 @@ a = Set.partition (always False)
                             , under = "Set.partition"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = (Tuple.pair Set.empty)
 """
                         ]
         , test "should replace Set.partition <| (always False) by (Tuple.pair Set.empty)" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.partition <| (always False)
 """
                     |> Review.Test.run ruleWithDefaults
@@ -15358,12 +16052,14 @@ a = Set.partition <| (always False)
                             , under = "Set.partition"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = (Tuple.pair Set.empty)
 """
                         ]
         , test "should replace always False |> Set.partition by Tuple.pair Set.empty" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = always False |> Set.partition
 """
                     |> Review.Test.run ruleWithDefaults
@@ -15374,6 +16070,7 @@ a = always False |> Set.partition
                             , under = "Set.partition"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = (Tuple.pair Set.empty)
 """
                         ]
@@ -15386,6 +16083,7 @@ setRemoveTests =
         [ test "should not report Set.remove used with okay arguments" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.remove x x
 """
                     |> Review.Test.run ruleWithDefaults
@@ -15393,6 +16091,7 @@ a = Set.remove x x
         , test "should replace Set.remove x Set.empty by Set.empty" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.remove x Set.empty
 """
                     |> Review.Test.run ruleWithDefaults
@@ -15403,6 +16102,7 @@ a = Set.remove x Set.empty
                             , under = "Set.remove"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = Set.empty
 """
                         ]
@@ -15415,6 +16115,7 @@ setMemberTests =
         [ test "should not report Set.member used with okay arguments" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.member x y
 """
                     |> Review.Test.run ruleWithDefaults
@@ -15422,6 +16123,7 @@ a = Set.member x y
         , test "should replace Set.member x Set.empty by False" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.member x Set.empty
 """
                     |> Review.Test.run ruleWithDefaults
@@ -15432,6 +16134,7 @@ a = Set.member x Set.empty
                             , under = "Set.member"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = False
 """
                         ]
@@ -15444,6 +16147,7 @@ setIntersectTests =
         [ test "should not report Set.intersect used with okay arguments" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.intersect x x
 """
                     |> Review.Test.run ruleWithDefaults
@@ -15451,6 +16155,7 @@ a = Set.intersect x x
         , test "should replace Set.intersect Set.empty set by Set.empty" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.intersect Set.empty set
 """
                     |> Review.Test.run ruleWithDefaults
@@ -15461,12 +16166,14 @@ a = Set.intersect Set.empty set
                             , under = "Set.intersect"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = Set.empty
 """
                         ]
         , test "should replace Set.intersect set Set.empty by Set.empty" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.intersect set Set.empty
 """
                     |> Review.Test.run ruleWithDefaults
@@ -15477,6 +16184,7 @@ a = Set.intersect set Set.empty
                             , under = "Set.intersect"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = Set.empty
 """
                         ]
@@ -15489,6 +16197,7 @@ setDiffTests =
         [ test "should not report Set.diff used with okay arguments" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.diff x y
 """
                     |> Review.Test.run ruleWithDefaults
@@ -15496,6 +16205,7 @@ a = Set.diff x y
         , test "should replace Set.diff Set.empty set by Set.empty" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.diff Set.empty set
 """
                     |> Review.Test.run ruleWithDefaults
@@ -15506,12 +16216,14 @@ a = Set.diff Set.empty set
                             , under = "Set.diff"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = Set.empty
 """
                         ]
         , test "should replace Set.diff set Set.empty by set" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.diff set Set.empty
 """
                     |> Review.Test.run ruleWithDefaults
@@ -15522,12 +16234,14 @@ a = Set.diff set Set.empty
                             , under = "Set.diff"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = set
 """
                         ]
         , test "should replace Set.empty |> Set.diff set by set" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.empty |> Set.diff set
 """
                     |> Review.Test.run ruleWithDefaults
@@ -15538,6 +16252,7 @@ a = Set.empty |> Set.diff set
                             , under = "Set.diff"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = set
 """
                         ]
@@ -15550,6 +16265,7 @@ setUnionTests =
         [ test "should not report Set.union used with okay arguments" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.union x y
 """
                     |> Review.Test.run ruleWithDefaults
@@ -15557,6 +16273,7 @@ a = Set.union x y
         , test "should replace Set.union Set.empty set by set" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.union Set.empty set
 """
                     |> Review.Test.run ruleWithDefaults
@@ -15567,12 +16284,14 @@ a = Set.union Set.empty set
                             , under = "Set.union"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = set
 """
                         ]
         , test "should replace Set.union set Set.empty by set" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.union set Set.empty
 """
                     |> Review.Test.run ruleWithDefaults
@@ -15583,12 +16302,14 @@ a = Set.union set Set.empty
                             , under = "Set.union"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = set
 """
                         ]
         , test "should replace Set.empty |> Set.union set by set" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.empty |> Set.union set
 """
                     |> Review.Test.run ruleWithDefaults
@@ -15599,12 +16320,14 @@ a = Set.empty |> Set.union set
                             , under = "Set.union"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = set
 """
                         ]
         , test "should replace set |> Set.union Set.empty by set" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.empty |> Set.union set
 """
                     |> Review.Test.run ruleWithDefaults
@@ -15615,6 +16338,7 @@ a = Set.empty |> Set.union set
                             , under = "Set.union"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = set
 """
                         ]
@@ -15627,6 +16351,7 @@ setInsertTests =
         [ test "should not report Set.insert used with okay arguments" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.insert x y
 """
                     |> Review.Test.run ruleWithDefaults
@@ -15634,6 +16359,7 @@ a = Set.insert x y
         , test "should replace Set.insert x Set.empty by Set.singleton x" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.insert x Set.empty
 """
                     |> Review.Test.run ruleWithDefaults
@@ -15644,12 +16370,14 @@ a = Set.insert x Set.empty
                             , under = "Set.insert"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = Set.singleton x
 """
                         ]
         , test "should replace Set.empty |> Set.insert x by Set.singleton x" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.empty |> Set.insert x
 """
                     |> Review.Test.run ruleWithDefaults
@@ -15660,6 +16388,7 @@ a = Set.empty |> Set.insert x
                             , under = "Set.insert"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = Set.singleton x
 """
                         ]
@@ -15688,6 +16417,7 @@ dictIsEmptyTests =
         [ test "should not report Dict.isEmpty with okay arguments" <|
             \() ->
                 """module A exposing (..)
+import Dict
 a = Dict.isEmpty
 b = Dict.isEmpty list
 """
@@ -15696,6 +16426,7 @@ b = Dict.isEmpty list
         , test "should replace Dict.isEmpty Dict.empty by True" <|
             \() ->
                 """module A exposing (..)
+import Dict
 a = Dict.isEmpty Dict.empty
 """
                     |> Review.Test.run ruleWithDefaults
@@ -15706,12 +16437,14 @@ a = Dict.isEmpty Dict.empty
                             , under = "Dict.isEmpty"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Dict
 a = True
 """
                         ]
         , test "should replace Dict.isEmpty (Dict.fromList [x]) by False" <|
             \() ->
                 """module A exposing (..)
+import Dict
 a = Dict.isEmpty (Dict.fromList [x])
 """
                     |> Review.Test.run ruleWithDefaults
@@ -15722,12 +16455,14 @@ a = Dict.isEmpty (Dict.fromList [x])
                             , under = "Dict.isEmpty"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Dict
 a = False
 """
                         ]
         , test "should replace Dict.isEmpty (Dict.fromList []) by False" <|
             \() ->
                 """module A exposing (..)
+import Dict
 a = Dict.isEmpty (Dict.fromList [])
 """
                     |> Review.Test.run ruleWithDefaults
@@ -15738,6 +16473,7 @@ a = Dict.isEmpty (Dict.fromList [])
                             , under = "Dict.isEmpty"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Dict
 a = True
 """
                         , Review.Test.error
@@ -15746,12 +16482,14 @@ a = True
                             , under = "Dict.fromList"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Dict
 a = Dict.isEmpty (Dict.empty)
 """
                         ]
         , test "should replace Dict.isEmpty (Dict.singleton x) by False" <|
             \() ->
                 """module A exposing (..)
+import Dict
 a = Dict.isEmpty (Dict.singleton x y)
 """
                     |> Review.Test.run ruleWithDefaults
@@ -15762,12 +16500,14 @@ a = Dict.isEmpty (Dict.singleton x y)
                             , under = "Dict.isEmpty"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Dict
 a = False
 """
                         ]
         , test "should replace x :: xs |> Dict.isEmpty by False" <|
             \() ->
                 """module A exposing (..)
+import Dict
 a = Dict.singleton x y |> Dict.isEmpty
 """
                     |> Review.Test.run ruleWithDefaults
@@ -15778,6 +16518,7 @@ a = Dict.singleton x y |> Dict.isEmpty
                             , under = "Dict.isEmpty"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Dict
 a = False
 """
                         ]
@@ -15790,6 +16531,7 @@ dictFromListTests =
         [ test "should not report Dict.fromList with okay arguments" <|
             \() ->
                 """module A exposing (..)
+import Dict
 a = Dict.fromList
 b = Dict.fromList list
 b = Dict.fromList [x]
@@ -15800,6 +16542,7 @@ b = Dict.fromList [x, y]
         , test "should replace Dict.fromList [] by Dict.empty" <|
             \() ->
                 """module A exposing (..)
+import Dict
 a = Dict.fromList []
 """
                     |> Review.Test.run ruleWithDefaults
@@ -15810,6 +16553,7 @@ a = Dict.fromList []
                             , under = "Dict.fromList"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Dict
 a = Dict.empty
 """
                         ]
@@ -15822,6 +16566,7 @@ dictToListTests =
         [ test "should not report Dict.toList with okay arguments" <|
             \() ->
                 """module A exposing (..)
+import Dict
 a = Dict.toList
 b = Dict.toList list
 c = Dict.toList set
@@ -15831,6 +16576,7 @@ c = Dict.toList set
         , test "should replace Dict.toList Dict.empty by []" <|
             \() ->
                 """module A exposing (..)
+import Dict
 a = Dict.toList Dict.empty
 """
                     |> Review.Test.run ruleWithDefaults
@@ -15841,6 +16587,7 @@ a = Dict.toList Dict.empty
                             , under = "Dict.toList"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Dict
 a = []
 """
                         ]
@@ -15853,14 +16600,25 @@ dictSizeTests =
         [ test "should not report Dict.size used with okay arguments" <|
             \() ->
                 """module A exposing (..)
+import Dict
 a = Dict.size
 a = Dict.size b
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectNoErrors
+        , test "should not replace Dict.size Dict.fromList with unknown keys because they could contain duplicate keys which would make the final dict size smaller" <|
+            \() ->
+                """module A exposing (..)
+import Dict
+a = Dict.size (Dict.fromList [b, c, d])
+a = Dict.size (Dict.fromList [(b, 'b'), (c,'c'), (d,'d')])
 """
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectNoErrors
         , test "should replace Dict.size Dict.empty by 0" <|
             \() ->
                 """module A exposing (..)
+import Dict
 a = Dict.size Dict.empty
 """
                     |> Review.Test.run ruleWithDefaults
@@ -15871,28 +16629,14 @@ a = Dict.size Dict.empty
                             , under = "Dict.size"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Dict
 a = 0
-"""
-                        ]
-        , test "should replace Dict.size (Dict.fromList [b, c, d]) by 3" <|
-            \() ->
-                """module A exposing (..)
-a = Dict.size (Dict.fromList [b, c, d])
-"""
-                    |> Review.Test.run ruleWithDefaults
-                    |> Review.Test.expectErrors
-                        [ Review.Test.error
-                            { message = "The size of the Dict is 3"
-                            , details = [ "The size of the Dict can be determined by looking at the code." ]
-                            , under = "Dict.size"
-                            }
-                            |> Review.Test.whenFixed """module A exposing (..)
-a = 3
 """
                         ]
         , test "should replace Dict.empty |> Dict.size by 0" <|
             \() ->
                 """module A exposing (..)
+import Dict
 a = Dict.empty |> Dict.size
 """
                     |> Review.Test.run ruleWithDefaults
@@ -15903,12 +16647,14 @@ a = Dict.empty |> Dict.size
                             , under = "Dict.size"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Dict
 a = 0
 """
                         ]
         , test "should replace Dict.singleton x y |> Dict.size by 1" <|
             \() ->
                 """module A exposing (..)
+import Dict
 a = Dict.singleton x y |> Dict.size
 """
                     |> Review.Test.run ruleWithDefaults
@@ -15919,7 +16665,107 @@ a = Dict.singleton x y |> Dict.size
                             , under = "Dict.size"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Dict
 a = 1
+"""
+                        ]
+        , test "should replace Dict.size (Dict.fromList []) by 0" <|
+            \() ->
+                """module A exposing (..)
+import Dict
+a = Dict.size (Dict.fromList [])
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "The call to Dict.fromList will result in Dict.empty"
+                            , details = [ "You can replace this call by Dict.empty." ]
+                            , under = "Dict.fromList"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Dict
+a = Dict.size (Dict.empty)
+"""
+                        , Review.Test.error
+                            { message = "The size of the Dict is 0"
+                            , details = [ "The size of the Dict can be determined by looking at the code." ]
+                            , under = "Dict.size"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Dict
+a = 0
+"""
+                        ]
+        , test "should replace Dict.size (Dict.fromList [a]) by 1" <|
+            \() ->
+                """module A exposing (..)
+import Dict
+a = Dict.size (Dict.fromList [a])
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "The size of the Dict is 1"
+                            , details = [ "The size of the Dict can be determined by looking at the code." ]
+                            , under = "Dict.size"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Dict
+a = 1
+"""
+                        ]
+        , test "should replace Dict.size (Dict.fromList [(1,1), (2,1), (3,1)]) by 3" <|
+            \() ->
+                """module A exposing (..)
+import Dict
+a = Dict.size (Dict.fromList [(1,1), (2,1), (3,1)])
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "The size of the Dict is 3"
+                            , details = [ "The size of the Dict can be determined by looking at the code." ]
+                            , under = "Dict.size"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Dict
+a = 3
+"""
+                        ]
+        , test "should replace Dict.size (Dict.fromList [(1,1), (2,1), (3,1), (3,2), (0x3,2)]) by 3" <|
+            \() ->
+                """module A exposing (..)
+import Dict
+a = Dict.size (Dict.fromList [(1,1), (2,1), (3,1), (3,2), (0x3,2)])
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "The size of the Dict is 3"
+                            , details = [ "The size of the Dict can be determined by looking at the code." ]
+                            , under = "Dict.size"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Dict
+a = 3
+"""
+                        ]
+        , test "should replace Dict.size (Dict.fromList [(1.3,()), (-1.3,()), (2.1,()), (2.1,())]) by 3" <|
+            \() ->
+                """module A exposing (..)
+import Dict
+a = Dict.size (Dict.fromList [(1.3,()), (-1.3,()), (2.1,()), (2.1,())])
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "The size of the Dict is 3"
+                            , details = [ "The size of the Dict can be determined by looking at the code." ]
+                            , under = "Dict.size"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Dict
+a = 3
 """
                         ]
         ]
@@ -15931,6 +16777,7 @@ dictMemberTests =
         [ test "should not report Dict.member used with okay arguments" <|
             \() ->
                 """module A exposing (..)
+import Dict
 a = Dict.member x y
 """
                     |> Review.Test.run ruleWithDefaults
@@ -15938,6 +16785,7 @@ a = Dict.member x y
         , test "should replace Dict.member x Dict.empty by False" <|
             \() ->
                 """module A exposing (..)
+import Dict
 a = Dict.member x Dict.empty
 """
                     |> Review.Test.run ruleWithDefaults
@@ -15948,6 +16796,7 @@ a = Dict.member x Dict.empty
                             , under = "Dict.member"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Dict
 a = False
 """
                         ]
@@ -15960,6 +16809,7 @@ dictPartitionTests =
         [ test "should not report Dict.partition used with okay arguments" <|
             \() ->
                 """module A exposing (..)
+import Dict
 a = Dict.partition f
 a = Dict.partition f x
 """
@@ -15968,6 +16818,7 @@ a = Dict.partition f x
         , test "should replace Dict.partition f Dict.empty by ( Dict.empty, Dict.empty )" <|
             \() ->
                 """module A exposing (..)
+import Dict
 a = Dict.partition f Dict.empty
 """
                     |> Review.Test.run ruleWithDefaults
@@ -15978,12 +16829,14 @@ a = Dict.partition f Dict.empty
                             , under = "Dict.partition"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Dict
 a = ( Dict.empty, Dict.empty )
 """
                         ]
         , test "should replace Dict.partition f <| Dict.empty by ( Dict.empty, Dict.empty )" <|
             \() ->
                 """module A exposing (..)
+import Dict
 a = Dict.partition f <| Dict.empty
 """
                     |> Review.Test.run ruleWithDefaults
@@ -15994,12 +16847,14 @@ a = Dict.partition f <| Dict.empty
                             , under = "Dict.partition"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Dict
 a = ( Dict.empty, Dict.empty )
 """
                         ]
         , test "should replace Dict.empty |> Dict.partition f by ( Dict.empty, Dict.empty )" <|
             \() ->
                 """module A exposing (..)
+import Dict
 a = Dict.empty |> Dict.partition f
 """
                     |> Review.Test.run ruleWithDefaults
@@ -16010,12 +16865,14 @@ a = Dict.empty |> Dict.partition f
                             , under = "Dict.partition"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Dict
 a = ( Dict.empty, Dict.empty )
 """
                         ]
         , test "should replace Dict.partition (always True) x by ( x, Dict.empty )" <|
             \() ->
                 """module A exposing (..)
+import Dict
 a = Dict.partition (always True) x
 """
                     |> Review.Test.run ruleWithDefaults
@@ -16026,12 +16883,14 @@ a = Dict.partition (always True) x
                             , under = "Dict.partition"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Dict
 a = ( x, Dict.empty )
 """
                         ]
         , test "should replace Dict.partition (\\_ -> True) x by ( x, Dict.empty )" <|
             \() ->
                 """module A exposing (..)
+import Dict
 a = Dict.partition (\\_ -> True) x
 """
                     |> Review.Test.run ruleWithDefaults
@@ -16042,6 +16901,7 @@ a = Dict.partition (\\_ -> True) x
                             , under = "Dict.partition"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Dict
 a = ( x, Dict.empty )
 """
                         ]
@@ -16051,6 +16911,7 @@ a = ( x, Dict.empty )
             -- so that we can generate a unique variable.
             \() ->
                 """module A exposing (..)
+import Dict
 a = Dict.partition (always True)
 """
                     |> Review.Test.run ruleWithDefaults
@@ -16058,6 +16919,7 @@ a = Dict.partition (always True)
         , test "should replace Dict.partition (always False) x by ( Dict.empty, x )" <|
             \() ->
                 """module A exposing (..)
+import Dict
 a = Dict.partition (always False) x
 """
                     |> Review.Test.run ruleWithDefaults
@@ -16068,12 +16930,14 @@ a = Dict.partition (always False) x
                             , under = "Dict.partition"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Dict
 a = ( Dict.empty, x )
 """
                         ]
         , test "should replace Dict.partition (always False) by (Tuple.pair Dict.empty)" <|
             \() ->
                 """module A exposing (..)
+import Dict
 a = Dict.partition (always False)
 """
                     |> Review.Test.run ruleWithDefaults
@@ -16084,12 +16948,14 @@ a = Dict.partition (always False)
                             , under = "Dict.partition"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Dict
 a = (Tuple.pair Dict.empty)
 """
                         ]
         , test "should replace Dict.partition <| (always False) by (Tuple.pair Dict.empty)" <|
             \() ->
                 """module A exposing (..)
+import Dict
 a = Dict.partition <| (always False)
 """
                     |> Review.Test.run ruleWithDefaults
@@ -16100,12 +16966,14 @@ a = Dict.partition <| (always False)
                             , under = "Dict.partition"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Dict
 a = (Tuple.pair Dict.empty)
 """
                         ]
         , test "should replace always False |> Dict.partition by Tuple.pair Dict.empty" <|
             \() ->
                 """module A exposing (..)
+import Dict
 a = always False |> Dict.partition
 """
                     |> Review.Test.run ruleWithDefaults
@@ -16116,6 +16984,7 @@ a = always False |> Dict.partition
                             , under = "Dict.partition"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Dict
 a = (Tuple.pair Dict.empty)
 """
                         ]
@@ -16242,7 +17111,7 @@ a = Cmd.map identity cmd
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "Using Cmd.map with an identity function is the same as not using Cmd.map"
+                            { message = "Using Platform.Cmd.map with an identity function is the same as not using Platform.Cmd.map"
                             , details = [ "You can remove this call and replace it by the command itself." ]
                             , under = "Cmd.map"
                             }
@@ -16258,7 +17127,7 @@ a = Cmd.map f Cmd.none
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "Using Cmd.map on Cmd.none will result in Cmd.none"
+                            { message = "Using Platform.Cmd.map on Cmd.none will result in Cmd.none"
                             , details = [ "You can replace this call by Cmd.none." ]
                             , under = "Cmd.map"
                             }
@@ -16405,7 +17274,7 @@ a = Sub.map identity sub
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "Using Sub.map with an identity function is the same as not using Sub.map"
+                            { message = "Using Platform.Sub.map with an identity function is the same as not using Platform.Sub.map"
                             , details = [ "You can remove this call and replace it by the subscription itself." ]
                             , under = "Sub.map"
                             }
@@ -16421,7 +17290,7 @@ a = Sub.map f Sub.none
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "Using Sub.map on Sub.none will result in Sub.none"
+                            { message = "Using Platform.Sub.map on Sub.none will result in Sub.none"
                             , details = [ "You can replace this call by Sub.none." ]
                             , under = "Sub.map"
                             }
@@ -16809,6 +17678,1400 @@ a = Html.Attributes.classList (y :: tail)
 
 
 
+-- Random
+
+
+randomTests : Test
+randomTests =
+    Test.describe "Random"
+        [ randomUniformTests
+        , randomWeightedChecks
+        , randomListTests
+        , randomMapTests
+        ]
+
+
+randomUniformTests : Test
+randomUniformTests =
+    Test.describe "Random.uniform"
+        [ test "should not report Random.uniform used with okay arguments" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = Random.uniform
+b = Random.uniform []
+c = Random.uniform first
+d = Random.uniform head tail
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectNoErrors
+        , test "should replace Random.uniform a [] by Random.constant a" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = Random.uniform a []
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Random.uniform with only one possible value can be replaced by Random.constant"
+                            , details = [ "Only a single value can be produced by this Random.uniform call. You can replace the call with Random.constant with the value." ]
+                            , under = "Random.uniform"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = Random.constant a
+"""
+                        ]
+        , test "should replace Random.uniform a <| [] by Random.constant a" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = Random.uniform a <| []
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Random.uniform with only one possible value can be replaced by Random.constant"
+                            , details = [ "Only a single value can be produced by this Random.uniform call. You can replace the call with Random.constant with the value." ]
+                            , under = "Random.uniform"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = Random.constant a
+"""
+                        ]
+        , test "should replace [] |> Random.uniform a by Random.constant a" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = [] |> Random.uniform a
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Random.uniform with only one possible value can be replaced by Random.constant"
+                            , details = [ "Only a single value can be produced by this Random.uniform call. You can replace the call with Random.constant with the value." ]
+                            , under = "Random.uniform"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = Random.constant a
+"""
+                        ]
+        ]
+
+
+randomWeightedChecks : Test
+randomWeightedChecks =
+    Test.describe "Random.weighted"
+        [ test "should not report Random.uniform used with okay arguments" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = Random.weighted
+b = Random.weighted []
+c = Random.weighted first
+d = Random.weighted head tail
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectNoErrors
+        , test "should replace Random.weighted ( w, a ) [] by Random.constant a" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = Random.weighted ( w, a ) []
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Random.weighted with only one possible value can be replaced by Random.constant"
+                            , details = [ "Only a single value can be produced by this Random.weighted call. You can replace the call with Random.constant with the value." ]
+                            , under = "Random.weighted"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = Random.constant a
+"""
+                        ]
+        , test "should replace Random.weighted ( w, a ) <| [] by Random.constant a" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = Random.weighted ( w, a ) <| []
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Random.weighted with only one possible value can be replaced by Random.constant"
+                            , details = [ "Only a single value can be produced by this Random.weighted call. You can replace the call with Random.constant with the value." ]
+                            , under = "Random.weighted"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = Random.constant a
+"""
+                        ]
+        , test "should replace [] |> Random.weighted ( w, a ) by Random.constant a" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = [] |> Random.weighted ( w, a )
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Random.weighted with only one possible value can be replaced by Random.constant"
+                            , details = [ "Only a single value can be produced by this Random.weighted call. You can replace the call with Random.constant with the value." ]
+                            , under = "Random.weighted"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = Random.constant a
+"""
+                        ]
+        , test "should replace Random.weighted tuple [] by Random.constant (Tuple.first tuple)" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = Random.weighted tuple []
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Random.weighted with only one possible value can be replaced by Random.constant"
+                            , details = [ "Only a single value can be produced by this Random.weighted call. You can replace the call with Random.constant with the value." ]
+                            , under = "Random.weighted"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = Random.constant (Tuple.first tuple)
+"""
+                        ]
+        , test "should replace Random.weighted tuple <| [] by Random.constant (Tuple.first tuple)" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = Random.weighted tuple <| []
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Random.weighted with only one possible value can be replaced by Random.constant"
+                            , details = [ "Only a single value can be produced by this Random.weighted call. You can replace the call with Random.constant with the value." ]
+                            , under = "Random.weighted"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = Random.constant (Tuple.first tuple)
+"""
+                        ]
+        , test "should replace [] |> Random.weighted tuple by Random.constant (Tuple.first tuple)" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = [] |> Random.weighted tuple
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Random.weighted with only one possible value can be replaced by Random.constant"
+                            , details = [ "Only a single value can be produced by this Random.weighted call. You can replace the call with Random.constant with the value." ]
+                            , under = "Random.weighted"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = Random.constant (Tuple.first tuple)
+"""
+                        ]
+        ]
+
+
+randomListTests : Test
+randomListTests =
+    Test.describe "Random.list"
+        [ test "should not report Random.uniform used with okay arguments" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = Random.list
+b = Random.list n
+c = Random.list 2 generator
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectNoErrors
+        , test "should replace Random.list 1 by Random.map List.singleton" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = Random.list 1
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Random.list 1 can be replaced by Random.map List.singleton"
+                            , details = [ "This Random.list call always produces a list with one generated element. This means you can replace the call with Random.map List.singleton." ]
+                            , under = "Random.list"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = Random.map List.singleton
+"""
+                        ]
+        , test "should replace 1 |> Random.list by Random.map List.singleton" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = 1 |> Random.list
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Random.list 1 can be replaced by Random.map List.singleton"
+                            , details = [ "This Random.list call always produces a list with one generated element. This means you can replace the call with Random.map List.singleton." ]
+                            , under = "Random.list"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = Random.map List.singleton
+"""
+                        ]
+        , test "should replace Random.list 1 generator by Random.map List.singleton generator" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = Random.list 1 generator
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Random.list 1 can be replaced by Random.map List.singleton"
+                            , details = [ "This Random.list call always produces a list with one generated element. This means you can replace the call with Random.map List.singleton." ]
+                            , under = "Random.list"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = Random.map List.singleton generator
+"""
+                        ]
+        , test "should replace Random.list 1 <| generator by Random.map List.singleton <| generator" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = Random.list 1 <| generator
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Random.list 1 can be replaced by Random.map List.singleton"
+                            , details = [ "This Random.list call always produces a list with one generated element. This means you can replace the call with Random.map List.singleton." ]
+                            , under = "Random.list"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = Random.map List.singleton <| generator
+"""
+                        ]
+        , test "should replace generator |> Random.list 1 by generator |> Random.map List.singleton" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = generator |> Random.list 1
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Random.list 1 can be replaced by Random.map List.singleton"
+                            , details = [ "This Random.list call always produces a list with one generated element. This means you can replace the call with Random.map List.singleton." ]
+                            , under = "Random.list"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = generator |> Random.map List.singleton
+"""
+                        ]
+        , test "should replace Random.list 0 generator by Random.constant []" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = Random.list 0 generator
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Random.list 0 can be replaced by Random.constant []"
+                            , details = [ "Random.list 0 always generates an empty list. This means you can replace the call with Random.constant []." ]
+                            , under = "Random.list"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = Random.constant []
+"""
+                        ]
+        , test "should replace Random.list 0 <| generator by Random.constant []" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = Random.list 0 <| generator
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Random.list 0 can be replaced by Random.constant []"
+                            , details = [ "Random.list 0 always generates an empty list. This means you can replace the call with Random.constant []." ]
+                            , under = "Random.list"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = Random.constant []
+"""
+                        ]
+        , test "should replace generator |> Random.list 0 by Random.constant []" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = generator |> Random.list 0
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Random.list 0 can be replaced by Random.constant []"
+                            , details = [ "Random.list 0 always generates an empty list. This means you can replace the call with Random.constant []." ]
+                            , under = "Random.list"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = Random.constant []
+"""
+                        ]
+        , test "should replace Random.list 0 by always (Random.constant [])" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = Random.list 0
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Random.list 0 can be replaced by Random.constant []"
+                            , details = [ "Random.list 0 always generates an empty list. This means you can replace the call with always (Random.constant [])." ]
+                            , under = "Random.list"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = always (Random.constant [])
+"""
+                        ]
+        , test "should replace Random.list -1 generator by Random.constant []" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = Random.list -1 generator
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Random.list with a negative length can be replaced by Random.constant []"
+                            , details = [ "Random.list with a negative length always generates an empty list. This means you can replace the call with Random.constant []." ]
+                            , under = "Random.list"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = Random.constant []
+"""
+                        ]
+        , test "should replace Random.list -1 <| generator by Random.constant []" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = Random.list -1 <| generator
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Random.list with a negative length can be replaced by Random.constant []"
+                            , details = [ "Random.list with a negative length always generates an empty list. This means you can replace the call with Random.constant []." ]
+                            , under = "Random.list"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = Random.constant []
+"""
+                        ]
+        , test "should replace generator |> Random.list -1 by Random.constant []" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = generator |> Random.list -1
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Random.list with a negative length can be replaced by Random.constant []"
+                            , details = [ "Random.list with a negative length always generates an empty list. This means you can replace the call with Random.constant []." ]
+                            , under = "Random.list"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = Random.constant []
+"""
+                        ]
+        , test "should replace Random.list -1 by always (Random.constant [])" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = Random.list -1
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Random.list with a negative length can be replaced by Random.constant []"
+                            , details = [ "Random.list with a negative length always generates an empty list. This means you can replace the call with always (Random.constant [])." ]
+                            , under = "Random.list"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = always (Random.constant [])
+"""
+                        ]
+        , test "should replace Random.list n (Random.constant el) by Random.constant (List.repeat n el)" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = Random.list n (Random.constant el)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Random.list n (Random.constant el) can be replaced by Random.constant (List.repeat n el)"
+                            , details = [ "Random.list n (Random.constant el) generates the same value for each of the n elements. This means you can replace the call with Random.constant (List.repeat n el)." ]
+                            , under = "Random.list"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = Random.constant (List.repeat n el)
+"""
+                        ]
+        , test "should replace Random.list n (Random.constant <| el) by Random.constant (List.repeat n el)" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = Random.list n (Random.constant <| el)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Random.list n (Random.constant el) can be replaced by Random.constant (List.repeat n el)"
+                            , details = [ "Random.list n (Random.constant el) generates the same value for each of the n elements. This means you can replace the call with Random.constant (List.repeat n el)." ]
+                            , under = "Random.list"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = Random.constant (List.repeat n el)
+"""
+                        ]
+        , test "should replace Random.list n (el |> Random.constant) by Random.constant (List.repeat n el)" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = Random.list n (el |> Random.constant)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Random.list n (Random.constant el) can be replaced by Random.constant (List.repeat n el)"
+                            , details = [ "Random.list n (Random.constant el) generates the same value for each of the n elements. This means you can replace the call with Random.constant (List.repeat n el)." ]
+                            , under = "Random.list"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = Random.constant (List.repeat n el)
+"""
+                        ]
+        , test "should replace Random.list n <| Random.constant el by Random.constant (List.repeat n <| el)" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = Random.list n <| Random.constant el
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Random.list n (Random.constant el) can be replaced by Random.constant (List.repeat n el)"
+                            , details = [ "Random.list n (Random.constant el) generates the same value for each of the n elements. This means you can replace the call with Random.constant (List.repeat n el)." ]
+                            , under = "Random.list"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = Random.constant (List.repeat n <| el)
+"""
+                        ]
+        , test "should replace Random.list n <| Random.constant <| el by Random.constant (List.repeat n <| el)" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = Random.list n <| Random.constant <| el
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Random.list n (Random.constant el) can be replaced by Random.constant (List.repeat n el)"
+                            , details = [ "Random.list n (Random.constant el) generates the same value for each of the n elements. This means you can replace the call with Random.constant (List.repeat n el)." ]
+                            , under = "Random.list"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = Random.constant (List.repeat n <| el)
+"""
+                        ]
+        , test "should replace Random.list n <| (el |> Random.constant) by Random.constant (List.repeat n <| el)" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = Random.list n <| (el |> Random.constant)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Random.list n (Random.constant el) can be replaced by Random.constant (List.repeat n el)"
+                            , details = [ "Random.list n (Random.constant el) generates the same value for each of the n elements. This means you can replace the call with Random.constant (List.repeat n el)." ]
+                            , under = "Random.list"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = Random.constant (List.repeat n <| el)
+"""
+                        ]
+        , test "should replace Random.constant el |> Random.list n by Random.constant (el |> List.repeat n)" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = Random.constant el |> Random.list n
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Random.list n (Random.constant el) can be replaced by Random.constant (List.repeat n el)"
+                            , details = [ "Random.list n (Random.constant el) generates the same value for each of the n elements. This means you can replace the call with Random.constant (List.repeat n el)." ]
+                            , under = "Random.list"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = Random.constant (el |> List.repeat n)
+"""
+                        ]
+        , test "should replace el |> Random.constant |> Random.list n by Random.constant (el |> List.repeat n)" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = el |> Random.constant |> Random.list n
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Random.list n (Random.constant el) can be replaced by Random.constant (List.repeat n el)"
+                            , details = [ "Random.list n (Random.constant el) generates the same value for each of the n elements. This means you can replace the call with Random.constant (List.repeat n el)." ]
+                            , under = "Random.list"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = Random.constant (el |> List.repeat n)
+"""
+                        ]
+        , test "should replace (Random.constant <| el) |> Random.list n by Random.constant (el |> List.repeat n)" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = (Random.constant <| el) |> Random.list n
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Random.list n (Random.constant el) can be replaced by Random.constant (List.repeat n el)"
+                            , details = [ "Random.list n (Random.constant el) generates the same value for each of the n elements. This means you can replace the call with Random.constant (List.repeat n el)." ]
+                            , under = "Random.list"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = Random.constant (el |> List.repeat n)
+"""
+                        ]
+        ]
+
+
+randomMapTests : Test
+randomMapTests =
+    describe "Random.map"
+        [ test "should not report Random.map used with okay arguments" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = Random.map
+b = Random.map f
+c = Random.map f x
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectNoErrors
+        , test "should replace Random.map identity x by x" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = Random.map identity x
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Using Random.map with an identity function is the same as not using Random.map"
+                            , details = [ "You can remove this call and replace it by the random generator itself." ]
+                            , under = "Random.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = x
+"""
+                        ]
+        , test "should replace Random.map identity <| x by x" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = Random.map identity <| x
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Using Random.map with an identity function is the same as not using Random.map"
+                            , details = [ "You can remove this call and replace it by the random generator itself." ]
+                            , under = "Random.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = x
+"""
+                        ]
+        , test "should replace x |> Random.map identity by x" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = x |> Random.map identity
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Using Random.map with an identity function is the same as not using Random.map"
+                            , details = [ "You can remove this call and replace it by the random generator itself." ]
+                            , under = "Random.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = x
+"""
+                        ]
+        , test "should replace Random.map identity by identity" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = Random.map identity
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Using Random.map with an identity function is the same as not using Random.map"
+                            , details = [ "You can remove this call and replace it by the random generator itself." ]
+                            , under = "Random.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = identity
+"""
+                        ]
+        , test "should replace Random.map <| identity by identity" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = Random.map <| identity
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Using Random.map with an identity function is the same as not using Random.map"
+                            , details = [ "You can remove this call and replace it by the random generator itself." ]
+                            , under = "Random.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = identity
+"""
+                        ]
+        , test "should replace identity |> Random.map by identity" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = identity |> Random.map
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Using Random.map with an identity function is the same as not using Random.map"
+                            , details = [ "You can remove this call and replace it by the random generator itself." ]
+                            , under = "Random.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = identity
+"""
+                        ]
+        , test "should replace Random.map (\\_ -> x) generator by Random.constant x" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = Random.map (\\_ -> x) generator
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Always mapping to the same value is equivalent to Random.constant"
+                            , details = [ "Since your Random.map call always produces the same value, you can replace the whole call by Random.constant that value." ]
+                            , under = "Random.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = Random.constant x
+"""
+                        ]
+        , test "should replace Random.map (always x) generator by Random.constant x" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = Random.map (always x) generator
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Always mapping to the same value is equivalent to Random.constant"
+                            , details = [ "Since your Random.map call always produces the same value, you can replace the whole call by Random.constant that value." ]
+                            , under = "Random.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = Random.constant x
+"""
+                        ]
+        , test "should replace Random.map (always <| x) generator by Random.constant x" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = Random.map (always <| x) generator
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Always mapping to the same value is equivalent to Random.constant"
+                            , details = [ "Since your Random.map call always produces the same value, you can replace the whole call by Random.constant that value." ]
+                            , under = "Random.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = Random.constant x
+"""
+                        ]
+        , test "should replace Random.map (x |> always) generator by Random.constant x" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = Random.map (x |> always) generator
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Always mapping to the same value is equivalent to Random.constant"
+                            , details = [ "Since your Random.map call always produces the same value, you can replace the whole call by Random.constant that value." ]
+                            , under = "Random.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = Random.constant x
+"""
+                        ]
+        , test "should replace Random.map (always x) <| generator by Random.constant x" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = Random.map (always x) <| generator
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Always mapping to the same value is equivalent to Random.constant"
+                            , details = [ "Since your Random.map call always produces the same value, you can replace the whole call by Random.constant that value." ]
+                            , under = "Random.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = Random.constant x
+"""
+                        ]
+        , test "should replace generator |> Random.map (always x) by Random.constant x" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = generator |> Random.map (always x)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Always mapping to the same value is equivalent to Random.constant"
+                            , details = [ "Since your Random.map call always produces the same value, you can replace the whole call by Random.constant that value." ]
+                            , under = "Random.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = Random.constant x
+"""
+                        ]
+        , test "should replace Random.map (\\_ -> f x) generator by Random.constant (f x)" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = Random.map (\\_ -> f x) generator
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Always mapping to the same value is equivalent to Random.constant"
+                            , details = [ "Since your Random.map call always produces the same value, you can replace the whole call by Random.constant that value." ]
+                            , under = "Random.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = Random.constant (f x)
+"""
+                        ]
+        , test "should replace Random.map (always <| f x) generator by Random.constant (f x)" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = Random.map (always <| f x) generator
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Always mapping to the same value is equivalent to Random.constant"
+                            , details = [ "Since your Random.map call always produces the same value, you can replace the whole call by Random.constant that value." ]
+                            , under = "Random.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = Random.constant (f x)
+"""
+                        ]
+        , test "should replace Random.map (f x |> always) generator by Random.constant (f x)" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = Random.map (f x |> always) generator
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Always mapping to the same value is equivalent to Random.constant"
+                            , details = [ "Since your Random.map call always produces the same value, you can replace the whole call by Random.constant that value." ]
+                            , under = "Random.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = Random.constant (f x)
+"""
+                        ]
+        , test "should replace Random.map (\\_ -> x) by always (Random.constant x)" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = Random.map (\\_ -> x)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Always mapping to the same value is equivalent to Random.constant"
+                            , details = [ "Since your Random.map call always produces the same value, you can replace the whole call by Random.constant that value." ]
+                            , under = "Random.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = always (Random.constant x)
+"""
+                        ]
+        , test "should replace Random.map <| \\_ -> x by always (Random.constant x)" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = Random.map <| \\_ -> x
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Always mapping to the same value is equivalent to Random.constant"
+                            , details = [ "Since your Random.map call always produces the same value, you can replace the whole call by Random.constant that value." ]
+                            , under = "Random.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = always (Random.constant x)
+"""
+                        ]
+        , test "should replace (\\_ -> x) |> Random.map by always (Random.constant x)" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = (\\_ -> x) |> Random.map
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Always mapping to the same value is equivalent to Random.constant"
+                            , details = [ "Since your Random.map call always produces the same value, you can replace the whole call by Random.constant that value." ]
+                            , under = "Random.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = always (Random.constant x)
+"""
+                        ]
+        , test "should replace Random.map (always x) by always (Random.constant x)" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = Random.map (always x)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Always mapping to the same value is equivalent to Random.constant"
+                            , details = [ "Since your Random.map call always produces the same value, you can replace the whole call by Random.constant that value." ]
+                            , under = "Random.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = always (Random.constant x)
+"""
+                        ]
+        , test "should replace Random.map (always <| x) by always (Random.constant x)" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = Random.map (always <| x)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Always mapping to the same value is equivalent to Random.constant"
+                            , details = [ "Since your Random.map call always produces the same value, you can replace the whole call by Random.constant that value." ]
+                            , under = "Random.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = always (Random.constant x)
+"""
+                        ]
+        , test "should replace Random.map (x |> always) by always (Random.constant x)" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = Random.map (x |> always)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Always mapping to the same value is equivalent to Random.constant"
+                            , details = [ "Since your Random.map call always produces the same value, you can replace the whole call by Random.constant that value." ]
+                            , under = "Random.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = always (Random.constant x)
+"""
+                        ]
+        , test "should replace Random.map (\\_ -> f x) generator by always (Random.constant (f x))" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = Random.map (\\_ -> f x)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Always mapping to the same value is equivalent to Random.constant"
+                            , details = [ "Since your Random.map call always produces the same value, you can replace the whole call by Random.constant that value." ]
+                            , under = "Random.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = always (Random.constant (f x))
+"""
+                        ]
+        , test "should replace Random.map <| \\_ -> f x by always (Random.constant (f x))" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = Random.map <| \\_ -> f x
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Always mapping to the same value is equivalent to Random.constant"
+                            , details = [ "Since your Random.map call always produces the same value, you can replace the whole call by Random.constant that value." ]
+                            , under = "Random.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = always (Random.constant (f x))
+"""
+                        ]
+        , test "should replace (\\_ -> f x) |> Random.map by always (Random.constant (f x))" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = (\\_ -> f x) |> Random.map
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Always mapping to the same value is equivalent to Random.constant"
+                            , details = [ "Since your Random.map call always produces the same value, you can replace the whole call by Random.constant that value." ]
+                            , under = "Random.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = always (Random.constant (f x))
+"""
+                        ]
+        , test "should replace Random.map (always <| f x) by always (Random.constant (f x))" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = Random.map (always <| f x)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Always mapping to the same value is equivalent to Random.constant"
+                            , details = [ "Since your Random.map call always produces the same value, you can replace the whole call by Random.constant that value." ]
+                            , under = "Random.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = always (Random.constant (f x))
+"""
+                        ]
+        , test "should replace Random.map <| always <| f x by always (Random.constant (f x))" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = Random.map <| always <| f x
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Always mapping to the same value is equivalent to Random.constant"
+                            , details = [ "Since your Random.map call always produces the same value, you can replace the whole call by Random.constant that value." ]
+                            , under = "Random.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = always (Random.constant (f x))
+"""
+                        ]
+        , test "should replace (always <| f x) |> Random.map by always (Random.constant (f x))" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = (always <| f x) |> Random.map
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Always mapping to the same value is equivalent to Random.constant"
+                            , details = [ "Since your Random.map call always produces the same value, you can replace the whole call by Random.constant that value." ]
+                            , under = "Random.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = always (Random.constant (f x))
+"""
+                        ]
+        , test "should replace Random.map (f x |> always) by always (Random.constant (f x))" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = Random.map (f x |> always)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Always mapping to the same value is equivalent to Random.constant"
+                            , details = [ "Since your Random.map call always produces the same value, you can replace the whole call by Random.constant that value." ]
+                            , under = "Random.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = always (Random.constant (f x))
+"""
+                        ]
+        , test "should replace Random.map <| (f x |> always) by always (Random.constant (f x))" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = Random.map <| (f x |> always)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Always mapping to the same value is equivalent to Random.constant"
+                            , details = [ "Since your Random.map call always produces the same value, you can replace the whole call by Random.constant that value." ]
+                            , under = "Random.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = always (Random.constant (f x))
+"""
+                        ]
+        , test "should replace f x |> always |> Random.map by always (Random.constant (f x))" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = f x |> always |> Random.map
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Always mapping to the same value is equivalent to Random.constant"
+                            , details = [ "Since your Random.map call always produces the same value, you can replace the whole call by Random.constant that value." ]
+                            , under = "Random.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = always (Random.constant (f x))
+"""
+                        ]
+        , test "should replace always >> Random.map by Random.constant" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = always >> Random.map
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Always mapping to the same value is equivalent to Random.constant"
+                            , details = [ "Since your Random.map call always produces the same value, you can replace the whole call by Random.constant that value." ]
+                            , under = "Random.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = Random.constant
+"""
+                        ]
+        , test "should replace Random.map << always by Random.constant" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = Random.map << always
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Always mapping to the same value is equivalent to Random.constant"
+                            , details = [ "Since your Random.map call always produces the same value, you can replace the whole call by Random.constant that value." ]
+                            , under = "Random.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = Random.constant
+"""
+                        ]
+        , test "should replace Random.map f (Random.constant x) by Random.constant (f x)" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = Random.map f (Random.constant x)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Calling Random.map on a value that is constant"
+                            , details = [ "The function can be called without Random.map." ]
+                            , under = "Random.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = Random.constant (f x)
+"""
+                        ]
+        , test "should replace Random.map f <| Random.constant x by Random.constant (f x)" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = Random.map f <| Random.constant x
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Calling Random.map on a value that is constant"
+                            , details = [ "The function can be called without Random.map." ]
+                            , under = "Random.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = Random.constant (f <| x)
+"""
+                        ]
+        , test "should replace Random.constant x |> Random.map f by x |> f |> Random.constant" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = Random.constant x |> Random.map f
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Calling Random.map on a value that is constant"
+                            , details = [ "The function can be called without Random.map." ]
+                            , under = "Random.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = x |> f |> Random.constant
+"""
+                        ]
+        , test "should replace x |> Random.constant |> Random.map f by x |> f |> Random.constant" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = x |> Random.constant |> Random.map f
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Calling Random.map on a value that is constant"
+                            , details = [ "The function can be called without Random.map." ]
+                            , under = "Random.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = x |> f |> Random.constant
+"""
+                        ]
+        , test "should replace Random.map f <| Random.constant <| x by Random.constant <| f <| x" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = Random.map f <| Random.constant <| x
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Calling Random.map on a value that is constant"
+                            , details = [ "The function can be called without Random.map." ]
+                            , under = "Random.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = Random.constant (f <| x)
+"""
+                        ]
+        , test "should replace Random.map f << Random.constant by Random.constant << f" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = Random.map f << Random.constant
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Calling Random.map on a value that is constant"
+                            , details = [ "The function can be called without Random.map." ]
+                            , under = "Random.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = Random.constant << f
+"""
+                        ]
+        , test "should replace Random.constant >> Random.map f by f >> Random.constant" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = Random.constant >> Random.map f
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Calling Random.map on a value that is constant"
+                            , details = [ "The function can be called without Random.map." ]
+                            , under = "Random.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = f >> Random.constant
+"""
+                        ]
+        , test "should replace Random.map f << Random.constant << a by Random.constant << f << a" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = Random.map f << Random.constant << a
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Calling Random.map on a value that is constant"
+                            , details = [ "The function can be called without Random.map." ]
+                            , under = "Random.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = Random.constant << f << a
+"""
+                        ]
+        , test "should replace g << Random.map f << Random.constant by g << Random.constant << f" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = g << Random.map f << Random.constant
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Calling Random.map on a value that is constant"
+                            , details = [ "The function can be called without Random.map." ]
+                            , under = "Random.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = g << Random.constant << f
+"""
+                        ]
+        , test "should replace Random.constant >> Random.map f >> g by f >> Random.constant >> g" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = Random.constant >> Random.map f >> g
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Calling Random.map on a value that is constant"
+                            , details = [ "The function can be called without Random.map." ]
+                            , under = "Random.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = f >> Random.constant >> g
+"""
+                        ]
+        ]
+
+
+
 -- Record access
 
 
@@ -17163,6 +19426,204 @@ a =
             1
     in
     b + c + d + e
+"""
+                        ]
+        ]
+
+
+pipelineTests : Test
+pipelineTests =
+    describe "Pipelines"
+        [ test "should replace >> when used directly in a |> pipeline" <|
+            \() ->
+                """module A exposing (..)
+a =
+    b
+        |> f
+        >> g
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Use |> instead of >>"
+                            , details =
+                                [ "Because of the precedence of operators, using >> at this location is the same as using |>."
+                                , "Please use |> instead as that is more idiomatic in Elm and generally easier to read."
+                                ]
+                            , under = ">>"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a =
+    b
+        |> f
+        |> g
+"""
+                        ]
+        , test "should replace >> when used directly in a |> pipeline (multiple)" <|
+            \() ->
+                """module A exposing (..)
+a =
+    b
+        |> f
+        >> g
+        >> h
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Use |> instead of >>"
+                            , details =
+                                [ "Because of the precedence of operators, using >> at this location is the same as using |>."
+                                , "Please use |> instead as that is more idiomatic in Elm and generally easier to read."
+                                ]
+                            , under = ">>"
+                            }
+                            |> Review.Test.atExactly { start = { row = 5, column = 9 }, end = { row = 5, column = 11 } }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a =
+    b
+        |> f
+        |> g
+        |> h
+"""
+                        ]
+        , test "should replace >> when used directly in a |> pipeline (right argument >> inside parentheses)" <|
+            \() ->
+                """module A exposing (..)
+a =
+    b
+        |> (f >> g)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Use |> instead of >>"
+                            , details =
+                                [ "Because of the precedence of operators, using >> at this location is the same as using |>."
+                                , "Please use |> instead as that is more idiomatic in Elm and generally easier to read."
+                                ]
+                            , under = ">>"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a =
+    b
+        |> f |> g
+"""
+                        ]
+        , test "should replace >> when used directly in a |> pipeline (right argument |> >> inside parentheses)" <|
+            \() ->
+                """module A exposing (..)
+a =
+    b
+        |> (f |> g >> h)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Use |> instead of >>"
+                            , details =
+                                [ "Because of the precedence of operators, using >> at this location is the same as using |>."
+                                , "Please use |> instead as that is more idiomatic in Elm and generally easier to read."
+                                ]
+                            , under = ">>"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a =
+    b
+        |> (f |> g |> h)
+"""
+                        ]
+        , test "should replace << when used directly in a <| pipeline" <|
+            \() ->
+                """module A exposing (..)
+a =
+    g <<
+    f <|
+        b
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Use <| instead of <<"
+                            , details =
+                                [ "Because of the precedence of operators, using << at this location is the same as using <|."
+                                , "Please use <| instead as that is more idiomatic in Elm and generally easier to read."
+                                ]
+                            , under = "<<"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a =
+    g <|
+    f <|
+        b
+"""
+                        ]
+        , test "should replace << when used directly in a <| pipeline (multiple)" <|
+            \() ->
+                """module A exposing (..)
+a =
+    h << g << f <| b
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Use <| instead of <<"
+                            , details =
+                                [ "Because of the precedence of operators, using << at this location is the same as using <|."
+                                , "Please use <| instead as that is more idiomatic in Elm and generally easier to read."
+                                ]
+                            , under = "<<"
+                            }
+                            |> Review.Test.atExactly { start = { row = 3, column = 12 }, end = { row = 3, column = 14 } }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a =
+    h <| g <| f <| b
+"""
+                        ]
+        , test "should replace << when used directly in a <| pipeline (left argument << inside parentheses)" <|
+            \() ->
+                """module A exposing (..)
+a =
+    (f << g)
+        <| b
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Use <| instead of <<"
+                            , details =
+                                [ "Because of the precedence of operators, using << at this location is the same as using <|."
+                                , "Please use <| instead as that is more idiomatic in Elm and generally easier to read."
+                                ]
+                            , under = "<<"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a =
+    f <| g
+        <| b
+"""
+                        ]
+        , test "should replace << when used directly in a <| pipeline (left argument << <| inside parentheses)" <|
+            \() ->
+                """module A exposing (..)
+a =
+    (f << g <| h) <|
+        b
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Use <| instead of <<"
+                            , details =
+                                [ "Because of the precedence of operators, using << at this location is the same as using <|."
+                                , "Please use <| instead as that is more idiomatic in Elm and generally easier to read."
+                                ]
+                            , under = "<<"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a =
+    (f <| g <| h) <|
+        b
 """
                         ]
         ]
