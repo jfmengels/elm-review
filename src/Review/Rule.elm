@@ -1368,7 +1368,7 @@ mergeModuleVisitorsHelp ruleName_ initialProjectContext moduleContextCreator vis
         )
         emptyModuleVisitor
         visitors
-        |> (\(ModuleRuleSchema moduleVisitorSchema) -> ModuleRuleSchema moduleVisitorSchema)
+        |> removeExtensibleRecordFromModuleRuleSchema
     , moduleContextCreator
     )
 
@@ -1408,7 +1408,12 @@ removeExtensibleRecordTypeVariable :
     (ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { a | hasAtLeastOneVisitor : () } moduleContext)
     -> (ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext)
 removeExtensibleRecordTypeVariable function =
-    function >> (\(ModuleRuleSchema param) -> ModuleRuleSchema param)
+    function >> removeExtensibleRecordFromModuleRuleSchema
+
+
+removeExtensibleRecordFromModuleRuleSchema : ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema a moduleContext
+removeExtensibleRecordFromModuleRuleSchema (ModuleRuleSchema param) =
+    ModuleRuleSchema param
 
 
 {-| Creates a rule that will **only** report a configuration error, which stops `elm-review` from reviewing the project
