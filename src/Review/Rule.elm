@@ -1908,7 +1908,7 @@ and by reading the value at `<output>.extracts["YourRuleName"]` in the output.
             |> Rule.withDataExtractor dataExtractor
             |> Rule.fromProjectRuleSchema
 
-    dataExtractor : ProjectContext -> Encode.Value
+    dataExtractor : ProjectContext -> Json.Encode.Value
     dataExtractor projectContext =
         Json.Encode.list
             (\thing ->
