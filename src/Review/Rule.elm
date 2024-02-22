@@ -314,6 +314,7 @@ import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern exposing (Pattern)
 import Elm.Syntax.Range as Range exposing (Range)
+import Glob exposing (Glob)
 import Json.Encode as Encode
 import Review.Cache.ContentHash exposing (ContentHash)
 import Review.Cache.ContextHash as ContextHash exposing (ComparableContextHash, ContextHash)
@@ -325,7 +326,7 @@ import Review.ElmProjectEncoder
 import Review.Error exposing (InternalError)
 import Review.Exceptions as Exceptions exposing (Exceptions)
 import Review.FilePath exposing (FilePath)
-import Review.Fix as Fix exposing (Fix)
+import Review.Fix as Fix exposing (Fix, FixResult(..))
 import Review.Fix.FixProblem as FixProblem
 import Review.Fix.FixedErrors as FixedErrors exposing (FixedErrors)
 import Review.Fix.Internal as InternalFix
@@ -413,7 +414,13 @@ type alias ModuleRuleSchemaData moduleContext =
 
 
 type alias ExtraFileRequest =
-    List String
+    Result (List String) (List StringableGlob)
+
+
+type alias StringableGlob =
+    { glob : Glob
+    , string : String
+    }
 
 
 
@@ -1048,7 +1055,7 @@ newModuleRuleSchema name initialModuleContext =
         , elmJsonVisitor = Nothing
         , readmeVisitor = Nothing
         , extraFilesVisitor = Nothing
-        , extraFileRequest = []
+        , extraFileRequest = Ok []
         , dependenciesVisitor = Nothing
         , directDependenciesVisitor = Nothing
         , providesFixes = False
@@ -1117,7 +1124,7 @@ newModuleRuleSchemaUsingContextCreator name moduleContextCreator =
         , elmJsonVisitor = Nothing
         , readmeVisitor = Nothing
         , extraFilesVisitor = Nothing
-        , extraFileRequest = []
+        , extraFileRequest = Ok []
         , dependenciesVisitor = Nothing
         , directDependenciesVisitor = Nothing
         , providesFixes = False
@@ -1157,7 +1164,7 @@ fromModuleRuleSchema ((ModuleRuleSchema schema) as moduleVisitor) =
                 , elmJsonVisitor = Nothing
                 , readmeVisitor = Nothing
                 , extraFilesVisitor = Nothing
-                , extraFileRequest = []
+                , extraFileRequest = Ok []
                 , directDependenciesVisitor = Nothing
                 , dependenciesVisitor = Nothing
                 , moduleVisitors = [ removeExtensibleRecordTypeVariable (always moduleVisitor) ]
@@ -1191,9 +1198,9 @@ compactExtraFilesVisitor maybeExtraFilesVisitor =
             Nothing
 
 
-globMatch : List String -> { a | path : String } -> Bool
-globMatch requestedFiles file =
-    List.member file.path requestedFiles
+globMatch : List Glob -> { a | path : String } -> Bool
+globMatch globs file =
+    List.any (\glob -> Glob.match glob file.path) globs
 
 
 
@@ -1279,7 +1286,7 @@ newProjectRuleSchema name initialProjectContext =
         , elmJsonVisitor = Nothing
         , readmeVisitor = Nothing
         , extraFilesVisitor = Nothing
-        , extraFileRequest = []
+        , extraFileRequest = Ok []
         , directDependenciesVisitor = Nothing
         , dependenciesVisitor = Nothing
         , moduleVisitors = []
@@ -1296,26 +1303,35 @@ newProjectRuleSchema name initialProjectContext =
 -}
 fromProjectRuleSchema : ProjectRuleSchema { schemaState | withModuleContext : Forbidden, hasAtLeastOneVisitor : () } projectContext moduleContext -> Rule
 fromProjectRuleSchema (ProjectRuleSchema schema) =
-    Rule
-        { name = schema.name
-        , id = 0
-        , exceptions = Exceptions.init
-        , requestedData =
-            RequestedData.combine
-                (Maybe.map requestedDataFromContextCreator schema.moduleContextCreator)
-                (Maybe.map (.fromModuleToProject >> requestedDataFromContextCreator) schema.folder)
-                |> RequestedData.withFiles schema.extraFileRequest
-        , providesFixes = schema.providesFixes
-        , ruleProjectVisitor =
-            Ok
-                (\project ruleData ->
-                    createRuleProjectVisitor
-                        schema
-                        project
-                        ruleData
-                        (initialCacheMarker schema.name ruleData.ruleId emptyCache)
-                )
-        }
+    case schema.extraFileRequest of
+        Ok extraFileGlobs ->
+            Rule
+                { name = schema.name
+                , id = 0
+                , exceptions = Exceptions.init
+                , requestedData =
+                    RequestedData.combine
+                        (Maybe.map requestedDataFromContextCreator schema.moduleContextCreator)
+                        (Maybe.map (.fromModuleToProject >> requestedDataFromContextCreator) schema.folder)
+                        -- TODO Keep the original globs as strings and pass them here
+                        |> RequestedData.withFiles (List.map .string extraFileGlobs)
+                , providesFixes = schema.providesFixes
+                , ruleProjectVisitor =
+                    Ok
+                        (\project ruleData ->
+                            createRuleProjectVisitor
+                                schema
+                                project
+                                ruleData
+                                (initialCacheMarker schema.name ruleData.ruleId emptyCache)
+                        )
+                }
+
+        Err _ ->
+            configurationError schema.name
+                { message = "Invalid globs provided"
+                , details = [ "Globs bad" ]
+                }
 
 
 initialCacheMarker : String -> Int -> ProjectRuleCache projectContext -> ProjectRuleCache projectContext
@@ -1419,7 +1435,7 @@ mergeModuleVisitorsHelp ruleName_ initialProjectContext moduleContextCreator vis
                 , elmJsonVisitor = Nothing
                 , readmeVisitor = Nothing
                 , extraFilesVisitor = Nothing
-                , extraFileRequest = []
+                , extraFileRequest = Ok []
                 , dependenciesVisitor = Nothing
                 , directDependenciesVisitor = Nothing
                 , providesFixes = False
@@ -1886,22 +1902,105 @@ withReadmeProjectVisitor visitor (ProjectRuleSchema schema) =
 {-| REPLACEME
 -}
 withExtraFilesProjectVisitor :
-    ExtraFileRequest
+    List String
     -> (List { fileKey : ExtraFileKey, path : String, content : String } -> projectContext -> ( List (Error { useErrorForModule : () }), projectContext ))
     -> ProjectRuleSchema schemaState projectContext moduleContext
     -> ProjectRuleSchema { schemaState | hasAtLeastOneVisitor : () } projectContext moduleContext
 withExtraFilesProjectVisitor requestedFiles baseVisitor (ProjectRuleSchema schema) =
-    let
-        visitor : List { fileKey : ExtraFileKey, path : String, content : String } -> projectContext -> ( List (Error {}), projectContext )
-        visitor files context =
-            baseVisitor (List.filter (globMatch requestedFiles) files) context
-                |> Tuple.mapFirst removeErrorPhantomTypes
-    in
-    ProjectRuleSchema
-        { schema
-            | extraFilesVisitor = Just (combineVisitors visitor schema.extraFilesVisitor)
-            , extraFileRequest = requestedFiles ++ schema.extraFileRequest
-        }
+    case parseGlobs requestedFiles of
+        Ok stringableGlobs ->
+            let
+                globs : List Glob
+                globs =
+                    List.map .glob stringableGlobs
+
+                visitor : List { fileKey : ExtraFileKey, path : String, content : String } -> projectContext -> ( List (Error {}), projectContext )
+                visitor files context =
+                    baseVisitor (List.filter (globMatch globs) files) context
+                        |> Tuple.mapFirst removeErrorPhantomTypes
+            in
+            ProjectRuleSchema
+                { schema
+                    | extraFilesVisitor = Just (combineVisitors visitor schema.extraFilesVisitor)
+                    , extraFileRequest =
+                        case schema.extraFileRequest of
+                            Ok previous ->
+                                Ok (previous ++ stringableGlobs)
+
+                            Err previous ->
+                                schema.extraFileRequest
+                }
+
+        Err globErrors ->
+            ProjectRuleSchema
+                { schema
+                    | extraFileRequest =
+                        case schema.extraFileRequest of
+                            Err previous ->
+                                Err (previous ++ globErrors)
+
+                            Ok _ ->
+                                Err globErrors
+                }
+
+
+parseGlobs : List String -> Result (List String) (List StringableGlob)
+parseGlobs requestedFiles =
+    requestedFiles
+        |> List.map
+            (\str ->
+                Glob.fromString str
+                    |> Result.map (\glob -> { glob = glob, string = str })
+                    |> Result.mapError (always str)
+            )
+        |> toResults
+
+
+combineGlobs : Result appendable appendable -> Result appendable appendable -> Result appendable appendable
+combineGlobs previous new =
+    case ( previous, new ) of
+        ( Ok previousGlobs, Ok newGlobs ) ->
+            Ok (previousGlobs ++ newGlobs)
+
+        ( Err previousErrors, Err newErrors ) ->
+            Err (previousErrors ++ newErrors)
+
+        ( Err errors, _ ) ->
+            previous
+
+        ( _, Err _ ) ->
+            new
+
+
+toResults : List (Result String a) -> Result (List String) (List a)
+toResults results =
+    toResultsHelp results []
+
+
+toResultsHelp : List (Result String a) -> List a -> Result (List String) (List a)
+toResultsHelp results acc =
+    case results of
+        [] ->
+            Ok acc
+
+        (Ok result) :: rest ->
+            toResultsHelp rest (result :: acc)
+
+        (Err str) :: rest ->
+            collectErrs rest [ str ]
+
+
+collectErrs : List (Result error value) -> List error -> Result (List error) never
+collectErrs results acc =
+    case results of
+        [] ->
+            Err acc
+
+        (Err str) :: rest ->
+            collectErrs rest (str :: acc)
+
+        (Ok _) :: rest ->
+            collectErrs rest []
 
 
 {-| Add a visitor to the [`ProjectRuleSchema`](#ProjectRuleSchema) which will examine the project's
@@ -2361,22 +2460,45 @@ withElmJsonModuleVisitor visitor (ModuleRuleSchema schema) =
 {-| REPLACEME
 -}
 withExtraFilesModuleVisitor :
-    ExtraFileRequest
+    List String
     -> (List { path : String, content : String } -> moduleContext -> moduleContext)
     -> ModuleRuleSchema { schemaState | canCollectProjectData : () } moduleContext
     -> ModuleRuleSchema { schemaState | canCollectProjectData : () } moduleContext
 withExtraFilesModuleVisitor requestedFiles baseVisitor (ModuleRuleSchema schema) =
-    let
-        visitor : List { path : String, content : String } -> moduleContext -> moduleContext
-        visitor files context =
-            -- TODO We can skip the filter if there is only a single visitor
-            baseVisitor (List.filter (globMatch requestedFiles) files) context
-    in
-    ModuleRuleSchema
-        { schema
-            | extraFilesVisitor = Just (combineContextOnlyVisitor visitor schema.extraFilesVisitor)
-            , extraFileRequest = requestedFiles ++ schema.extraFileRequest
-        }
+    case parseGlobs requestedFiles of
+        Ok stringableGlobs ->
+            let
+                globs : List Glob
+                globs =
+                    List.map .glob stringableGlobs
+
+                visitor : List { path : String, content : String } -> moduleContext -> moduleContext
+                visitor files context =
+                    baseVisitor (List.filter (globMatch globs) files) context
+            in
+            ModuleRuleSchema
+                { schema
+                    | extraFilesVisitor = Just (combineContextOnlyVisitor visitor schema.extraFilesVisitor)
+                    , extraFileRequest =
+                        case schema.extraFileRequest of
+                            Ok previous ->
+                                Ok (previous ++ stringableGlobs)
+
+                            Err previous ->
+                                schema.extraFileRequest
+                }
+
+        Err globErrors ->
+            ModuleRuleSchema
+                { schema
+                    | extraFileRequest =
+                        case schema.extraFileRequest of
+                            Err previous ->
+                                Err (previous ++ globErrors)
+
+                            Ok _ ->
+                                Err globErrors
+                }
 
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit
