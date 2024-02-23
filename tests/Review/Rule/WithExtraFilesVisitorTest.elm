@@ -89,7 +89,10 @@ a = 1
         , test "Requesting invalid globs should result in a configuration error" <|
             \() ->
                 createRule
-                    (Rule.withExtraFilesModuleVisitor [ "a.txt", "c.txt" ] (reportsFileNames "A"))
+                    (Rule.withExtraFilesModuleVisitor
+                        [ "  **   " ]
+                        (reportsFileNames "A")
+                    )
                     |> Review.Test.expectConfigurationError
                         { message = "err"
                         , details = [ "details" ]
