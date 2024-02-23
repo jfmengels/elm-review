@@ -1323,10 +1323,15 @@ fromProjectRuleSchema (ProjectRuleSchema schema) =
                         )
                 }
 
-        Err _ ->
+        Err faultyGlobs ->
             configurationError schema.name
-                { message = "Invalid globs provided"
-                , details = [ "Globs bad" ]
+                { message = "Invalid globs provided when requesting extra files"
+                , details =
+                    [ "This rule requested additional files, but did so by specifying globs that I could not make sense of:"
+                    , faultyGlobs
+                        |> List.indexedMap (\index glob -> "  " ++ String.fromInt (index + 1) ++ ". " ++ glob)
+                        |> String.join "\n"
+                    ]
                 }
 
 

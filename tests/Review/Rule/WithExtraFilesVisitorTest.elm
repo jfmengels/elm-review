@@ -90,12 +90,15 @@ a = 1
             \() ->
                 createRule
                     (Rule.withExtraFilesModuleVisitor
-                        [ "  **   " ]
+                        [ "** " ]
                         (reportsFileNames "A")
                     )
                     |> Review.Test.expectConfigurationError
-                        { message = "err"
-                        , details = [ "details" ]
+                        { message = "Invalid globs provided when requesting extra files"
+                        , details =
+                            [ "This rule requested additional files, but did so by specifying globs that I could not make sense of:"
+                            , "  1. ** "
+                            ]
                         }
         ]
 
