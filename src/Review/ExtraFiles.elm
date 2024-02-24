@@ -1,22 +1,22 @@
 module Review.ExtraFiles exposing (ExtraFileRequest, exclude, excludeFolder, include)
 
+import Review.Project.Internal as Internal
 
-type ExtraFileRequest
-    = Include String
-    | Exclude String
-    | ExcludeFolder String
+
+type alias ExtraFileRequest =
+    Internal.ExtraFileRequest
 
 
 include : String -> ExtraFileRequest
 include =
-    Include
+    Internal.Include
 
 
 exclude : String -> ExtraFileRequest
 exclude =
-    Exclude
+    Internal.Exclude
 
 
 excludeFolder : String -> ExtraFileRequest
 excludeFolder =
-    ExcludeFolder
+    Internal.ExcludeFolder
