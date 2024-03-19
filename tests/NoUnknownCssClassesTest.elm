@@ -1,6 +1,6 @@
 module NoUnknownCssClassesTest exposing (all)
 
-import NoUnknownCssClasses exposing (rule)
+import NoUnknownCssClasses exposing (defaults, rule)
 import Review.Test
 import Test exposing (Test, describe, test)
 
@@ -17,7 +17,7 @@ import Html.Attributes as Attr
 view model =
     Html.span [] [ Html.text "ok" ]
 """
-                    |> Review.Test.run rule
+                    |> Review.Test.run (rule defaults)
                     |> Review.Test.expectNoErrors
         , test "should report an error when encountering an unknown CSS class through Html.Attributes.class" <|
             \() ->
@@ -28,7 +28,7 @@ import Html.Attributes as Attr
 view model =
     Html.span [ Attr.class "unknown" ] []
 """
-                    |> Review.Test.run rule
+                    |> Review.Test.run (rule defaults)
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "REPLACEME"

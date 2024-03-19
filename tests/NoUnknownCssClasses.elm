@@ -1,4 +1,7 @@
-module NoUnknownCssClasses exposing (rule)
+module NoUnknownCssClasses exposing
+    ( rule
+    , defaults
+    )
 
 {-|
 
@@ -8,6 +11,7 @@ module NoUnknownCssClasses exposing (rule)
 
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Node as Node exposing (Node(..))
+import NoInconsistentAliases exposing (Config)
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Rule as Rule exposing (Rule)
 import Set exposing (Set)
@@ -48,9 +52,9 @@ elm-review --template jfmengels/elm-review/example --rules NoUnknownCssClasses
 ```
 
 -}
-rule : Rule
-rule =
-    Rule.newProjectRuleSchema "NoUnknownCssClasses" initialProjectContext
+rule : Configuration -> Rule
+rule (Configuration configuration) =
+    Rule.newProjectRuleSchema "NoUnknownCssClasses" (initialProjectContext configuration.knownClasses)
         |> Rule.withModuleVisitor moduleVisitor
         |> Rule.withModuleContextUsingContextCreator
             { fromProjectToModule = fromProjectToModule
@@ -60,6 +64,22 @@ rule =
         -- Enable this if modules need to get information from other modules
         -- |> Rule.withContextFromImportedModules
         |> Rule.fromProjectRuleSchema
+
+
+type Configuration
+    = Configuration
+        { knownClasses : Set String
+        }
+
+
+defaults : Configuration
+defaults =
+    Configuration { knownClasses = Set.empty }
+
+
+withHardcodedKnownClasses : List String -> Configuration -> Configuration
+withHardcodedKnownClasses list (Configuration configuration) =
+    Configuration { configuration | knownClasses = List.foldl Set.insert configuration.knownClasses list }
 
 
 type alias ProjectContext =
@@ -79,9 +99,9 @@ moduleVisitor schema =
         |> Rule.withExpressionEnterVisitor expressionVisitor
 
 
-initialProjectContext : ProjectContext
-initialProjectContext =
-    { knownClasses = Set.empty
+initialProjectContext : Set String -> ProjectContext
+initialProjectContext knownClasses =
+    { knownClasses = knownClasses
     }
 
 
