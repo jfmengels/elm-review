@@ -1,6 +1,6 @@
 module NoUnknownCssClasses exposing
     ( rule
-    , defaults, withHardcodedKnownClasses
+    , defaults, withCssFiles, withHardcodedKnownClasses
     )
 
 {-|
@@ -56,31 +56,44 @@ elm-review --template jfmengels/elm-review/example --rules NoUnknownCssClasses
 rule : Configuration -> Rule
 rule (Configuration configuration) =
     Rule.newProjectRuleSchema "NoUnknownCssClasses" (initialProjectContext configuration.knownClasses)
+        |> Rule.withExtraFilesProjectVisitor configuration.cssFiles cssFilesVisitor
         |> Rule.withModuleVisitor moduleVisitor
         |> Rule.withModuleContextUsingContextCreator
             { fromProjectToModule = fromProjectToModule
             , fromModuleToProject = fromModuleToProject
             , foldProjectContexts = foldProjectContexts
             }
-        -- Enable this if modules need to get information from other modules
-        -- |> Rule.withContextFromImportedModules
         |> Rule.fromProjectRuleSchema
 
 
 type Configuration
     = Configuration
         { knownClasses : Set String
+        , cssFiles : List String
         }
 
 
 defaults : Configuration
 defaults =
-    Configuration { knownClasses = Set.empty }
+    Configuration
+        { knownClasses = Set.empty
+        , cssFiles = []
+        }
+
+
+cssFilesVisitor : List { fileKey : Rule.ExtraFileKey, path : String, content : String } -> ProjectContext -> ( List empty, ProjectContext )
+cssFilesVisitor files context =
+    ( [], context )
 
 
 withHardcodedKnownClasses : List String -> Configuration -> Configuration
 withHardcodedKnownClasses list (Configuration configuration) =
     Configuration { configuration | knownClasses = List.foldl Set.insert configuration.knownClasses list }
+
+
+withCssFiles : List String -> Configuration -> Configuration
+withCssFiles list (Configuration configuration) =
+    Configuration { configuration | cssFiles = list ++ configuration.cssFiles }
 
 
 type alias ProjectContext =
