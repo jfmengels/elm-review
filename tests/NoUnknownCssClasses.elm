@@ -149,62 +149,41 @@ foldProjectContexts new previous =
 expressionVisitor : Node Expression -> ModuleContext -> ( List (Rule.Error {}), ModuleContext )
 expressionVisitor node context =
     case Node.value node of
-        Expression.Application ((Node fnRange (Expression.FunctionOrValue _ name)) :: firstArg :: _) ->
-            case ( ModuleNameLookupTable.moduleNameAt context.lookupTable fnRange, name ) of
-                ( Just [ "Html", "Attributes" ], "class" ) ->
-                    case Node.value firstArg of
-                        Expression.Literal str ->
-                            ( unknownClasses
-                                context.knownClasses
-                                (Node.range firstArg)
-                                str
-                            , context
-                            )
-
-                        _ ->
-                            ( [], context )
-
-                _ ->
-                    ( [], context )
+        Expression.Application ((Node fnRange (Expression.FunctionOrValue _ name)) :: firstArg :: restOfArguments) ->
+            ( reportClasses context fnRange name firstArg restOfArguments
+            , context
+            )
 
         Expression.OperatorApplication "|>" _ firstArg (Node fnRange (Expression.FunctionOrValue _ name)) ->
-            case ( ModuleNameLookupTable.moduleNameAt context.lookupTable fnRange, name ) of
-                ( Just [ "Html", "Attributes" ], "class" ) ->
-                    case Node.value firstArg of
-                        Expression.Literal str ->
-                            ( unknownClasses
-                                context.knownClasses
-                                (Node.range firstArg)
-                                str
-                            , context
-                            )
-
-                        _ ->
-                            ( [], context )
-
-                _ ->
-                    ( [], context )
+            ( reportClasses context fnRange name firstArg []
+            , context
+            )
 
         Expression.OperatorApplication "<|" _ (Node fnRange (Expression.FunctionOrValue _ name)) firstArg ->
-            case ( ModuleNameLookupTable.moduleNameAt context.lookupTable fnRange, name ) of
-                ( Just [ "Html", "Attributes" ], "class" ) ->
-                    case Node.value firstArg of
-                        Expression.Literal str ->
-                            ( unknownClasses
-                                context.knownClasses
-                                (Node.range firstArg)
-                                str
-                            , context
-                            )
-
-                        _ ->
-                            ( [], context )
-
-                _ ->
-                    ( [], context )
+            ( reportClasses context fnRange name firstArg []
+            , context
+            )
 
         _ ->
             ( [], context )
+
+
+reportClasses : ModuleContext -> Range -> String -> Node Expression -> f -> List (Rule.Error {})
+reportClasses context fnRange name firstArg restOfArguments =
+    case ( ModuleNameLookupTable.moduleNameAt context.lookupTable fnRange, name ) of
+        ( Just [ "Html", "Attributes" ], "class" ) ->
+            case Node.value firstArg of
+                Expression.Literal str ->
+                    unknownClasses
+                        context.knownClasses
+                        (Node.range firstArg)
+                        str
+
+                _ ->
+                    []
+
+        _ ->
+            []
 
 
 reportError : Range -> String -> Rule.Error {}
