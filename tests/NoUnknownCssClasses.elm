@@ -13,6 +13,7 @@ import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Range as Range exposing (Range)
 import NoInconsistentAliases exposing (Config)
+import Parser exposing (Parser)
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Rule as Rule exposing (Rule)
 import Set exposing (Set)
@@ -81,9 +82,9 @@ defaults =
         }
 
 
-cssFilesVisitor : List { fileKey : Rule.ExtraFileKey, path : String, content : String } -> ProjectContext -> ( List empty, ProjectContext )
+cssFilesVisitor : List { file | content : String } -> ProjectContext -> ( List empty, ProjectContext )
 cssFilesVisitor files context =
-    ( [], context )
+    ( [], { knownClasses = List.foldl (.content >> parseCssFile) context.knownClasses files } )
 
 
 withHardcodedKnownClasses : List String -> Configuration -> Configuration
@@ -242,3 +243,24 @@ unknownClasses knownClasses range str =
         ( 1, [] )
         (String.split " " str)
         |> Tuple.second
+
+
+
+---
+
+
+parseCssFile : String -> Set String -> Set String
+parseCssFile file knownClasses =
+    case Parser.run cssParser file of
+        Ok cssClasses ->
+            List.foldl Set.insert knownClasses cssClasses
+
+        Err _ ->
+            -- Create an error?
+            knownClasses
+
+
+cssParser : Parser (List String)
+cssParser =
+    Parser.end
+        |> Parser.map (\_ -> [])
