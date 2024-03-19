@@ -1,6 +1,6 @@
 module NoUnknownCssClasses exposing
     ( rule
-    , defaults
+    , defaults, withHardcodedKnownClasses
     )
 
 {-|
@@ -11,6 +11,7 @@ module NoUnknownCssClasses exposing
 
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Node as Node exposing (Node(..))
+import Elm.Syntax.Range as Range exposing (Range)
 import NoInconsistentAliases exposing (Config)
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Rule as Rule exposing (Rule)
@@ -139,12 +140,11 @@ expressionVisitor node context =
                 ( Just [ "Html", "Attributes" ], "class" ) ->
                     case Node.value firstArg of
                         Expression.Literal str ->
-                            ( [ Rule.error
-                                    { message = "REPLACEME"
-                                    , details = [ "REPLACEME" ]
-                                    }
-                                    (Node.range firstArg)
-                              ]
+                            ( unknownClasses
+                                context.knownClasses
+                                (Node.range firstArg).start.row
+                                (Node.range firstArg).start.column
+                                str
                             , context
                             )
 
@@ -156,3 +156,37 @@ expressionVisitor node context =
 
         _ ->
             ( [], context )
+
+
+reportError : Range -> String -> Rule.Error {}
+reportError range name =
+    Rule.error
+        { message = "Unknown CSS class \"" ++ name ++ "\""
+        , details = [ "I could not find this class in CSS files. Have you made a typo? Here are similarly-named classes: TODO" ]
+        }
+        range
+
+
+unknownClasses : Set String -> Int -> Int -> String -> List (Rule.Error {})
+unknownClasses knownClasses row startColumn str =
+    List.foldl
+        (\class ( offset, errors ) ->
+            let
+                newErrors : List (Rule.Error {})
+                newErrors =
+                    if Set.member class knownClasses then
+                        errors
+
+                    else
+                        reportError
+                            { start = { row = row, column = startColumn + offset }
+                            , end = { row = row, column = startColumn + offset + String.length class }
+                            }
+                            class
+                            :: errors
+            in
+            ( offset + String.length class + 1, newErrors )
+        )
+        ( 1, [] )
+        (String.split " " str)
+        |> Tuple.second
