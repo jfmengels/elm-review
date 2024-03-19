@@ -1,6 +1,6 @@
 module NoUnknownCssClassesTest exposing (all)
 
-import NoUnknownCssClasses exposing (defaults, rule)
+import NoUnknownCssClasses exposing (defaults, rule, withHardcodedKnownClasses)
 import Review.Test
 import Test exposing (Test, describe, test)
 
@@ -31,9 +31,20 @@ view model =
                     |> Review.Test.run (rule defaults)
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "REPLACEME"
-                            , details = [ "REPLACEME" ]
-                            , under = "\"unknown\""
+                            { message = "Unknown CSS class \"unknown\""
+                            , details = [ "I could not find this class in CSS files. Have you made a typo? Here are similarly-named classes: TODO" ]
+                            , under = "unknown"
                             }
                         ]
+        , test "should not report an error when encountering an CSS class specified in the configuration" <|
+            \() ->
+                """module A exposing (..)
+import Html
+import Html.Attributes as Attr
+
+view model =
+    Html.span [ Attr.class "known" ] []
+"""
+                    |> Review.Test.run (defaults |> withHardcodedKnownClasses [ "known" ] |> rule)
+                    |> Review.Test.expectNoErrors
         ]
