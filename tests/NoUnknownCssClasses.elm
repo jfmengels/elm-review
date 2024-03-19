@@ -153,6 +153,42 @@ expressionVisitor node context =
                 _ ->
                     ( [], context )
 
+        Expression.OperatorApplication "|>" _ firstArg (Node fnRange (Expression.FunctionOrValue _ name)) ->
+            case ( ModuleNameLookupTable.moduleNameAt context.lookupTable fnRange, name ) of
+                ( Just [ "Html", "Attributes" ], "class" ) ->
+                    case Node.value firstArg of
+                        Expression.Literal str ->
+                            ( unknownClasses
+                                context.knownClasses
+                                (Node.range firstArg)
+                                str
+                            , context
+                            )
+
+                        _ ->
+                            ( [], context )
+
+                _ ->
+                    ( [], context )
+
+        Expression.OperatorApplication "<|" _ (Node fnRange (Expression.FunctionOrValue _ name)) firstArg ->
+            case ( ModuleNameLookupTable.moduleNameAt context.lookupTable fnRange, name ) of
+                ( Just [ "Html", "Attributes" ], "class" ) ->
+                    case Node.value firstArg of
+                        Expression.Literal str ->
+                            ( unknownClasses
+                                context.knownClasses
+                                (Node.range firstArg)
+                                str
+                            , context
+                            )
+
+                        _ ->
+                            ( [], context )
+
+                _ ->
+                    ( [], context )
+
         _ ->
             ( [], context )
 
