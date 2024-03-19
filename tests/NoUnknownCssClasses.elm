@@ -13,7 +13,7 @@ import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Range as Range exposing (Range)
 import NoInconsistentAliases exposing (Config)
-import Parser exposing (Parser)
+import Parser exposing ((|.), (|=), Parser)
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Rule as Rule exposing (Rule)
 import Set exposing (Set)
@@ -251,16 +251,32 @@ unknownClasses knownClasses range str =
 
 parseCssFile : String -> Set String -> Set String
 parseCssFile file knownClasses =
-    case Parser.run cssParser file of
+    case Parser.run cssParser file |> Debug.log "parser" of
         Ok cssClasses ->
-            List.foldl Set.insert knownClasses cssClasses
+            Set.union cssClasses knownClasses
 
         Err _ ->
             -- Create an error?
             knownClasses
 
 
-cssParser : Parser (List String)
+cssParser : Parser (Set String)
 cssParser =
-    Parser.end
-        |> Parser.map (\_ -> [])
+    Parser.loop Set.empty cssRule
+
+
+cssRule : Set String -> Parser (Parser.Step (Set String) (Set String))
+cssRule acc =
+    Parser.oneOf
+        [ Parser.succeed (\newSelectors -> Parser.Loop (Set.union newSelectors acc))
+            |. Parser.spaces
+            |= (Parser.chompUntil "{"
+                    |> Parser.getChompedString
+                    |> Parser.map (String.trim >> Set.singleton)
+               )
+            |. Parser.chompUntil "}"
+            |. Parser.token "}"
+            |. Parser.spaces
+        , Parser.succeed ()
+            |> Parser.map (\_ -> Parser.Done acc)
+        ]
