@@ -251,7 +251,7 @@ unknownClasses knownClasses range str =
 
 parseCssFile : String -> Set String -> Set String
 parseCssFile file knownClasses =
-    case Parser.run cssParser file |> Debug.log "parser" of
+    case Parser.run cssParser file of
         Ok cssClasses ->
             Set.union cssClasses knownClasses
 
@@ -268,15 +268,18 @@ cssParser =
 cssRule : Set String -> Parser (Parser.Step (Set String) (Set String))
 cssRule acc =
     Parser.oneOf
-        [ Parser.succeed (\newSelectors -> Parser.Loop (Set.union newSelectors acc))
-            |. Parser.spaces
-            |= (Parser.chompUntil "{"
+        [ Parser.succeed (\selector -> Parser.Loop (Set.insert selector acc))
+            |. Parser.token "."
+            |= (Parser.chompWhile Char.isAlphaNum
                     |> Parser.getChompedString
-                    |> Parser.map (String.trim >> Set.singleton)
                )
+        , Parser.end
+            |> Parser.map (\_ -> Parser.Done acc)
+        , Parser.succeed (\() -> Parser.Loop acc)
+            |. Parser.token "{"
             |. Parser.chompUntil "}"
             |. Parser.token "}"
-            |. Parser.spaces
-        , Parser.succeed ()
-            |> Parser.map (\_ -> Parser.Done acc)
+            |= Parser.spaces
+        , Parser.succeed (\() -> Parser.Loop acc)
+            |= Parser.chompIf (always True)
         ]
