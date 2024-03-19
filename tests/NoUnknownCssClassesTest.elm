@@ -47,4 +47,38 @@ view model =
 """
                     |> Review.Test.run (defaults |> withHardcodedKnownClasses [ "known" ] |> rule)
                     |> Review.Test.expectNoErrors
+        , test "should report an error when encountering an unknown CSS class through Html.Attributes.class in <| pipe" <|
+            \() ->
+                """module A exposing (..)
+import Html
+import Html.Attributes as Attr
+
+view model =
+    Html.span [ Attr.class <| "unknown" ] []
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unknown CSS class \"unknown\""
+                            , details = [ "I could not find this class in CSS files. Have you made a typo? Here are similarly-named classes: TODO" ]
+                            , under = "unknown"
+                            }
+                        ]
+        , test "should report an error when encountering an unknown CSS class through Html.Attributes.class in |> pipe" <|
+            \() ->
+                """module A exposing (..)
+import Html
+import Html.Attributes as Attr
+
+view model =
+    Html.span [ "unknown" |> Attr.class ] []
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unknown CSS class \"unknown\""
+                            , details = [ "I could not find this class in CSS files. Have you made a typo? Here are similarly-named classes: TODO" ]
+                            , under = "unknown"
+                            }
+                        ]
         ]
