@@ -142,8 +142,7 @@ expressionVisitor node context =
                         Expression.Literal str ->
                             ( unknownClasses
                                 context.knownClasses
-                                (Node.range firstArg).start.row
-                                (Node.range firstArg).start.column
+                                (Node.range firstArg)
                                 str
                             , context
                             )
@@ -167,8 +166,12 @@ reportError range name =
         range
 
 
-unknownClasses : Set String -> Int -> Int -> String -> List (Rule.Error {})
-unknownClasses knownClasses row startColumn str =
+unknownClasses : Set String -> Range -> String -> List (Rule.Error {})
+unknownClasses knownClasses range str =
+    let
+        { row, column } =
+            range.start
+    in
     List.foldl
         (\class ( offset, errors ) ->
             let
@@ -179,8 +182,8 @@ unknownClasses knownClasses row startColumn str =
 
                     else
                         reportError
-                            { start = { row = row, column = startColumn + offset }
-                            , end = { row = row, column = startColumn + offset + String.length class }
+                            { start = { row = row, column = column + offset }
+                            , end = { row = row, column = column + offset + String.length class }
                             }
                             class
                             :: errors
