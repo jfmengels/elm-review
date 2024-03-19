@@ -6,11 +6,12 @@ module NoUnknownCssClasses exposing (rule)
 
 -}
 
-import Elm.Syntax.Expression exposing (Expression)
-import Elm.Syntax.Node as Node exposing (Node)
+import Elm.Syntax.Expression as Expression exposing (Expression)
+import Elm.Syntax.Node as Node exposing (Node(..))
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Rule as Rule exposing (Rule)
 import Set exposing (Set)
+import String exposing (contains)
 
 
 {-| Reports... REPLACEME
@@ -113,5 +114,25 @@ foldProjectContexts new previous =
 expressionVisitor : Node Expression -> ModuleContext -> ( List (Rule.Error {}), ModuleContext )
 expressionVisitor node context =
     case Node.value node of
+        Expression.Application ((Node fnRange (Expression.FunctionOrValue _ name)) :: firstArg :: _) ->
+            case ( ModuleNameLookupTable.moduleNameAt context.lookupTable fnRange, name ) of
+                ( Just [ "Html", "Attributes" ], "class" ) ->
+                    case Node.value firstArg of
+                        Expression.Literal str ->
+                            ( [ Rule.error
+                                    { message = "REPLACEME"
+                                    , details = [ "REPLACEME" ]
+                                    }
+                                    (Node.range firstArg)
+                              ]
+                            , context
+                            )
+
+                        _ ->
+                            ( [], context )
+
+                _ ->
+                    ( [], context )
+
         _ ->
             ( [], context )
