@@ -1,7 +1,9 @@
 module NoUnknownCssClassesTest exposing (all)
 
-import NoUnknownCssClasses exposing (defaults, rule, withHardcodedKnownClasses)
+import NoUnknownCssClasses exposing (defaults, rule, withCssFiles, withHardcodedKnownClasses)
+import Review.Project as Project exposing (Project)
 import Review.Test
+import Review.Test.Dependencies
 import Test exposing (Test, describe, test)
 
 
@@ -81,4 +83,32 @@ view model =
                             , under = "unknown"
                             }
                         ]
+        , test "should not report an error when encountering CSS classes found in specified files" <|
+            \() ->
+                """module A exposing (..)
+import Html
+import Html.Attributes as Attr
+
+view model =
+    Html.span [ "known red" |> Attr.class ] []
+"""
+                    |> Review.Test.runWithProjectData projectWithCssClasses (defaults |> withCssFiles [ "*.css" ] |> rule)
+                    |> Review.Test.expectNoErrors
         ]
+
+
+projectWithCssClasses : Project
+projectWithCssClasses =
+    Project.addExtraFiles
+        [ { path = "some-file.css"
+          , content = """
+.known {
+    color: blue;
+}
+.red {
+    color: red;
+}
+"""
+          }
+        ]
+        Review.Test.Dependencies.projectWithElmCore
