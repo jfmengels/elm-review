@@ -94,6 +94,23 @@ view model =
 """
                     |> Review.Test.runWithProjectData projectWithCssClasses (defaults |> withCssFiles [ "*.css" ] |> rule)
                     |> Review.Test.expectNoErrors
+        , test "should report an error when encountering a non-literal argument for Html.Attributes.class" <|
+            \() ->
+                """module A exposing (..)
+import Html
+import Html.Attributes as Attr
+
+view model =
+    Attr.class model.class
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Non-literal argument to CSS class function"
+                            , details = [ "The argument given to this function is not a value that I could interpret. This makes it hard for me to figure out whether this was a known CSS class or not. Please transform this a string literal (\"my-class\")." ]
+                            , under = "model.class"
+                            }
+                        ]
         ]
 
 

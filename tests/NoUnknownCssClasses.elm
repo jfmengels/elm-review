@@ -216,7 +216,12 @@ reportClasses context fnRange name firstArg restOfArguments =
                                     class
 
                             Variable range ->
-                                Debug.todo "todo"
+                                [ Rule.error
+                                    { message = "Non-literal argument to CSS class function"
+                                    , details = [ "The argument given to this function is not a value that I could interpret. This makes it hard for me to figure out whether this was a known CSS class or not. Please transform this a string literal (\"my-class\")." ]
+                                    }
+                                    range
+                                ]
                     )
 
         Nothing ->
