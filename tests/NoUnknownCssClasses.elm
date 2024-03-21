@@ -198,21 +198,28 @@ fromLiteral node =
             Variable (Node.range node)
 
 
-reportClasses : ModuleContext -> Range -> String -> Node Expression -> f -> List (Rule.Error {})
+reportClasses : ModuleContext -> Range -> String -> Node Expression -> List (Node Expression) -> List (Rule.Error {})
 reportClasses context fnRange name firstArg restOfArguments =
-    case ( ModuleNameLookupTable.moduleNameAt context.lookupTable fnRange, name ) of
-        ( Just [ "Html", "Attributes" ], "class" ) ->
-            case Node.value firstArg of
-                Expression.Literal str ->
-                    unknownClasses
-                        context.knownClasses
-                        (Node.range firstArg)
-                        str
+    case
+        ModuleNameLookupTable.moduleNameAt context.lookupTable fnRange
+            |> Maybe.andThen (\moduleName -> Dict.get ( moduleName, name ) cssFunctions)
+    of
+        Just cssFunction ->
+            cssFunction { firstArgument = firstArg, restOfArguments = restOfArguments }
+                |> List.concatMap
+                    (\arg ->
+                        case arg of
+                            Literal class ->
+                                unknownClasses
+                                    context.knownClasses
+                                    (Node.range firstArg)
+                                    class
 
-                _ ->
-                    []
+                            Variable range ->
+                                Debug.todo "todo"
+                    )
 
-        _ ->
+        Nothing ->
             []
 
 
