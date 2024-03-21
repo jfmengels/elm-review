@@ -1,6 +1,6 @@
 module NoUnknownCssClasses exposing
     ( rule
-    , defaults, withCssFiles, withHardcodedKnownClasses
+    , CssArgument(..), defaults, fromLiteral, withCssFiles, withCssUsingFunctions, withHardcodedKnownClasses
     )
 
 {-|
@@ -60,7 +60,7 @@ rule : Configuration -> Rule
 rule (Configuration configuration) =
     Rule.newProjectRuleSchema "NoUnknownCssClasses" (initialProjectContext configuration.knownClasses)
         |> Rule.withExtraFilesProjectVisitor configuration.cssFiles cssFilesVisitor
-        |> Rule.withModuleVisitor moduleVisitor
+        |> Rule.withModuleVisitor (moduleVisitor configuration.cssFunctions)
         |> Rule.withModuleContextUsingContextCreator
             { fromProjectToModule = fromProjectToModule
             , fromModuleToProject = fromModuleToProject
@@ -73,6 +73,7 @@ type Configuration
     = Configuration
         { knownClasses : Set String
         , cssFiles : List String
+        , cssFunctions : CssFunctions
         }
 
 
@@ -81,6 +82,7 @@ defaults =
     Configuration
         { knownClasses = Set.empty
         , cssFiles = []
+        , cssFunctions = baseCssFunctions
         }
 
 
@@ -92,6 +94,16 @@ cssFilesVisitor files context =
 withHardcodedKnownClasses : List String -> Configuration -> Configuration
 withHardcodedKnownClasses list (Configuration configuration) =
     Configuration { configuration | knownClasses = List.foldl Set.insert configuration.knownClasses list }
+
+
+withCssUsingFunctions :
+    Dict
+        ( ModuleName, String )
+        ({ firstArgument : Node Expression, restOfArguments : List (Node Expression) } -> List CssArgument)
+    -> Configuration
+    -> Configuration
+withCssUsingFunctions newFunctions (Configuration configuration) =
+    Configuration { configuration | cssFunctions = Dict.union newFunctions configuration.cssFunctions }
 
 
 withCssFiles : List String -> Configuration -> Configuration
@@ -110,10 +122,10 @@ type alias ModuleContext =
     }
 
 
-moduleVisitor : Rule.ModuleRuleSchema schema ModuleContext -> Rule.ModuleRuleSchema { schema | hasAtLeastOneVisitor : () } ModuleContext
-moduleVisitor schema =
+moduleVisitor : CssFunctions -> Rule.ModuleRuleSchema schema ModuleContext -> Rule.ModuleRuleSchema { schema | hasAtLeastOneVisitor : () } ModuleContext
+moduleVisitor cssFunctions schema =
     schema
-        |> Rule.withExpressionEnterVisitor expressionVisitor
+        |> Rule.withExpressionEnterVisitor (expressionVisitor cssFunctions)
 
 
 initialProjectContext : Set String -> ProjectContext
@@ -148,21 +160,21 @@ foldProjectContexts new previous =
     }
 
 
-expressionVisitor : Node Expression -> ModuleContext -> ( List (Rule.Error {}), ModuleContext )
-expressionVisitor node context =
+expressionVisitor : CssFunctions -> Node Expression -> ModuleContext -> ( List (Rule.Error {}), ModuleContext )
+expressionVisitor cssFunctions node context =
     case Node.value node of
         Expression.Application ((Node fnRange (Expression.FunctionOrValue _ name)) :: firstArg :: restOfArguments) ->
-            ( reportClasses context fnRange name firstArg restOfArguments
+            ( reportClasses cssFunctions context fnRange name firstArg restOfArguments
             , context
             )
 
         Expression.OperatorApplication "|>" _ firstArg (Node fnRange (Expression.FunctionOrValue _ name)) ->
-            ( reportClasses context fnRange name firstArg []
+            ( reportClasses cssFunctions context fnRange name firstArg []
             , context
             )
 
         Expression.OperatorApplication "<|" _ (Node fnRange (Expression.FunctionOrValue _ name)) firstArg ->
-            ( reportClasses context fnRange name firstArg []
+            ( reportClasses cssFunctions context fnRange name firstArg []
             , context
             )
 
@@ -181,8 +193,8 @@ type alias CssFunctions =
         ({ firstArgument : Node Expression, restOfArguments : List (Node Expression) } -> List CssArgument)
 
 
-cssFunctions : CssFunctions
-cssFunctions =
+baseCssFunctions : CssFunctions
+baseCssFunctions =
     Dict.fromList
         [ ( ( [ "Html", "Attributes" ], "class" ), \{ firstArgument } -> [ fromLiteral firstArgument ] )
         , ( ( [ "Svg", "Attributes" ], "class" ), \{ firstArgument } -> [ fromLiteral firstArgument ] )
@@ -219,8 +231,8 @@ fromLiteral node =
             Variable (Node.range node)
 
 
-reportClasses : ModuleContext -> Range -> String -> Node Expression -> List (Node Expression) -> List (Rule.Error {})
-reportClasses context fnRange name firstArg restOfArguments =
+reportClasses : CssFunctions -> ModuleContext -> Range -> String -> Node Expression -> List (Node Expression) -> List (Rule.Error {})
+reportClasses cssFunctions context fnRange name firstArg restOfArguments =
     case
         ModuleNameLookupTable.moduleNameAt context.lookupTable fnRange
             |> Maybe.andThen (\moduleName -> Dict.get ( moduleName, name ) cssFunctions)

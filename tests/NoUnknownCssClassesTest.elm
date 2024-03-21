@@ -1,6 +1,10 @@
 module NoUnknownCssClassesTest exposing (all)
 
-import NoUnknownCssClasses exposing (defaults, rule, withCssFiles, withHardcodedKnownClasses)
+import Dict
+import Elm.Syntax.Expression as Expression exposing (Expression)
+import Elm.Syntax.ModuleName exposing (ModuleName)
+import Elm.Syntax.Node as Node exposing (Node(..))
+import NoUnknownCssClasses exposing (CssArgument, defaults, fromLiteral, rule, withCssFiles, withCssUsingFunctions, withHardcodedKnownClasses)
 import Review.Project as Project exposing (Project)
 import Review.Test
 import Review.Test.Dependencies
@@ -148,7 +152,48 @@ view model =
                             , under = "variable"
                             }
                         ]
+        , test "should not report an error when encountering a literal CSS class with a custom CSS function" <|
+            \() ->
+                """module A exposing (..)
+import Class
+
+view model =
+    Class.fromString "known"
+"""
+                    |> Review.Test.run
+                        (defaults
+                            |> withHardcodedKnownClasses [ "known" ]
+                            |> withCssUsingFunctions (Dict.fromList [ ( ( [ "Class" ], "fromString" ), classFromAttrFunction ) ])
+                            |> rule
+                        )
+                    |> Review.Test.expectNoErrors
+        , test "should report an error when encountering a non-literal CSS class with a custom CSS function" <|
+            \() ->
+                """module A exposing (..)
+import Class
+
+view model =
+    Class.fromString model.a
+"""
+                    |> Review.Test.run
+                        (defaults
+                            |> withHardcodedKnownClasses [ "known" ]
+                            |> withCssUsingFunctions (Dict.fromList [ ( ( [ "Class" ], "fromString" ), classFromAttrFunction ) ])
+                            |> rule
+                        )
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Non-literal argument to CSS class function"
+                            , details = [ "The argument given to this function is not a value that I could interpret. This makes it hard for me to figure out whether this was a known CSS class or not. Please transform this a string literal (\"my-class\")." ]
+                            , under = "model.a"
+                            }
+                        ]
         ]
+
+
+classFromAttrFunction : { firstArgument : Node Expression, restOfArguments : List (Node Expression) } -> List CssArgument
+classFromAttrFunction { firstArgument } =
+    [ fromLiteral firstArgument ]
 
 
 projectWithCssClasses : Project
