@@ -185,6 +185,7 @@ cssFunctions : CssFunctions
 cssFunctions =
     Dict.fromList
         [ ( ( [ "Html", "Attributes" ], "class" ), \{ firstArgument } -> [ fromLiteral firstArgument ] )
+        , ( ( [ "Svg", "Attributes" ], "class" ), \{ firstArgument } -> [ fromLiteral firstArgument ] )
         , ( ( [ "Html", "Attributes" ], "classList" ), \{ firstArgument } -> htmlAttributesClassList firstArgument )
         ]
 
