@@ -185,7 +185,27 @@ cssFunctions : CssFunctions
 cssFunctions =
     Dict.fromList
         [ ( ( [ "Html", "Attributes" ], "class" ), \{ firstArgument } -> [ fromLiteral firstArgument ] )
+        , ( ( [ "Html", "Attributes" ], "classList" ), \{ firstArgument } -> htmlAttributesClassList firstArgument )
         ]
+
+
+htmlAttributesClassList : Node Expression -> List CssArgument
+htmlAttributesClassList node =
+    case Node.value node of
+        Expression.ListExpr list ->
+            List.map
+                (\element ->
+                    case Node.value element of
+                        Expression.TupledExpression [ first, _ ] ->
+                            fromLiteral first
+
+                        _ ->
+                            Variable (Node.range element)
+                )
+                list
+
+        _ ->
+            [ fromLiteral node ]
 
 
 fromLiteral : Node Expression -> CssArgument
