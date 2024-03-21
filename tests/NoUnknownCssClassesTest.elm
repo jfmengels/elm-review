@@ -111,6 +111,43 @@ view model =
                             , under = "model.class"
                             }
                         ]
+        , test "should report an error when encountering a non-literal argument for Html.Attributes.classList" <|
+            \() ->
+                """module A exposing (..)
+import Html
+import Html.Attributes as Attr
+
+view model =
+    Attr.classList model.classList
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Non-literal argument to CSS class function"
+                            , details = [ "The argument given to this function is not a value that I could interpret. This makes it hard for me to figure out whether this was a known CSS class or not. Please transform this a string literal (\"my-class\")." ]
+                            , under = "model.classList"
+                            }
+                        ]
+        , test "should report an error when encountering non-literal CSS classes for Html.Attributes.classList" <|
+            \() ->
+                """module A exposing (..)
+import Html
+import Html.Attributes as Attr
+
+view model =
+    Attr.classList
+        [ ( "known", model.a )
+        , ( variable, model.b )
+        ]
+"""
+                    |> Review.Test.run (defaults |> withHardcodedKnownClasses [ "known" ] |> rule)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Non-literal argument to CSS class function"
+                            , details = [ "The argument given to this function is not a value that I could interpret. This makes it hard for me to figure out whether this was a known CSS class or not. Please transform this a string literal (\"my-class\")." ]
+                            , under = "variable"
+                            }
+                        ]
         ]
 
 
