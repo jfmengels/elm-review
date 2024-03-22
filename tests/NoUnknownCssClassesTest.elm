@@ -94,7 +94,7 @@ import Html
 import Html.Attributes as Attr
 
 view model =
-    Html.span [ "known red" |> Attr.class ] []
+    Html.span [ "known red-faint under_score" |> Attr.class ] []
 """
                     |> Review.Test.runWithProjectData projectWithCssClasses (defaults |> withCssFiles [ "*.css" ] |> rule)
                     |> Review.Test.expectNoErrors
@@ -223,8 +223,11 @@ projectWithCssClasses =
 .known {
     color: blue;
 }
-.red {
+.red-faint {
     color: red;
+}
+.under_score {
+    color: green;
 }
 """
           }
@@ -240,7 +243,7 @@ projectWithUnparsableCssClasses =
 .known {
     color: blue;
 }
-.red {
+.red-faint {
     color: red;
 -- missing closing curly brace
 """
