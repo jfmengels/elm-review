@@ -188,6 +188,25 @@ view model =
                             , under = "model.a"
                             }
                         ]
+        , test "should report an error when being unable to parse a CSS file" <|
+            \() ->
+                """module A exposing (..)
+import Class
+
+view model =
+    Class.fromString model.a
+"""
+                    |> Review.Test.runWithProjectData projectWithUnparsableCssClasses (defaults |> withCssFiles [ "*.css" ] |> rule)
+                    |> Review.Test.expectErrorsForModules
+                        [ ( "some-file.css"
+                          , [ Review.Test.error
+                                { message = "Unable to parse CSS file `some-file.css`"
+                                , details = [ "Please check that this file is syntactically correct. It is possible that I'm mistaken as my CSS parser is still very naive. Contributions are welcome to solve the issue." ]
+                                , under = "-- First line"
+                                }
+                            ]
+                          )
+                        ]
         ]
 
 
@@ -200,13 +219,30 @@ projectWithCssClasses : Project
 projectWithCssClasses =
     Project.addExtraFiles
         [ { path = "some-file.css"
-          , content = """
+          , content = """-- First line
 .known {
     color: blue;
 }
 .red {
     color: red;
 }
+"""
+          }
+        ]
+        Review.Test.Dependencies.projectWithElmCore
+
+
+projectWithUnparsableCssClasses : Project
+projectWithUnparsableCssClasses =
+    Project.addExtraFiles
+        [ { path = "some-file.css"
+          , content = """-- First line
+.known {
+    color: blue;
+}
+.red {
+    color: red;
+-- missing closing curly brace
 """
           }
         ]

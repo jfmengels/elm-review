@@ -86,9 +86,13 @@ defaults =
         }
 
 
-cssFilesVisitor : List { file | content : String } -> ProjectContext -> ( List empty, ProjectContext )
+cssFilesVisitor : List { fileKey : Rule.ExtraFileKey, path : String, content : String } -> ProjectContext -> ( List (Rule.Error scope), ProjectContext )
 cssFilesVisitor files context =
-    ( [], { knownClasses = List.foldl (.content >> parseCssFile) context.knownClasses files } )
+    let
+        ( errors, knownClasses ) =
+            List.foldl parseCssFile ( [], context.knownClasses ) files
+    in
+    ( errors, { knownClasses = knownClasses } )
 
 
 withHardcodedKnownClasses : List String -> Configuration -> Configuration
@@ -303,15 +307,22 @@ unknownClasses knownClasses range str =
 ---
 
 
-parseCssFile : String -> Set String -> Set String
-parseCssFile file knownClasses =
-    case Parser.run cssParser file of
+parseCssFile : { fileKey : Rule.ExtraFileKey, path : String, content : String } -> ( List (Rule.Error externalFile), Set String ) -> ( List (Rule.Error externalFile), Set String )
+parseCssFile file ( errors, knownClasses ) =
+    case Parser.run cssParser file.content of
         Ok cssClasses ->
-            Set.union cssClasses knownClasses
+            ( errors, Set.union cssClasses knownClasses )
 
         Err _ ->
             -- Create an error?
-            knownClasses
+            ( Rule.errorForExtraFile file.fileKey
+                { message = "Unable to parse CSS file `some-file.css`"
+                , details = [ "Please check that this file is syntactically correct. It is possible that I'm mistaken as my CSS parser is still very naive. Contributions are welcome to solve the issue." ]
+                }
+                { start = { row = 1, column = 1 }, end = { row = 1, column = 100000 } }
+                :: errors
+            , knownClasses
+            )
 
 
 cssParser : Parser (Set String)
