@@ -335,7 +335,7 @@ cssRule acc =
     Parser.oneOf
         [ Parser.succeed (\selector -> Parser.Loop (Set.insert selector acc))
             |. Parser.token "."
-            |= (Parser.chompWhile Char.isAlphaNum
+            |= (Parser.chompWhile (\c -> Char.isAlphaNum c || c == '-' || c == '_')
                     |> Parser.getChompedString
                )
         , Parser.end
