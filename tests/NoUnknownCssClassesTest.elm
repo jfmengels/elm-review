@@ -34,11 +34,14 @@ import Html.Attributes as Attr
 view model =
     Html.span [ Attr.class "unknown" ] []
 """
-                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.run (defaults |> withHardcodedKnownClasses [ "known", "bar", "unknown2" ] |> rule)
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Unknown CSS class \"unknown\""
-                            , details = [ "I could not find this class in CSS files. Have you made a typo? Here are similarly-named classes: TODO" ]
+                            , details =
+                                [ "I could not find this class in CSS files. Have you made a typo?"
+                                , "Here are similarly-named classes:\n - unknown2\n - known"
+                                ]
                             , under = "unknown"
                             }
                         ]
@@ -66,7 +69,7 @@ view model =
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Unknown CSS class \"unknown\""
-                            , details = [ "I could not find this class in CSS files. Have you made a typo? Here are similarly-named classes: TODO" ]
+                            , details = [ "I could not find this class in CSS files. Have you made a typo?" ]
                             , under = "unknown"
                             }
                         ]
@@ -83,7 +86,7 @@ view model =
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Unknown CSS class \"unknown\""
-                            , details = [ "I could not find this class in CSS files. Have you made a typo? Here are similarly-named classes: TODO" ]
+                            , details = [ "I could not find this class in CSS files. Have you made a typo?" ]
                             , under = "unknown"
                             }
                         ]
