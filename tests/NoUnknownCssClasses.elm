@@ -14,6 +14,7 @@ import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Range as Range exposing (Range)
+import Levenshtein
 import NoInconsistentAliases exposing (Config)
 import Parser exposing ((|.), (|=), Parser)
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
@@ -265,13 +266,68 @@ reportClasses cssFunctions context fnRange name firstArg restOfArguments =
             []
 
 
-reportError : Range -> String -> Rule.Error {}
-reportError range name =
+reportError : Set String -> Range -> String -> Rule.Error {}
+reportError knownClasses range name =
     Rule.error
         { message = "Unknown CSS class \"" ++ name ++ "\""
-        , details = [ "I could not find this class in CSS files. Have you made a typo? Here are similarly-named classes: TODO" ]
+        , details =
+            "I could not find this class in CSS files. Have you made a typo?"
+                :: (if Set.isEmpty knownClasses then
+                        []
+
+                    else
+                        [ String.join "\n"
+                            ("Here are similarly-named classes:"
+                                :: List.map (\str -> " - " ++ str) (similarClasses name knownClasses)
+                            )
+                        ]
+                   )
         }
         range
+
+
+similarClasses : String -> Set String -> List String
+similarClasses targetClass knownClasses =
+    Set.foldl
+        (\class ({ first, second } as untouched) ->
+            let
+                distance : Int
+                distance =
+                    computeDistance class targetClass
+            in
+            if isSmallerDistance distance first then
+                { first = Just { class = class, distance = distance }
+                , second = first
+                }
+
+            else if isSmallerDistance distance second then
+                { first = first
+                , second = Just { class = class, distance = distance }
+                }
+
+            else
+                untouched
+        )
+        { first = Nothing, second = Nothing }
+        knownClasses
+        |> (\{ first, second } -> List.filterMap (Maybe.map .class) [ first, second ])
+
+
+isSmallerDistance : Int -> Maybe { a | distance : Int } -> Bool
+isSmallerDistance distance maybeElement =
+    case maybeElement of
+        Just element ->
+            distance < element.distance
+
+        Nothing ->
+            True
+
+
+computeDistance : String -> String -> Int
+computeDistance a b =
+    Basics.min
+        (Levenshtein.distance a b)
+        (Levenshtein.distance b a)
 
 
 unknownClasses : Set String -> Range -> String -> List (Rule.Error {})
@@ -290,6 +346,7 @@ unknownClasses knownClasses range str =
 
                     else
                         reportError
+                            knownClasses
                             { start = { row = row, column = column + offset }
                             , end = { row = row, column = column + offset + String.length class }
                             }
