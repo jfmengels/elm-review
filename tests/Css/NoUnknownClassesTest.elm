@@ -241,6 +241,22 @@ view model =
                             , under = "model.a"
                             }
                         ]
+        , test "should report an error when encountering a reference to class function outside of a function call" <|
+            \() ->
+                """module A exposing (..)
+import Html.Attributes
+
+classListWithoutErrorsBeingReported =
+    Html.Attributes.classList
+"""
+                    |> Review.Test.run (cssFiles [ "*.css" ] |> rule)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Class using function is used without all of its class functions"
+                            , details = [ "REPLACEME" ]
+                            , under = "Html.Attributes.classList"
+                            }
+                        ]
         , test "should report an error when being unable to parse a CSS file" <|
             \() ->
                 """module A exposing (..)
