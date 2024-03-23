@@ -1,6 +1,7 @@
 module Css.NoUnknownClassesTest exposing (all)
 
-import Css.NoUnknownClasses exposing (CssArgument, addKnownClasses, cssFiles, fromLiteral, rule, withCssUsingFunctions)
+import Css.ClassFunction exposing (CssArgument(..), fromLiteral)
+import Css.NoUnknownClasses exposing (addKnownClasses, cssFiles, rule, withCssUsingFunctions)
 import Dict
 import Elm.Syntax.Expression exposing (Expression)
 import Elm.Syntax.Node exposing (Node)
