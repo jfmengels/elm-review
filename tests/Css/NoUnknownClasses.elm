@@ -141,6 +141,7 @@ import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Range exposing (Range)
 import Levenshtein
 import Parser exposing ((|.), (|=), Parser)
+import RangeDict exposing (RangeDict)
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Rule as Rule exposing (Rule)
 import Set exposing (Set)
@@ -273,6 +274,7 @@ type alias ProjectContext =
 type alias ModuleContext =
     { lookupTable : ModuleNameLookupTable
     , knownClasses : Set String
+    , functionOrValuesToIgnore : RangeDict ()
     }
 
 
@@ -294,6 +296,7 @@ fromProjectToModule =
         (\lookupTable projectContext ->
             { lookupTable = lookupTable
             , knownClasses = projectContext.knownClasses
+            , functionOrValuesToIgnore = RangeDict.empty
             }
         )
         |> Rule.withModuleNameLookupTable
@@ -318,19 +321,13 @@ expressionVisitor : CssFunctions -> Node Expression -> ModuleContext -> ( List (
 expressionVisitor cssFunctions node context =
     case Node.value node of
         Expression.Application ((Node fnRange (Expression.FunctionOrValue _ name)) :: firstArg :: restOfArguments) ->
-            ( reportClasses cssFunctions context fnRange name firstArg restOfArguments
-            , context
-            )
+            reportClasses cssFunctions context fnRange name firstArg restOfArguments
 
         Expression.OperatorApplication "|>" _ firstArg (Node fnRange (Expression.FunctionOrValue _ name)) ->
-            ( reportClasses cssFunctions context fnRange name firstArg []
-            , context
-            )
+            reportClasses cssFunctions context fnRange name firstArg []
 
         Expression.OperatorApplication "<|" _ (Node fnRange (Expression.FunctionOrValue _ name)) firstArg ->
-            ( reportClasses cssFunctions context fnRange name firstArg []
-            , context
-            )
+            reportClasses cssFunctions context fnRange name firstArg []
 
         _ ->
             ( [], context )
@@ -396,34 +393,41 @@ fromLiteral node =
             Variable (Node.range node)
 
 
-reportClasses : CssFunctions -> ModuleContext -> Range -> String -> Node Expression -> List (Node Expression) -> List (Rule.Error {})
+reportClasses : CssFunctions -> ModuleContext -> Range -> String -> Node Expression -> List (Node Expression) -> ( List (Rule.Error {}), ModuleContext )
 reportClasses cssFunctions context fnRange name firstArg restOfArguments =
     case
         ModuleNameLookupTable.moduleNameAt context.lookupTable fnRange
             |> Maybe.andThen (\moduleName -> Dict.get ( moduleName, name ) cssFunctions)
     of
         Just cssFunction ->
-            cssFunction { firstArgument = firstArg, restOfArguments = restOfArguments }
-                |> List.concatMap
-                    (\arg ->
-                        case arg of
-                            Literal class ->
-                                unknownClasses
-                                    context.knownClasses
-                                    (Node.range firstArg)
-                                    class
+            let
+                errors : List (Rule.Error {})
+                errors =
+                    cssFunction { firstArgument = firstArg, restOfArguments = restOfArguments }
+                        |> List.concatMap
+                            (\arg ->
+                                case arg of
+                                    Literal class ->
+                                        unknownClasses
+                                            context.knownClasses
+                                            (Node.range firstArg)
+                                            class
 
-                            Variable range ->
-                                [ Rule.error
-                                    { message = "Non-literal argument to CSS class function"
-                                    , details = [ "The argument given to this function is not a value that I could interpret. This makes it hard for me to figure out whether this was a known CSS class or not. Please transform this a string literal (\"my-class\")." ]
-                                    }
-                                    range
-                                ]
-                    )
+                                    Variable range ->
+                                        [ Rule.error
+                                            { message = "Non-literal argument to CSS class function"
+                                            , details = [ "The argument given to this function is not a value that I could interpret. This makes it hard for me to figure out whether this was a known CSS class or not. Please transform this a string literal (\"my-class\")." ]
+                                            }
+                                            range
+                                        ]
+                            )
+            in
+            ( errors
+            , { context | functionOrValuesToIgnore = RangeDict.insert fnRange () context.functionOrValuesToIgnore }
+            )
 
         Nothing ->
-            []
+            ( [], context )
 
 
 reportError : Set String -> Range -> String -> Rule.Error {}
