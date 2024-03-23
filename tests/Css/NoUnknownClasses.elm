@@ -257,13 +257,11 @@ Here is how `Html.Attributes.classList` is implemented (Reminder of an example u
 
 -}
 withCssUsingFunctions :
-    Dict
-        ( ModuleName, String )
-        ({ firstArgument : Node Expression, restOfArguments : List (Node Expression) } -> List CssArgument)
+    List ( String, { firstArgument : Node Expression, restOfArguments : List (Node Expression) } -> List CssArgument )
     -> Configuration
     -> Configuration
 withCssUsingFunctions newFunctions (Configuration configuration) =
-    Configuration { configuration | cssFunctions = Dict.union newFunctions configuration.cssFunctions }
+    Configuration { configuration | cssFunctions = List.foldl (\( key, fn ) acc -> Dict.insert key fn acc) configuration.cssFunctions newFunctions }
 
 
 type alias ProjectContext =
@@ -346,7 +344,7 @@ reportStrayCssFunction cssFunctions context range name =
     else
         case
             ModuleNameLookupTable.moduleNameAt context.lookupTable range
-                |> Maybe.andThen (\moduleName -> Dict.get ( moduleName, name ) cssFunctions)
+                |> Maybe.andThen (\moduleName -> getCssFunction cssFunctions name moduleName)
         of
             Just _ ->
                 [ Rule.error
@@ -360,19 +358,24 @@ reportStrayCssFunction cssFunctions context range name =
                 []
 
 
+getCssFunction : Dict String v -> String -> List String -> Maybe v
+getCssFunction cssFunctions name moduleName =
+    Dict.get (String.join "." moduleName ++ "." ++ name) cssFunctions
+
+
 type alias CssFunctions =
     Dict
-        ( ModuleName, String )
+        String
         ({ firstArgument : Node Expression, restOfArguments : List (Node Expression) } -> List CssArgument)
 
 
 baseCssFunctions : CssFunctions
 baseCssFunctions =
     Dict.fromList
-        [ ( ( [ "Html", "Attributes" ], "class" ), \{ firstArgument } -> [ fromLiteral firstArgument ] )
-        , ( ( [ "Svg", "Attributes" ], "class" ), \{ firstArgument } -> [ fromLiteral firstArgument ] )
-        , ( ( [ "Html", "Attributes" ], "classList" ), \{ firstArgument } -> htmlAttributesClassList firstArgument )
-        , ( ( [ "Html", "Attributes" ], "attribute" ), attribute )
+        [ ( "Html.Attributes.class", \{ firstArgument } -> [ fromLiteral firstArgument ] )
+        , ( "Svg.Attributes.class", \{ firstArgument } -> [ fromLiteral firstArgument ] )
+        , ( "Html.Attributes.classList", \{ firstArgument } -> htmlAttributesClassList firstArgument )
+        , ( "Html.Attributes.attribute", attribute )
         ]
 
 
@@ -424,7 +427,7 @@ reportClasses : CssFunctions -> ModuleContext -> Range -> String -> Node Express
 reportClasses cssFunctions context fnRange name firstArgument restOfArguments =
     case
         ModuleNameLookupTable.moduleNameAt context.lookupTable fnRange
-            |> Maybe.andThen (\moduleName -> Dict.get ( moduleName, name ) cssFunctions)
+            |> Maybe.andThen (\moduleName -> getCssFunction cssFunctions name moduleName)
     of
         Just cssFunction ->
             ( errorsForCssFunction context.knownClasses cssFunction { firstArgument = firstArgument, restOfArguments = restOfArguments }

@@ -216,7 +216,7 @@ view model =
                     |> Review.Test.run
                         (cssFiles [ "*.css" ]
                             |> addKnownClasses [ "known" ]
-                            |> withCssUsingFunctions (Dict.fromList [ ( ( [ "Class" ], "fromString" ), classFromAttrFunction ) ])
+                            |> withCssUsingFunctions [ ( "Class.fromString", classFromAttrFunction ) ]
                             |> rule
                         )
                     |> Review.Test.expectNoErrors
@@ -231,7 +231,7 @@ view model =
                     |> Review.Test.run
                         (cssFiles [ "*.css" ]
                             |> addKnownClasses [ "known" ]
-                            |> withCssUsingFunctions (Dict.fromList [ ( ( [ "Class" ], "fromString" ), classFromAttrFunction ) ])
+                            |> withCssUsingFunctions [ ( "Class.fromString", classFromAttrFunction ) ]
                             |> rule
                         )
                     |> Review.Test.expectErrors
@@ -260,21 +260,17 @@ classListWithoutErrorsBeingReported =
         , test "should report an error when encountering a class function application with less arguments than where their class arguments are" <|
             \() ->
                 """module A exposing (..)
-import ClassFn
+import Html.Attributes
 
 classFunctionWithoutErrorsBeingReported =
-    ClassFn.fnThatTakes5Args a b c d
+    Html.Attributes.attribute "class"
 """
-                    |> Review.Test.run
-                        (cssFiles [ "*.css" ]
-                            |> withCssUsingFunctions (Dict.fromList [ ( ( [ "ClassFn" ], "fnThatTakes5Args" ), always [] ) ])
-                            |> rule
-                        )
+                    |> Review.Test.run (cssFiles [ "*.css" ] |> rule)
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Class using function is used without all of its class arguments"
                             , details = [ "REPLACEME" ]
-                            , under = "Html.Attributes.classList"
+                            , under = "Html.Attributes.attribute"
                             }
                         ]
         , test "should report an error when being unable to parse a CSS file" <|
