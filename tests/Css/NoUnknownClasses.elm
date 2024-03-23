@@ -39,7 +39,7 @@ module Css.NoUnknownClasses exposing
 
 ## Class module
 
-    module Class exposing (Class, batch, fromString, toAttr)
+    module Class exposing (Class, batch, fromString, none, toAttr)
 
     {-| TODO
     -}
@@ -49,6 +49,10 @@ module Css.NoUnknownClasses exposing
 
     type Class
         = Class (List String)
+
+    none : Class
+    none =
+        Class []
 
     fromString : String -> Class
     fromString class =
