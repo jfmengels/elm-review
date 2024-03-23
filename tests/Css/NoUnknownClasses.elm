@@ -394,40 +394,44 @@ fromLiteral node =
 
 
 reportClasses : CssFunctions -> ModuleContext -> Range -> String -> Node Expression -> List (Node Expression) -> ( List (Rule.Error {}), ModuleContext )
-reportClasses cssFunctions context fnRange name firstArg restOfArguments =
+reportClasses cssFunctions context fnRange name firstArgument restOfArguments =
     case
         ModuleNameLookupTable.moduleNameAt context.lookupTable fnRange
             |> Maybe.andThen (\moduleName -> Dict.get ( moduleName, name ) cssFunctions)
     of
         Just cssFunction ->
-            let
-                errors : List (Rule.Error {})
-                errors =
-                    cssFunction { firstArgument = firstArg, restOfArguments = restOfArguments }
-                        |> List.concatMap
-                            (\arg ->
-                                case arg of
-                                    Literal class ->
-                                        unknownClasses
-                                            context.knownClasses
-                                            (Node.range firstArg)
-                                            class
-
-                                    Variable range ->
-                                        [ Rule.error
-                                            { message = "Non-literal argument to CSS class function"
-                                            , details = [ "The argument given to this function is not a value that I could interpret. This makes it hard for me to figure out whether this was a known CSS class or not. Please transform this a string literal (\"my-class\")." ]
-                                            }
-                                            range
-                                        ]
-                            )
-            in
-            ( errors
+            ( errorsForCssFunction context.knownClasses cssFunction { firstArgument = firstArgument, restOfArguments = restOfArguments }
             , { context | functionOrValuesToIgnore = RangeDict.insert fnRange () context.functionOrValuesToIgnore }
             )
 
         Nothing ->
             ( [], context )
+
+
+errorsForCssFunction :
+    Set String
+    -> ({ firstArgument : Node Expression, restOfArguments : List (Node Expression) } -> List CssArgument)
+    -> { firstArgument : Node Expression, restOfArguments : List (Node Expression) }
+    -> List (Rule.Error {})
+errorsForCssFunction knownClasses cssFunction target =
+    cssFunction target
+        |> List.concatMap
+            (\arg ->
+                case arg of
+                    Literal class ->
+                        unknownClasses
+                            knownClasses
+                            (Node.range target.firstArgument)
+                            class
+
+                    Variable range ->
+                        [ Rule.error
+                            { message = "Non-literal argument to CSS class function"
+                            , details = [ "The argument given to this function is not a value that I could interpret. This makes it hard for me to figure out whether this was a known CSS class or not. Please transform this a string literal (\"my-class\")." ]
+                            }
+                            range
+                        ]
+            )
 
 
 reportError : Set String -> Range -> String -> Rule.Error {}
