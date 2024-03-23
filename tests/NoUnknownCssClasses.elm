@@ -13,14 +13,13 @@ import Dict exposing (Dict)
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node(..))
-import Elm.Syntax.Range as Range exposing (Range)
+import Elm.Syntax.Range exposing (Range)
 import Levenshtein
-import NoInconsistentAliases exposing (Config)
 import Parser exposing ((|.), (|=), Parser)
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Rule as Rule exposing (Rule)
 import Set exposing (Set)
-import String exposing (contains)
+import String
 
 
 {-| Reports... REPLACEME
@@ -153,7 +152,7 @@ fromProjectToModule =
 fromModuleToProject : Rule.ContextCreator ModuleContext ProjectContext
 fromModuleToProject =
     Rule.initContextCreator
-        (\moduleContext ->
+        (\_ ->
             { knownClasses = Set.empty
             }
         )
@@ -331,13 +330,23 @@ computeDistance a b =
 
 
 unknownClasses : Set String -> Range -> String -> List (Rule.Error {})
-unknownClasses knownClasses range str =
-    let
-        { row, column } =
-            range.start
-    in
-    List.foldl
-        (\class ( offset, errors ) ->
+unknownClasses knownClasses range classesStr =
+    unknownClassesHelp
+        knownClasses
+        range.start.row
+        range.start.column
+        1
+        (String.split " " classesStr)
+        []
+
+
+unknownClassesHelp : Set String -> Int -> Int -> Int -> List String -> List (Rule.Error {}) -> List (Rule.Error {})
+unknownClassesHelp knownClasses row column offset classes errors =
+    case classes of
+        [] ->
+            errors
+
+        class :: rest ->
             let
                 newErrors : List (Rule.Error {})
                 newErrors =
@@ -353,11 +362,13 @@ unknownClasses knownClasses range str =
                             class
                             :: errors
             in
-            ( offset + String.length class + 1, newErrors )
-        )
-        ( 1, [] )
-        (String.split " " str)
-        |> Tuple.second
+            unknownClassesHelp
+                knownClasses
+                row
+                column
+                (offset + String.length class + 1)
+                rest
+                newErrors
 
 
 
