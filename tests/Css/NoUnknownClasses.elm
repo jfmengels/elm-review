@@ -348,7 +348,23 @@ baseCssFunctions =
         [ ( ( [ "Html", "Attributes" ], "class" ), \{ firstArgument } -> [ fromLiteral firstArgument ] )
         , ( ( [ "Svg", "Attributes" ], "class" ), \{ firstArgument } -> [ fromLiteral firstArgument ] )
         , ( ( [ "Html", "Attributes" ], "classList" ), \{ firstArgument } -> htmlAttributesClassList firstArgument )
+        , ( ( [ "Html", "Attributes" ], "attribute" ), attribute )
         ]
+
+
+attribute : { firstArgument : Node Expression, restOfArguments : List (Node Expression) } -> List CssArgument
+attribute { firstArgument, restOfArguments } =
+    case Node.value firstArgument of
+        Expression.Literal "class" ->
+            case restOfArguments of
+                [] ->
+                    []
+
+                classArgument :: _ ->
+                    [ fromLiteral classArgument ]
+
+        _ ->
+            []
 
 
 htmlAttributesClassList : Node Expression -> List CssArgument

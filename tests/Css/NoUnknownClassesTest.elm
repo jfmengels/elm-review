@@ -155,6 +155,56 @@ view model =
                             , under = "variable"
                             }
                         ]
+        , test "should report an error when encountering a non-literal argument to Html.Attributes.attribute \"class\"" <|
+            \() ->
+                """module A exposing (..)
+import Html
+import Html.Attributes as Attr
+
+view model =
+    Attr.attribute "class" model.class
+"""
+                    |> Review.Test.run (cssFiles [ "*.css" ] |> rule)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Non-literal argument to CSS class function"
+                            , details = [ "The argument given to this function is not a value that I could interpret. This makes it hard for me to figure out whether this was a known CSS class or not. Please transform this a string literal (\"my-class\")." ]
+                            , under = "model.class"
+                            }
+                        ]
+        , test "should not report an error when encountering a known class argument to Html.Attributes.attribute \"class\"" <|
+            \() ->
+                """module A exposing (..)
+import Html
+import Html.Attributes as Attr
+
+view model =
+    Attr.attribute "class" "known"
+"""
+                    |> Review.Test.run (cssFiles [ "*.css" ] |> addKnownClasses [ "known" ] |> rule)
+                    |> Review.Test.expectNoErrors
+        , test "should not report an error when Html.Attributes.attribute is used with something else than \"class\"" <|
+            \() ->
+                """module A exposing (..)
+import Html
+import Html.Attributes as Attr
+
+view model =
+    Attr.attribute "id" model.id
+"""
+                    |> Review.Test.run (cssFiles [ "*.css" ] |> addKnownClasses [ "known" ] |> rule)
+                    |> Review.Test.expectNoErrors
+        , test "should not report an error when Html.Attributes.attribute is used with a non-literal attribute name" <|
+            \() ->
+                """module A exposing (..)
+import Html
+import Html.Attributes as Attr
+
+view model =
+    Attr.attribute name model.name
+"""
+                    |> Review.Test.run (cssFiles [ "*.css" ] |> addKnownClasses [ "known" ] |> rule)
+                    |> Review.Test.expectNoErrors
         , test "should not report an error when encountering a literal CSS class with a custom CSS function" <|
             \() ->
                 """module A exposing (..)
