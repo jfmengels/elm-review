@@ -1,9 +1,8 @@
 module NoUnknownCssClassesTest exposing (all)
 
 import Dict
-import Elm.Syntax.Expression as Expression exposing (Expression)
-import Elm.Syntax.ModuleName exposing (ModuleName)
-import Elm.Syntax.Node as Node exposing (Node(..))
+import Elm.Syntax.Expression exposing (Expression)
+import Elm.Syntax.Node exposing (Node)
 import NoUnknownCssClasses exposing (CssArgument, defaults, fromLiteral, rule, withCssFiles, withCssUsingFunctions, withHardcodedKnownClasses)
 import Review.Project as Project exposing (Project)
 import Review.Test
