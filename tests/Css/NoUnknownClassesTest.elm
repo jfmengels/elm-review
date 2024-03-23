@@ -257,6 +257,26 @@ classListWithoutErrorsBeingReported =
                             , under = "Html.Attributes.classList"
                             }
                         ]
+        , test "should report an error when encountering a class function application with less arguments than where their class arguments are" <|
+            \() ->
+                """module A exposing (..)
+import ClassFn
+
+classFunctionWithoutErrorsBeingReported =
+    ClassFn.fnThatTakes5Args a b c d
+"""
+                    |> Review.Test.run
+                        (cssFiles [ "*.css" ]
+                            |> withCssUsingFunctions (Dict.fromList [ ( ( [ "ClassFn" ], "fnThatTakes5Args" ), always [] ) ])
+                            |> rule
+                        )
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Class using function is used without all of its class arguments"
+                            , details = [ "REPLACEME" ]
+                            , under = "Html.Attributes.classList"
+                            }
+                        ]
         , test "should report an error when being unable to parse a CSS file" <|
             \() ->
                 """module A exposing (..)
