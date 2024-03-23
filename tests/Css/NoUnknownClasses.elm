@@ -1,6 +1,6 @@
 module Css.NoUnknownClasses exposing
     ( rule
-    , CssArgument(..), addKnownClasses, cssFiles, fromLiteral, withCssUsingFunctions
+    , addKnownClasses, cssFiles, withCssUsingFunctions
     )
 
 {-|
@@ -9,6 +9,7 @@ module Css.NoUnknownClasses exposing
 
 -}
 
+import Css.ClassFunction exposing (CssArgument(..), fromLiteral)
 import Dict exposing (Dict)
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.ModuleName exposing (ModuleName)
@@ -19,7 +20,6 @@ import Parser exposing ((|.), (|=), Parser)
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Rule as Rule exposing (Rule)
 import Set exposing (Set)
-import String
 
 
 {-| Reports... REPLACEME
@@ -179,11 +179,6 @@ expressionVisitor cssFunctions node context =
 
         _ ->
             ( [], context )
-
-
-type CssArgument
-    = Literal String
-    | Variable Range
 
 
 type alias CssFunctions =
