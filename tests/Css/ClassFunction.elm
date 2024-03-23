@@ -10,6 +10,7 @@ import Elm.Syntax.Range exposing (Range)
 type CssArgument
     = Literal String
     | Variable Range
+    | MissingArgument Int
 
 
 type alias CssFunctions =

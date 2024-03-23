@@ -133,7 +133,7 @@ elm-review --template jfmengels/elm-review/example --rules NoUnknownCssClasses
 
 -}
 
-import Css.ClassFunction exposing (CssArgument(..), fromLiteral)
+import Css.ClassFunction as ClassFunction exposing (CssArgument, fromLiteral)
 import Dict exposing (Dict)
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.ModuleName exposing (ModuleName)
@@ -348,8 +348,8 @@ reportStrayCssFunction cssFunctions context range name =
         of
             Just _ ->
                 [ Rule.error
-                    { message = "Class using function is used without all of its class arguments"
-                    , details = [ "REPLACEME" ]
+                    { message = "Class using function is used without arguments"
+                    , details = [ "Having the function used without arguments confuses me and will prevent me from figuring out whether the classes passed to this function will be known or unknown. Please pass in all the arguments at the location." ]
                     }
                     range
                 ]
@@ -385,7 +385,7 @@ attribute { firstArgument, restOfArguments } =
         Expression.Literal "class" ->
             case restOfArguments of
                 [] ->
-                    []
+                    [ ClassFunction.MissingArgument 2 ]
 
                 classArgument :: _ ->
                     [ fromLiteral classArgument ]
@@ -405,7 +405,7 @@ htmlAttributesClassList node =
                             fromLiteral first
 
                         _ ->
-                            Variable (Node.range element)
+                            ClassFunction.Variable (Node.range element)
                 )
                 list
 
@@ -417,10 +417,10 @@ fromLiteral : Node Expression -> CssArgument
 fromLiteral node =
     case Node.value node of
         Expression.Literal str ->
-            Literal str
+            ClassFunction.Literal str
 
         _ ->
-            Variable (Node.range node)
+            ClassFunction.Variable (Node.range node)
 
 
 reportClasses : CssFunctions -> ModuleContext -> Range -> String -> Node Expression -> List (Node Expression) -> ( List (Rule.Error {}), ModuleContext )
@@ -430,7 +430,7 @@ reportClasses cssFunctions context fnRange name firstArgument restOfArguments =
             |> Maybe.andThen (\moduleName -> getCssFunction cssFunctions name moduleName)
     of
         Just cssFunction ->
-            ( errorsForCssFunction context.knownClasses cssFunction { firstArgument = firstArgument, restOfArguments = restOfArguments }
+            ( errorsForCssFunction context.knownClasses cssFunction fnRange { firstArgument = firstArgument, restOfArguments = restOfArguments }
             , { context | functionOrValuesToIgnore = RangeDict.insert fnRange () context.functionOrValuesToIgnore }
             )
 
@@ -441,25 +441,34 @@ reportClasses cssFunctions context fnRange name firstArgument restOfArguments =
 errorsForCssFunction :
     Set String
     -> ({ firstArgument : Node Expression, restOfArguments : List (Node Expression) } -> List CssArgument)
+    -> Range
     -> { firstArgument : Node Expression, restOfArguments : List (Node Expression) }
     -> List (Rule.Error {})
-errorsForCssFunction knownClasses cssFunction target =
+errorsForCssFunction knownClasses cssFunction fnRange target =
     cssFunction target
         |> List.concatMap
             (\arg ->
                 case arg of
-                    Literal class ->
+                    ClassFunction.Literal class ->
                         unknownClasses
                             knownClasses
                             (Node.range target.firstArgument)
                             class
 
-                    Variable range ->
+                    ClassFunction.Variable range ->
                         [ Rule.error
                             { message = "Non-literal argument to CSS class function"
                             , details = [ "The argument given to this function is not a value that I could interpret. This makes it hard for me to figure out whether this was a known CSS class or not. Please transform this a string literal (\"my-class\")." ]
                             }
                             range
+                        ]
+
+                    ClassFunction.MissingArgument index ->
+                        [ Rule.error
+                            { message = "Class using function is used without all of its CSS class arguments"
+                            , details = [ "Having the function used without all of its arguments confuses me and will prevent me from figuring out whether the classes passed to this function will be known or unknown. Please pass in all the arguments at the location." ]
+                            }
+                            fnRange
                         ]
             )
 
