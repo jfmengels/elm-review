@@ -36,6 +36,7 @@ import NoUnused.Variables
 import Review.Rule as Rule exposing (Rule)
 import NoUnused.CustomTypeConstructorArgs
 import Simplify
+import Css.NoUnknownClasses
 
 config : List Rule
 config =
@@ -78,6 +79,9 @@ config =
             , "src/Review/Logger.elm"
             ]
     , NoForbiddenWords.rule [ "REPLACEME" ]
+    , Css.NoUnknownClasses.cssFiles ["src/**/*.css"]
+            -- |> Css.NoUnknownClasses.withCssUsingFunctions cssUsingFunctions
+            |> Css.NoUnknownClasses.rule
     ]
         |> List.map (Rule.ignoreErrorsForDirectories [ "src/Vendor/", "tests/Vendor/" ])
         |> List.map (Rule.ignoreErrorsForFiles [ "tests/NoUnused/Patterns/NameVisitor.elm" ])
