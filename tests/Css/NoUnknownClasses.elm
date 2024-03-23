@@ -1,4 +1,4 @@
-module NoUnknownCssClasses exposing
+module Css.NoUnknownClasses exposing
     ( rule
     , CssArgument(..), addKnownClasses, cssFiles, fromLiteral, withCssUsingFunctions
     )
@@ -58,7 +58,7 @@ elm-review --template jfmengels/elm-review/example --rules NoUnknownCssClasses
 -}
 rule : Configuration -> Rule
 rule (Configuration configuration) =
-    Rule.newProjectRuleSchema "NoUnknownCssClasses" (initialProjectContext configuration.knownClasses)
+    Rule.newProjectRuleSchema "Css.NoUnknownClasses" (initialProjectContext configuration.knownClasses)
         |> Rule.withExtraFilesProjectVisitor configuration.cssFiles cssFilesVisitor
         |> Rule.withModuleVisitor (moduleVisitor configuration.cssFunctions)
         |> Rule.withModuleContextUsingContextCreator
