@@ -252,7 +252,7 @@ classListWithoutErrorsBeingReported =
                     |> Review.Test.run (cssFiles [ "*.css" ] |> rule)
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "Class using function is used without all of its class functions"
+                            { message = "Class using function is used without all of its class arguments"
                             , details = [ "REPLACEME" ]
                             , under = "Html.Attributes.classList"
                             }

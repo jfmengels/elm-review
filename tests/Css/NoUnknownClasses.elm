@@ -329,8 +329,35 @@ expressionVisitor cssFunctions node context =
         Expression.OperatorApplication "<|" _ (Node fnRange (Expression.FunctionOrValue _ name)) firstArg ->
             reportClasses cssFunctions context fnRange name firstArg []
 
+        Expression.FunctionOrValue _ name ->
+            ( reportStrayCssFunction cssFunctions context (Node.range node) name
+            , context
+            )
+
         _ ->
             ( [], context )
+
+
+reportStrayCssFunction : CssFunctions -> ModuleContext -> Range -> String -> List (Rule.Error {})
+reportStrayCssFunction cssFunctions context range name =
+    if RangeDict.member range context.functionOrValuesToIgnore then
+        []
+
+    else
+        case
+            ModuleNameLookupTable.moduleNameAt context.lookupTable range
+                |> Maybe.andThen (\moduleName -> Dict.get ( moduleName, name ) cssFunctions)
+        of
+            Just _ ->
+                [ Rule.error
+                    { message = "Class using function is used without all of its class arguments"
+                    , details = [ "REPLACEME" ]
+                    }
+                    range
+                ]
+
+            Nothing ->
+                []
 
 
 type alias CssFunctions =
