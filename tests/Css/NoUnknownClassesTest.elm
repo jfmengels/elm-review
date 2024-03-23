@@ -252,8 +252,8 @@ classListWithoutErrorsBeingReported =
                     |> Review.Test.run (cssFiles [ "*.css" ] |> rule)
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "Class using function is used without all of its class arguments"
-                            , details = [ "REPLACEME" ]
+                            { message = "Class using function is used without arguments"
+                            , details = [ "Having the function used without arguments confuses me and will prevent me from figuring out whether the classes passed to this function will be known or unknown. Please pass in all the arguments at the location." ]
                             , under = "Html.Attributes.classList"
                             }
                         ]
@@ -268,8 +268,8 @@ classFunctionWithoutErrorsBeingReported =
                     |> Review.Test.run (cssFiles [ "*.css" ] |> rule)
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "Class using function is used without all of its class arguments"
-                            , details = [ "REPLACEME" ]
+                            { message = "Class using function is used without all of its CSS class arguments"
+                            , details = [ "Having the function used without all of its arguments confuses me and will prevent me from figuring out whether the classes passed to this function will be known or unknown. Please pass in all the arguments at the location." ]
                             , under = "Html.Attributes.attribute"
                             }
                         ]
