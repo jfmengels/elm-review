@@ -3,7 +3,7 @@ module NoUnknownCssClassesTest exposing (all)
 import Dict
 import Elm.Syntax.Expression exposing (Expression)
 import Elm.Syntax.Node exposing (Node)
-import NoUnknownCssClasses exposing (CssArgument, defaults, fromLiteral, rule, withCssFiles, withCssUsingFunctions, withHardcodedKnownClasses)
+import NoUnknownCssClasses exposing (CssArgument, cssFiles, fromLiteral, rule, withCssUsingFunctions, withHardcodedKnownClasses)
 import Review.Project as Project exposing (Project)
 import Review.Test
 import Review.Test.Dependencies
@@ -22,7 +22,7 @@ import Html.Attributes as Attr
 view model =
     Html.span [] [ Html.text "ok" ]
 """
-                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.run (cssFiles [ "*.css" ] |> rule)
                     |> Review.Test.expectNoErrors
         , test "should report an error when encountering an unknown CSS class through Html.Attributes.class" <|
             \() ->
@@ -33,7 +33,7 @@ import Html.Attributes as Attr
 view model =
     Html.span [ Attr.class "unknown" ] []
 """
-                    |> Review.Test.run (defaults |> withHardcodedKnownClasses [ "known", "bar", "unknown2" ] |> rule)
+                    |> Review.Test.run (cssFiles [ "*.css" ] |> withHardcodedKnownClasses [ "known", "bar", "unknown2" ] |> rule)
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Unknown CSS class \"unknown\""
@@ -53,7 +53,7 @@ import Html.Attributes as Attr
 view model =
     Html.span [ Attr.class "known" ] []
 """
-                    |> Review.Test.run (defaults |> withHardcodedKnownClasses [ "known" ] |> rule)
+                    |> Review.Test.run (cssFiles [ "*.css" ] |> withHardcodedKnownClasses [ "known" ] |> rule)
                     |> Review.Test.expectNoErrors
         , test "should report an error when encountering an unknown CSS class through Html.Attributes.class in <| pipe" <|
             \() ->
@@ -64,7 +64,7 @@ import Html.Attributes as Attr
 view model =
     Html.span [ Attr.class <| "unknown" ] []
 """
-                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.run (cssFiles [ "*.css" ] |> rule)
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Unknown CSS class \"unknown\""
@@ -81,7 +81,7 @@ import Html.Attributes as Attr
 view model =
     Html.span [ "unknown" |> Attr.class ] []
 """
-                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.run (cssFiles [ "*.css" ] |> rule)
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Unknown CSS class \"unknown\""
@@ -98,7 +98,7 @@ import Html.Attributes as Attr
 view model =
     Html.span [ "known red-faint under_score" |> Attr.class ] []
 """
-                    |> Review.Test.runWithProjectData projectWithCssClasses (defaults |> withCssFiles [ "*.css" ] |> rule)
+                    |> Review.Test.runWithProjectData projectWithCssClasses (cssFiles [ "*.css" ] |> rule)
                     |> Review.Test.expectNoErrors
         , test "should report an error when encountering a non-literal argument for Html.Attributes.class" <|
             \() ->
@@ -109,7 +109,7 @@ import Html.Attributes as Attr
 view model =
     Attr.class model.class
 """
-                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.run (cssFiles [ "*.css" ] |> rule)
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Non-literal argument to CSS class function"
@@ -126,7 +126,7 @@ import Html.Attributes as Attr
 view model =
     Attr.classList model.classList
 """
-                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.run (cssFiles [ "*.css" ] |> rule)
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Non-literal argument to CSS class function"
@@ -146,7 +146,7 @@ view model =
         , ( variable, model.b )
         ]
 """
-                    |> Review.Test.run (defaults |> withHardcodedKnownClasses [ "known" ] |> rule)
+                    |> Review.Test.run (cssFiles [ "*.css" ] |> withHardcodedKnownClasses [ "known" ] |> rule)
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Non-literal argument to CSS class function"
@@ -163,7 +163,7 @@ view model =
     Class.fromString "known"
 """
                     |> Review.Test.run
-                        (defaults
+                        (cssFiles [ "*.css" ]
                             |> withHardcodedKnownClasses [ "known" ]
                             |> withCssUsingFunctions (Dict.fromList [ ( ( [ "Class" ], "fromString" ), classFromAttrFunction ) ])
                             |> rule
@@ -178,7 +178,7 @@ view model =
     Class.fromString model.a
 """
                     |> Review.Test.run
-                        (defaults
+                        (cssFiles [ "*.css" ]
                             |> withHardcodedKnownClasses [ "known" ]
                             |> withCssUsingFunctions (Dict.fromList [ ( ( [ "Class" ], "fromString" ), classFromAttrFunction ) ])
                             |> rule
@@ -198,7 +198,7 @@ import Class
 view model =
     Class.fromString model.a
 """
-                    |> Review.Test.runWithProjectData projectWithUnparsableCssClasses (defaults |> withCssFiles [ "*.css" ] |> rule)
+                    |> Review.Test.runWithProjectData projectWithUnparsableCssClasses (cssFiles [ "*.css" ] |> rule)
                     |> Review.Test.expectErrorsForModules
                         [ ( "some-file.css"
                           , [ Review.Test.error

@@ -1,6 +1,6 @@
 module NoUnknownCssClasses exposing
     ( rule
-    , CssArgument(..), defaults, fromLiteral, withCssFiles, withCssUsingFunctions, withHardcodedKnownClasses
+    , CssArgument(..), cssFiles, fromLiteral, withCssUsingFunctions, withHardcodedKnownClasses
     )
 
 {-|
@@ -77,11 +77,11 @@ type Configuration
         }
 
 
-defaults : Configuration
-defaults =
+cssFiles : List String -> Configuration
+cssFiles globs =
     Configuration
         { knownClasses = Set.empty
-        , cssFiles = []
+        , cssFiles = globs
         , cssFunctions = baseCssFunctions
         }
 
@@ -108,11 +108,6 @@ withCssUsingFunctions :
     -> Configuration
 withCssUsingFunctions newFunctions (Configuration configuration) =
     Configuration { configuration | cssFunctions = Dict.union newFunctions configuration.cssFunctions }
-
-
-withCssFiles : List String -> Configuration -> Configuration
-withCssFiles list (Configuration configuration) =
-    Configuration { configuration | cssFiles = list ++ configuration.cssFiles }
 
 
 type alias ProjectContext =
