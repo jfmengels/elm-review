@@ -1,6 +1,6 @@
 module NoUnknownCssClasses exposing
     ( rule
-    , CssArgument(..), cssFiles, fromLiteral, withCssUsingFunctions, withHardcodedKnownClasses
+    , CssArgument(..), addKnownClasses, cssFiles, fromLiteral, withCssUsingFunctions
     )
 
 {-|
@@ -95,8 +95,8 @@ cssFilesVisitor files context =
     ( errors, { knownClasses = knownClasses } )
 
 
-withHardcodedKnownClasses : List String -> Configuration -> Configuration
-withHardcodedKnownClasses list (Configuration configuration) =
+addKnownClasses : List String -> Configuration -> Configuration
+addKnownClasses list (Configuration configuration) =
     Configuration { configuration | knownClasses = List.foldl Set.insert configuration.knownClasses list }
 
 

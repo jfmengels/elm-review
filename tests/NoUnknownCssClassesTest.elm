@@ -3,7 +3,7 @@ module NoUnknownCssClassesTest exposing (all)
 import Dict
 import Elm.Syntax.Expression exposing (Expression)
 import Elm.Syntax.Node exposing (Node)
-import NoUnknownCssClasses exposing (CssArgument, cssFiles, fromLiteral, rule, withCssUsingFunctions, withHardcodedKnownClasses)
+import NoUnknownCssClasses exposing (CssArgument, addKnownClasses, cssFiles, fromLiteral, rule, withCssUsingFunctions)
 import Review.Project as Project exposing (Project)
 import Review.Test
 import Review.Test.Dependencies
@@ -33,7 +33,7 @@ import Html.Attributes as Attr
 view model =
     Html.span [ Attr.class "unknown" ] []
 """
-                    |> Review.Test.run (cssFiles [ "*.css" ] |> withHardcodedKnownClasses [ "known", "bar", "unknown2" ] |> rule)
+                    |> Review.Test.run (cssFiles [ "*.css" ] |> addKnownClasses [ "known", "bar", "unknown2" ] |> rule)
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Unknown CSS class \"unknown\""
@@ -53,7 +53,7 @@ import Html.Attributes as Attr
 view model =
     Html.span [ Attr.class "known" ] []
 """
-                    |> Review.Test.run (cssFiles [ "*.css" ] |> withHardcodedKnownClasses [ "known" ] |> rule)
+                    |> Review.Test.run (cssFiles [ "*.css" ] |> addKnownClasses [ "known" ] |> rule)
                     |> Review.Test.expectNoErrors
         , test "should report an error when encountering an unknown CSS class through Html.Attributes.class in <| pipe" <|
             \() ->
@@ -146,7 +146,7 @@ view model =
         , ( variable, model.b )
         ]
 """
-                    |> Review.Test.run (cssFiles [ "*.css" ] |> withHardcodedKnownClasses [ "known" ] |> rule)
+                    |> Review.Test.run (cssFiles [ "*.css" ] |> addKnownClasses [ "known" ] |> rule)
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Non-literal argument to CSS class function"
@@ -164,7 +164,7 @@ view model =
 """
                     |> Review.Test.run
                         (cssFiles [ "*.css" ]
-                            |> withHardcodedKnownClasses [ "known" ]
+                            |> addKnownClasses [ "known" ]
                             |> withCssUsingFunctions (Dict.fromList [ ( ( [ "Class" ], "fromString" ), classFromAttrFunction ) ])
                             |> rule
                         )
@@ -179,7 +179,7 @@ view model =
 """
                     |> Review.Test.run
                         (cssFiles [ "*.css" ]
-                            |> withHardcodedKnownClasses [ "known" ]
+                            |> addKnownClasses [ "known" ]
                             |> withCssUsingFunctions (Dict.fromList [ ( ( [ "Class" ], "fromString" ), classFromAttrFunction ) ])
                             |> rule
                         )
