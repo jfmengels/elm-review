@@ -1,11 +1,135 @@
 module Css.NoUnknownClasses exposing
-    ( rule
-    , addKnownClasses, cssFiles, withCssUsingFunctions
+    ( withCssUsingFunctions
+    , addKnownClasses, cssFiles, rule
     )
 
-{-|
+{-| Reports... REPLACEME
 
-@docs rule
+    config =
+        [ NoUnknownCssClasses.rule
+        ]
+
+
+## Fail
+
+    import Html
+    import Html.Attributes
+
+    a =
+        Html.span
+            [ Html.Attributes.class "unknown" ]
+            [ Html.text "Some text" ]
+
+
+## Success
+
+```css
+.red { color: red; }
+.bold { font-weight: bold; }
+```
+
+    import Html
+    import Html.Attributes
+
+    a =
+        Html.span
+            [ Html.Attributes.class "red bold" ]
+            [ Html.text "Some text" ]
+
+
+## Class module
+
+    module Class exposing (Class, batch, fromString, toAttr)
+
+    {-| TODO
+    -}
+
+    import Html
+    import Html.Attributes
+
+    type Class
+        = Class (List String)
+
+    fromString : String -> Class
+    fromString class =
+        Class [ class ]
+
+    batch : List Class -> Class
+    batch classes =
+        classes
+            |> List.concatMap (\(Class classes) -> classes)
+            |> Class
+
+    toAttr : Class -> Html.Attribute never
+    toAttr (Class classes) =
+        Html.Attributes.class (String.join " " classes)
+
+A nice benefit of using this approach is that if you have an element that accepts arbitrary styling through arguments,
+you can pass a `Class` instead of a much more permissive `Html.Attribute msg`.
+
+    import Html
+    import Html.Attributes
+    import Html.Events
+
+    viewThing : Html.Attribute msg -> String -> Html msg
+    viewThing styling text =
+        Html.div
+            [ Html.id "thing"
+            , styling
+            ]
+            [ Html.text text ]
+
+    exampleView =
+        viewThing
+            -- ❌ This attribute was misused to become an event handler!
+            (Html.Events.onClick ThisIsNotAStylingAttribute)
+            "Some text"
+
+You can make sure this doesn't happen using this more restrictive `Class` approach.
+
+    import Class
+    import Html
+
+    viewThing : Class -> String -> Html msg
+    viewThing styling text =
+        Html.div
+            [ Html.id "thing"
+            , Class.toAttr styling
+            ]
+            [ Html.text text ]
+
+    exampleView =
+        viewThing
+            (Class.fromString "red bold")
+            "Some text"
+
+TODO Indicate how to configure the rule to greenlight this `Class.fromString`
+
+
+## Configuring your own class functions
+
+@docs withCssUsingFunctions
+
+
+## When (not) to enable this rule
+
+This rule is useful in web applications that use plain CSS files for the styling.
+Given sufficiently enough information through [`addKnownClasses`](addKnownClasses), it could be useful
+for frameworks such as Tailwind.
+
+To work correctly, this rule does need some work from you to avoid having expressions.
+
+This rule is useful when REPLACEME.
+This rule is not useful when REPLACEME.
+
+
+## Try it out
+
+You can try this rule out by running the following command:
+
+```bash
+elm-review --template jfmengels/elm-review/example --rules NoUnknownCssClasses
+```
 
 -}
 
@@ -22,40 +146,6 @@ import Review.Rule as Rule exposing (Rule)
 import Set exposing (Set)
 
 
-{-| Reports... REPLACEME
-
-    config =
-        [ NoUnknownCssClasses.rule
-        ]
-
-
-## Fail
-
-    a =
-        "REPLACEME example to replace"
-
-
-## Success
-
-    a =
-        "REPLACEME example to replace"
-
-
-## When (not) to enable this rule
-
-This rule is useful when REPLACEME.
-This rule is not useful when REPLACEME.
-
-
-## Try it out
-
-You can try this rule out by running the following command:
-
-```bash
-elm-review --template jfmengels/elm-review/example --rules NoUnknownCssClasses
-```
-
--}
 rule : Configuration -> Rule
 rule (Configuration configuration) =
     Rule.newProjectRuleSchema "Css.NoUnknownClasses" (initialProjectContext configuration.knownClasses)
@@ -100,6 +190,71 @@ addKnownClasses list (Configuration configuration) =
     Configuration { configuration | knownClasses = List.foldl Set.insert configuration.knownClasses list }
 
 
+{-| By default, only `Html.Attributes.class`, `Html.Attributes.classList` and `Svg.Attributes.class` are used
+to find class usages in the application.
+
+You may have your own trusted functions (such as the `Class` module suggested above) that are allowed to take
+`String` arguments to be considered as CSS classes. You can use this function along with the
+[`Css.ClassFunction` module](#TODO) to explain to the rule which arguments are/contain what should be considered
+as CSS classes.
+
+TODO Move this documentation into the `ClassFunction` module
+
+This example is for adding `Class.fromAttr`.
+
+    import Css.ClassFunction
+    import Css.NoUnknownClasses
+
+
+    -- TODO Add missing imports
+    config =
+        [ Css.NoUnknownClasses.cssFiles whereYourCssFilesAre
+            |> Css.NoUnknownClasses.withCssUsingFunctions cssUsingFunctions
+            |> Css.NoUnknownClasses.rule
+        ]
+
+    cssUsingFunctions : Dict ( ModuleName, String ) ({ firstArgument : Node Expression, restOfArguments : List (Node Expression) } -> List ClassFunction.CssArgument)
+    cssUsingFunctions =
+        Dict.fromList [ ( ( [ "Class" ], "fromString" ), classFromStringFunction ) ]
+
+    classFromStringFunction : { firstArgument : Node Expression, restOfArguments : List (Node Expression) } -> List ClassFunction.CssArgument
+    classFromStringFunction { firstArgument } =
+        [ ClassFunction.fromLiteral firstArgument ]
+
+Here is how `Html.Attributes.classList` is implemented (Reminder of an example usage: `Html.Attributes.classList [ ("some-class", booleanValue ) ]`):
+
+    import Css.NoUnknownClasses
+    import Css.ClassFunction
+    -- TODO Add missing imports
+
+    cssUsingFunctions : Dict ( ModuleName, String ) ({ firstArgument : Node Expression, restOfArguments : List (Node Expression) } -> List ClassFunction.CssArgument)
+    cssUsingFunctions =
+        Dict.fromList
+            [ ( ( [ "Html", "Attributes" ], "classList" ), \{ firstArgument } -> htmlAttributesClassList firstArgument )
+            -- , ...
+            ]
+        ]
+
+
+    htmlAttributesClassList : Node Expression -> List ClassFunction.CssArgument
+    htmlAttributesClassList node =
+        case Node.value node of
+            Expression.ListExpr list ->
+                List.map
+                    (\element ->
+                        case Node.value element of
+                            Expression.TupledExpression [ first, _ ] ->
+                                ClassFunction.fromLiteral first
+
+                            _ ->
+                                ClassFunction.Variable (Node.range element)
+                    )
+                    list
+
+            _ ->
+                [ ClassFunction.fromLiteral node ]
+
+-}
 withCssUsingFunctions :
     Dict
         ( ModuleName, String )
