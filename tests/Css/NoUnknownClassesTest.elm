@@ -291,6 +291,23 @@ view model =
                             ]
                           )
                         ]
+        , test "should report an error when encountering an if expression as an argument to Html.Attributes.class" <|
+            \() ->
+                """module A exposing (..)
+import Html
+import Html.Attributes as Attr
+
+view model =
+    Attr.class <| if model.condition then "a" else "b"
+"""
+                    |> Review.Test.run (cssFiles [ "*.css" ] |> rule)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Non-literal argument to CSS class function"
+                            , details = [ "The argument given to this function is not a value that I could interpret. This makes it hard for me to figure out whether this was a known CSS class or not. Please transform this a string literal (\"my-class\")." ]
+                            , under = "if model.condition then \"a\" else \"b\""
+                            }
+                        ]
         ]
 
 
