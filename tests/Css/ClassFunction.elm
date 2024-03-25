@@ -38,8 +38,29 @@ fromLiteral node =
 
 
 fromExpression : Node Expression -> List CssArgument
-fromExpression =
-    fromLiteral >> List.singleton
+fromExpression node =
+    fromExpressionHelp [ node ] []
+
+
+fromExpressionHelp : List (Node Expression) -> List CssArgument -> List CssArgument
+fromExpressionHelp nodes acc =
+    case nodes of
+        [] ->
+            acc
+
+        node :: rest ->
+            case Node.value node of
+                Expression.Literal str ->
+                    fromExpressionHelp rest (Literal str :: acc)
+
+                Expression.ParenthesizedExpression expr ->
+                    fromExpressionHelp (expr :: rest) acc
+
+                Expression.IfBlock _ then_ else_ ->
+                    fromExpressionHelp (then_ :: else_ :: rest) acc
+
+                _ ->
+                    fromExpressionHelp rest (Variable (Node.range node) :: acc)
 
 
 baseCssFunctions : List ( String, { firstArgument : Node Expression, restOfArguments : List (Node Expression) } -> List CssArgument )
