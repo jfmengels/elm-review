@@ -3,6 +3,7 @@ module Css.ClassFunction exposing
     , fromLiteral
     , baseCssFunctions
     , firstArgumentIsClass, htmlAttributesAttribute, htmlAttributesClassList
+    , smartFirstArgumentIsClass
     )
 
 {-|
@@ -11,6 +12,7 @@ module Css.ClassFunction exposing
 @docs fromLiteral
 @docs baseCssFunctions
 @docs firstArgumentIsClass, htmlAttributesAttribute, htmlAttributesClassList
+@docs smartFirstArgumentIsClass
 
 -}
 
@@ -35,6 +37,11 @@ fromLiteral node =
             Variable (Node.range node)
 
 
+fromExpression : Node Expression -> List CssArgument
+fromExpression =
+    fromLiteral >> List.singleton
+
+
 baseCssFunctions : List ( String, { firstArgument : Node Expression, restOfArguments : List (Node Expression) } -> List CssArgument )
 baseCssFunctions =
     [ ( "Html.Attributes.class", \{ firstArgument } -> [ fromLiteral firstArgument ] )
@@ -47,6 +54,11 @@ baseCssFunctions =
 firstArgumentIsClass : { firstArgument : Node Expression, restOfArguments : List (Node Expression) } -> List CssArgument
 firstArgumentIsClass { firstArgument } =
     [ fromLiteral firstArgument ]
+
+
+smartFirstArgumentIsClass : { firstArgument : Node Expression, restOfArguments : List (Node Expression) } -> List CssArgument
+smartFirstArgumentIsClass { firstArgument } =
+    fromExpression firstArgument
 
 
 htmlAttributesAttribute : { firstArgument : Node Expression, restOfArguments : List (Node Expression) } -> List CssArgument
