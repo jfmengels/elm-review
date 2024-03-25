@@ -177,7 +177,7 @@ cssFiles globs =
     Configuration
         { knownClasses = Set.empty
         , cssFiles = globs
-        , cssFunctions = baseCssFunctions
+        , cssFunctions = Dict.fromList ClassFunction.baseCssFunctions
         }
 
 
@@ -371,60 +371,6 @@ type alias CssFunctions =
     Dict
         String
         ({ firstArgument : Node Expression, restOfArguments : List (Node Expression) } -> List CssArgument)
-
-
-baseCssFunctions : CssFunctions
-baseCssFunctions =
-    Dict.fromList
-        [ ( "Html.Attributes.class", \{ firstArgument } -> [ fromLiteral firstArgument ] )
-        , ( "Svg.Attributes.class", \{ firstArgument } -> [ fromLiteral firstArgument ] )
-        , ( "Html.Attributes.classList", \{ firstArgument } -> htmlAttributesClassList firstArgument )
-        , ( "Html.Attributes.attribute", attribute )
-        ]
-
-
-attribute : { firstArgument : Node Expression, restOfArguments : List (Node Expression) } -> List CssArgument
-attribute { firstArgument, restOfArguments } =
-    case Node.value firstArgument of
-        Expression.Literal "class" ->
-            case restOfArguments of
-                [] ->
-                    [ ClassFunction.MissingArgument 2 ]
-
-                classArgument :: _ ->
-                    [ fromLiteral classArgument ]
-
-        _ ->
-            []
-
-
-htmlAttributesClassList : Node Expression -> List CssArgument
-htmlAttributesClassList node =
-    case Node.value node of
-        Expression.ListExpr list ->
-            List.map
-                (\element ->
-                    case Node.value element of
-                        Expression.TupledExpression [ first, _ ] ->
-                            fromLiteral first
-
-                        _ ->
-                            ClassFunction.Variable (Node.range element)
-                )
-                list
-
-        _ ->
-            [ fromLiteral node ]
-
-
-fromLiteral : Node Expression -> CssArgument
-fromLiteral node =
-    case Node.value node of
-        Expression.Literal str ->
-            ClassFunction.Literal str
-
-        _ ->
-            ClassFunction.Variable (Node.range node)
 
 
 reportClasses : CssFunctions -> ModuleContext -> Range -> String -> Node Expression -> List (Node Expression) -> ( List (Rule.Error {}), ModuleContext )
