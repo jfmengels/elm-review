@@ -307,7 +307,7 @@ view model =
                             , under = "if model.condition then \"a\" else \"b\""
                             }
                         ]
-        , test "should understand  an error when encountering an if expression as an argument to Html.Attributes.class" <|
+        , test "should understand if expressions as an argument to Html.Attributes.class" <|
             \() ->
                 """module A exposing (..)
 import Html.Attributes as Attr
