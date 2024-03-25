@@ -137,10 +137,9 @@ elm-review --template jfmengels/elm-review/example --rules NoUnknownCssClasses
 
 -}
 
-import Css.ClassFunction as ClassFunction exposing (CssArgument, fromLiteral)
+import Css.ClassFunction as ClassFunction exposing (CssArgument)
 import Dict exposing (Dict)
 import Elm.Syntax.Expression as Expression exposing (Expression)
-import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Range exposing (Range)
 import Levenshtein
