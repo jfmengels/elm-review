@@ -13,12 +13,6 @@ type CssArgument
     | MissingArgument Int
 
 
-type alias CssFunctions =
-    Dict
-        ( ModuleName, String )
-        ({ firstArgument : Node Expression, restOfArguments : List (Node Expression) } -> List CssArgument)
-
-
 fromLiteral : Node Expression -> CssArgument
 fromLiteral node =
     case Node.value node of
