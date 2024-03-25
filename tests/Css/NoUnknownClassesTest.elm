@@ -1,6 +1,6 @@
 module Css.NoUnknownClassesTest exposing (all)
 
-import Css.ClassFunction exposing (CssArgument, fromLiteral)
+import Css.ClassFunction as ClassFunction exposing (CssArgument, fromLiteral)
 import Css.NoUnknownClasses exposing (addKnownClasses, cssFiles, rule, withCssUsingFunctions)
 import Elm.Syntax.Expression exposing (Expression)
 import Elm.Syntax.Node exposing (Node)
@@ -294,7 +294,6 @@ view model =
         , test "should report an error when encountering an if expression as an argument to Html.Attributes.class" <|
             \() ->
                 """module A exposing (..)
-import Html
 import Html.Attributes as Attr
 
 view model =
@@ -306,6 +305,22 @@ view model =
                             { message = "Non-literal argument to CSS class function"
                             , details = [ "The argument given to this function is not a value that I could interpret. This makes it hard for me to figure out whether this was a known CSS class or not. Please transform this a string literal (\"my-class\")." ]
                             , under = "if model.condition then \"a\" else \"b\""
+                            }
+                        ]
+        , test "should understand  an error when encountering an if expression as an argument to Html.Attributes.class" <|
+            \() ->
+                """module A exposing (..)
+import Html.Attributes as Attr
+
+view model =
+    Attr.class <| if model.condition then "known" else nonLiteral
+"""
+                    |> Review.Test.run (cssFiles [ "*.css" ] |> addKnownClasses [ "known" ] |> withCssUsingFunctions [ ( "Html.Attributes.class", ClassFunction.smartFirstArgumentIsClass ) ] |> rule)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Non-literal argument to CSS class function"
+                            , details = [ "The argument given to this function is not a value that I could interpret. This makes it hard for me to figure out whether this was a known CSS class or not. Please transform this a string literal (\"my-class\")." ]
+                            , under = "nonLiteral"
                             }
                         ]
         ]
