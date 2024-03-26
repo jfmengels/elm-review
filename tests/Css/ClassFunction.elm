@@ -59,6 +59,9 @@ fromExpressionHelp nodes acc =
                 Expression.IfBlock _ then_ else_ ->
                     fromExpressionHelp (then_ :: else_ :: rest) acc
 
+                Expression.CaseExpression { cases } ->
+                    fromExpressionHelp (List.foldl (\( _, expr ) nodesAcc -> expr :: nodesAcc) rest cases) acc
+
                 _ ->
                     fromExpressionHelp rest (Variable (Node.range node) :: acc)
 
