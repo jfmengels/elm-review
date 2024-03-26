@@ -19,7 +19,7 @@ module Css.ClassFunction exposing
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Range exposing (Range)
-import Review.ModuleNameLookupTable exposing (ModuleNameLookupTable)
+import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 
 
 type CssArgument
@@ -61,6 +61,14 @@ fromExpressionHelp lookupTable nodes acc =
             case Node.value node of
                 Expression.Literal str ->
                     fromExpressionHelp lookupTable rest (Literal str :: acc)
+
+                Expression.FunctionOrValue [] name ->
+                    case ModuleNameLookupTable.moduleNameFor lookupTable node of
+                        Just [] ->
+                            fromExpressionHelp lookupTable rest (Variable (Node.range node) :: acc)
+
+                        _ ->
+                            fromExpressionHelp lookupTable rest (UngraspableExpression (Node.range node) :: acc)
 
                 Expression.ParenthesizedExpression expr ->
                     fromExpressionHelp lookupTable (expr :: rest) acc
