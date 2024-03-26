@@ -217,11 +217,11 @@ This example is for adding `Class.fromAttr`.
             |> Css.NoUnknownClasses.rule
         ]
 
-    cssUsingFunctions : Dict ( ModuleName, String ) ({ firstArgument : Node Expression, restOfArguments : List (Node Expression) } -> List ClassFunction.CssArgument)
+    cssUsingFunctions : Dict ( ModuleName, String ) (ClassFunction.Arguments -> List ClassFunction.CssArgument)
     cssUsingFunctions =
         Dict.fromList [ ( ( [ "Class" ], "fromString" ), classFromStringFunction ) ]
 
-    classFromStringFunction : { firstArgument : Node Expression, restOfArguments : List (Node Expression) } -> List ClassFunction.CssArgument
+    classFromStringFunction : ClassFunction.Arguments -> List ClassFunction.CssArgument
     classFromStringFunction { firstArgument } =
         [ ClassFunction.fromLiteral firstArgument ]
 
@@ -231,7 +231,7 @@ Here is how `Html.Attributes.classList` is implemented (Reminder of an example u
     import Css.ClassFunction
     -- TODO Add missing imports
 
-    cssUsingFunctions : Dict ( ModuleName, String ) ({ firstArgument : Node Expression, restOfArguments : List (Node Expression) } -> List ClassFunction.CssArgument)
+    cssUsingFunctions : Dict ( ModuleName, String ) (ClassFunction.Arguments -> List ClassFunction.CssArgument)
     cssUsingFunctions =
         Dict.fromList
             [ ( ( [ "Html", "Attributes" ], "classList" ), \{ firstArgument } -> htmlAttributesClassList firstArgument )
@@ -260,7 +260,7 @@ Here is how `Html.Attributes.classList` is implemented (Reminder of an example u
 
 -}
 withCssUsingFunctions :
-    List ( String, { firstArgument : Node Expression, restOfArguments : List (Node Expression) } -> List CssArgument )
+    List ( String, ClassFunction.Arguments -> List CssArgument )
     -> Configuration
     -> Configuration
 withCssUsingFunctions newFunctions (Configuration configuration) =
@@ -367,9 +367,7 @@ getCssFunction cssFunctions name moduleName =
 
 
 type alias CssFunctions =
-    Dict
-        String
-        ({ firstArgument : Node Expression, restOfArguments : List (Node Expression) } -> List CssArgument)
+    Dict String (ClassFunction.Arguments -> List CssArgument)
 
 
 reportClasses : CssFunctions -> ModuleContext -> Range -> String -> Node Expression -> List (Node Expression) -> ( List (Rule.Error {}), ModuleContext )
@@ -379,7 +377,7 @@ reportClasses cssFunctions context fnRange name firstArgument restOfArguments =
             |> Maybe.andThen (\moduleName -> getCssFunction cssFunctions name moduleName)
     of
         Just cssFunction ->
-            ( errorsForCssFunction context.knownClasses cssFunction fnRange { firstArgument = firstArgument, restOfArguments = restOfArguments }
+            ( errorsForCssFunction context.knownClasses cssFunction fnRange { lookupTable = context.lookupTable, firstArgument = firstArgument, restOfArguments = restOfArguments }
             , { context | functionOrValuesToIgnore = RangeDict.insert fnRange () context.functionOrValuesToIgnore }
             )
 
@@ -389,9 +387,9 @@ reportClasses cssFunctions context fnRange name firstArgument restOfArguments =
 
 errorsForCssFunction :
     Set String
-    -> ({ firstArgument : Node Expression, restOfArguments : List (Node Expression) } -> List CssArgument)
+    -> (ClassFunction.Arguments -> List CssArgument)
     -> Range
-    -> { firstArgument : Node Expression, restOfArguments : List (Node Expression) }
+    -> ClassFunction.Arguments
     -> List (Rule.Error {})
 errorsForCssFunction knownClasses cssFunction fnRange target =
     cssFunction target

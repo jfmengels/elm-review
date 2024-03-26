@@ -345,7 +345,7 @@ view model =
         ]
 
 
-classFromAttrFunction : { firstArgument : Node Expression, restOfArguments : List (Node Expression) } -> List CssArgument
+classFromAttrFunction : ClassFunction.Arguments -> List CssArgument
 classFromAttrFunction { firstArgument } =
     [ fromLiteral firstArgument ]
 

@@ -2,7 +2,7 @@ module Css.ClassFunction exposing
     ( CssArgument(..)
     , fromLiteral
     , baseCssFunctions
-    , firstArgumentIsClass, htmlAttributesAttribute, htmlAttributesClassList
+    , Arguments, firstArgumentIsClass, htmlAttributesAttribute, htmlAttributesClassList
     , smartFirstArgumentIsClass
     )
 
@@ -11,7 +11,7 @@ module Css.ClassFunction exposing
 @docs CssArgument
 @docs fromLiteral
 @docs baseCssFunctions
-@docs firstArgumentIsClass, htmlAttributesAttribute, htmlAttributesClassList
+@docs Arguments, firstArgumentIsClass, htmlAttributesAttribute, htmlAttributesClassList
 @docs smartFirstArgumentIsClass
 
 -}
@@ -19,6 +19,7 @@ module Css.ClassFunction exposing
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Range exposing (Range)
+import Review.ModuleNameLookupTable exposing (ModuleNameLookupTable)
 
 
 type CssArgument
@@ -26,6 +27,13 @@ type CssArgument
     | Variable Range
     | UngraspableExpression Range
     | MissingArgument Int
+
+
+type alias Arguments =
+    { firstArgument : Node Expression
+    , restOfArguments : List (Node Expression)
+    , lookupTable : ModuleNameLookupTable
+    }
 
 
 fromLiteral : Node Expression -> CssArgument
@@ -38,13 +46,13 @@ fromLiteral node =
             UngraspableExpression (Node.range node)
 
 
-fromExpression : Node Expression -> List CssArgument
-fromExpression node =
-    fromExpressionHelp [ node ] []
+fromExpression : ModuleNameLookupTable -> Node Expression -> List CssArgument
+fromExpression lookupTable node =
+    fromExpressionHelp lookupTable [ node ] []
 
 
-fromExpressionHelp : List (Node Expression) -> List CssArgument -> List CssArgument
-fromExpressionHelp nodes acc =
+fromExpressionHelp : ModuleNameLookupTable -> List (Node Expression) -> List CssArgument -> List CssArgument
+fromExpressionHelp lookupTable nodes acc =
     case nodes of
         [] ->
             acc
@@ -52,22 +60,22 @@ fromExpressionHelp nodes acc =
         node :: rest ->
             case Node.value node of
                 Expression.Literal str ->
-                    fromExpressionHelp rest (Literal str :: acc)
+                    fromExpressionHelp lookupTable rest (Literal str :: acc)
 
                 Expression.ParenthesizedExpression expr ->
-                    fromExpressionHelp (expr :: rest) acc
+                    fromExpressionHelp lookupTable (expr :: rest) acc
 
                 Expression.IfBlock _ then_ else_ ->
-                    fromExpressionHelp (then_ :: else_ :: rest) acc
+                    fromExpressionHelp lookupTable (then_ :: else_ :: rest) acc
 
                 Expression.CaseExpression { cases } ->
-                    fromExpressionHelp (List.foldl (\( _, expr ) nodesAcc -> expr :: nodesAcc) rest cases) acc
+                    fromExpressionHelp lookupTable (List.foldl (\( _, expr ) nodesAcc -> expr :: nodesAcc) rest cases) acc
 
                 _ ->
-                    fromExpressionHelp rest (UngraspableExpression (Node.range node) :: acc)
+                    fromExpressionHelp lookupTable rest (UngraspableExpression (Node.range node) :: acc)
 
 
-baseCssFunctions : List ( String, { firstArgument : Node Expression, restOfArguments : List (Node Expression) } -> List CssArgument )
+baseCssFunctions : List ( String, Arguments -> List CssArgument )
 baseCssFunctions =
     [ ( "Html.Attributes.class", \{ firstArgument } -> [ fromLiteral firstArgument ] )
     , ( "Svg.Attributes.class", \{ firstArgument } -> [ fromLiteral firstArgument ] )
@@ -76,17 +84,17 @@ baseCssFunctions =
     ]
 
 
-firstArgumentIsClass : { firstArgument : Node Expression, restOfArguments : List (Node Expression) } -> List CssArgument
+firstArgumentIsClass : Arguments -> List CssArgument
 firstArgumentIsClass { firstArgument } =
     [ fromLiteral firstArgument ]
 
 
-smartFirstArgumentIsClass : { firstArgument : Node Expression, restOfArguments : List (Node Expression) } -> List CssArgument
-smartFirstArgumentIsClass { firstArgument } =
-    fromExpression firstArgument
+smartFirstArgumentIsClass : Arguments -> List CssArgument
+smartFirstArgumentIsClass { lookupTable, firstArgument } =
+    fromExpression lookupTable firstArgument
 
 
-htmlAttributesAttribute : { firstArgument : Node Expression, restOfArguments : List (Node Expression) } -> List CssArgument
+htmlAttributesAttribute : Arguments -> List CssArgument
 htmlAttributesAttribute { firstArgument, restOfArguments } =
     case Node.value firstArgument of
         Expression.Literal "class" ->
@@ -101,7 +109,7 @@ htmlAttributesAttribute { firstArgument, restOfArguments } =
             []
 
 
-htmlAttributesClassList : { firstArgument : Node Expression, restOfArguments : List (Node Expression) } -> List CssArgument
+htmlAttributesClassList : Arguments -> List CssArgument
 htmlAttributesClassList { firstArgument } =
     case Node.value firstArgument of
         Expression.ListExpr list ->
