@@ -24,6 +24,7 @@ import Elm.Syntax.Range exposing (Range)
 type CssArgument
     = Literal String
     | Variable Range
+    | UngraspableExpression Range
     | MissingArgument Int
 
 
@@ -34,7 +35,7 @@ fromLiteral node =
             Literal str
 
         _ ->
-            Variable (Node.range node)
+            UngraspableExpression (Node.range node)
 
 
 fromExpression : Node Expression -> List CssArgument
@@ -63,7 +64,7 @@ fromExpressionHelp nodes acc =
                     fromExpressionHelp (List.foldl (\( _, expr ) nodesAcc -> expr :: nodesAcc) rest cases) acc
 
                 _ ->
-                    fromExpressionHelp rest (Variable (Node.range node) :: acc)
+                    fromExpressionHelp rest (UngraspableExpression (Node.range node) :: acc)
 
 
 baseCssFunctions : List ( String, { firstArgument : Node Expression, restOfArguments : List (Node Expression) } -> List CssArgument )
