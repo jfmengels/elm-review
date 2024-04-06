@@ -1,4 +1,4 @@
-module Review.FilePattern exposing (FilePattern, exclude, excludeFolder, include)
+module Review.FilePattern exposing (FilePattern, exclude, excludeFolder, include, match)
 
 
 type FilePattern
@@ -20,3 +20,8 @@ exclude =
 excludeFolder : String -> FilePattern
 excludeFolder =
     ExcludeFolder
+
+
+match : List FilePattern -> String -> Bool
+match filePatterns str =
+    False
