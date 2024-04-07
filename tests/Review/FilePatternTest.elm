@@ -55,5 +55,21 @@ all =
                     , FilePattern.include "some/file/path.ext"
                     ]
                     "some/file/path.ext"
+                    |> Expect.equal True
+        , test "should return False when excluding the folder even when re-including the target file" <|
+            \() ->
+                FilePattern.match
+                    [ FilePattern.excludeFolder "some"
+                    , FilePattern.include "some/file/path.ext"
+                    ]
+                    "some/file/path.ext"
+                    |> Expect.equal False
+        , test "should return False when excluding the folder (with trailing /) even when re-including the target file" <|
+            \() ->
+                FilePattern.match
+                    [ FilePattern.excludeFolder "some/"
+                    , FilePattern.include "some/file/path.ext"
+                    ]
+                    "some/file/path.ext"
                     |> Expect.equal False
         ]
