@@ -97,7 +97,10 @@ matchAgainst filePatterns str =
 toStringsTest : Test
 toStringsTest =
     describe "toStrings"
-        [ fuzz (Fuzz.list (Fuzz.map2 (\str included -> { string = str, included = included }) Fuzz.string Fuzz.bool)) "files should stay as before" <|
+        [ fuzz
+            (Fuzz.list (Fuzz.map2 (\str included -> { string = str, included = included }) Fuzz.string Fuzz.bool))
+            "files should stay as before"
+          <|
             \list ->
                 case
                     list
