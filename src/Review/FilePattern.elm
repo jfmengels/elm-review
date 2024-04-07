@@ -53,6 +53,14 @@ compact filePatterns =
         , strings = []
         , excludeFoldersStrings = []
         }
+        |> Result.map
+            (\summary ->
+                { includeExclude = summary.includeExclude
+                , excludeFolders = summary.excludeFolders
+                , strings = List.reverse summary.strings
+                , excludeFoldersStrings = List.reverse summary.excludeFoldersStrings
+                }
+            )
 
 
 compactBase : List FilePattern -> Summary -> Result (List String) Summary
@@ -93,8 +101,8 @@ compactHelp filePatterns accGlobs included accSummary =
                     )
                         :: accSummary.includeExclude
                 , excludeFolders = accSummary.excludeFolders
-                , strings = List.reverse accSummary.strings
-                , excludeFoldersStrings = List.reverse accSummary.excludeFoldersStrings
+                , strings = accSummary.strings
+                , excludeFoldersStrings = accSummary.excludeFoldersStrings
                 }
 
         (Include ( raw, pattern )) :: rest ->
