@@ -200,7 +200,7 @@ matchHelp filePatterns str acc =
 
 match2 : Summary -> String -> Bool
 match2 summary str =
-    if List.any (\folderGlob -> Glob.match folderGlob str) (Debug.log "summ" summary).folders then
+    if List.any (\folderGlob -> Glob.match folderGlob str) summary.folders then
         False
 
     else
