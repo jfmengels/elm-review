@@ -1,4 +1,4 @@
-module Review.FilePattern exposing (FilePattern, exclude, excludeFolder, include, match)
+module Review.FilePattern exposing (FilePattern, compact, exclude, excludeFolder, include, match, match2)
 
 import Glob exposing (Glob)
 import Review.Rule exposing (globalError)
@@ -15,6 +15,7 @@ import Review.Rule exposing (globalError)
 
    We can probably do this partially as well: having a match-only after the last exclusion pattern.
 
+   TODO Put excluded directories first
 -}
 
 
@@ -23,6 +24,111 @@ type FilePattern
     | Exclude Glob
     | ExcludeFolder Glob
     | InvalidGlob String
+
+
+type alias Summary =
+    { folders : List Glob
+    , includeExclude : List CompactFilePattern
+    }
+
+
+type CompactFilePattern
+    = CompactInclude (List Glob)
+    | CompactExclude (List Glob)
+
+
+compact : List FilePattern -> Result (List String) Summary
+compact filePatterns =
+    compactHelp filePatterns { folders = [], includeExclude = [] }
+
+
+compactHelp : List FilePattern -> Summary -> Result (List String) Summary
+compactHelp filePatterns accSummary =
+    case filePatterns of
+        [] ->
+            Ok accSummary
+
+        (Include pattern) :: rest ->
+            compactInclude rest [ pattern ] accSummary
+
+        (Exclude pattern) :: rest ->
+            compactExclude rest [ pattern ] accSummary
+
+        (ExcludeFolder pattern) :: rest ->
+            compactHelp rest { folders = pattern :: accSummary.folders, includeExclude = accSummary.includeExclude }
+
+        (InvalidGlob pattern) :: rest ->
+            Err (compactErrors rest [ pattern ])
+
+
+compactInclude : List FilePattern -> List Glob -> Summary -> Result (List String) Summary
+compactInclude filePatterns accGlobs accSummary =
+    case filePatterns of
+        [] ->
+            Ok
+                { folders = accSummary.folders
+                , includeExclude = CompactInclude accGlobs :: accSummary.includeExclude
+                }
+
+        (Include pattern) :: rest ->
+            compactInclude rest (pattern :: accGlobs) accSummary
+
+        (Exclude pattern) :: rest ->
+            compactExclude rest
+                [ pattern ]
+                { folders = accSummary.folders
+                , includeExclude = CompactInclude accGlobs :: accSummary.includeExclude
+                }
+
+        (ExcludeFolder pattern) :: rest ->
+            compactInclude rest
+                accGlobs
+                { folders = pattern :: accSummary.folders
+                , includeExclude = accSummary.includeExclude
+                }
+
+        (InvalidGlob invalidGlobStr) :: rest ->
+            Err (compactErrors rest [ invalidGlobStr ])
+
+
+compactExclude : List FilePattern -> List Glob -> Summary -> Result (List String) Summary
+compactExclude filePatterns accGlobs accSummary =
+    case filePatterns of
+        [] ->
+            Ok { folders = accSummary.folders, includeExclude = CompactExclude accGlobs :: accSummary.includeExclude }
+
+        (Include pattern) :: rest ->
+            compactInclude rest
+                [ pattern ]
+                { folders = accSummary.folders
+                , includeExclude = CompactExclude accGlobs :: accSummary.includeExclude
+                }
+
+        (Exclude pattern) :: rest ->
+            compactExclude rest (pattern :: accGlobs) accSummary
+
+        (ExcludeFolder pattern) :: rest ->
+            compactExclude rest
+                accGlobs
+                { folders = pattern :: accSummary.folders
+                , includeExclude = accSummary.includeExclude
+                }
+
+        (InvalidGlob invalidGlobStr) :: rest ->
+            Err (compactErrors rest [ invalidGlobStr ])
+
+
+compactErrors : List FilePattern -> List String -> List String
+compactErrors filePatterns accGlobStrings =
+    case filePatterns of
+        [] ->
+            List.reverse accGlobStrings
+
+        (InvalidGlob invalidGlobStr) :: rest ->
+            compactErrors rest (invalidGlobStr :: accGlobStrings)
+
+        _ :: rest ->
+            compactErrors rest accGlobStrings
 
 
 include : String -> FilePattern
@@ -90,3 +196,33 @@ matchHelp filePatterns str acc =
 
         _ ->
             False
+
+
+match2 : Summary -> String -> Bool
+match2 summary str =
+    if List.any (\folderGlob -> Glob.match folderGlob str) (Debug.log "summ" summary).folders then
+        False
+
+    else
+        match2Help summary.includeExclude str
+
+
+match2Help : List CompactFilePattern -> String -> Bool
+match2Help filePatterns str =
+    case filePatterns of
+        [] ->
+            False
+
+        (CompactInclude globs) :: rest ->
+            if List.any (\glob -> Glob.match glob str) globs then
+                True
+
+            else
+                match2Help rest str
+
+        (CompactExclude globs) :: rest ->
+            if List.any (\glob -> Glob.match glob str) globs then
+                False
+
+            else
+                match2Help rest str
