@@ -48,4 +48,12 @@ all =
                     ]
                     "some/file/path.ext"
                     |> Expect.equal False
+        , test "should return True when excluding through **/* but re-including the target file" <|
+            \() ->
+                FilePattern.match
+                    [ FilePattern.exclude "some/file/**/*"
+                    , FilePattern.include "some/file/path.ext"
+                    ]
+                    "some/file/path.ext"
+                    |> Expect.equal False
         ]
