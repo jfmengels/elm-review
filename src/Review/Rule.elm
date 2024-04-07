@@ -415,7 +415,7 @@ type alias ModuleRuleSchemaData moduleContext =
 
 
 type alias ExtraFileRequest =
-    Result (List String) (List { files : List { string : String, included : Bool }, excludedFolders : List String })
+    Result (List String) (List { files : List { pattern : String, included : Bool }, excludedFolders : List String })
 
 
 type alias StringableGlob =
@@ -894,7 +894,7 @@ ruleKnowsAboutIgnoredFiles (Rule rule) =
 
 {-| REPLACEME
 -}
-ruleRequestedFiles : Rule -> List { files : List { string : String, included : Bool }, excludedFolders : List String }
+ruleRequestedFiles : Rule -> List { files : List { pattern : String, included : Bool }, excludedFolders : List String }
 ruleRequestedFiles (Rule rule) =
     let
         (RequestedData requestedData) =
