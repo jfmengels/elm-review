@@ -34,6 +34,7 @@ import NoUnused.Parameters
 import NoUnused.Patterns
 import NoUnused.Variables
 import Review.Rule as Rule exposing (Rule)
+import Review.FilePattern as FilePattern
 import NoUnused.CustomTypeConstructorArgs
 import Simplify
 import Css.NoUnknownClasses
@@ -79,7 +80,7 @@ config =
             , "src/Review/Logger.elm"
             ]
     , NoForbiddenWords.rule [ "REPLACEME" ]
-    , Css.NoUnknownClasses.cssFiles ["src/**/*.css"]
+    , Css.NoUnknownClasses.cssFiles [ FilePattern.include "src/**/*.css"]
             -- |> Css.NoUnknownClasses.withCssUsingFunctions cssUsingFunctions
             |> Css.NoUnknownClasses.rule
     ]
