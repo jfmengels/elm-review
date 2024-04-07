@@ -26,8 +26,8 @@ type FilePattern
 
 
 type alias Summary =
-    { excludeFolders : List Glob
-    , includeExclude : List CompactFilePattern
+    { includeExclude : List CompactFilePattern
+    , excludeFolders : List Glob
     }
 
 
@@ -38,7 +38,10 @@ type CompactFilePattern
 
 compact : List FilePattern -> Result (List String) Summary
 compact filePatterns =
-    compactHelp filePatterns { excludeFolders = [], includeExclude = [] }
+    compactHelp filePatterns
+        { includeExclude = []
+        , excludeFolders = []
+        }
 
 
 compactHelp : List FilePattern -> Summary -> Result (List String) Summary
@@ -54,7 +57,10 @@ compactHelp filePatterns accSummary =
             compactExclude rest [ pattern ] accSummary
 
         (ExcludeFolder pattern) :: rest ->
-            compactHelp rest { excludeFolders = pattern :: accSummary.excludeFolders, includeExclude = accSummary.includeExclude }
+            compactHelp rest
+                { includeExclude = accSummary.includeExclude
+                , excludeFolders = pattern :: accSummary.excludeFolders
+                }
 
         (InvalidGlob pattern) :: rest ->
             Err (compactErrors rest [ pattern ])
@@ -65,8 +71,8 @@ compactInclude filePatterns accGlobs accSummary =
     case filePatterns of
         [] ->
             Ok
-                { excludeFolders = accSummary.excludeFolders
-                , includeExclude = CompactInclude accGlobs :: accSummary.includeExclude
+                { includeExclude = CompactInclude accGlobs :: accSummary.includeExclude
+                , excludeFolders = accSummary.excludeFolders
                 }
 
         (Include pattern) :: rest ->
@@ -75,15 +81,15 @@ compactInclude filePatterns accGlobs accSummary =
         (Exclude pattern) :: rest ->
             compactExclude rest
                 [ pattern ]
-                { excludeFolders = accSummary.excludeFolders
-                , includeExclude = CompactInclude accGlobs :: accSummary.includeExclude
+                { includeExclude = CompactInclude accGlobs :: accSummary.includeExclude
+                , excludeFolders = accSummary.excludeFolders
                 }
 
         (ExcludeFolder pattern) :: rest ->
             compactInclude rest
                 accGlobs
-                { excludeFolders = pattern :: accSummary.excludeFolders
-                , includeExclude = accSummary.includeExclude
+                { includeExclude = accSummary.includeExclude
+                , excludeFolders = pattern :: accSummary.excludeFolders
                 }
 
         (InvalidGlob invalidGlobStr) :: rest ->
@@ -94,13 +100,16 @@ compactExclude : List FilePattern -> List Glob -> Summary -> Result (List String
 compactExclude filePatterns accGlobs accSummary =
     case filePatterns of
         [] ->
-            Ok { excludeFolders = accSummary.excludeFolders, includeExclude = CompactExclude accGlobs :: accSummary.includeExclude }
+            Ok
+                { includeExclude = CompactExclude accGlobs :: accSummary.includeExclude
+                , excludeFolders = accSummary.excludeFolders
+                }
 
         (Include pattern) :: rest ->
             compactInclude rest
                 [ pattern ]
-                { excludeFolders = accSummary.excludeFolders
-                , includeExclude = CompactExclude accGlobs :: accSummary.includeExclude
+                { includeExclude = CompactExclude accGlobs :: accSummary.includeExclude
+                , excludeFolders = accSummary.excludeFolders
                 }
 
         (Exclude pattern) :: rest ->
@@ -109,8 +118,8 @@ compactExclude filePatterns accGlobs accSummary =
         (ExcludeFolder pattern) :: rest ->
             compactExclude rest
                 accGlobs
-                { excludeFolders = pattern :: accSummary.excludeFolders
-                , includeExclude = accSummary.includeExclude
+                { includeExclude = accSummary.includeExclude
+                , excludeFolders = pattern :: accSummary.excludeFolders
                 }
 
         (InvalidGlob invalidGlobStr) :: rest ->
