@@ -33,6 +33,13 @@ type alias Summary =
     }
 
 
+toStrings : Summary -> { files : List { string : String, included : Bool }, excludedFolders : List String }
+toStrings summary =
+    { files = summary.strings
+    , excludedFolders = summary.excludeFoldersStrings
+    }
+
+
 type CompactFilePattern
     = CompactInclude (List Glob)
     | CompactExclude (List Glob)
@@ -46,13 +53,6 @@ compact filePatterns =
         , strings = []
         , excludeFoldersStrings = []
         }
-
-
-toStrings : Summary -> { files : List { string : String, included : Bool }, excludedFolders : List String }
-toStrings summary =
-    { files = List.reverse summary.strings
-    , excludedFolders = summary.excludeFoldersStrings
-    }
 
 
 compactBase : List FilePattern -> Summary -> Result (List String) Summary
@@ -93,8 +93,8 @@ compactHelp filePatterns accGlobs included accSummary =
                     )
                         :: accSummary.includeExclude
                 , excludeFolders = accSummary.excludeFolders
-                , strings = accSummary.strings
-                , excludeFoldersStrings = accSummary.excludeFoldersStrings
+                , strings = List.reverse accSummary.strings
+                , excludeFoldersStrings = List.reverse accSummary.excludeFoldersStrings
                 }
 
         (Include ( raw, pattern )) :: rest ->

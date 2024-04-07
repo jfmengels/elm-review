@@ -2,7 +2,7 @@ module Review.FilePatternTest exposing (all)
 
 import Expect
 import Fuzz
-import Review.FilePattern as FilePattern exposing (FilePattern, include)
+import Review.FilePattern as FilePattern exposing (FilePattern, excludeFolder, include)
 import Test exposing (Test, describe, fuzz, test)
 
 
@@ -118,6 +118,24 @@ toStringsTest =
                         summary
                             |> FilePattern.toStrings
                             |> .files
+                            |> Expect.equal list
+
+                    Err _ ->
+                        Expect.pass
+        , fuzz
+            (Fuzz.list Fuzz.string)
+            "excluded folders should stay as before"
+          <|
+            \list ->
+                case
+                    list
+                        |> List.map FilePattern.excludeFolder
+                        |> FilePattern.compact
+                of
+                    Ok summary ->
+                        summary
+                            |> FilePattern.toStrings
+                            |> .excludedFolders
                             |> Expect.equal list
 
                     Err _ ->
