@@ -184,11 +184,11 @@ match summary str =
         False
 
     else
-        match2Help summary.includeExclude str
+        matchHelp summary.includeExclude str
 
 
-match2Help : List CompactFilePattern -> String -> Bool
-match2Help filePatterns str =
+matchHelp : List CompactFilePattern -> String -> Bool
+matchHelp filePatterns str =
     case filePatterns of
         [] ->
             False
@@ -198,11 +198,11 @@ match2Help filePatterns str =
                 True
 
             else
-                match2Help rest str
+                matchHelp rest str
 
         (CompactExclude globs) :: rest ->
             if List.any (\glob -> Glob.match glob str) globs then
                 False
 
             else
-                match2Help rest str
+                matchHelp rest str
