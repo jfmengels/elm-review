@@ -3,21 +3,6 @@ module Review.FilePattern exposing (FilePattern, compact, exclude, excludeFolder
 import Glob exposing (Glob)
 
 
-
-{-
-
-   TODO Compile List FilePattern to a new type that leads either a configuration error (directly or indirectly)
-   or to a usable type.
-
-   TODO We should be able to figure out whether the patterns include exclusion patterns. If there are none, then
-   the matching becomes simpler because the first match will lead to returning True.
-
-   We can probably do this partially as well: having a match-only after the last exclusion pattern.
-
-   TODO Put excluded directories first
--}
-
-
 type FilePattern
     = Include String
     | Exclude String
