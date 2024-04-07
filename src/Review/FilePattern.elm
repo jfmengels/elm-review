@@ -19,9 +19,9 @@ import Glob exposing (Glob)
 
 
 type FilePattern
-    = Include Glob
-    | Exclude Glob
-    | ExcludeFolder Glob
+    = Include ( String, Glob )
+    | Exclude ( String, Glob )
+    | ExcludeFolder ( String, Glob )
     | InvalidGlob String
 
 
@@ -55,13 +55,13 @@ compactBase filePatterns accSummary =
         [] ->
             Ok accSummary
 
-        (Include pattern) :: rest ->
+        (Include ( raw, pattern )) :: rest ->
             compactHelp rest [ pattern ] True accSummary
 
-        (Exclude pattern) :: rest ->
+        (Exclude ( raw, pattern )) :: rest ->
             compactHelp rest [ pattern ] False accSummary
 
-        (ExcludeFolder pattern) :: rest ->
+        (ExcludeFolder ( raw, pattern )) :: rest ->
             compactBase rest
                 { includeExclude = accSummary.includeExclude
                 , excludeFolders = pattern :: accSummary.excludeFolders
@@ -87,7 +87,7 @@ compactHelp filePatterns accGlobs included accSummary =
                 , excludeFolders = accSummary.excludeFolders
                 }
 
-        (Include pattern) :: rest ->
+        (Include ( raw, pattern )) :: rest ->
             if included then
                 compactHelp rest (pattern :: accGlobs) included accSummary
 
@@ -99,7 +99,7 @@ compactHelp filePatterns accGlobs included accSummary =
                     , excludeFolders = accSummary.excludeFolders
                     }
 
-        (Exclude pattern) :: rest ->
+        (Exclude ( raw, pattern )) :: rest ->
             if included then
                 compactHelp rest
                     [ pattern ]
@@ -111,7 +111,7 @@ compactHelp filePatterns accGlobs included accSummary =
             else
                 compactHelp rest (pattern :: accGlobs) included accSummary
 
-        (ExcludeFolder pattern) :: rest ->
+        (ExcludeFolder ( raw, pattern )) :: rest ->
             compactHelp rest
                 accGlobs
                 included
@@ -140,7 +140,7 @@ include : String -> FilePattern
 include globStr =
     case Glob.fromString globStr of
         Ok glob ->
-            Include glob
+            Include ( globStr, glob )
 
         Err _ ->
             InvalidGlob globStr
@@ -150,7 +150,7 @@ exclude : String -> FilePattern
 exclude globStr =
     case Glob.fromString globStr of
         Ok glob ->
-            Exclude glob
+            Exclude ( globStr, glob )
 
         Err _ ->
             InvalidGlob globStr
@@ -160,7 +160,7 @@ excludeFolder : String -> FilePattern
 excludeFolder globStr =
     case Glob.fromString (toFolder globStr) of
         Ok glob ->
-            ExcludeFolder glob
+            ExcludeFolder ( globStr, glob )
 
         Err _ ->
             InvalidGlob globStr
