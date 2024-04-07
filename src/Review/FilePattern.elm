@@ -38,26 +38,31 @@ type CompactFilePattern
 
 compact : List FilePattern -> Result (List String) Summary
 compact filePatterns =
-    compactHelp filePatterns
+    compactBase filePatterns
         { includeExclude = []
         , excludeFolders = []
         }
 
 
-compactHelp : List FilePattern -> Summary -> Result (List String) Summary
-compactHelp filePatterns accSummary =
+type AccumulatorType
+    = IncludeAcc
+    | ExcludeAcc
+
+
+compactBase : List FilePattern -> Summary -> Result (List String) Summary
+compactBase filePatterns accSummary =
     case filePatterns of
         [] ->
             Ok accSummary
 
         (Include pattern) :: rest ->
-            compactInclude rest [ pattern ] accSummary
+            compactHelp rest [ pattern ] IncludeAcc accSummary
 
         (Exclude pattern) :: rest ->
-            compactExclude rest [ pattern ] accSummary
+            compactHelp rest [ pattern ] ExcludeAcc accSummary
 
         (ExcludeFolder pattern) :: rest ->
-            compactHelp rest
+            compactBase rest
                 { includeExclude = accSummary.includeExclude
                 , excludeFolders = pattern :: accSummary.excludeFolders
                 }
@@ -66,58 +71,53 @@ compactHelp filePatterns accSummary =
             Err (compactErrors rest [ pattern ])
 
 
-compactInclude : List FilePattern -> List Glob -> Summary -> Result (List String) Summary
-compactInclude filePatterns accGlobs accSummary =
+compactHelp : List FilePattern -> List Glob -> AccumulatorType -> Summary -> Result (List String) Summary
+compactHelp filePatterns accGlobs accumulatorType accSummary =
     case filePatterns of
         [] ->
             Ok
-                { includeExclude = CompactInclude accGlobs :: accSummary.includeExclude
+                { includeExclude =
+                    (case accumulatorType of
+                        IncludeAcc ->
+                            CompactInclude accGlobs
+
+                        ExcludeAcc ->
+                            CompactExclude accGlobs
+                    )
+                        :: accSummary.includeExclude
                 , excludeFolders = accSummary.excludeFolders
                 }
 
         (Include pattern) :: rest ->
-            compactInclude rest (pattern :: accGlobs) accSummary
+            case accumulatorType of
+                IncludeAcc ->
+                    compactHelp rest (pattern :: accGlobs) accumulatorType accSummary
+
+                ExcludeAcc ->
+                    compactHelp rest
+                        [ pattern ]
+                        IncludeAcc
+                        { includeExclude = CompactExclude accGlobs :: accSummary.includeExclude
+                        , excludeFolders = accSummary.excludeFolders
+                        }
 
         (Exclude pattern) :: rest ->
-            compactExclude rest
-                [ pattern ]
-                { includeExclude = CompactInclude accGlobs :: accSummary.includeExclude
-                , excludeFolders = accSummary.excludeFolders
-                }
+            case accumulatorType of
+                IncludeAcc ->
+                    compactHelp rest
+                        [ pattern ]
+                        ExcludeAcc
+                        { includeExclude = CompactInclude accGlobs :: accSummary.includeExclude
+                        , excludeFolders = accSummary.excludeFolders
+                        }
+
+                ExcludeAcc ->
+                    compactHelp rest (pattern :: accGlobs) accumulatorType accSummary
 
         (ExcludeFolder pattern) :: rest ->
-            compactInclude rest
+            compactHelp rest
                 accGlobs
-                { includeExclude = accSummary.includeExclude
-                , excludeFolders = pattern :: accSummary.excludeFolders
-                }
-
-        (InvalidGlob invalidGlobStr) :: rest ->
-            Err (compactErrors rest [ invalidGlobStr ])
-
-
-compactExclude : List FilePattern -> List Glob -> Summary -> Result (List String) Summary
-compactExclude filePatterns accGlobs accSummary =
-    case filePatterns of
-        [] ->
-            Ok
-                { includeExclude = CompactExclude accGlobs :: accSummary.includeExclude
-                , excludeFolders = accSummary.excludeFolders
-                }
-
-        (Include pattern) :: rest ->
-            compactInclude rest
-                [ pattern ]
-                { includeExclude = CompactExclude accGlobs :: accSummary.includeExclude
-                , excludeFolders = accSummary.excludeFolders
-                }
-
-        (Exclude pattern) :: rest ->
-            compactExclude rest (pattern :: accGlobs) accSummary
-
-        (ExcludeFolder pattern) :: rest ->
-            compactExclude rest
-                accGlobs
+                accumulatorType
                 { includeExclude = accSummary.includeExclude
                 , excludeFolders = pattern :: accSummary.excludeFolders
                 }
