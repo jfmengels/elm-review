@@ -110,8 +110,8 @@ toStringsTest =
                         )
                     |> FilePattern.compact
             of
-                Ok patterns ->
-                    patterns
+                Ok summary ->
+                    summary
                         |> FilePattern.toStrings
                         |> Expect.equal []
 
