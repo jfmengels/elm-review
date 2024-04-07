@@ -19,10 +19,10 @@ all =
                     ]
                     "some/file/path.ext"
                     |> Expect.equal True
-        , test "should return True when the list a Glob matching a parent" <|
+        , test "should return True when the list contains a Glob matching a parent" <|
             \() ->
                 FilePattern.match
-                    [ FilePattern.include "some/file/**"
+                    [ FilePattern.include "some/file/**/*"
                     ]
                     "some/file/path.ext"
                     |> Expect.equal True
