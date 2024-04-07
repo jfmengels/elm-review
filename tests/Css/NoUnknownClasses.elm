@@ -145,6 +145,7 @@ import Elm.Syntax.Range exposing (Range)
 import Levenshtein
 import Parser exposing ((|.), (|=), Parser)
 import RangeDict exposing (RangeDict)
+import Review.FilePattern exposing (FilePattern)
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Rule as Rule exposing (Rule)
 import Set exposing (Set)
@@ -166,12 +167,12 @@ rule (Configuration configuration) =
 type Configuration
     = Configuration
         { knownClasses : Set String
-        , cssFiles : List String
+        , cssFiles : List FilePattern
         , cssFunctions : CssFunctions
         }
 
 
-cssFiles : List String -> Configuration
+cssFiles : List FilePattern -> Configuration
 cssFiles globs =
     Configuration
         { knownClasses = Set.empty

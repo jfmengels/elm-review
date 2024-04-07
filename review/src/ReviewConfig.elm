@@ -34,6 +34,7 @@ import NoUnused.Parameters
 import NoUnused.Patterns
 import NoUnused.Variables
 import Review.Rule as Rule exposing (Rule)
+import Review.FilePattern as FilePattern
 import NoUnused.CustomTypeConstructorArgs
 import Css.NoUnknownClasses
 
@@ -73,7 +74,7 @@ config =
     , NoSimpleLetBody.rule
     , NoPrematureLetComputation.rule
     , NoForbiddenWords.rule [ "REPLACEME" ]
-    , Css.NoUnknownClasses.cssFiles ["src/**/*.css"]
+    , Css.NoUnknownClasses.cssFiles [ FilePattern.include "src/**/*.css"]
             -- |> Css.NoUnknownClasses.withCssUsingFunctions cssUsingFunctions
             |> Css.NoUnknownClasses.rule
     ]
