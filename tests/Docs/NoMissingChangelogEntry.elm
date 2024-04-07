@@ -45,6 +45,7 @@ elm-review --template jfmengels/elm-review/example --rules Docs.NoMissingChangel
 import Elm.Project exposing (Project)
 import Elm.Syntax.Range exposing (Range)
 import Elm.Version
+import Review.FilePattern as FilePattern
 import Review.Fix as Fix
 import Review.Rule as Rule exposing (Rule)
 
@@ -55,7 +56,7 @@ rule : Configuration -> Rule
 rule (Configuration { changelogPath }) =
     Rule.newProjectRuleSchema "Docs.NoMissingChangelogEntry" initialProjectContext
         |> Rule.withElmJsonProjectVisitor elmJsonVisitor
-        |> Rule.withExtraFilesProjectVisitor [ Maybe.withDefault defaultPath changelogPath ] (extraFilesVisitor changelogPath)
+        |> Rule.withExtraFilesProjectVisitor [ FilePattern.include (Maybe.withDefault defaultPath changelogPath) ] (extraFilesVisitor changelogPath)
         |> Rule.providesFixesForProjectRule
         |> Rule.fromProjectRuleSchema
 

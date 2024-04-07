@@ -5,6 +5,7 @@ import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Import exposing (Import)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern exposing (Pattern)
+import Review.FilePattern as FilePattern
 import Review.Project as Project exposing (Project)
 import Review.Rule as Rule exposing (Error, Rule)
 import Review.Test
@@ -32,8 +33,8 @@ all =
                             |> Rule.withElmJsonModuleVisitor (\_ context -> context ++ "\n1.2 - withElmJsonModuleVisitor")
                             |> Rule.withReadmeModuleVisitor (\_ context -> context ++ "\n2.1 - withReadmeModuleVisitor")
                             |> Rule.withReadmeModuleVisitor (\_ context -> context ++ "\n2.2 - withReadmeModuleVisitor")
-                            |> Rule.withExtraFilesModuleVisitor [ "first.txt" ] (\files context -> context ++ "\n3.1 - withExtraFilesModuleVisitor " ++ (List.map .path files |> String.join ", "))
-                            |> Rule.withExtraFilesModuleVisitor [ "last.txt" ] (\files context -> context ++ "\n3.2 - withExtraFilesModuleVisitor " ++ (List.map .path files |> String.join ", "))
+                            |> Rule.withExtraFilesModuleVisitor [ FilePattern.include "first.txt" ] (\files context -> context ++ "\n3.1 - withExtraFilesModuleVisitor " ++ (List.map .path files |> String.join ", "))
+                            |> Rule.withExtraFilesModuleVisitor [ FilePattern.include "last.txt" ] (\files context -> context ++ "\n3.2 - withExtraFilesModuleVisitor " ++ (List.map .path files |> String.join ", "))
                             |> Rule.withDirectDependenciesModuleVisitor (\_ context -> context ++ "\n4.1 - withDirectDependenciesModuleVisitor")
                             |> Rule.withDirectDependenciesModuleVisitor (\_ context -> context ++ "\n4.2 - withDirectDependenciesModuleVisitor")
                             |> Rule.withDependenciesModuleVisitor (\_ context -> context ++ "\n4.3 - withDependenciesModuleVisitor")
