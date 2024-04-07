@@ -45,7 +45,7 @@ match filePatterns str =
     case filePatterns of
         (Include glob) :: rest ->
             if Glob.match glob str then
-                True
+                match rest str
 
             else
                 False
