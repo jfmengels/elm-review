@@ -6,7 +6,7 @@ type RequestedData
         { moduleNameLookupTable : Bool
         , sourceCodeExtractor : Bool
         , ignoredFiles : Bool
-        , files : List String
+        , files : List { files : List { string : String, included : Bool }, excludedFolders : List String }
         }
 
 
@@ -35,7 +35,7 @@ combine maybeA maybeB =
                     a
 
 
-withFiles : List String -> RequestedData -> RequestedData
+withFiles : List { files : List { string : String, included : Bool }, excludedFolders : List String } -> RequestedData -> RequestedData
 withFiles files ((RequestedData requested) as untouched) =
     if List.isEmpty files then
         untouched

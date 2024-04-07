@@ -1,5 +1,6 @@
 module Review.Rule.WithExtraFilesVisitorTest exposing (all)
 
+import Review.FilePattern as FilePattern exposing (FilePattern)
 import Review.Project as Project exposing (Project)
 import Review.Rule as Rule exposing (Error, Rule)
 import Review.Test
@@ -20,7 +21,7 @@ all =
 
                     rule : Rule
                     rule =
-                        createRule (Rule.withExtraFilesModuleVisitor [ "foo/some-file.css" ] extraFilesModuleVisitor)
+                        createRule (Rule.withExtraFilesModuleVisitor [ FilePattern.include "foo/some-file.css" ] extraFilesModuleVisitor)
                 in
                 """module A exposing (a)
 a = 1
@@ -44,7 +45,7 @@ a = 1
 
                     rule : Rule
                     rule =
-                        createRule (Rule.withExtraFilesModuleVisitor [ "foo/some-file.css" ] extraFilesModuleVisitor)
+                        createRule (Rule.withExtraFilesModuleVisitor [ FilePattern.include "foo/some-file.css" ] extraFilesModuleVisitor)
                 in
                 """module A exposing (a)
 a = 1
@@ -69,8 +70,8 @@ a = 1
                     rule : Rule
                     rule =
                         createRule
-                            (Rule.withExtraFilesModuleVisitor [ "a.txt", "c.txt" ] (reportsFileNames "A")
-                                >> Rule.withExtraFilesModuleVisitor [ "b.txt" ] (reportsFileNames "B")
+                            (Rule.withExtraFilesModuleVisitor [ FilePattern.include "a.txt", FilePattern.include "c.txt" ] (reportsFileNames "A")
+                                >> Rule.withExtraFilesModuleVisitor [ FilePattern.include "b.txt" ] (reportsFileNames "B")
                             )
                 in
                 """module A exposing (a)
@@ -90,7 +91,7 @@ a = 1
             \() ->
                 createRule
                     (Rule.withExtraFilesModuleVisitor
-                        [ "** " ]
+                        [ FilePattern.include "** " ]
                         (reportsFileNames "A")
                     )
                     |> Review.Test.expectConfigurationError

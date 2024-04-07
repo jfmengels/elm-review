@@ -326,6 +326,7 @@ import Review.ElmProjectEncoder
 import Review.Error exposing (InternalError)
 import Review.Exceptions as Exceptions exposing (Exceptions)
 import Review.FilePath exposing (FilePath)
+import Review.FilePattern as FilePattern exposing (FilePattern)
 import Review.Fix as Fix exposing (Fix, FixResult(..))
 import Review.Fix.FixProblem as FixProblem
 import Review.Fix.FixedErrors as FixedErrors exposing (FixedErrors)
@@ -414,7 +415,7 @@ type alias ModuleRuleSchemaData moduleContext =
 
 
 type alias ExtraFileRequest =
-    Result (List String) (List StringableGlob)
+    Result (List String) (List { files : List { string : String, included : Bool }, excludedFolders : List String })
 
 
 type alias StringableGlob =
@@ -893,7 +894,7 @@ ruleKnowsAboutIgnoredFiles (Rule rule) =
 
 {-| REPLACEME
 -}
-ruleRequestedFiles : Rule -> List String
+ruleRequestedFiles : Rule -> List { files : List { string : String, included : Bool }, excludedFolders : List String }
 ruleRequestedFiles (Rule rule) =
     let
         (RequestedData requestedData) =
@@ -1314,7 +1315,7 @@ fromProjectRuleSchema (ProjectRuleSchema schema) =
                         (Maybe.map requestedDataFromContextCreator schema.moduleContextCreator)
                         (Maybe.map (.fromModuleToProject >> requestedDataFromContextCreator) schema.folder)
                         -- TODO Keep the original globs as strings and pass them here
-                        |> RequestedData.withFiles (List.map .string extraFileGlobs)
+                        |> RequestedData.withFiles extraFileGlobs
                 , providesFixes = schema.providesFixes
                 , ruleProjectVisitor =
                     Ok
@@ -1907,21 +1908,17 @@ withReadmeProjectVisitor visitor (ProjectRuleSchema schema) =
 {-| REPLACEME
 -}
 withExtraFilesProjectVisitor :
-    List String
+    List FilePattern
     -> (List { fileKey : ExtraFileKey, path : String, content : String } -> projectContext -> ( List (Error { useErrorForModule : () }), projectContext ))
     -> ProjectRuleSchema schemaState projectContext moduleContext
     -> ProjectRuleSchema { schemaState | hasAtLeastOneVisitor : () } projectContext moduleContext
-withExtraFilesProjectVisitor requestedFiles baseVisitor (ProjectRuleSchema schema) =
-    case parseGlobs requestedFiles of
-        Ok stringableGlobs ->
+withExtraFilesProjectVisitor filePatterns baseVisitor (ProjectRuleSchema schema) =
+    case FilePattern.compact filePatterns of
+        Ok filePatternSummary ->
             let
-                globs : List Glob
-                globs =
-                    List.map .glob stringableGlobs
-
                 visitor : List { fileKey : ExtraFileKey, path : String, content : String } -> projectContext -> ( List (Error {}), projectContext )
                 visitor files context =
-                    baseVisitor (List.filter (globMatch globs) files) context
+                    baseVisitor (List.filter (\file -> FilePattern.match filePatternSummary file.path) files) context
                         |> Tuple.mapFirst removeErrorPhantomTypes
             in
             ProjectRuleSchema
@@ -1930,9 +1927,9 @@ withExtraFilesProjectVisitor requestedFiles baseVisitor (ProjectRuleSchema schem
                     , extraFileRequest =
                         case schema.extraFileRequest of
                             Ok previous ->
-                                Ok (previous ++ stringableGlobs)
+                                Ok (FilePattern.toStrings filePatternSummary :: previous)
 
-                            Err previous ->
+                            Err _ ->
                                 schema.extraFileRequest
                 }
 
@@ -2465,21 +2462,17 @@ withElmJsonModuleVisitor visitor (ModuleRuleSchema schema) =
 {-| REPLACEME
 -}
 withExtraFilesModuleVisitor :
-    List String
+    List FilePattern
     -> (List { path : String, content : String } -> moduleContext -> moduleContext)
     -> ModuleRuleSchema { schemaState | canCollectProjectData : () } moduleContext
     -> ModuleRuleSchema { schemaState | canCollectProjectData : () } moduleContext
-withExtraFilesModuleVisitor requestedFiles baseVisitor (ModuleRuleSchema schema) =
-    case parseGlobs requestedFiles of
-        Ok stringableGlobs ->
+withExtraFilesModuleVisitor filePatterns baseVisitor (ModuleRuleSchema schema) =
+    case FilePattern.compact filePatterns of
+        Ok filePatternSummary ->
             let
-                globs : List Glob
-                globs =
-                    List.map .glob stringableGlobs
-
                 visitor : List { path : String, content : String } -> moduleContext -> moduleContext
                 visitor files context =
-                    baseVisitor (List.filter (globMatch globs) files) context
+                    baseVisitor (List.filter (\file -> FilePattern.match filePatternSummary file.path) files) context
             in
             ModuleRuleSchema
                 { schema
@@ -2487,9 +2480,9 @@ withExtraFilesModuleVisitor requestedFiles baseVisitor (ModuleRuleSchema schema)
                     , extraFileRequest =
                         case schema.extraFileRequest of
                             Ok previous ->
-                                Ok (previous ++ stringableGlobs)
+                                Ok (FilePattern.toStrings filePatternSummary :: previous)
 
-                            Err previous ->
+                            Err _ ->
                                 schema.extraFileRequest
                 }
 
