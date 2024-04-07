@@ -7,7 +7,14 @@ import Test exposing (Test, describe, test)
 
 all : Test
 all =
-    describe "matchAgainst"
+    describe "Review.FilePattern"
+        [ matchTest
+        ]
+
+
+matchTest : Test
+matchTest =
+    describe "match"
         [ test "should return False when the list is empty" <|
             \() ->
                 matchAgainst [] "some/file/path.ext"
@@ -79,7 +86,7 @@ matchAgainst : List FilePattern -> String -> Bool
 matchAgainst filePatterns str =
     case FilePattern.compact filePatterns of
         Ok filePatternCompact ->
-            FilePattern.match2 filePatternCompact str
+            FilePattern.match filePatternCompact str
 
         Err globs ->
             Debug.todo ("Invalid globs:\n" ++ String.join "\n" globs)

@@ -1,4 +1,4 @@
-module Review.FilePattern exposing (FilePattern, compact, exclude, excludeFolder, include, match, match2)
+module Review.FilePattern exposing (FilePattern, compact, exclude, excludeFolder, include, match)
 
 import Glob exposing (Glob)
 import Review.Rule exposing (globalError)
@@ -170,36 +170,8 @@ toFolder globStr =
         globStr ++ "/**/*"
 
 
-match : List FilePattern -> String -> Bool
-match filePatterns str =
-    matchHelp filePatterns str False
-
-
-matchHelp : List FilePattern -> String -> Bool -> Bool
-matchHelp filePatterns str acc =
-    case filePatterns of
-        [] ->
-            acc
-
-        (Include glob) :: rest ->
-            matchHelp rest str (acc || Glob.match glob str)
-
-        (Exclude glob) :: rest ->
-            matchHelp rest str (acc && not (Glob.match glob str))
-
-        (ExcludeFolder glob) :: rest ->
-            if Glob.match glob str then
-                False
-
-            else
-                matchHelp rest str acc
-
-        _ ->
-            False
-
-
-match2 : Summary -> String -> Bool
-match2 summary str =
+match : Summary -> String -> Bool
+match summary str =
     if List.any (\folderGlob -> Glob.match folderGlob str) summary.folders then
         False
 
