@@ -70,18 +70,33 @@ compactBase filePatterns accSummary =
             Ok accSummary
 
         (Include ( raw, pattern )) :: rest ->
-            compactHelp rest [ pattern ] True (addRawIncludeExclude raw True accSummary)
+            case Glob.fromString raw of
+                Ok glob ->
+                    compactHelp rest [ pattern ] True (addRawIncludeExclude raw True accSummary)
+
+                Err _ ->
+                    Err (compactErrors rest [ raw ])
 
         (Exclude ( raw, pattern )) :: rest ->
-            compactHelp rest [ pattern ] False (addRawIncludeExclude raw False accSummary)
+            case Glob.fromString raw of
+                Ok glob ->
+                    compactHelp rest [ pattern ] False (addRawIncludeExclude raw False accSummary)
+
+                Err _ ->
+                    Err (compactErrors rest [ raw ])
 
         (ExcludeFolder ( raw, pattern )) :: rest ->
-            compactBase rest
-                { includeExclude = accSummary.includeExclude
-                , excludedFolders = pattern :: accSummary.excludedFolders
-                , strings = accSummary.strings
-                , excludedFoldersStrings = raw :: accSummary.excludedFoldersStrings
-                }
+            case Glob.fromString (toFolder raw) of
+                Ok glob ->
+                    compactBase rest
+                        { includeExclude = accSummary.includeExclude
+                        , excludedFolders = pattern :: accSummary.excludedFolders
+                        , strings = accSummary.strings
+                        , excludedFoldersStrings = raw :: accSummary.excludedFoldersStrings
+                        }
+
+                Err _ ->
+                    Err (compactErrors rest [ raw ])
 
         (InvalidGlob pattern) :: rest ->
             Err (compactErrors rest [ pattern ])
@@ -106,42 +121,57 @@ compactHelp filePatterns accGlobs included accSummary =
                 }
 
         (Include ( raw, pattern )) :: rest ->
-            if included then
-                compactHelp rest (pattern :: accGlobs) included (addRawIncludeExclude raw included accSummary)
+            case Glob.fromString raw of
+                Ok glob ->
+                    if included then
+                        compactHelp rest (pattern :: accGlobs) included (addRawIncludeExclude raw included accSummary)
 
-            else
-                compactHelp rest
-                    [ pattern ]
-                    True
-                    { includeExclude = CompactExclude accGlobs :: accSummary.includeExclude
-                    , excludedFolders = accSummary.excludedFolders
-                    , strings = { string = raw, included = True } :: accSummary.strings
-                    , excludedFoldersStrings = accSummary.excludedFoldersStrings
-                    }
+                    else
+                        compactHelp rest
+                            [ pattern ]
+                            True
+                            { includeExclude = CompactExclude accGlobs :: accSummary.includeExclude
+                            , excludedFolders = accSummary.excludedFolders
+                            , strings = { string = raw, included = True } :: accSummary.strings
+                            , excludedFoldersStrings = accSummary.excludedFoldersStrings
+                            }
+
+                Err _ ->
+                    Err (compactErrors rest [ raw ])
 
         (Exclude ( raw, pattern )) :: rest ->
-            if included then
-                compactHelp rest
-                    [ pattern ]
-                    False
-                    { includeExclude = CompactInclude accGlobs :: accSummary.includeExclude
-                    , excludedFolders = accSummary.excludedFolders
-                    , strings = { string = raw, included = False } :: accSummary.strings
-                    , excludedFoldersStrings = accSummary.excludedFoldersStrings
-                    }
+            case Glob.fromString raw of
+                Ok glob ->
+                    if included then
+                        compactHelp rest
+                            [ pattern ]
+                            False
+                            { includeExclude = CompactInclude accGlobs :: accSummary.includeExclude
+                            , excludedFolders = accSummary.excludedFolders
+                            , strings = { string = raw, included = False } :: accSummary.strings
+                            , excludedFoldersStrings = accSummary.excludedFoldersStrings
+                            }
 
-            else
-                compactHelp rest (pattern :: accGlobs) included (addRawIncludeExclude raw included accSummary)
+                    else
+                        compactHelp rest (pattern :: accGlobs) included (addRawIncludeExclude raw included accSummary)
+
+                Err _ ->
+                    Err (compactErrors rest [ raw ])
 
         (ExcludeFolder ( raw, pattern )) :: rest ->
-            compactHelp rest
-                accGlobs
-                included
-                { includeExclude = accSummary.includeExclude
-                , excludedFolders = pattern :: accSummary.excludedFolders
-                , strings = accSummary.strings
-                , excludedFoldersStrings = raw :: accSummary.excludedFoldersStrings
-                }
+            case Glob.fromString (toFolder raw) of
+                Ok glob ->
+                    compactHelp rest
+                        accGlobs
+                        included
+                        { includeExclude = accSummary.includeExclude
+                        , excludedFolders = pattern :: accSummary.excludedFolders
+                        , strings = accSummary.strings
+                        , excludedFoldersStrings = raw :: accSummary.excludedFoldersStrings
+                        }
+
+                Err _ ->
+                    Err (compactErrors rest [ raw ])
 
         (InvalidGlob invalidGlobStr) :: rest ->
             Err (compactErrors rest [ invalidGlobStr ])
