@@ -1,7 +1,6 @@
 module Review.FilePattern exposing (FilePattern, compact, exclude, excludeFolder, include, match)
 
 import Glob exposing (Glob)
-import Review.Rule exposing (globalError)
 
 
 
