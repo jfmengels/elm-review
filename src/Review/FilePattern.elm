@@ -50,7 +50,7 @@ compact filePatterns =
 
 toStrings : Summary -> { files : List { string : String, included : Bool }, excludedFolders : List String }
 toStrings summary =
-    { files = summary.strings
+    { files = List.reverse summary.strings
     , excludedFolders = summary.excludeFoldersStrings
     }
 
@@ -62,17 +62,17 @@ compactBase filePatterns accSummary =
             Ok accSummary
 
         (Include ( raw, pattern )) :: rest ->
-            compactHelp rest [ pattern ] True accSummary
+            compactHelp rest [ pattern ] True (addRawIncludeExclude raw True accSummary)
 
         (Exclude ( raw, pattern )) :: rest ->
-            compactHelp rest [ pattern ] False accSummary
+            compactHelp rest [ pattern ] False (addRawIncludeExclude raw False accSummary)
 
         (ExcludeFolder ( raw, pattern )) :: rest ->
             compactBase rest
                 { includeExclude = accSummary.includeExclude
                 , excludeFolders = pattern :: accSummary.excludeFolders
                 , strings = accSummary.strings
-                , excludeFoldersStrings = accSummary.excludeFoldersStrings
+                , excludeFoldersStrings = raw :: accSummary.excludeFoldersStrings
                 }
 
         (InvalidGlob pattern) :: rest ->
@@ -107,7 +107,7 @@ compactHelp filePatterns accGlobs included accSummary =
                     True
                     { includeExclude = CompactExclude accGlobs :: accSummary.includeExclude
                     , excludeFolders = accSummary.excludeFolders
-                    , strings = { string = raw, included = included } :: accSummary.strings
+                    , strings = { string = raw, included = True } :: accSummary.strings
                     , excludeFoldersStrings = accSummary.excludeFoldersStrings
                     }
 
@@ -118,7 +118,7 @@ compactHelp filePatterns accGlobs included accSummary =
                     False
                     { includeExclude = CompactInclude accGlobs :: accSummary.includeExclude
                     , excludeFolders = accSummary.excludeFolders
-                    , strings = { string = raw, included = included } :: accSummary.strings
+                    , strings = { string = raw, included = False } :: accSummary.strings
                     , excludeFoldersStrings = accSummary.excludeFoldersStrings
                     }
 
