@@ -19,9 +19,9 @@ import Glob exposing (Glob)
 
 
 type FilePattern
-    = Include ( String, Glob )
-    | Exclude ( String, Glob )
-    | ExcludeFolder ( String, Glob )
+    = Include String
+    | Exclude String
+    | ExcludeFolder String
     | InvalidGlob String
 
 
@@ -69,25 +69,25 @@ compactBase filePatterns accSummary =
         [] ->
             Ok accSummary
 
-        (Include ( raw, pattern )) :: rest ->
+        (Include raw) :: rest ->
             case Glob.fromString raw of
-                Ok glob ->
+                Ok pattern ->
                     compactHelp rest [ pattern ] True (addRawIncludeExclude raw True accSummary)
 
                 Err _ ->
                     Err (compactErrors rest [ raw ])
 
-        (Exclude ( raw, pattern )) :: rest ->
+        (Exclude raw) :: rest ->
             case Glob.fromString raw of
-                Ok glob ->
+                Ok pattern ->
                     compactHelp rest [ pattern ] False (addRawIncludeExclude raw False accSummary)
 
                 Err _ ->
                     Err (compactErrors rest [ raw ])
 
-        (ExcludeFolder ( raw, pattern )) :: rest ->
+        (ExcludeFolder raw) :: rest ->
             case Glob.fromString (toFolder raw) of
-                Ok glob ->
+                Ok pattern ->
                     compactBase rest
                         { includeExclude = accSummary.includeExclude
                         , excludedFolders = pattern :: accSummary.excludedFolders
@@ -120,9 +120,9 @@ compactHelp filePatterns accGlobs included accSummary =
                 , excludedFoldersStrings = accSummary.excludedFoldersStrings
                 }
 
-        (Include ( raw, pattern )) :: rest ->
+        (Include raw) :: rest ->
             case Glob.fromString raw of
-                Ok glob ->
+                Ok pattern ->
                     if included then
                         compactHelp rest (pattern :: accGlobs) included (addRawIncludeExclude raw included accSummary)
 
@@ -139,9 +139,9 @@ compactHelp filePatterns accGlobs included accSummary =
                 Err _ ->
                     Err (compactErrors rest [ raw ])
 
-        (Exclude ( raw, pattern )) :: rest ->
+        (Exclude raw) :: rest ->
             case Glob.fromString raw of
-                Ok glob ->
+                Ok pattern ->
                     if included then
                         compactHelp rest
                             [ pattern ]
@@ -158,9 +158,9 @@ compactHelp filePatterns accGlobs included accSummary =
                 Err _ ->
                     Err (compactErrors rest [ raw ])
 
-        (ExcludeFolder ( raw, pattern )) :: rest ->
+        (ExcludeFolder raw) :: rest ->
             case Glob.fromString (toFolder raw) of
-                Ok glob ->
+                Ok pattern ->
                     compactHelp rest
                         accGlobs
                         included
@@ -200,33 +200,18 @@ addRawIncludeExclude string included summary =
 
 
 include : String -> FilePattern
-include globStr =
-    case Glob.fromString globStr of
-        Ok glob ->
-            Include ( globStr, glob )
-
-        Err _ ->
-            InvalidGlob globStr
+include =
+    Include
 
 
 exclude : String -> FilePattern
-exclude globStr =
-    case Glob.fromString globStr of
-        Ok glob ->
-            Exclude ( globStr, glob )
-
-        Err _ ->
-            InvalidGlob globStr
+exclude =
+    Exclude
 
 
 excludeFolder : String -> FilePattern
-excludeFolder globStr =
-    case Glob.fromString (toFolder globStr) of
-        Ok glob ->
-            ExcludeFolder ( globStr, glob )
-
-        Err _ ->
-            InvalidGlob globStr
+excludeFolder =
+    ExcludeFolder
 
 
 toFolder : String -> String
