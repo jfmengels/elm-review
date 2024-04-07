@@ -97,17 +97,17 @@ matchAgainst filePatterns str =
 toStringsTest : Test
 toStringsTest =
     describe "toStrings"
-        [ fuzz (Fuzz.list (Fuzz.map2 Tuple.pair Fuzz.string Fuzz.bool)) "files should stay as before" <|
+        [ fuzz (Fuzz.list (Fuzz.map2 (\str included -> { string = str, included = included }) Fuzz.string Fuzz.bool)) "files should stay as before" <|
             \list ->
                 case
                     list
                         |> List.map
-                            (\( str, included ) ->
+                            (\{ string, included } ->
                                 if included then
-                                    FilePattern.include str
+                                    FilePattern.include string
 
                                 else
-                                    FilePattern.exclude str
+                                    FilePattern.exclude string
                             )
                         |> FilePattern.compact
                 of
@@ -115,7 +115,7 @@ toStringsTest =
                         summary
                             |> FilePattern.toStrings
                             |> .files
-                            |> Expect.equal []
+                            |> Expect.equal list
 
                     Err _ ->
                         Expect.pass
