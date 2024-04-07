@@ -1,4 +1,4 @@
-module Review.FilePattern exposing (FilePattern, compact, exclude, excludeFolder, include, match)
+module Review.FilePattern exposing (FilePattern, compact, exclude, excludeFolder, include, match, toStrings)
 
 import Glob exposing (Glob)
 
@@ -42,6 +42,11 @@ compact filePatterns =
         { includeExclude = []
         , excludeFolders = []
         }
+
+
+toStrings : Summary -> List { string : String, included : Bool }
+toStrings summary =
+    []
 
 
 type AccumulatorType
