@@ -98,19 +98,19 @@ toStringsTest : Test
 toStringsTest =
     describe "toStrings"
         [ fuzz
-            (Fuzz.list (Fuzz.map2 (\str included -> { string = str, included = included }) Fuzz.string Fuzz.bool))
+            (Fuzz.list (Fuzz.map2 (\str included -> { pattern = str, included = included }) Fuzz.string Fuzz.bool))
             "files should stay as before"
           <|
             \list ->
                 case
                     list
                         |> List.map
-                            (\{ string, included } ->
+                            (\{ pattern, included } ->
                                 if included then
-                                    FilePattern.include string
+                                    FilePattern.include pattern
 
                                 else
-                                    FilePattern.exclude string
+                                    FilePattern.exclude pattern
                             )
                         |> FilePattern.compact
                 of

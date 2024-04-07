@@ -13,12 +13,12 @@ type FilePattern
 type alias Summary =
     { includeExclude : List CompactFilePattern
     , excludedFolders : List Glob
-    , strings : List { string : String, included : Bool }
+    , strings : List { pattern : String, included : Bool }
     , excludedFoldersStrings : List String
     }
 
 
-toStrings : Summary -> { files : List { string : String, included : Bool }, excludedFolders : List String }
+toStrings : Summary -> { files : List { pattern : String, included : Bool }, excludedFolders : List String }
 toStrings summary =
     { files = summary.strings
     , excludedFolders = summary.excludedFoldersStrings
@@ -117,7 +117,7 @@ compactHelp filePatterns accGlobs included accSummary =
                             True
                             { includeExclude = CompactExclude accGlobs :: accSummary.includeExclude
                             , excludedFolders = accSummary.excludedFolders
-                            , strings = { string = raw, included = True } :: accSummary.strings
+                            , strings = { pattern = raw, included = True } :: accSummary.strings
                             , excludedFoldersStrings = accSummary.excludedFoldersStrings
                             }
 
@@ -133,7 +133,7 @@ compactHelp filePatterns accGlobs included accSummary =
                             False
                             { includeExclude = CompactInclude accGlobs :: accSummary.includeExclude
                             , excludedFolders = accSummary.excludedFolders
-                            , strings = { string = raw, included = False } :: accSummary.strings
+                            , strings = { pattern = raw, included = False } :: accSummary.strings
                             , excludedFoldersStrings = accSummary.excludedFoldersStrings
                             }
 
@@ -179,7 +179,7 @@ addRawIncludeExclude : String -> Bool -> Summary -> Summary
 addRawIncludeExclude string included summary =
     { includeExclude = summary.includeExclude
     , excludedFolders = summary.excludedFolders
-    , strings = { string = string, included = included } :: summary.strings
+    , strings = { pattern = string, included = included } :: summary.strings
     , excludedFoldersStrings = summary.excludedFoldersStrings
     }
 
