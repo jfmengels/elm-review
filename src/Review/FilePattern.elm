@@ -50,7 +50,7 @@ compact filePatterns =
 
 toStrings : Summary -> { files : List { string : String, included : Bool }, excludedFolders : List String }
 toStrings summary =
-    { files = []
+    { files = summary.strings
     , excludedFolders = summary.excludeFoldersStrings
     }
 
