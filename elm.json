@@ -9,6 +9,7 @@
         "Review.ModuleNameLookupTable",
         "Review.Project",
         "Review.Project.Dependency",
+        "Review.FilePattern",
         "Review.Fix",
         "Review.Test",
         "Review.Test.Dependencies",
