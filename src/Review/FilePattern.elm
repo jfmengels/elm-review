@@ -26,7 +26,7 @@ type FilePattern
 
 
 type alias Summary =
-    { folders : List Glob
+    { excludeFolders : List Glob
     , includeExclude : List CompactFilePattern
     }
 
@@ -38,7 +38,7 @@ type CompactFilePattern
 
 compact : List FilePattern -> Result (List String) Summary
 compact filePatterns =
-    compactHelp filePatterns { folders = [], includeExclude = [] }
+    compactHelp filePatterns { excludeFolders = [], includeExclude = [] }
 
 
 compactHelp : List FilePattern -> Summary -> Result (List String) Summary
@@ -54,7 +54,7 @@ compactHelp filePatterns accSummary =
             compactExclude rest [ pattern ] accSummary
 
         (ExcludeFolder pattern) :: rest ->
-            compactHelp rest { folders = pattern :: accSummary.folders, includeExclude = accSummary.includeExclude }
+            compactHelp rest { excludeFolders = pattern :: accSummary.excludeFolders, includeExclude = accSummary.includeExclude }
 
         (InvalidGlob pattern) :: rest ->
             Err (compactErrors rest [ pattern ])
@@ -65,7 +65,7 @@ compactInclude filePatterns accGlobs accSummary =
     case filePatterns of
         [] ->
             Ok
-                { folders = accSummary.folders
+                { excludeFolders = accSummary.excludeFolders
                 , includeExclude = CompactInclude accGlobs :: accSummary.includeExclude
                 }
 
@@ -75,14 +75,14 @@ compactInclude filePatterns accGlobs accSummary =
         (Exclude pattern) :: rest ->
             compactExclude rest
                 [ pattern ]
-                { folders = accSummary.folders
+                { excludeFolders = accSummary.excludeFolders
                 , includeExclude = CompactInclude accGlobs :: accSummary.includeExclude
                 }
 
         (ExcludeFolder pattern) :: rest ->
             compactInclude rest
                 accGlobs
-                { folders = pattern :: accSummary.folders
+                { excludeFolders = pattern :: accSummary.excludeFolders
                 , includeExclude = accSummary.includeExclude
                 }
 
@@ -94,12 +94,12 @@ compactExclude : List FilePattern -> List Glob -> Summary -> Result (List String
 compactExclude filePatterns accGlobs accSummary =
     case filePatterns of
         [] ->
-            Ok { folders = accSummary.folders, includeExclude = CompactExclude accGlobs :: accSummary.includeExclude }
+            Ok { excludeFolders = accSummary.excludeFolders, includeExclude = CompactExclude accGlobs :: accSummary.includeExclude }
 
         (Include pattern) :: rest ->
             compactInclude rest
                 [ pattern ]
-                { folders = accSummary.folders
+                { excludeFolders = accSummary.excludeFolders
                 , includeExclude = CompactExclude accGlobs :: accSummary.includeExclude
                 }
 
@@ -109,7 +109,7 @@ compactExclude filePatterns accGlobs accSummary =
         (ExcludeFolder pattern) :: rest ->
             compactExclude rest
                 accGlobs
-                { folders = pattern :: accSummary.folders
+                { excludeFolders = pattern :: accSummary.excludeFolders
                 , includeExclude = accSummary.includeExclude
                 }
 
@@ -171,7 +171,7 @@ toFolder globStr =
 
 match : Summary -> String -> Bool
 match summary str =
-    if List.any (\folderGlob -> Glob.match folderGlob str) summary.folders then
+    if List.any (\folderGlob -> Glob.match folderGlob str) summary.excludeFolders then
         False
 
     else
