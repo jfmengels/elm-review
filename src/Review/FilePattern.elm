@@ -42,13 +42,17 @@ excludeFolder globStr =
 
 match : List FilePattern -> String -> Bool
 match filePatterns str =
-    case filePatterns of
-        (Include glob) :: rest ->
-            if Glob.match glob str then
-                match rest str
+    matchHelp filePatterns str False
 
-            else
-                False
+
+matchHelp : List FilePattern -> String -> Bool -> Bool
+matchHelp filePatterns str acc =
+    case filePatterns of
+        [] ->
+            acc
+
+        (Include glob) :: rest ->
+            matchHelp rest str (Glob.match glob str)
 
         _ ->
             False
