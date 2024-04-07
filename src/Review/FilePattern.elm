@@ -28,6 +28,7 @@ type FilePattern
 type alias Summary =
     { includeExclude : List CompactFilePattern
     , excludeFolders : List Glob
+    , strings : List { string : String, included : Bool }
     }
 
 
@@ -41,6 +42,7 @@ compact filePatterns =
     compactBase filePatterns
         { includeExclude = []
         , excludeFolders = []
+        , strings = []
         }
 
 
@@ -65,6 +67,7 @@ compactBase filePatterns accSummary =
             compactBase rest
                 { includeExclude = accSummary.includeExclude
                 , excludeFolders = pattern :: accSummary.excludeFolders
+                , strings = accSummary.strings
                 }
 
         (InvalidGlob pattern) :: rest ->
@@ -85,11 +88,12 @@ compactHelp filePatterns accGlobs included accSummary =
                     )
                         :: accSummary.includeExclude
                 , excludeFolders = accSummary.excludeFolders
+                , strings = accSummary.strings
                 }
 
         (Include ( raw, pattern )) :: rest ->
             if included then
-                compactHelp rest (pattern :: accGlobs) included accSummary
+                compactHelp rest (pattern :: accGlobs) included (addRawIncludeExclude raw included accSummary)
 
             else
                 compactHelp rest
@@ -97,6 +101,7 @@ compactHelp filePatterns accGlobs included accSummary =
                     True
                     { includeExclude = CompactExclude accGlobs :: accSummary.includeExclude
                     , excludeFolders = accSummary.excludeFolders
+                    , strings = { string = raw, included = included } :: accSummary.strings
                     }
 
         (Exclude ( raw, pattern )) :: rest ->
@@ -106,10 +111,11 @@ compactHelp filePatterns accGlobs included accSummary =
                     False
                     { includeExclude = CompactInclude accGlobs :: accSummary.includeExclude
                     , excludeFolders = accSummary.excludeFolders
+                    , strings = { string = raw, included = included } :: accSummary.strings
                     }
 
             else
-                compactHelp rest (pattern :: accGlobs) included accSummary
+                compactHelp rest (pattern :: accGlobs) included (addRawIncludeExclude raw included accSummary)
 
         (ExcludeFolder ( raw, pattern )) :: rest ->
             compactHelp rest
@@ -117,6 +123,7 @@ compactHelp filePatterns accGlobs included accSummary =
                 included
                 { includeExclude = accSummary.includeExclude
                 , excludeFolders = pattern :: accSummary.excludeFolders
+                , strings = accSummary.strings
                 }
 
         (InvalidGlob invalidGlobStr) :: rest ->
@@ -134,6 +141,14 @@ compactErrors filePatterns accGlobStrings =
 
         _ :: rest ->
             compactErrors rest accGlobStrings
+
+
+addRawIncludeExclude : String -> Bool -> Summary -> Summary
+addRawIncludeExclude string included summary =
+    { includeExclude = summary.includeExclude
+    , excludeFolders = summary.excludeFolders
+    , strings = { string = string, included = included } :: summary.strings
+    }
 
 
 include : String -> FilePattern
