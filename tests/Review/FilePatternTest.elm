@@ -1,14 +1,16 @@
 module Review.FilePatternTest exposing (all)
 
 import Expect
-import Review.FilePattern as FilePattern exposing (FilePattern)
-import Test exposing (Test, describe, test)
+import Fuzz
+import Review.FilePattern as FilePattern exposing (FilePattern, include)
+import Test exposing (Test, describe, fuzz, test)
 
 
 all : Test
 all =
     describe "Review.FilePattern"
         [ matchTest
+        , toStringsTest
         ]
 
 
@@ -90,3 +92,28 @@ matchAgainst filePatterns str =
 
         Err globs ->
             Debug.todo ("Invalid globs:\n" ++ String.join "\n" globs)
+
+
+toStringsTest : Test
+toStringsTest =
+    fuzz (Fuzz.list (Fuzz.map2 Tuple.pair Fuzz.string Fuzz.bool)) "toStrings" <|
+        \list ->
+            case
+                list
+                    |> List.map
+                        (\( str, included ) ->
+                            if included then
+                                FilePattern.include str
+
+                            else
+                                FilePattern.exclude str
+                        )
+                    |> FilePattern.compact
+            of
+                Ok patterns ->
+                    patterns
+                        |> FilePattern.toStrings
+                        |> Expect.equal []
+
+                Err _ ->
+                    Expect.pass
