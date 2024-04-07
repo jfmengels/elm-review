@@ -113,6 +113,7 @@ toStringsTest =
                 Ok summary ->
                     summary
                         |> FilePattern.toStrings
+                        |> .files
                         |> Expect.equal []
 
                 Err _ ->

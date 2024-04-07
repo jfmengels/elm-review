@@ -48,9 +48,11 @@ compact filePatterns =
         }
 
 
-toStrings : Summary -> List { string : String, included : Bool }
+toStrings : Summary -> { files : List { string : String, included : Bool }, excludedFolders : List String }
 toStrings summary =
-    []
+    { files = []
+    , excludedFolders = summary.excludeFoldersStrings
+    }
 
 
 compactBase : List FilePattern -> Summary -> Result (List String) Summary
