@@ -12,24 +12,38 @@ all =
             \() ->
                 FilePattern.match [] "some/file/path.ext"
                     |> Expect.equal False
-        , test "should return True when the list contains the target file" <|
+        , test "should return True when including the target file" <|
             \() ->
                 FilePattern.match
                     [ FilePattern.include "some/file/path.ext"
                     ]
                     "some/file/path.ext"
                     |> Expect.equal True
-        , test "should return True when the list contains a Glob matching a parent" <|
+        , test "should return True when including through *" <|
             \() ->
                 FilePattern.match
                     [ FilePattern.include "some/file/**/*"
                     ]
                     "some/file/path.ext"
                     |> Expect.equal True
-        , test "should return False when the list a Glob matching a parent but exclude the file itself" <|
+        , test "should return True when including through * with an extension" <|
             \() ->
                 FilePattern.match
-                    [ FilePattern.include "some/file/**"
+                    [ FilePattern.include "some/file/**/*.ext"
+                    ]
+                    "some/file/path.ext"
+                    |> Expect.equal True
+        , test "should return True when including through **/*" <|
+            \() ->
+                FilePattern.match
+                    [ FilePattern.include "some/file/**/*"
+                    ]
+                    "some/file/path.ext"
+                    |> Expect.equal True
+        , test "should return False when including through **/* but excluding the target file" <|
+            \() ->
+                FilePattern.match
+                    [ FilePattern.include "some/file/**/*"
                     , FilePattern.exclude "some/file/path.ext"
                     ]
                     "some/file/path.ext"
