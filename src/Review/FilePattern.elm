@@ -1,4 +1,4 @@
-module Review.FilePattern exposing (FilePattern, compact, exclude, excludeFolder, include, match, toStrings)
+module Review.FilePattern exposing (FilePattern, compact, exclude, excludeDirectory, include, match, toStrings)
 
 import Glob exposing (Glob)
 
@@ -6,21 +6,21 @@ import Glob exposing (Glob)
 type FilePattern
     = Include String
     | Exclude String
-    | ExcludeFolder String
+    | ExcludeDirectory String
 
 
 type alias Summary =
     { includeExclude : List CompactFilePattern
-    , excludedFolders : List Glob
+    , excludedDirectories : List Glob
     , strings : List { pattern : String, included : Bool }
-    , excludedFoldersStrings : List String
+    , excludedDirectoriesStrings : List String
     }
 
 
-toStrings : Summary -> { files : List { pattern : String, included : Bool }, excludedFolders : List String }
+toStrings : Summary -> { files : List { pattern : String, included : Bool }, excludedDirectories : List String }
 toStrings summary =
     { files = summary.strings
-    , excludedFolders = summary.excludedFoldersStrings
+    , excludedDirectories = summary.excludedDirectoriesStrings
     }
 
 
@@ -33,16 +33,16 @@ compact : List FilePattern -> Result (List String) Summary
 compact filePatterns =
     compactBase filePatterns
         { includeExclude = []
-        , excludedFolders = []
+        , excludedDirectories = []
         , strings = []
-        , excludedFoldersStrings = []
+        , excludedDirectoriesStrings = []
         }
         |> Result.map
             (\summary ->
                 { includeExclude = summary.includeExclude
-                , excludedFolders = summary.excludedFolders
+                , excludedDirectories = summary.excludedDirectories
                 , strings = List.reverse summary.strings
-                , excludedFoldersStrings = List.reverse summary.excludedFoldersStrings
+                , excludedDirectoriesStrings = List.reverse summary.excludedDirectoriesStrings
                 }
             )
 
@@ -69,14 +69,14 @@ compactBase filePatterns accSummary =
                 Err _ ->
                     Err (compactErrors rest [ raw ])
 
-        (ExcludeFolder raw) :: rest ->
-            case Glob.fromString (toFolder raw) of
+        (ExcludeDirectory raw) :: rest ->
+            case Glob.fromString (toDirectory raw) of
                 Ok pattern ->
                     compactBase rest
                         { includeExclude = accSummary.includeExclude
-                        , excludedFolders = pattern :: accSummary.excludedFolders
+                        , excludedDirectories = pattern :: accSummary.excludedDirectories
                         , strings = accSummary.strings
-                        , excludedFoldersStrings = raw :: accSummary.excludedFoldersStrings
+                        , excludedDirectoriesStrings = raw :: accSummary.excludedDirectoriesStrings
                         }
 
                 Err _ ->
@@ -96,9 +96,9 @@ compactHelp filePatterns accGlobs included accSummary =
                         CompactExclude accGlobs
                     )
                         :: accSummary.includeExclude
-                , excludedFolders = accSummary.excludedFolders
+                , excludedDirectories = accSummary.excludedDirectories
                 , strings = accSummary.strings
-                , excludedFoldersStrings = accSummary.excludedFoldersStrings
+                , excludedDirectoriesStrings = accSummary.excludedDirectoriesStrings
                 }
 
         (Include raw) :: rest ->
@@ -112,9 +112,9 @@ compactHelp filePatterns accGlobs included accSummary =
                             [ pattern ]
                             True
                             { includeExclude = CompactExclude accGlobs :: accSummary.includeExclude
-                            , excludedFolders = accSummary.excludedFolders
+                            , excludedDirectories = accSummary.excludedDirectories
                             , strings = { pattern = raw, included = True } :: accSummary.strings
-                            , excludedFoldersStrings = accSummary.excludedFoldersStrings
+                            , excludedDirectoriesStrings = accSummary.excludedDirectoriesStrings
                             }
 
                 Err _ ->
@@ -128,9 +128,9 @@ compactHelp filePatterns accGlobs included accSummary =
                             [ pattern ]
                             False
                             { includeExclude = CompactInclude accGlobs :: accSummary.includeExclude
-                            , excludedFolders = accSummary.excludedFolders
+                            , excludedDirectories = accSummary.excludedDirectories
                             , strings = { pattern = raw, included = False } :: accSummary.strings
-                            , excludedFoldersStrings = accSummary.excludedFoldersStrings
+                            , excludedDirectoriesStrings = accSummary.excludedDirectoriesStrings
                             }
 
                     else
@@ -139,16 +139,16 @@ compactHelp filePatterns accGlobs included accSummary =
                 Err _ ->
                     Err (compactErrors rest [ raw ])
 
-        (ExcludeFolder raw) :: rest ->
-            case Glob.fromString (toFolder raw) of
+        (ExcludeDirectory raw) :: rest ->
+            case Glob.fromString (toDirectory raw) of
                 Ok pattern ->
                     compactHelp rest
                         accGlobs
                         included
                         { includeExclude = accSummary.includeExclude
-                        , excludedFolders = pattern :: accSummary.excludedFolders
+                        , excludedDirectories = pattern :: accSummary.excludedDirectories
                         , strings = accSummary.strings
-                        , excludedFoldersStrings = raw :: accSummary.excludedFoldersStrings
+                        , excludedDirectoriesStrings = raw :: accSummary.excludedDirectoriesStrings
                         }
 
                 Err _ ->
@@ -172,7 +172,7 @@ compactErrors filePatterns accGlobStrings =
                         Exclude s ->
                             s
 
-                        ExcludeFolder s ->
+                        ExcludeDirectory s ->
                             s
             in
             case Glob.fromString raw of
@@ -186,9 +186,9 @@ compactErrors filePatterns accGlobStrings =
 addRawIncludeExclude : String -> Bool -> Summary -> Summary
 addRawIncludeExclude string included summary =
     { includeExclude = summary.includeExclude
-    , excludedFolders = summary.excludedFolders
+    , excludedDirectories = summary.excludedDirectories
     , strings = { pattern = string, included = included } :: summary.strings
-    , excludedFoldersStrings = summary.excludedFoldersStrings
+    , excludedDirectoriesStrings = summary.excludedDirectoriesStrings
     }
 
 
@@ -202,13 +202,13 @@ exclude =
     Exclude
 
 
-excludeFolder : String -> FilePattern
-excludeFolder =
-    ExcludeFolder
+excludeDirectory : String -> FilePattern
+excludeDirectory =
+    ExcludeDirectory
 
 
-toFolder : String -> String
-toFolder globStr =
+toDirectory : String -> String
+toDirectory globStr =
     if String.endsWith "/" globStr then
         globStr ++ "**/*"
 
@@ -218,7 +218,7 @@ toFolder globStr =
 
 match : Summary -> String -> Bool
 match summary str =
-    if List.any (\folderGlob -> Glob.match folderGlob str) summary.excludedFolders then
+    if List.any (\dirGlob -> Glob.match dirGlob str) summary.excludedDirectories then
         False
 
     else

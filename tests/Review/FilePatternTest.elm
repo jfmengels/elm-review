@@ -2,7 +2,7 @@ module Review.FilePatternTest exposing (all)
 
 import Expect
 import Fuzz
-import Review.FilePattern as FilePattern exposing (FilePattern, excludeFolder, include)
+import Review.FilePattern as FilePattern exposing (FilePattern, excludeDirectory, include)
 import Test exposing (Test, describe, fuzz, test)
 
 
@@ -68,7 +68,7 @@ matchTest =
         , test "should return False when excluding the folder even when re-including the target file" <|
             \() ->
                 matchAgainst
-                    [ FilePattern.excludeFolder "some"
+                    [ FilePattern.excludeDirectory "some"
                     , FilePattern.include "some/file/path.ext"
                     ]
                     "some/file/path.ext"
@@ -76,7 +76,7 @@ matchTest =
         , test "should return False when excluding the folder (with trailing /) even when re-including the target file" <|
             \() ->
                 matchAgainst
-                    [ FilePattern.excludeFolder "some/"
+                    [ FilePattern.excludeDirectory "some/"
                     , FilePattern.include "some/file/path.ext"
                     ]
                     "some/file/path.ext"
@@ -129,13 +129,13 @@ toStringsTest =
             \list ->
                 case
                     list
-                        |> List.map FilePattern.excludeFolder
+                        |> List.map FilePattern.excludeDirectory
                         |> FilePattern.compact
                 of
                     Ok summary ->
                         summary
                             |> FilePattern.toStrings
-                            |> .excludedFolders
+                            |> .excludedDirectories
                             |> Expect.equal list
 
                     Err _ ->
