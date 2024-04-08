@@ -169,6 +169,7 @@ The traversal of a module rule is the following:
   - Read project-related info (only collect data in the context in these steps)
       - The `elm.json` file, visited by [`withElmJsonModuleVisitor`](#withElmJsonModuleVisitor)
       - The `README.md` file, visited by [`withReadmeModuleVisitor`](#withReadmeModuleVisitor)
+      - Extra files that are not analyzed by default, visited by [`withExtraFilesModuleVisitor`](#withExtraFilesModuleVisitor)
       - The definition for dependencies, visited by [`withDirectDependenciesModuleVisitor`](#withDirectDependenciesModuleVisitor) and [`withDependenciesModuleVisitor`](#withDependenciesModuleVisitor)
   - Visit the Elm module (in the following order)
       - The module definition, visited by [`withSimpleModuleDefinitionVisitor`](#withSimpleModuleDefinitionVisitor) and [`withModuleDefinitionVisitor`](#withModuleDefinitionVisitor)
@@ -1265,7 +1266,7 @@ Project rules traverse the project in the following order:
   - Read and/or report errors in project files
       - The `elm.json` file, visited by [`withElmJsonProjectVisitor`](#withElmJsonProjectVisitor)
       - The `README.md` file, visited by [`withReadmeProjectVisitor`](#withReadmeProjectVisitor)
-      - TODO Extra files
+      - Extra files that are not analyzed by default, visited by [`withExtraFilesProjectVisitor`](#withExtraFilesProjectVisitor)
       - The definition for dependencies, visited by [`withDependenciesProjectVisitor`](#withDependenciesProjectVisitor)
   - The Elm modules one by one, visited by [`withModuleVisitor`](#withModuleVisitor),
     following the same traversal order as for module rules but without reading the project files (`elm.json`, ...).
@@ -1910,9 +1911,9 @@ withReadmeProjectVisitor visitor (ProjectRuleSchema schema) =
 
 
 {-| Add a visitor to the [`ProjectRuleSchema`](#ProjectRuleSchema) to visit files that `elm-review`
-doesn't load by default.
+doesn't analyze by default.
 
-REPLACEME
+The visitor function will be called with all the files matching the file patterns.
 
 The following example rule reads a project's `.css` files to extract all the mentioned CSS classes,
 then finds calls to `Html.Attributes.class` in the Elm code (such as `Html.Attributes.class "big-red-button"`)
@@ -1929,12 +1930,13 @@ and reports errors when the classes given as argument are unknown.
     rule : Rule
     rule =
         Rule.newProjectRuleSchema "NoUnknownCssClasses" initialProjectContext
-            |> Rule.withExtraFilesProjectVisitor cssFilesVisitor [ FilePattern.include "src/**/*.css" ]
+            |> Rule.withExtraFilesProjectVisitor cssFilesVisitor
+                [ FilePattern.include "**/*.css" ]
             |> Rule.withModuleVisitor moduleVisitor
             |> Rule.withModuleContextUsingContextCreator
                 { fromProjectToModule = Rule.initContextCreator identity
-                , fromModuleToProject = fromModuleToProject
-                , foldProjectContexts = foldProjectContexts
+                , fromModuleToProject = Rule.initContextCreator identity
+                , foldProjectContexts = \new previous -> previous
                 }
             |> Rule.fromProjectRuleSchema
 
@@ -1996,8 +1998,8 @@ and reports errors when the classes given as argument are unknown.
             _ ->
                 ( [], context )
 
-    checkForUnknownCssClass : Set String -> String -> Maybe (Rule.Error {})
-    checkForUnknownCssClass knownCssClasses class =
+    checkForUnknownCssClass : Set String -> Range -> String -> Maybe (Rule.Error {})
+    checkForUnknownCssClass knownCssClasses range class =
         if Set.member class knownCssClasses then
             Nothing
 
@@ -2010,7 +2012,7 @@ and reports errors when the classes given as argument are unknown.
                         , "Could it be that you misspelled the name of the class, or that the class recently got removed?"
                         ]
                     }
-                    (Node.range node)
+                    range
                 )
 
 -}
