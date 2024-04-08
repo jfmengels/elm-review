@@ -33,8 +33,8 @@ all =
                             |> Rule.withElmJsonModuleVisitor (\_ context -> context ++ "\n1.2 - withElmJsonModuleVisitor")
                             |> Rule.withReadmeModuleVisitor (\_ context -> context ++ "\n2.1 - withReadmeModuleVisitor")
                             |> Rule.withReadmeModuleVisitor (\_ context -> context ++ "\n2.2 - withReadmeModuleVisitor")
-                            |> Rule.withExtraFilesModuleVisitor [ FilePattern.include "first.txt" ] (\files context -> context ++ "\n3.1 - withExtraFilesModuleVisitor " ++ (List.map .path files |> String.join ", "))
-                            |> Rule.withExtraFilesModuleVisitor [ FilePattern.include "last.txt" ] (\files context -> context ++ "\n3.2 - withExtraFilesModuleVisitor " ++ (List.map .path files |> String.join ", "))
+                            |> Rule.withExtraFilesModuleVisitor (\files context -> context ++ "\n3.1 - withExtraFilesModuleVisitor " ++ (List.map .path files |> String.join ", ")) [ FilePattern.include "first.txt" ]
+                            |> Rule.withExtraFilesModuleVisitor (\files context -> context ++ "\n3.2 - withExtraFilesModuleVisitor " ++ (List.map .path files |> String.join ", ")) [ FilePattern.include "last.txt" ]
                             |> Rule.withDirectDependenciesModuleVisitor (\_ context -> context ++ "\n4.1 - withDirectDependenciesModuleVisitor")
                             |> Rule.withDirectDependenciesModuleVisitor (\_ context -> context ++ "\n4.2 - withDirectDependenciesModuleVisitor")
                             |> Rule.withDependenciesModuleVisitor (\_ context -> context ++ "\n4.3 - withDependenciesModuleVisitor")

@@ -1929,7 +1929,7 @@ and reports errors when the classes given as argument are unknown.
     rule : Rule
     rule =
         Rule.newProjectRuleSchema "NoUnknownCssClasses" initialProjectContext
-            |> Rule.withExtraFilesProjectVisitor [ FilePattern.include "src/**/*.css" ] cssFilesVisitor
+            |> Rule.withExtraFilesProjectVisitor cssFilesVisitor [ FilePattern.include "src/**/*.css" ]
             |> Rule.withModuleVisitor moduleVisitor
             |> Rule.withModuleContextUsingContextCreator
                 { fromProjectToModule = Rule.initContextCreator identity
@@ -2015,11 +2015,11 @@ and reports errors when the classes given as argument are unknown.
 
 -}
 withExtraFilesProjectVisitor :
-    List FilePattern
-    -> (List { fileKey : ExtraFileKey, path : String, content : String } -> projectContext -> ( List (Error { useErrorForModule : () }), projectContext ))
+    (List { fileKey : ExtraFileKey, path : String, content : String } -> projectContext -> ( List (Error { useErrorForModule : () }), projectContext ))
+    -> List FilePattern
     -> ProjectRuleSchema schemaState projectContext moduleContext
     -> ProjectRuleSchema { schemaState | hasAtLeastOneVisitor : () } projectContext moduleContext
-withExtraFilesProjectVisitor filePatterns baseVisitor (ProjectRuleSchema schema) =
+withExtraFilesProjectVisitor baseVisitor filePatterns (ProjectRuleSchema schema) =
     case FilePattern.compact filePatterns of
         Ok filePatternSummary ->
             let
@@ -2569,11 +2569,11 @@ withElmJsonModuleVisitor visitor (ModuleRuleSchema schema) =
 {-| REPLACEME
 -}
 withExtraFilesModuleVisitor :
-    List FilePattern
-    -> (List { path : String, content : String } -> moduleContext -> moduleContext)
+    (List { path : String, content : String } -> moduleContext -> moduleContext)
+    -> List FilePattern
     -> ModuleRuleSchema { schemaState | canCollectProjectData : () } moduleContext
     -> ModuleRuleSchema { schemaState | canCollectProjectData : () } moduleContext
-withExtraFilesModuleVisitor filePatterns baseVisitor (ModuleRuleSchema schema) =
+withExtraFilesModuleVisitor baseVisitor filePatterns (ModuleRuleSchema schema) =
     case FilePattern.compact filePatterns of
         Ok filePatternSummary ->
             let

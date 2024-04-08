@@ -154,7 +154,7 @@ import Set exposing (Set)
 rule : Configuration -> Rule
 rule (Configuration configuration) =
     Rule.newProjectRuleSchema "Css.NoUnknownClasses" (initialProjectContext configuration.knownClasses)
-        |> Rule.withExtraFilesProjectVisitor configuration.cssFiles cssFilesVisitor
+        |> Rule.withExtraFilesProjectVisitor cssFilesVisitor configuration.cssFiles
         |> Rule.withModuleVisitor (moduleVisitor configuration.cssFunctions)
         |> Rule.withModuleContextUsingContextCreator
             { fromProjectToModule = fromProjectToModule

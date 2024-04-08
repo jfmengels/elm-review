@@ -56,7 +56,7 @@ rule : Configuration -> Rule
 rule (Configuration { changelogPath }) =
     Rule.newProjectRuleSchema "Docs.NoMissingChangelogEntry" initialProjectContext
         |> Rule.withElmJsonProjectVisitor elmJsonVisitor
-        |> Rule.withExtraFilesProjectVisitor [ FilePattern.include (Maybe.withDefault defaultPath changelogPath) ] (extraFilesVisitor changelogPath)
+        |> Rule.withExtraFilesProjectVisitor (extraFilesVisitor changelogPath) [ FilePattern.include (Maybe.withDefault defaultPath changelogPath) ]
         |> Rule.providesFixesForProjectRule
         |> Rule.fromProjectRuleSchema
 

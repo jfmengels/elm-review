@@ -21,7 +21,7 @@ all =
 
                     rule : Rule
                     rule =
-                        createRule (Rule.withExtraFilesModuleVisitor [ FilePattern.include "foo/some-file.css" ] extraFilesModuleVisitor)
+                        createRule (Rule.withExtraFilesModuleVisitor extraFilesModuleVisitor [ FilePattern.include "foo/some-file.css" ])
                 in
                 """module A exposing (a)
 a = 1
@@ -45,7 +45,7 @@ a = 1
 
                     rule : Rule
                     rule =
-                        createRule (Rule.withExtraFilesModuleVisitor [ FilePattern.include "foo/some-file.css" ] extraFilesModuleVisitor)
+                        createRule (Rule.withExtraFilesModuleVisitor extraFilesModuleVisitor [ FilePattern.include "foo/some-file.css" ])
                 in
                 """module A exposing (a)
 a = 1
@@ -70,8 +70,8 @@ a = 1
                     rule : Rule
                     rule =
                         createRule
-                            (Rule.withExtraFilesModuleVisitor [ FilePattern.include "a.txt", FilePattern.include "c.txt" ] (reportsFileNames "A")
-                                >> Rule.withExtraFilesModuleVisitor [ FilePattern.include "b.txt" ] (reportsFileNames "B")
+                            (Rule.withExtraFilesModuleVisitor (reportsFileNames "A") [ FilePattern.include "a.txt", FilePattern.include "c.txt" ]
+                                >> Rule.withExtraFilesModuleVisitor (reportsFileNames "B") [ FilePattern.include "b.txt" ]
                             )
                 in
                 """module A exposing (a)
@@ -91,8 +91,8 @@ a = 1
             \() ->
                 createRule
                     (Rule.withExtraFilesModuleVisitor
-                        [ FilePattern.include "** " ]
                         (reportsFileNames "A")
+                        [ FilePattern.include "** " ]
                     )
                     |> Review.Test.expectConfigurationError
                         { message = "Invalid globs provided when requesting extra files"
