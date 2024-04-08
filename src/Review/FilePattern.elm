@@ -7,7 +7,6 @@ type FilePattern
     = Include String
     | Exclude String
     | ExcludeFolder String
-    | InvalidGlob String
 
 
 type alias Summary =
@@ -83,9 +82,6 @@ compactBase filePatterns accSummary =
                 Err _ ->
                     Err (compactErrors rest [ raw ])
 
-        (InvalidGlob pattern) :: rest ->
-            Err (compactErrors rest [ pattern ])
-
 
 compactHelp : List FilePattern -> List Glob -> Bool -> Summary -> Result (List String) Summary
 compactHelp filePatterns accGlobs included accSummary =
@@ -158,9 +154,6 @@ compactHelp filePatterns accGlobs included accSummary =
                 Err _ ->
                     Err (compactErrors rest [ raw ])
 
-        (InvalidGlob invalidGlobStr) :: rest ->
-            Err (compactErrors rest [ invalidGlobStr ])
-
 
 compactErrors : List FilePattern -> List String -> List String
 compactErrors filePatterns accGlobStrings =
@@ -168,11 +161,26 @@ compactErrors filePatterns accGlobStrings =
         [] ->
             List.reverse accGlobStrings
 
-        (InvalidGlob invalidGlobStr) :: rest ->
-            compactErrors rest (invalidGlobStr :: accGlobStrings)
+        filePattern :: rest ->
+            let
+                raw : String
+                raw =
+                    case filePattern of
+                        Include s ->
+                            s
 
-        _ :: rest ->
-            compactErrors rest accGlobStrings
+                        Exclude s ->
+                            s
+
+                        ExcludeFolder s ->
+                            s
+            in
+            case Glob.fromString raw of
+                Ok _ ->
+                    compactErrors rest accGlobStrings
+
+                Err _ ->
+                    compactErrors rest (raw :: accGlobStrings)
 
 
 addRawIncludeExclude : String -> Bool -> Summary -> Summary
