@@ -36,7 +36,7 @@ does not look at project information (like the `elm.json`, dependencies, ...).
 @docs addReadme, readme
 
 
-# REPLACEME
+# Extra files
 
 @docs addExtraFiles, extraFiles
 
@@ -307,13 +307,16 @@ readme (Internal.Project project) =
     Maybe.map Tuple.first project.readme
 
 
-{-| REPLACEME
+{-| Add extra files to the project. These are files that `elm-review` doesn't load by default
+but can be visited by rules if they're explicily requested.
 -}
 addExtraFiles : List { path : String, content : String } -> Project -> Project
 addExtraFiles files (Internal.Project project) =
     Internal.Project { project | extraFiles = List.map (\file -> ( file, ContentHash.hash file.content )) files }
 
 
+{-| Get the list of extra files in the project.
+-}
 extraFiles : Project -> List { path : String, content : String }
 extraFiles (Internal.Project project) =
     List.map Tuple.first project.extraFiles

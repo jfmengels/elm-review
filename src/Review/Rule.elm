@@ -892,7 +892,10 @@ ruleKnowsAboutIgnoredFiles (Rule rule) =
     requestedData.ignoredFiles
 
 
-{-| REPLACEME
+{-| Get the patterns for extra files that this rule requested.
+
+You should not have to use this when writing a rule.
+
 -}
 ruleRequestedFiles : Rule -> List { files : List { pattern : String, included : Bool }, excludedDirectories : List String }
 ruleRequestedFiles (Rule rule) =
@@ -1906,7 +1909,110 @@ withReadmeProjectVisitor visitor (ProjectRuleSchema schema) =
     ProjectRuleSchema { schema | readmeVisitor = Just (combineVisitors (removeErrorPhantomTypeFromVisitor visitor) schema.readmeVisitor) }
 
 
-{-| REPLACEME
+{-| Add a visitor to the [`ProjectRuleSchema`](#ProjectRuleSchema) to visit files that `elm-review`
+doesn't load by default.
+
+REPLACEME
+
+The following example rule reads a project's `.css` files to extract all the mentioned CSS classes,
+then finds calls to `Html.Attributes.class` in the Elm code (such as `Html.Attributes.class "big-red-button"`)
+and reports errors when the classes given as argument are unknown.
+
+    import Elm.Syntax.Expression as Expression exposing (Expression)
+    import Elm.Syntax.Node as Node exposing (Node)
+    import Elm.Syntax.Range exposing (Range)
+    import Regex exposing (Regex)
+    import Review.FilePattern as FilePattern
+    import Review.Rule as Rule exposing (Rule)
+    import Set exposing (Set)
+
+    rule : Rule
+    rule =
+        Rule.newProjectRuleSchema "NoUnknownCssClasses" initialProjectContext
+            |> Rule.withExtraFilesProjectVisitor [ FilePattern.include "src/**/*.css" ] cssFilesVisitor
+            |> Rule.withModuleVisitor moduleVisitor
+            |> Rule.withModuleContextUsingContextCreator
+                { fromProjectToModule = Rule.initContextCreator identity
+                , fromModuleToProject = fromModuleToProject
+                , foldProjectContexts = foldProjectContexts
+                }
+            |> Rule.fromProjectRuleSchema
+
+    moduleVisitor : Rule.ModuleRuleSchema {} ModuleContext -> Rule.ModuleRuleSchema { hasAtLeastOneVisitor : () } ModuleContext
+    moduleVisitor schema =
+        schema
+            |> Rule.withExpressionEnterVisitor expressionVisitor
+
+    type alias ProjectContext =
+        { knownCssClasses : Set String
+        }
+
+    type alias ModuleContext =
+        { knownCssClasses : Set String
+        }
+
+    initialProjectContext : ProjectContext
+    initialProjectContext =
+        { knownCssClasses = Set.empty
+        }
+
+    cssClassRegex : Regex
+    cssClassRegex =
+        Regex.fromString "\\.([\\w-_]+)"
+            |> Maybe.withDefault Regex.never
+
+    cssFilesVisitor : List { fileKey : Rule.ExtraFileKey, path : String, content : String } -> ProjectContext -> ( List (Rule.Error { useErrorForModule : () }), ProjectContext )
+    cssFilesVisitor files context =
+        ( []
+        , { context
+            | knownCssClasses =
+                files
+                    |> List.concatMap (\file -> Regex.find cssClassRegex file.content)
+                    |> List.map (\m -> String.dropLeft 1 m.match)
+                    |> Set.fromList
+          }
+        )
+
+    expressionVisitor : Node Expression -> ModuleContext -> ( List (Rule.Error {}), ModuleContext )
+    expressionVisitor node context =
+        case Node.value node of
+            Expression.Application [ function, firstArg ] ->
+                case Node.value function of
+                    Expression.FunctionOrValue [ "Html", "Attributes" ] "class" ->
+                        case Node.value firstArg of
+                            Expression.Literal stringLiteral ->
+                                ( stringLiteral
+                                    |> String.split " "
+                                    |> List.filterMap (checkForUnknownCssClass context.knownCssClasses (Node.range firstArg))
+                                , context
+                                )
+
+                            _ ->
+                                ( [], context )
+
+                    _ ->
+                        ( [], context )
+
+            _ ->
+                ( [], context )
+
+    checkForUnknownCssClass : Set String -> String -> Maybe (Rule.Error {})
+    checkForUnknownCssClass knownCssClasses class =
+        if Set.member class knownCssClasses then
+            Nothing
+
+        else
+            Just
+                (Rule.error
+                    { message = "Unknown CSS class " ++ class
+                    , details =
+                        [ "This CSS class does not appear in the project's `.css` files."
+                        , "Could it be that you misspelled the name of the class, or that the class recently got removed?"
+                        ]
+                    }
+                    (Node.range node)
+                )
+
 -}
 withExtraFilesProjectVisitor :
     List FilePattern
