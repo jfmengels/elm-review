@@ -1215,7 +1215,7 @@ popScopeExit node context =
 expressionEnterVisitor : Node Expression -> Context -> Context
 expressionEnterVisitor node context =
     case Node.value node of
-        Expression.LetExpression { declarations } ->
+        Expression.LetExpression letExpression ->
             let
                 newContext : Context
                 newContext =
@@ -1246,11 +1246,11 @@ expressionEnterVisitor node context =
                                         in
                                         NonEmpty.mapHead (\scope -> { scope | cases = ( expression, names ) :: scope.cases }) withLetVariable
 
-                                Expression.LetDestructuring _ _ ->
-                                    scopes
+                                Expression.LetDestructuring pattern _ ->
+                                    NonEmpty.mapHead (\scope -> { scope | names = collectNamesFromPattern LetVariable [ pattern ] scope.names }) scopes
                         )
                         (NonEmpty.cons emptyScope context.scopes)
-                        declarations
+                        letExpression.declarations
                         |> updateScope context
 
                 lookupTable : ModuleNameLookupTable
@@ -1280,7 +1280,7 @@ expressionEnterVisitor node context =
                                     collectModuleNamesFromPattern newContext [ pattern ] acc
                         )
                         newContext.lookupTable
-                        declarations
+                        letExpression.declarations
             in
             { newContext | lookupTable = lookupTable }
 

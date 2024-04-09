@@ -103,6 +103,7 @@ a = localValue
  ("x" </> "y")
  (|=)
  ("pars" |= "er")
+ (let (exposedElement, _) = 1 in exposedElement)
 b = case () of
   VariantA -> ()
   (ExposesEverything.VariantA as foo) -> foo
@@ -167,6 +168,7 @@ Cmd.none -> Platform.Cmd.none
 <nothing>.</> -> Url.Parser.</>
 <nothing>.|= -> Parser.Advanced.|=
 <nothing>.|= -> Parser.Advanced.|=
+<nothing>.exposedElement -> <nothing>.exposedElement
 <nothing>.VariantA -> ExposesEverything.VariantA
 ExposesEverything.VariantA -> ExposesEverything.VariantA
 ExposesEverythingAlias.VariantA -> ExposesEverything.VariantA
@@ -316,6 +318,7 @@ a = localValue
  ("x" </> "y")
  (|=)
  ("pars" |= "er")
+ (let (exposedElement, _) = 1 in exposedElement)
 b = case () of
   VariantA -> ()
   (ExposesEverything.VariantA as foo) -> foo
@@ -378,6 +381,7 @@ Cmd.none -> Platform.Cmd.none
 <nothing>.</> -> Url.Parser.</>
 <nothing>.|= -> Parser.Advanced.|=
 <nothing>.|= -> Parser.Advanced.|=
+<nothing>.exposedElement -> Abc.Xyz.exposedElement
 <nothing>.VariantA -> ExposesEverything.VariantA
 ExposesEverything.VariantA -> ExposesEverything.VariantA
 ExposesEverythingAlias.VariantA -> ExposesEverything.VariantA
@@ -696,6 +700,15 @@ collectPatterns lookupFunction context node =
             collectPatterns lookupFunction context subPattern
 
         Pattern.VarPattern _ ->
+            []
+
+        Pattern.TuplePattern subPatterns ->
+            List.concatMap (collectPatterns lookupFunction context) subPatterns
+
+        Pattern.RecordPattern subPatterns ->
+            List.map Node.value subPatterns
+
+        Pattern.AllPattern ->
             []
 
         _ ->

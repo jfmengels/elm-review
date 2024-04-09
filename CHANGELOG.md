@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [2.13.2] - 2024-04-09
+
+Fixed an issue where the result of a module name lookup for let variables was sometimes incorrect.
+
 ## [2.13.1] - 2023-06-17
 
 Fixed an issue where the module name lookup table would yield an incorrect result. [#159](https://github.com/jfmengels/elm-review/pull/159)
