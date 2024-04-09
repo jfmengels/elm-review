@@ -116,7 +116,7 @@ Before you start adding rules or an unfamiliar existing configuration, I suggest
 ## Write your own rule
 
 You can write your own rule using this package's API and [`elm-syntax`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.2.1/).
-Check out the [`Review.Rule`](https://package.elm-lang.org/packages/jfmengels/elm-review/2.13.1/Review-Rule/) documentation for how to get started.
+Check out the [`Review.Rule`](https://package.elm-lang.org/packages/jfmengels/elm-review/2.13.2/Review-Rule/) documentation for how to get started.
 
 **NOTE**: If you want to **create a package** containing `elm-review` rules, I highly recommend using the
 [CLI's](https://github.com/jfmengels/node-elm-review/) `elm-review new-package` subcommand. This will create a new package that will help you use the best practices and give you helpful tools like easy auto-publishing. More information is available in the maintenance file generated along with it.
@@ -236,7 +236,7 @@ It does provide 2 systems that I think are better alternatives for the health of
 
 ### Configuring exceptions
 
-You can [configure exceptions](https://package.elm-lang.org/packages/jfmengels/elm-review/2.13.1/Review-Rule/#configuring-exceptions),
+You can [configure exceptions](https://package.elm-lang.org/packages/jfmengels/elm-review/2.13.2/Review-Rule/#configuring-exceptions),
 which consists of marking specific directories or files as not relevant to a rule or set of rules, preventing errors to be reported for those.
 
 It is a good fit if you wish for `elm-review` to not report errors in vendored or generated code,
@@ -282,7 +282,7 @@ the codebase. You can use this to gain insight into your codebase, or provide in
 powerful integrations.
 
 To make use of this feature, run `elm-review --extract --report=json` with a configuration containing a rule that uses
-[`Rule.withDataExtractor`](https://package.elm-lang.org/packages/jfmengels/elm-review/2.13.1/Review-Rule/#withDataExtractor).
+[`Rule.withDataExtractor`](https://package.elm-lang.org/packages/jfmengels/elm-review/2.13.2/Review-Rule/#withDataExtractor).
 
 The result for a rule will be stored under `<json>.extracts.<YourRuleName>`. To access it, you can then pipe the result
 into either a `Node.js` script, a tool that expects JSON, or [`jq`](https://stedolan.github.io/jq/) as in the example below.

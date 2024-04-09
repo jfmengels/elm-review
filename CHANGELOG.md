@@ -4,7 +4,7 @@
 
 ## [2.13.2] - 2024-04-09
 
-Fixed an issue where the result of a module name lookup for let variables was sometimes incorrect.
+Fixed an issue where the result of a module name lookup for let variables was sometimes incorrect. [#171](https://github.com/jfmengels/elm-review/pull/171)
 
 ## [2.13.1] - 2023-06-17
 
@@ -169,7 +169,8 @@ Help would be appreciated to fill the blanks!
 [`Review.Rule.errorFixFailure`]: https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule#errorFixFailure
 [`Review.Test.ignoredFilesImpactResults`]: https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule-Test#ignoredFilesImpactResults
 
-[Unreleased]: https://github.com/jfmengels/elm-review-unused/compare/v2.13.1...HEAD
+[Unreleased]: https://github.com/jfmengels/elm-review-unused/compare/v2.13.2...HEAD
+[2.13.2]: https://github.com/jfmengels/elm-review/releases/tag/2.13.2
 [2.13.1]: https://github.com/jfmengels/elm-review/releases/tag/2.13.1
 [2.13.0]: https://github.com/jfmengels/elm-review/releases/tag/2.13.0
 [2.12.2]: https://github.com/jfmengels/elm-review/releases/tag/2.12.2
