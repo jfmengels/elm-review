@@ -145,6 +145,7 @@ import Elm.Syntax.Range exposing (Range)
 import Levenshtein
 import Parser exposing ((|.), (|=), Parser)
 import RangeDict exposing (RangeDict)
+import Regex exposing (Regex)
 import Review.FilePattern exposing (FilePattern)
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Rule as Rule exposing (Rule)
@@ -499,13 +500,18 @@ unknownClasses knownClasses range classesStr =
         knownClasses
         range.start.row
         range.start.column
-        1
-        (String.split " " classesStr)
+        (Regex.find classesFromLiteralRegex classesStr)
         []
 
 
-unknownClassesHelp : Set String -> Int -> Int -> Int -> List String -> List (Rule.Error {}) -> List (Rule.Error {})
-unknownClassesHelp knownClasses row column offset classes errors =
+classesFromLiteralRegex : Regex
+classesFromLiteralRegex =
+    Regex.fromString "([\\w-_]+)"
+        |> Maybe.withDefault Regex.never
+
+
+unknownClassesHelp : Set String -> Int -> Int -> List Regex.Match -> List (Rule.Error {}) -> List (Rule.Error {})
+unknownClassesHelp knownClasses row column classes errors =
     case classes of
         [] ->
             errors
@@ -514,23 +520,22 @@ unknownClassesHelp knownClasses row column offset classes errors =
             let
                 newErrors : List (Rule.Error {})
                 newErrors =
-                    if Set.member class knownClasses then
+                    if Set.member class.match knownClasses then
                         errors
 
                     else
                         reportError
                             knownClasses
-                            { start = { row = row, column = column + offset }
-                            , end = { row = row, column = column + offset + String.length class }
+                            { start = { row = row, column = column + class.index + 1 }
+                            , end = { row = row, column = column + class.index + String.length class.match + 1 }
                             }
-                            class
+                            class.match
                             :: errors
             in
             unknownClassesHelp
                 knownClasses
                 row
                 column
-                (offset + String.length class + 1)
                 rest
                 newErrors
 
