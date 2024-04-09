@@ -56,6 +56,28 @@ view model =
 """
                     |> Review.Test.run (cssFiles [ FilePattern.include "*.css" ] |> addKnownClasses [ "known" ] |> rule)
                     |> Review.Test.expectNoErrors
+        , test "should not report an error when the class argument is empty" <|
+            \() ->
+                """module A exposing (..)
+import Html
+import Html.Attributes as Attr
+
+view model =
+    Html.span [ Attr.class "" ] []
+"""
+                    |> Review.Test.run (cssFiles [ FilePattern.include "*.css" ] |> addKnownClasses [ "known" ] |> rule)
+                    |> Review.Test.expectNoErrors
+        , test "should not report an error when the class argument is only made out of spaces" <|
+            \() ->
+                """module A exposing (..)
+import Html
+import Html.Attributes as Attr
+
+view model =
+    Html.span [ Attr.class "  " ] []
+"""
+                    |> Review.Test.run (cssFiles [ FilePattern.include "*.css" ] |> addKnownClasses [ "known" ] |> rule)
+                    |> Review.Test.expectNoErrors
         , test "should report an error when encountering an unknown CSS class through Html.Attributes.class in <| pipe" <|
             \() ->
                 """module A exposing (..)
