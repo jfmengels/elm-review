@@ -1357,7 +1357,7 @@ Problem with the given value:
 
 "not JSON"
 
-This is not valid JSON! Unexpected token o in JSON at position 1"""
+This is not valid JSON! Unexpected token 'o', "not JSON" is not valid JSON"""
 
 
 extractMismatchTest : Test
