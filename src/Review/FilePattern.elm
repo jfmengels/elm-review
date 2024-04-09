@@ -1,14 +1,30 @@
-module Review.FilePattern exposing (FilePattern, compact, exclude, excludeDirectory, include, match, toStrings)
+module Review.FilePattern exposing
+    ( FilePattern
+    , include, exclude, excludeDirectory
+    , compact, match, toStrings
+    )
+
+{-| REPLACEME
+
+@docs FilePattern
+@docs include, exclude, excludeDirectory
+@docs compact, match, toStrings
+
+-}
 
 import Glob exposing (Glob)
 
 
+{-| REPLACEME
+-}
 type FilePattern
     = Include String
     | Exclude String
     | ExcludeDirectory String
 
 
+{-| REPLACEME
+-}
 type alias Summary =
     { includeExclude : List CompactFilePattern
     , excludedDirectories : List Glob
@@ -17,6 +33,8 @@ type alias Summary =
     }
 
 
+{-| REPLACEME
+-}
 toStrings : Summary -> { files : List { pattern : String, included : Bool }, excludedDirectories : List String }
 toStrings summary =
     { files = summary.strings
@@ -29,6 +47,8 @@ type CompactFilePattern
     | CompactExclude (List Glob)
 
 
+{-| REPLACEME
+-}
 compact : List FilePattern -> Result (List String) Summary
 compact filePatterns =
     compactBase filePatterns
@@ -192,16 +212,22 @@ addRawIncludeExclude string included summary =
     }
 
 
+{-| REPLACEME
+-}
 include : String -> FilePattern
 include =
     Include
 
 
+{-| REPLACEME
+-}
 exclude : String -> FilePattern
 exclude =
     Exclude
 
 
+{-| REPLACEME
+-}
 excludeDirectory : String -> FilePattern
 excludeDirectory =
     ExcludeDirectory
@@ -216,6 +242,8 @@ toDirectory globStr =
         globStr ++ "/**/*"
 
 
+{-| REPLACEME
+-}
 match : Summary -> String -> Bool
 match summary str =
     if List.any (\dirGlob -> Glob.match dirGlob str) summary.excludedDirectories then
