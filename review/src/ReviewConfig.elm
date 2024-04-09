@@ -80,7 +80,7 @@ config =
             , "src/Review/Logger.elm"
             ]
     , NoForbiddenWords.rule [ "REPLACEME" ]
-    , Css.NoUnknownCssClasses.cssFiles [ FilePattern.include "src/**/*.css"]
+    , Css.NoUnknownCssClasses.cssFiles [ FilePattern.include "src/**/*.css", FilePattern.exclude "src/**/ignore-*.css"]
             -- |> Css.NoUnknownCssClasses.withCssUsingFunctions cssUsingFunctions
             |> Css.NoUnknownCssClasses.rule
     ]
