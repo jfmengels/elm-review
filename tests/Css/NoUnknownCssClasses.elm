@@ -1,4 +1,4 @@
-module Css.NoUnknownClasses exposing
+module Css.NoUnknownCssClasses exposing
     ( withCssUsingFunctions
     , addKnownClasses, cssFiles, rule
     )
