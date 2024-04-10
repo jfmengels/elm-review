@@ -52,7 +52,7 @@ import Elm.Package
 import Elm.Project
 import Elm.Syntax.File
 import Path
-import Review.Cache.ContentHash as ContentHash
+import Review.Cache.ContentHash as ContentHash exposing (ContentHash)
 import Review.FileParser as FileParser
 import Review.Project.Dependency as Dependency exposing (Dependency)
 import Review.Project.Internal as Internal exposing (Project)
@@ -315,7 +315,12 @@ but can be visited by rules if they're explicily requested.
 -}
 addExtraFiles : List { path : String, content : String } -> Project -> Project
 addExtraFiles files (Internal.Project project) =
-    Internal.Project { project | extraFiles = List.map (\file -> ( file, ContentHash.hash file.content )) files }
+    let
+        extraFiles_ : List ( { path : String, content : String }, ContentHash )
+        extraFiles_ =
+            List.foldl (\file acc -> ( file, ContentHash.hash file.content ) :: acc) project.extraFiles files
+    in
+    Internal.Project { project | extraFiles = extraFiles_ }
 
 
 {-| Get the list of extra files in the project.
