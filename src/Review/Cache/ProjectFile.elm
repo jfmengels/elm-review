@@ -47,7 +47,7 @@ create entry =
 
 match : Maybe ContentHash -> ComparableContextHash context -> Entry error context -> Bool
 match contentHash contexts (Entry entry) =
-    ContentHash.areEqualForMaybe contentHash entry.contentHash
+    (contentHash == entry.contentHash)
         && (contexts == entry.inputContextHash)
 
 

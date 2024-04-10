@@ -51,7 +51,7 @@ create entry =
 
 match : ContentHash -> ComparableContextHash context -> Entry error context -> { isFileIgnored : Bool, requestedData : RequestedData } -> Bool
 match contentHash inputContexts (Entry entry) { isFileIgnored, requestedData } =
-    ContentHash.areEqual contentHash entry.contentHash
+    (contentHash == entry.contentHash)
         && (inputContexts == entry.inputContextHashes)
         && (not (ruleCaresAboutIgnoredFiles requestedData) || isFileIgnored == entry.isFileIgnored)
 
