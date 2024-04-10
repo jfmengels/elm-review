@@ -54,6 +54,9 @@ type alias ValidProjectData =
     , elmJson : Maybe ( { path : String, raw : String, project : Elm.Project.Project }, ContentHash )
     , readme : Maybe ( { path : String, content : String }, ContentHash )
     , extraFiles : List ( { path : String, content : String }, ContentHash )
+    , extraFiles2 : Dict {- path -} String {- content -} String
+    , extraFilesContentHash : ContentHash
+    , extraFilesContentHashes : Dict {- path -} String ContentHash
     , dependencies : Dict String Dependency
     , directDependencies : Dict String Dependency
     , dependencyModules : Set ModuleName
@@ -72,6 +75,9 @@ toRegularProject (ValidProject validProject) =
         , elmJson = validProject.elmJson
         , readme = validProject.readme
         , extraFiles = validProject.extraFiles
+        , extraFiles2 = validProject.extraFiles2
+        , extraFilesContentHash = validProject.extraFilesContentHash
+        , extraFilesContentHashes = validProject.extraFilesContentHashes
         , dependencies = validProject.dependencies
         , moduleGraph = Just validProject.moduleGraph
         , sourceDirectories = validProject.sourceDirectories
@@ -139,6 +145,9 @@ fromProjectAndGraph moduleGraph_ acyclicGraph (Project project) =
         , elmJson = project.elmJson
         , readme = project.readme
         , extraFiles = project.extraFiles
+        , extraFiles2 = project.extraFiles2
+        , extraFilesContentHash = project.extraFilesContentHash
+        , extraFilesContentHashes = project.extraFilesContentHashes
         , dependencies = project.dependencies
         , directDependencies = directDependencies_
         , dependencyModules = computeDependencyModules directDependencies_

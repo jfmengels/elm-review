@@ -26,6 +26,9 @@ type Project
         , elmJson : Maybe ( { path : String, raw : String, project : Elm.Project.Project }, ContentHash )
         , readme : Maybe ( { path : String, content : String }, ContentHash )
         , extraFiles : List ( { path : String, content : String }, ContentHash )
+        , extraFiles2 : Dict {- path -} String {- content -} String
+        , extraFilesContentHash : ContentHash
+        , extraFilesContentHashes : Dict {- path -} String ContentHash
         , dependencies : Dict String Dependency
         , moduleGraph : Maybe (Graph FilePath ())
         , sourceDirectories : List String
