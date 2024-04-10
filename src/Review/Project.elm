@@ -315,12 +315,23 @@ but can be visited by rules if they're explicily requested.
 -}
 addExtraFiles : List { path : String, content : String } -> Project -> Project
 addExtraFiles files (Internal.Project project) =
+    -- TODO Make this function take a Dict String String instead
     let
         extraFiles_ : List ( { path : String, content : String }, ContentHash )
         extraFiles_ =
             List.foldl (\file acc -> ( file, ContentHash.hash file.content ) :: acc) project.extraFiles files
+
+        extraFilesContentHashes : Dict String ContentHash
+        extraFilesContentHashes =
+            List.foldl (\file acc -> Dict.insert file.path (ContentHash.hash file.content) acc) project.extraFilesContentHashes files
     in
-    Internal.Project { project | extraFiles = extraFiles_ }
+    Internal.Project
+        { project
+            | extraFiles = extraFiles_
+            , extraFiles2 = List.foldl (\file acc -> Dict.insert file.path file.content acc) project.extraFiles2 files
+            , extraFilesContentHashes = extraFilesContentHashes
+            , extraFilesContentHash = ContentHash.combine extraFilesContentHashes
+        }
 
 
 {-| Get the list of extra files in the project.
