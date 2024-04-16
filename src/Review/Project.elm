@@ -334,11 +334,11 @@ addExtraFiles files (Internal.Project project) =
         }
 
 
-{-| Get the list of extra files in the project.
+{-| Get the extra files in the project.
 -}
-extraFiles : Project -> List { path : String, content : String }
+extraFiles : Project -> Dict String String
 extraFiles (Internal.Project project) =
-    List.map Tuple.first project.extraFiles
+    project.extraFiles2
 
 
 {-| Add a dependency to the project. These will be available for rules to make
