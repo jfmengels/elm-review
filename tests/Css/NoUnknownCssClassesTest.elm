@@ -2,6 +2,7 @@ module Css.NoUnknownCssClassesTest exposing (all)
 
 import Css.ClassFunction as ClassFunction exposing (CssArgument, fromLiteral)
 import Css.NoUnknownCssClasses exposing (addKnownClasses, cssFiles, rule, withCssUsingFunctions)
+import Dict
 import Elm.Syntax.Expression exposing (Expression)
 import Elm.Syntax.Node exposing (Node)
 import Review.FilePattern as FilePattern exposing (FilePattern)
@@ -376,8 +377,9 @@ classFromAttrFunction { firstArgument } =
 projectWithCssClasses : Project
 projectWithCssClasses =
     Project.addExtraFiles
-        [ { path = "some-file.css"
-          , content = """-- First line
+        (Dict.fromList
+            [ ( "some-file.css"
+              , """-- First line
 .known {
     color: blue;
 }
@@ -388,16 +390,18 @@ projectWithCssClasses =
     color: green;
 }
 """
-          }
-        ]
+              )
+            ]
+        )
         Review.Test.Dependencies.projectWithElmCore
 
 
 projectWithUnparsableCssClasses : Project
 projectWithUnparsableCssClasses =
     Project.addExtraFiles
-        [ { path = "some-file.css"
-          , content = """-- First line
+        (Dict.fromList
+            [ ( "some-file.css"
+              , """-- First line
 .known {
     color: blue;
 }
@@ -405,6 +409,7 @@ projectWithUnparsableCssClasses =
     color: red;
 -- missing closing curly brace
 """
-          }
-        ]
+              )
+            ]
+        )
         Review.Test.Dependencies.projectWithElmCore

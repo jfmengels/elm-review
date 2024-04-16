@@ -313,22 +313,20 @@ readme (Internal.Project project) =
 {-| Add extra files to the project. These are files that `elm-review` doesn't load by default
 but can be visited by rules if they're explicily requested.
 -}
-addExtraFiles : List { path : String, content : String } -> Project -> Project
-addExtraFiles files (Internal.Project project) =
-    -- TODO Make this function take a Dict String String instead
+addExtraFiles : Dict String String -> Project -> Project
+addExtraFiles newFiles (Internal.Project project) =
     let
-        extraFiles_ : List ( { path : String, content : String }, ContentHash )
-        extraFiles_ =
-            List.foldl (\file acc -> ( file, ContentHash.hash file.content ) :: acc) project.extraFiles files
-
         extraFilesContentHashes : Dict String ContentHash
         extraFilesContentHashes =
-            List.foldl (\file acc -> Dict.insert file.path (ContentHash.hash file.content) acc) project.extraFilesContentHashes files
+            Dict.foldl
+                (\path content acc -> Dict.insert path (ContentHash.hash content) acc)
+                project.extraFilesContentHashes
+                newFiles
     in
     Internal.Project
         { project
-            | extraFiles = extraFiles_
-            , extraFiles2 = List.foldl (\file acc -> Dict.insert file.path file.content acc) project.extraFiles2 files
+            | extraFiles = [] -- TODO Remove
+            , extraFiles2 = Dict.union newFiles project.extraFiles2
             , extraFilesContentHashes = extraFilesContentHashes
             , extraFilesContentHash = ContentHash.combine extraFilesContentHashes
         }

@@ -1,5 +1,6 @@
 module Review.Project.Valid exposing
-    ( ValidProject
+    ( ExtraFileData
+    , ValidProject
     , addElmJson
     , addExtraFile
     , addParsedModule
@@ -12,6 +13,7 @@ module Review.Project.Valid exposing
     , elmJsonHash
     , extraFiles
     , extraFilesHash
+    , extraFilesWithoutKeys
     , getModuleByPath
     , moduleGraph
     , moduleZipper
@@ -323,9 +325,22 @@ readmeHash (ValidProject project) =
     Maybe.map Tuple.second project.readme
 
 
-extraFiles : ValidProject -> List { path : String, content : String }
-extraFiles (ValidProject project) =
-    List.map Tuple.first project.extraFiles
+type alias ExtraFileData fileKey =
+    { withFileKeys : Dict String { fileKey : fileKey, content : String }
+    , withoutFileKeys : Dict String String
+    }
+
+
+extraFiles : ({ path : String, content : String } -> fileKey) -> ValidProject -> ExtraFileData fileKey
+extraFiles toFileKey (ValidProject project) =
+    { withFileKeys = Dict.map (\path content -> { fileKey = toFileKey { path = path, content = content }, content = content }) project.extraFiles2
+    , withoutFileKeys = project.extraFiles2
+    }
+
+
+extraFilesWithoutKeys : ValidProject -> Dict String String
+extraFilesWithoutKeys (ValidProject project) =
+    project.extraFiles2
 
 
 extraFilesHash : ValidProject -> List ContentHash

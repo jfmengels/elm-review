@@ -182,11 +182,11 @@ cssFiles globs =
         }
 
 
-cssFilesVisitor : List { fileKey : Rule.ExtraFileKey, path : String, content : String } -> ProjectContext -> ( List (Rule.Error scope), ProjectContext )
+cssFilesVisitor : Dict String { fileKey : Rule.ExtraFileKey, content : String } -> ProjectContext -> ( List (Rule.Error scope), ProjectContext )
 cssFilesVisitor files context =
     let
         ( errors, knownClasses ) =
-            List.foldl parseCssFile ( [], context.knownClasses ) files
+            Dict.foldl parseCssFile ( [], context.knownClasses ) files
     in
     ( errors, { knownClasses = knownClasses } )
 
@@ -544,8 +544,8 @@ unknownClassesHelp knownClasses row column classes errors =
 ---
 
 
-parseCssFile : { fileKey : Rule.ExtraFileKey, path : String, content : String } -> ( List (Rule.Error externalFile), Set String ) -> ( List (Rule.Error externalFile), Set String )
-parseCssFile file ( errors, knownClasses ) =
+parseCssFile : String -> { fileKey : Rule.ExtraFileKey, content : String } -> ( List (Rule.Error externalFile), Set String ) -> ( List (Rule.Error externalFile), Set String )
+parseCssFile path file ( errors, knownClasses ) =
     case Parser.run cssParser file.content of
         Ok cssClasses ->
             ( errors, Set.union cssClasses knownClasses )

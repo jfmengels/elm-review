@@ -42,6 +42,7 @@ elm-review --template jfmengels/elm-review/example --rules Docs.NoMissingChangel
 
 -}
 
+import Dict exposing (Dict)
 import Elm.Project exposing (Project)
 import Elm.Syntax.Range exposing (Range)
 import Elm.Version
@@ -56,7 +57,7 @@ rule : Configuration -> Rule
 rule (Configuration { changelogPath }) =
     Rule.newProjectRuleSchema "Docs.NoMissingChangelogEntry" initialProjectContext
         |> Rule.withElmJsonProjectVisitor elmJsonVisitor
-        |> Rule.withExtraFilesProjectVisitor (extraFilesVisitor changelogPath) [ FilePattern.include (Maybe.withDefault defaultPath changelogPath) ]
+        |> Rule.withExtraFilesProjectVisitor (extraFilesVisitor changelogPath) [ FilePattern.include (getChangelogPath changelogPath) ]
         |> Rule.providesFixesForProjectRule
         |> Rule.fromProjectRuleSchema
 
@@ -70,9 +71,9 @@ defaults =
     Configuration { changelogPath = Nothing }
 
 
-defaultPath : String
-defaultPath =
-    "CHANGELOG.md"
+getChangelogPath : Maybe String -> String
+getChangelogPath changelogPath =
+    Maybe.withDefault "CHANGELOG.md" changelogPath
 
 
 withPathToChangelog : String -> Configuration -> Configuration
@@ -112,9 +113,14 @@ elmJsonVisitor maybeElmJsonData context =
             ( [], context )
 
 
-extraFilesVisitor : Maybe String -> List { fileKey : Rule.ExtraFileKey, path : String, content : String } -> ProjectContext -> ( List (Rule.Error { useErrorForModule : () }), ProjectContext )
-extraFilesVisitor changelogPath files context =
-    case List.head files of
+extraFilesVisitor : Maybe String -> Dict String { fileKey : Rule.ExtraFileKey, content : String } -> ProjectContext -> ( List (Rule.Error { useErrorForModule : () }), ProjectContext )
+extraFilesVisitor maybeChangelogPath files context =
+    let
+        changelogPath : String
+        changelogPath =
+            getChangelogPath maybeChangelogPath
+    in
+    case Dict.get changelogPath files of
         Just { fileKey, content } ->
             case context.elmJsonVersion of
                 Nothing ->
@@ -142,7 +148,7 @@ extraFilesVisitor changelogPath files context =
                     ( [], context )
 
                 Just _ ->
-                    case changelogPath of
+                    case maybeChangelogPath of
                         Nothing ->
                             ( [ Rule.globalError
                                     { message = "Could not find the CHANGELOG.md file"

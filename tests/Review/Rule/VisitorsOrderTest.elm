@@ -1,5 +1,6 @@
 module Review.Rule.VisitorsOrderTest exposing (all)
 
+import Dict
 import Elm.Syntax.Declaration exposing (Declaration)
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Import exposing (Import)
@@ -33,8 +34,8 @@ all =
                             |> Rule.withElmJsonModuleVisitor (\_ context -> context ++ "\n1.2 - withElmJsonModuleVisitor")
                             |> Rule.withReadmeModuleVisitor (\_ context -> context ++ "\n2.1 - withReadmeModuleVisitor")
                             |> Rule.withReadmeModuleVisitor (\_ context -> context ++ "\n2.2 - withReadmeModuleVisitor")
-                            |> Rule.withExtraFilesModuleVisitor (\files context -> context ++ "\n3.1 - withExtraFilesModuleVisitor " ++ (List.map .path files |> String.join ", ")) [ FilePattern.include "first.txt" ]
-                            |> Rule.withExtraFilesModuleVisitor (\files context -> context ++ "\n3.2 - withExtraFilesModuleVisitor " ++ (List.map .path files |> String.join ", ")) [ FilePattern.include "last.txt" ]
+                            |> Rule.withExtraFilesModuleVisitor (\files context -> context ++ "\n3.1 - withExtraFilesModuleVisitor " ++ (Dict.keys files |> String.join ", ")) [ FilePattern.include "first.txt" ]
+                            |> Rule.withExtraFilesModuleVisitor (\files context -> context ++ "\n3.2 - withExtraFilesModuleVisitor " ++ (Dict.keys files |> String.join ", ")) [ FilePattern.include "last.txt" ]
                             |> Rule.withDirectDependenciesModuleVisitor (\_ context -> context ++ "\n4.1 - withDirectDependenciesModuleVisitor")
                             |> Rule.withDirectDependenciesModuleVisitor (\_ context -> context ++ "\n4.2 - withDirectDependenciesModuleVisitor")
                             |> Rule.withDependenciesModuleVisitor (\_ context -> context ++ "\n4.3 - withDependenciesModuleVisitor")
@@ -71,7 +72,7 @@ all =
                     project : Project
                     project =
                         Project.new
-                            |> Project.addExtraFiles [ { path = "first.txt", content = "" }, { path = "last.txt", content = "" } ]
+                            |> Project.addExtraFiles (Dict.fromList [ ( "first.txt", "" ), ( "last.txt", "" ) ])
                 in
                 """module A exposing (..)
 import B

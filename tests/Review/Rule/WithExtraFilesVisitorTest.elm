@@ -1,5 +1,6 @@
 module Review.Rule.WithExtraFilesVisitorTest exposing (all)
 
+import Dict exposing (Dict)
 import Review.FilePattern as FilePattern exposing (FilePattern)
 import Review.Project as Project exposing (Project)
 import Review.Rule as Rule exposing (Error, Rule)
@@ -16,7 +17,7 @@ all =
                     project : Project
                     project =
                         createProject
-                            [ { path = "foo/some-file.css", content = "#thing { color: red; }" }
+                            [ ( "foo/some-file.css", "#thing { color: red; }" )
                             ]
 
                     rule : Rule
@@ -38,9 +39,9 @@ a = 1
                     project : Project
                     project =
                         createProject
-                            [ { path = "foo/some-file.css", content = "#thing { color: red; }" }
-                            , { path = "foo/some-other-file.css", content = "#thing { color: red; }" }
-                            , { path = "bar/some-file.css", content = "#thing { color: red; }" }
+                            [ ( "foo/some-file.css", "#thing { color: red; }" )
+                            , ( "foo/some-other-file.css", "#thing { color: red; }" )
+                            , ( "bar/some-file.css", "#thing { color: red; }" )
                             ]
 
                     rule : Rule
@@ -62,9 +63,9 @@ a = 1
                     project : Project
                     project =
                         createProject
-                            [ { path = "a.txt", content = "A" }
-                            , { path = "b.txt", content = "B" }
-                            , { path = "c.txt", content = "C" }
+                            [ ( "a.txt", "A" )
+                            , ( "b.txt", "B" )
+                            , ( "c.txt", "C" )
                             ]
 
                     rule : Rule
@@ -117,14 +118,14 @@ createRule modifier =
         |> Rule.fromModuleRuleSchema
 
 
-extraFilesModuleVisitor : List { path : String, content : String } -> Context -> Context
+extraFilesModuleVisitor : Dict String String -> Context -> Context
 extraFilesModuleVisitor files context =
-    List.map .path files ++ context
+    Dict.keys files ++ context
 
 
-reportsFileNames : String -> List { path : String, content : String } -> Context -> Context
+reportsFileNames : String -> Dict String String -> Context -> Context
 reportsFileNames prefix files context =
-    List.map (\file -> "Visitor " ++ prefix ++ " saw file " ++ file.path) files ++ context
+    List.map (\path -> "Visitor " ++ prefix ++ " saw file " ++ path) (Dict.keys files) ++ context
 
 
 finalEvaluation : Context -> List (Error scope)
@@ -136,6 +137,6 @@ finalEvaluation context =
     ]
 
 
-createProject : List { path : String, content : String } -> Project
+createProject : List ( String, String ) -> Project
 createProject extraFiles =
-    Project.addExtraFiles extraFiles Project.new
+    Project.addExtraFiles (Dict.fromList extraFiles) Project.new

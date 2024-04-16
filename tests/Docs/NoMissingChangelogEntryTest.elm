@@ -1,5 +1,6 @@
 module Docs.NoMissingChangelogEntryTest exposing (all)
 
+import Dict
 import Docs.NoMissingChangelogEntry exposing (defaults, rule, withPathToChangelog)
 import Elm.Project
 import Json.Decode as Decode
@@ -17,8 +18,9 @@ all =
                     project : Project
                     project =
                         Project.addExtraFiles
-                            [ { path = "CHANGELOG.md"
-                              , content = """
+                            (Dict.fromList
+                                [ ( "CHANGELOG.md"
+                                  , """
 # Changelog
 ## [Unreleased]
 Stuff
@@ -27,8 +29,9 @@ More stuff happened
 ## 2.12.0
 Stuff happened
 """
-                              }
-                            ]
+                                  )
+                                ]
+                            )
                             (package "2.13.0")
                 in
                 "module A exposing (..)\na = 1"
@@ -40,8 +43,9 @@ Stuff happened
                     project : Project
                     project =
                         Project.addExtraFiles
-                            [ { path = "CHANGELOG.md"
-                              , content = """# Changelog
+                            (Dict.fromList
+                                [ ( "CHANGELOG.md"
+                                  , """# Changelog
 ## [Unreleased]
 Stuff
 ## 1.13.0
@@ -49,8 +53,9 @@ More stuff happened
 ## 1.12.0
 Stuff happened
 """
-                              }
-                            ]
+                                  )
+                                ]
+                            )
                             (package "2.13.0")
                 in
                 """module A exposing (..)
@@ -84,15 +89,17 @@ Stuff happened
                     project : Project
                     project =
                         Project.addExtraFiles
-                            [ { path = "CHANGELOG.md"
-                              , content = """# Changelog
+                            (Dict.fromList
+                                [ ( "CHANGELOG.md"
+                                  , """# Changelog
 ## 1.13.0
 More stuff happened
 ## 1.12.0
 Stuff happened
 """
-                              }
-                            ]
+                                  )
+                                ]
+                            )
                             (package "2.13.0")
                 in
                 """module A exposing (..)
@@ -149,10 +156,12 @@ a = 1
                     project : Project
                     project =
                         Project.addExtraFiles
-                            [ { path = "CHANGELOG.md"
-                              , content = "# something"
-                              }
-                            ]
+                            (Dict.fromList
+                                [ ( "CHANGELOG.md"
+                                  , "# something"
+                                  )
+                                ]
+                            )
                             application
                 in
                 """module A exposing (..)
@@ -177,10 +186,7 @@ a = 1
                     project : Project
                     project =
                         Project.addExtraFiles
-                            [ { path = "CHANGELOG.md"
-                              , content = ""
-                              }
-                            ]
+                            (Dict.fromList [ ( "CHANGELOG.md", "" ) ])
                             (package "1.0.0")
                 in
                 """module A exposing (..)

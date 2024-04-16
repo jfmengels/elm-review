@@ -409,7 +409,7 @@ type alias ModuleRuleSchemaData moduleContext =
     , elmJsonVisitor : Maybe (Maybe Elm.Project.Project -> moduleContext -> moduleContext)
     , extraFileRequest : ExtraFileRequest
     , readmeVisitor : Maybe (Maybe String -> moduleContext -> moduleContext)
-    , extraFilesVisitor : Maybe (List { path : String, content : String } -> moduleContext -> moduleContext)
+    , extraFilesVisitor : Maybe (ExtraFileData -> moduleContext -> moduleContext)
     , dependenciesVisitor : Maybe (Dict String Review.Project.Dependency.Dependency -> moduleContext -> moduleContext)
     , directDependenciesVisitor : Maybe (Dict String Review.Project.Dependency.Dependency -> moduleContext -> moduleContext)
     }
@@ -1189,11 +1189,13 @@ compactProjectDataVisitors getData maybeVisitor =
             Just (\rawData moduleContext -> ( [], visitor (getData rawData) moduleContext ))
 
 
-compactExtraFilesVisitor : Maybe (List { path : String, content : String } -> moduleContext -> moduleContext) -> Maybe (List { fileKey : ExtraFileKey, path : String, content : String } -> moduleContext -> ( List nothing, moduleContext ))
+compactExtraFilesVisitor :
+    Maybe (ExtraFileData -> moduleContext -> moduleContext)
+    -> Maybe (ExtraFileData -> moduleContext -> ( List nothing, moduleContext ))
 compactExtraFilesVisitor maybeExtraFilesVisitor =
     case maybeExtraFilesVisitor of
         Just extraFilesVisitor ->
-            Just (\files moduleContext -> ( [], extraFilesVisitor (List.map (\{ path, content } -> { path = path, content = content }) files) moduleContext ))
+            Just (\files moduleContext -> ( [], extraFilesVisitor files moduleContext ))
 
         Nothing ->
             Nothing
@@ -1223,7 +1225,7 @@ type alias ProjectRuleSchemaData projectContext moduleContext =
     , initialProjectContext : projectContext
     , elmJsonVisitor : Maybe (Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> projectContext -> ( List (Error {}), projectContext ))
     , readmeVisitor : Maybe (Maybe { readmeKey : ReadmeKey, content : String } -> projectContext -> ( List (Error {}), projectContext ))
-    , extraFilesVisitor : Maybe (List { fileKey : ExtraFileKey, path : String, content : String } -> projectContext -> ( List (Error {}), projectContext ))
+    , extraFilesVisitor : Maybe (ExtraFileData -> projectContext -> ( List (Error {}), projectContext ))
     , extraFileRequest : ExtraFileRequest
     , directDependenciesVisitor : Maybe (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List (Error {}), projectContext ))
     , dependenciesVisitor : Maybe (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List (Error {}), projectContext ))
@@ -2017,7 +2019,7 @@ and reports errors when the classes given as argument are unknown.
 
 -}
 withExtraFilesProjectVisitor :
-    (List { fileKey : ExtraFileKey, path : String, content : String } -> projectContext -> ( List (Error { useErrorForModule : () }), projectContext ))
+    (Dict String { fileKey : ExtraFileKey, content : String } -> projectContext -> ( List (Error { useErrorForModule : () }), projectContext ))
     -> List FilePattern
     -> ProjectRuleSchema schemaState projectContext moduleContext
     -> ProjectRuleSchema { schemaState | hasAtLeastOneVisitor : () } projectContext moduleContext
@@ -2025,9 +2027,9 @@ withExtraFilesProjectVisitor baseVisitor filePatterns (ProjectRuleSchema schema)
     case FilePattern.compact filePatterns of
         Ok filePatternSummary ->
             let
-                visitor : List { fileKey : ExtraFileKey, path : String, content : String } -> projectContext -> ( List (Error {}), projectContext )
+                visitor : ExtraFileData -> projectContext -> ( List (Error {}), projectContext )
                 visitor files context =
-                    baseVisitor (List.filter (\file -> FilePattern.match filePatternSummary file.path) files) context
+                    baseVisitor (Dict.filter (\path _ -> FilePattern.match filePatternSummary path) files.withFileKeys) context
                         |> Tuple.mapFirst removeErrorPhantomTypes
             in
             ProjectRuleSchema
@@ -2571,7 +2573,7 @@ withElmJsonModuleVisitor visitor (ModuleRuleSchema schema) =
 {-| REPLACEME
 -}
 withExtraFilesModuleVisitor :
-    (List { path : String, content : String } -> moduleContext -> moduleContext)
+    (Dict String String -> moduleContext -> moduleContext)
     -> List FilePattern
     -> ModuleRuleSchema { schemaState | canCollectProjectData : () } moduleContext
     -> ModuleRuleSchema { schemaState | canCollectProjectData : () } moduleContext
@@ -2579,9 +2581,9 @@ withExtraFilesModuleVisitor baseVisitor filePatterns (ModuleRuleSchema schema) =
     case FilePattern.compact filePatterns of
         Ok filePatternSummary ->
             let
-                visitor : List { path : String, content : String } -> moduleContext -> moduleContext
+                visitor : ExtraFileData -> moduleContext -> moduleContext
                 visitor files context =
-                    baseVisitor (List.filter (\file -> FilePattern.match filePatternSummary file.path) files) context
+                    baseVisitor (Dict.filter (\path _ -> FilePattern.match filePatternSummary path) files.withoutFileKeys) context
             in
             ModuleRuleSchema
                 { schema
@@ -4025,6 +4027,10 @@ type ExtraFileKey
         }
 
 
+type alias ExtraFileData =
+    ValidProject.ExtraFileData ExtraFileKey
+
+
 {-| REPLACEME
 -}
 errorForExtraFile : ExtraFileKey -> { message : String, details : List String } -> Range -> Error scope
@@ -4726,9 +4732,9 @@ computeStepsForProject reviewOptions { project, ruleProjectVisitors, fixedErrors
 
         ExtraFiles ->
             let
-                extraFiles : List { path : String, content : String }
+                extraFiles : ExtraFileData
                 extraFiles =
-                    ValidProject.extraFiles project
+                    ValidProject.extraFiles ExtraFileKey project
             in
             computeStepsForProject
                 reviewOptions
@@ -4901,7 +4907,7 @@ computeExtraFiles :
     ReviewOptionsData
     -> ValidProject
     -> FixedErrors
-    -> List { path : String, content : String }
+    -> ExtraFileData
     -> List RuleProjectVisitor
     -> List RuleProjectVisitor
     -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, step : Step, fixedErrors : FixedErrors }
@@ -4919,7 +4925,7 @@ computeExtraFiles reviewOptions project fixedErrors extraFiles remainingRules ac
                 Just visitor ->
                     let
                         ( errors, RuleProjectVisitor updatedRule ) =
-                            visitor project (List.map (\file -> { fileKey = ExtraFileKey file, path = file.path, content = file.content }) extraFiles)
+                            visitor project extraFiles
                     in
                     case standardFindFix reviewOptions project fixedErrors updatedRule.setErrorsForExtraFiles errors of
                         FoundFixStandard { newProject, newRule, newFixedErrors, step } ->
@@ -5688,12 +5694,12 @@ findFixHelp project fixablePredicate errors accErrors maybeModuleZipper =
                                                 }
 
                         Review.Error.ExtraFile ->
-                            case ListExtra.find (\file -> file.path == headError.filePath) (ValidProject.extraFiles project) of
+                            case Dict.get headError.filePath (ValidProject.extraFilesWithoutKeys project) of
                                 Nothing ->
                                     findFixHelp project fixablePredicate restOfErrors (err :: accErrors) maybeModuleZipper
 
-                                Just file ->
-                                    case InternalFix.fixExtraFile fixes file.content of
+                                Just content ->
+                                    case InternalFix.fixExtraFile fixes content of
                                         Err fixProblem ->
                                             findFixHelp project fixablePredicate restOfErrors (Error (Review.Error.markFixesAsProblem fixProblem headError) :: accErrors) maybeModuleZipper
 
@@ -5904,7 +5910,7 @@ The hidden state is `{ cache : ProjectRuleCache projectContext, ruleData : Chang
 type alias RuleProjectVisitorOperations =
     { elmJsonVisitor : Maybe (ValidProject -> Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> ( List (Error {}), RuleProjectVisitor ))
     , readmeVisitor : Maybe (ValidProject -> Maybe { readmeKey : ReadmeKey, content : String } -> ( List (Error {}), RuleProjectVisitor ))
-    , extraFilesVisitor : Maybe (ValidProject -> List { fileKey : ExtraFileKey, path : String, content : String } -> ( List (Error {}), RuleProjectVisitor ))
+    , extraFilesVisitor : Maybe (ValidProject -> ExtraFileData -> ( List (Error {}), RuleProjectVisitor ))
     , dependenciesVisitor : Maybe (ValidProject -> { all : Dict String Review.Project.Dependency.Dependency, direct : Dict String Review.Project.Dependency.Dependency } -> ( List (Error {}), RuleProjectVisitor ))
     , createModuleVisitorFromProjectVisitor : Maybe (ValidProject -> String -> ContentHash -> Graph.Adjacency () -> Maybe (AvailableData -> RuleModuleVisitor))
     , finalProjectEvaluation : Maybe (() -> ( List (Error {}), RuleProjectVisitor ))
@@ -6039,7 +6045,7 @@ createExtraFilesVisitor :
     ->
         Maybe
             (ValidProject
-             -> List { fileKey : ExtraFileKey, content : String, path : String }
+             -> ExtraFileData
              -> ( List (Error {}), RuleProjectVisitor )
             )
 createExtraFilesVisitor schema ({ cache } as hidden) raise raiseCache =
