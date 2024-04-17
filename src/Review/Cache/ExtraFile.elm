@@ -20,7 +20,7 @@ import Review.Cache.ContextHash as ContextHash exposing (ComparableContextHash, 
 
 type Entry error context
     = Entry
-        { contentHashes : List ContentHash
+        { contentHash : ContentHash
         , inputContextHash : ComparableContextHash context
         , errors : List error
         , outputContext : context
@@ -29,7 +29,7 @@ type Entry error context
 
 
 create :
-    { contentHashes : List ContentHash
+    { contentHash : ContentHash
     , inputContextHash : ComparableContextHash context
     , errors : List error
     , outputContext : context
@@ -37,7 +37,7 @@ create :
     -> Entry error context
 create entry =
     Entry
-        { contentHashes = entry.contentHashes
+        { contentHash = entry.contentHash
         , inputContextHash = entry.inputContextHash
         , errors = entry.errors
         , outputContext = entry.outputContext
@@ -45,9 +45,9 @@ create entry =
         }
 
 
-match : List ContentHash -> ComparableContextHash context -> Entry error context -> Bool
-match contentHashes contexts (Entry entry) =
-    (contentHashes == entry.contentHashes)
+match : ContentHash -> ComparableContextHash context -> Entry error context -> Bool
+match contentHash contexts (Entry entry) =
+    (contentHash == entry.contentHash)
         && (contexts == entry.inputContextHash)
 
 

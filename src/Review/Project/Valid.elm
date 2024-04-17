@@ -343,9 +343,9 @@ extraFilesWithoutKeys (ValidProject project) =
     project.extraFiles2
 
 
-extraFilesHash : ValidProject -> List ContentHash
+extraFilesHash : ValidProject -> ContentHash
 extraFilesHash (ValidProject project) =
-    List.map Tuple.second project.extraFiles
+    project.extraFilesContentHash
 
 
 dependencies : ValidProject -> Dict String Dependency

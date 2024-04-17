@@ -6064,13 +6064,13 @@ createExtraFilesVisitor schema ({ cache } as hidden) raise raiseCache =
                         inputContextHash =
                             ContextHash.toComparable baseInputContextHash
 
-                        contentHashes : List ContentHash
-                        contentHashes =
+                        contentHash : ContentHash
+                        contentHash =
                             ValidProject.extraFilesHash project
 
                         cachePredicate : ExtraFilesCache projectContext -> Bool
                         cachePredicate extraFiles =
-                            ExtraFile.match contentHashes inputContextHash extraFiles
+                            ExtraFile.match contentHash inputContextHash extraFiles
                     in
                     case reuseProjectRuleCache cachePredicate .extraFiles hidden.cache of
                         Just entry ->
@@ -6088,7 +6088,7 @@ createExtraFilesVisitor schema ({ cache } as hidden) raise raiseCache =
                                 entry : ExtraFilesCache projectContext
                                 entry =
                                     ExtraFile.create
-                                        { contentHashes = contentHashes
+                                        { contentHash = contentHash
                                         , errors = errors
                                         , inputContextHash = inputContextHash
                                         , outputContext = outputContext
