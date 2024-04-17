@@ -55,7 +55,6 @@ type alias ValidProjectData =
     , modulesByModuleName : Dict ModuleName OpaqueProjectModule
     , elmJson : Maybe ( { path : String, raw : String, project : Elm.Project.Project }, ContentHash )
     , readme : Maybe ( { path : String, content : String }, ContentHash )
-    , extraFiles : List ( { path : String, content : String }, ContentHash )
     , extraFiles2 : Dict {- path -} String {- content -} String
     , extraFilesContentHash : ContentHash
     , extraFilesContentHashes : Dict {- path -} String ContentHash
@@ -76,7 +75,6 @@ toRegularProject (ValidProject validProject) =
         , modulesThatFailedToParse = []
         , elmJson = validProject.elmJson
         , readme = validProject.readme
-        , extraFiles = validProject.extraFiles
         , extraFiles2 = validProject.extraFiles2
         , extraFilesContentHash = validProject.extraFilesContentHash
         , extraFilesContentHashes = validProject.extraFilesContentHashes
@@ -146,7 +144,6 @@ fromProjectAndGraph moduleGraph_ acyclicGraph (Project project) =
         , modulesByModuleName = computeModulesByModuleName project.modules
         , elmJson = project.elmJson
         , readme = project.readme
-        , extraFiles = project.extraFiles
         , extraFiles2 = project.extraFiles2
         , extraFilesContentHash = project.extraFilesContentHash
         , extraFilesContentHashes = project.extraFilesContentHashes
@@ -542,21 +539,17 @@ available for rules to access using
 [`Review.Rule.withReadmeProjectVisitor`](./Review-Rule#withReadmeProjectVisitor).
 -}
 addExtraFile : { path : String, content : String } -> ValidProject -> ValidProject
-addExtraFile newFile (ValidProject project) =
-    -- TODO Make faster
-    -- TODO Add file if it doesn't already exist
+addExtraFile file (ValidProject project) =
+    let
+        extraFilesContentHashes : Dict String ContentHash
+        extraFilesContentHashes =
+            Dict.insert file.path (ContentHash.hash file.content) project.extraFilesContentHashes
+    in
     ValidProject
         { project
-            | extraFiles =
-                List.map
-                    (\(( file, _ ) as untouched) ->
-                        if file.path == newFile.path then
-                            ( newFile, ContentHash.hash newFile.content )
-
-                        else
-                            untouched
-                    )
-                    project.extraFiles
+            | extraFiles2 = Dict.insert file.path file.content project.extraFiles2
+            , extraFilesContentHashes = extraFilesContentHashes
+            , extraFilesContentHash = ContentHash.combine extraFilesContentHashes
         }
 
 

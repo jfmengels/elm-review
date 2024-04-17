@@ -85,7 +85,6 @@ new =
         , modulesThatFailedToParse = []
         , elmJson = Nothing
         , readme = Nothing
-        , extraFiles = []
         , extraFiles2 = Dict.empty
         , extraFilesContentHash = ContentHash.nil
         , extraFilesContentHashes = Dict.empty
@@ -325,8 +324,7 @@ addExtraFiles newFiles (Internal.Project project) =
     in
     Internal.Project
         { project
-            | extraFiles = [] -- TODO Remove
-            , extraFiles2 = Dict.union newFiles project.extraFiles2
+            | extraFiles2 = Dict.union newFiles project.extraFiles2
             , extraFilesContentHashes = extraFilesContentHashes
             , extraFilesContentHash = ContentHash.combine extraFilesContentHashes
         }
