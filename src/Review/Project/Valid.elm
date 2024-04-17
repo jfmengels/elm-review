@@ -55,7 +55,7 @@ type alias ValidProjectData =
     , modulesByModuleName : Dict ModuleName OpaqueProjectModule
     , elmJson : Maybe ( { path : String, raw : String, project : Elm.Project.Project }, ContentHash )
     , readme : Maybe ( { path : String, content : String }, ContentHash )
-    , extraFiles2 : Dict {- path -} String {- content -} String
+    , extraFiles : Dict {- path -} String {- content -} String
     , extraFilesContentHash : ContentHash
     , extraFilesContentHashes : Dict {- path -} String ContentHash
     , dependencies : Dict String Dependency
@@ -75,7 +75,7 @@ toRegularProject (ValidProject validProject) =
         , modulesThatFailedToParse = []
         , elmJson = validProject.elmJson
         , readme = validProject.readme
-        , extraFiles2 = validProject.extraFiles2
+        , extraFiles = validProject.extraFiles
         , extraFilesContentHash = validProject.extraFilesContentHash
         , extraFilesContentHashes = validProject.extraFilesContentHashes
         , dependencies = validProject.dependencies
@@ -144,7 +144,7 @@ fromProjectAndGraph moduleGraph_ acyclicGraph (Project project) =
         , modulesByModuleName = computeModulesByModuleName project.modules
         , elmJson = project.elmJson
         , readme = project.readme
-        , extraFiles2 = project.extraFiles2
+        , extraFiles = project.extraFiles
         , extraFilesContentHash = project.extraFilesContentHash
         , extraFilesContentHashes = project.extraFilesContentHashes
         , dependencies = project.dependencies
@@ -330,14 +330,14 @@ type alias ExtraFileData fileKey =
 
 extraFiles : ({ path : String, content : String } -> fileKey) -> ValidProject -> ExtraFileData fileKey
 extraFiles toFileKey (ValidProject project) =
-    { withFileKeys = Dict.map (\path content -> { fileKey = toFileKey { path = path, content = content }, content = content }) project.extraFiles2
-    , withoutFileKeys = project.extraFiles2
+    { withFileKeys = Dict.map (\path content -> { fileKey = toFileKey { path = path, content = content }, content = content }) project.extraFiles
+    , withoutFileKeys = project.extraFiles
     }
 
 
 extraFilesWithoutKeys : ValidProject -> Dict String String
 extraFilesWithoutKeys (ValidProject project) =
-    project.extraFiles2
+    project.extraFiles
 
 
 extraFilesHash : ValidProject -> ContentHash
@@ -547,7 +547,7 @@ addExtraFile file (ValidProject project) =
     in
     ValidProject
         { project
-            | extraFiles2 = Dict.insert file.path file.content project.extraFiles2
+            | extraFiles = Dict.insert file.path file.content project.extraFiles
             , extraFilesContentHashes = extraFilesContentHashes
             , extraFilesContentHash = ContentHash.combine extraFilesContentHashes
         }

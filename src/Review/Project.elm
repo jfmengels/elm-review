@@ -85,7 +85,7 @@ new =
         , modulesThatFailedToParse = []
         , elmJson = Nothing
         , readme = Nothing
-        , extraFiles2 = Dict.empty
+        , extraFiles = Dict.empty
         , extraFilesContentHash = ContentHash.nil
         , extraFilesContentHashes = Dict.empty
         , dependencies = Dict.empty
@@ -324,7 +324,7 @@ addExtraFiles newFiles (Internal.Project project) =
     in
     Internal.Project
         { project
-            | extraFiles2 = Dict.union newFiles project.extraFiles2
+            | extraFiles = Dict.union newFiles project.extraFiles
             , extraFilesContentHashes = extraFilesContentHashes
             , extraFilesContentHash = ContentHash.combine extraFilesContentHashes
         }
@@ -334,7 +334,7 @@ addExtraFiles newFiles (Internal.Project project) =
 -}
 extraFiles : Project -> Dict String String
 extraFiles (Internal.Project project) =
-    project.extraFiles2
+    project.extraFiles
 
 
 {-| Add a dependency to the project. These will be available for rules to make
