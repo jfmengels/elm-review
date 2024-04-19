@@ -1,5 +1,6 @@
 module Review.Project.Internal exposing
     ( Project(..)
+    , ProjectInternals
     , sourceDirectories
     , sourceDirectoriesForProject
     )
@@ -20,18 +21,21 @@ import Vendor.Graph exposing (Graph)
 
 
 type Project
-    = Project
-        { modules : Dict String OpaqueProjectModule
-        , modulesThatFailedToParse : List { path : String, source : String }
-        , elmJson : Maybe ( { path : String, raw : String, project : Elm.Project.Project }, ContentHash )
-        , readme : Maybe ( { path : String, content : String }, ContentHash )
-        , extraFiles : Dict {- path -} String {- content -} String
-        , extraFilesContentHashes : Dict {- path -} String ContentHash
-        , dependencies : Dict String Dependency
-        , moduleGraph : Maybe (Graph FilePath ())
-        , sourceDirectories : List String
-        , cache : ProjectCache
-        }
+    = Project ProjectInternals
+
+
+type alias ProjectInternals =
+    { modules : Dict String OpaqueProjectModule
+    , modulesThatFailedToParse : List { path : String, source : String }
+    , elmJson : Maybe ( { path : String, raw : String, project : Elm.Project.Project }, ContentHash )
+    , readme : Maybe ( { path : String, content : String }, ContentHash )
+    , extraFiles : Dict {- path -} String {- content -} String
+    , extraFilesContentHashes : Dict {- path -} String ContentHash
+    , dependencies : Dict String Dependency
+    , moduleGraph : Maybe (Graph FilePath ())
+    , sourceDirectories : List String
+    , cache : ProjectCache
+    }
 
 
 sourceDirectories : Project -> List String

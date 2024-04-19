@@ -5,7 +5,7 @@ module Review.Project exposing
     , addReadme, readme
     , addExtraFiles, updateFile, extraFiles
     , addDependency, removeDependency, removeDependencies, directDependencies, dependencies
-    , addExtraFile
+    , addExtraFile, diff
     )
 
 {-| Represents the contents of the project to be analyzed. This information will
@@ -56,9 +56,10 @@ import Path
 import Review.Cache.ContentHash as ContentHash exposing (ContentHash)
 import Review.FileParser as FileParser
 import Review.Project.Dependency as Dependency exposing (Dependency)
-import Review.Project.Internal as Internal exposing (Project)
+import Review.Project.Internal as Internal exposing (Project, ProjectInternals)
 import Review.Project.ProjectCache as ProjectCache
 import Review.Project.ProjectModule as ProjectModule
+import Vendor.IntDict exposing (before)
 
 
 
@@ -436,6 +437,111 @@ directDependencies (Internal.Project project) =
 
         Nothing ->
             project.dependencies
+
+
+unwrap : Project -> ProjectInternals
+unwrap (Internal.Project project) =
+    project
+
+
+{-| Get the files that have been modified between two versions of a Project.
+
+Added or removed files are ignored.
+
+-}
+diff : { before : Project, after : Project } -> List { path : String, before : String, after : String }
+diff projects =
+    let
+        projects_ : { before : ProjectInternals, after : ProjectInternals }
+        projects_ =
+            { before = unwrap projects.before, after = unwrap projects.after }
+    in
+    []
+        |> diffElmJson projects_
+        |> diffReadme projects_
+        |> diffExtraFiles projects_
+        |> diffElmFiles projects_
+
+
+diffElmJson : { before : ProjectInternals, after : ProjectInternals } -> List { path : String, before : String, after : String } -> List { path : String, before : String, after : String }
+diffElmJson { before, after } list =
+    case before.elmJson of
+        Nothing ->
+            list
+
+        Just ( elmJsonBefore, beforeHash ) ->
+            case after.elmJson of
+                Nothing ->
+                    list
+
+                Just ( elmJsonAfter, afterHash ) ->
+                    if beforeHash == afterHash then
+                        list
+
+                    else
+                        { path = elmJsonAfter.path, before = elmJsonBefore.raw, after = elmJsonAfter.raw } :: list
+
+
+diffReadme : { before : ProjectInternals, after : ProjectInternals } -> List { path : String, before : String, after : String } -> List { path : String, before : String, after : String }
+diffReadme { before, after } list =
+    case before.readme of
+        Nothing ->
+            list
+
+        Just ( readmeBefore, beforeHash ) ->
+            case after.readme of
+                Nothing ->
+                    list
+
+                Just ( readmeAfter, afterHash ) ->
+                    if beforeHash == afterHash then
+                        list
+
+                    else
+                        { path = readmeAfter.path, before = readmeBefore.content, after = readmeAfter.content } :: list
+
+
+diffExtraFiles : { before : ProjectInternals, after : ProjectInternals } -> List { path : String, before : String, after : String } -> List { path : String, before : String, after : String }
+diffExtraFiles { before, after } list =
+    if before.extraFilesContentHashes == after.extraFilesContentHashes then
+        list
+
+    else
+        Dict.merge
+            (\_ _ acc -> acc)
+            (\path beforeHash afterHash acc ->
+                if beforeHash /= afterHash then
+                    case Maybe.map2 Tuple.pair (Dict.get path before.extraFiles) (Dict.get path after.extraFiles) of
+                        Nothing ->
+                            acc
+
+                        Just ( beforeSource, afterSource ) ->
+                            { path = path, before = beforeSource, after = afterSource } :: acc
+
+                else
+                    acc
+            )
+            (\_ _ acc -> acc)
+            before.extraFilesContentHashes
+            after.extraFilesContentHashes
+            list
+
+
+diffElmFiles : { before : ProjectInternals, after : ProjectInternals } -> List { path : String, before : String, after : String } -> List { path : String, before : String, after : String }
+diffElmFiles { before, after } list =
+    Dict.merge
+        (\_ _ acc -> acc)
+        (\path beforeModule afterModule acc ->
+            if ProjectModule.contentHash beforeModule /= ProjectModule.contentHash afterModule then
+                { path = path, before = ProjectModule.source beforeModule, after = ProjectModule.source afterModule } :: acc
+
+            else
+                acc
+        )
+        (\_ _ acc -> acc)
+        before.modules
+        after.modules
+        list
 
 
 
