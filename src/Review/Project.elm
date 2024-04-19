@@ -3,8 +3,9 @@ module Review.Project exposing
     , ProjectModule, addModule, addParsedModule, removeModule, modules, modulesThatFailedToParse, precomputeModuleGraph
     , addElmJson, elmJson
     , addReadme, readme
-    , addExtraFiles, extraFiles
+    , addExtraFiles, updateFile, extraFiles
     , addDependency, removeDependency, removeDependencies, directDependencies, dependencies
+    , addExtraFile
     )
 
 {-| Represents the contents of the project to be analyzed. This information will
@@ -38,7 +39,7 @@ does not look at project information (like the `elm.json`, dependencies, ...).
 
 # Extra files
 
-@docs addExtraFiles, extraFiles
+@docs addExtraFiles, updateFile, extraFiles
 
 
 # Project dependencies
@@ -328,11 +329,42 @@ addExtraFiles newFiles (Internal.Project project) =
         }
 
 
+{-| REPLACEME
+-}
+addExtraFile : { path : String, source : String } -> Project -> Project
+addExtraFile file (Internal.Project project) =
+    Internal.Project
+        { project
+            | extraFiles = Dict.insert file.path file.source project.extraFiles
+            , extraFilesContentHashes = Dict.insert file.path (ContentHash.hash file.source) project.extraFilesContentHashes
+        }
+
+
 {-| Get the extra files in the project.
 -}
 extraFiles : Project -> Dict String String
 extraFiles (Internal.Project project) =
     project.extraFiles
+
+
+{-| REPLACEME
+-}
+updateFile : { path : String, source : String } -> Project -> Project
+updateFile file ((Internal.Project project) as rawProject) =
+    let
+        withElmModule : Project
+        withElmModule =
+            if Dict.member file.path project.modules then
+                addModule file rawProject
+
+            else
+                rawProject
+    in
+    if Dict.member file.path project.extraFilesContentHashes then
+        addExtraFile file withElmModule
+
+    else
+        withElmModule
 
 
 {-| Add a dependency to the project. These will be available for rules to make
