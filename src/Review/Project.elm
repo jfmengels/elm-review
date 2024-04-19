@@ -86,7 +86,6 @@ new =
         , elmJson = Nothing
         , readme = Nothing
         , extraFiles = Dict.empty
-        , extraFilesContentHash = ContentHash.nil
         , extraFilesContentHashes = Dict.empty
         , dependencies = Dict.empty
         , moduleGraph = Nothing
@@ -326,7 +325,6 @@ addExtraFiles newFiles (Internal.Project project) =
         { project
             | extraFiles = Dict.union newFiles project.extraFiles
             , extraFilesContentHashes = extraFilesContentHashes
-            , extraFilesContentHash = ContentHash.combine extraFilesContentHashes
         }
 
 
