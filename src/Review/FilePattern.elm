@@ -64,7 +64,11 @@ type FilePattern
 
 {-| REPLACEME
 -}
-type alias Summary =
+type Summary
+    = Summary SummaryInfo
+
+
+type alias SummaryInfo =
     { includeExclude : List CompactFilePattern
     , excludedDirectories : List Glob
     , strings : List { pattern : String, included : Bool }
@@ -75,7 +79,7 @@ type alias Summary =
 {-| REPLACEME
 -}
 toStrings : Summary -> { files : List { pattern : String, included : Bool }, excludedDirectories : List String }
-toStrings summary =
+toStrings (Summary summary) =
     { files = summary.strings
     , excludedDirectories = summary.excludedDirectoriesStrings
     }
@@ -98,19 +102,25 @@ compact filePatterns =
         }
         |> Result.map
             (\summary ->
-                { includeExclude = summary.includeExclude
-                , excludedDirectories = summary.excludedDirectories
-                , strings = List.reverse summary.strings
-                , excludedDirectoriesStrings = List.reverse summary.excludedDirectoriesStrings
-                }
+                Summary
+                    { includeExclude = summary.includeExclude
+                    , excludedDirectories = summary.excludedDirectories
+                    , strings = List.reverse summary.strings
+                    , excludedDirectoriesStrings = List.reverse summary.excludedDirectoriesStrings
+                    }
             )
 
 
-compactBase : List FilePattern -> Summary -> Result (List String) Summary
+compactBase : List FilePattern -> SummaryInfo -> Result (List String) SummaryInfo
 compactBase filePatterns accSummary =
     case filePatterns of
         [] ->
-            Ok accSummary
+            Ok
+                { includeExclude = accSummary.includeExclude
+                , excludedDirectories = accSummary.excludedDirectories
+                , strings = List.reverse accSummary.strings
+                , excludedDirectoriesStrings = List.reverse accSummary.excludedDirectoriesStrings
+                }
 
         (Include raw) :: rest ->
             case Glob.fromString raw of
@@ -142,7 +152,7 @@ compactBase filePatterns accSummary =
                     Err (compactErrors rest [ raw ])
 
 
-compactHelp : List FilePattern -> List Glob -> Bool -> Summary -> Result (List String) Summary
+compactHelp : List FilePattern -> List Glob -> Bool -> SummaryInfo -> Result (List String) SummaryInfo
 compactHelp filePatterns accGlobs included accSummary =
     case filePatterns of
         [] ->
@@ -242,7 +252,7 @@ compactErrors filePatterns accGlobStrings =
                     compactErrors rest (raw :: accGlobStrings)
 
 
-addRawIncludeExclude : String -> Bool -> Summary -> Summary
+addRawIncludeExclude : String -> Bool -> SummaryInfo -> SummaryInfo
 addRawIncludeExclude string included summary =
     { includeExclude = summary.includeExclude
     , excludedDirectories = summary.excludedDirectories
@@ -284,7 +294,7 @@ toDirectory globStr =
 {-| REPLACEME
 -}
 match : Summary -> String -> Bool
-match summary str =
+match (Summary summary) str =
     if List.any (\dirGlob -> Glob.match dirGlob str) summary.excludedDirectories then
         False
 
