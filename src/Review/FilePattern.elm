@@ -1,21 +1,60 @@
 module Review.FilePattern exposing
     ( FilePattern
     , include, exclude, excludeDirectory
-    , compact, match, toStrings
+    , compact, match
+    , toStrings
     )
 
-{-| REPLACEME
+{-| A module for selecting multiple files from the file system
+using [`glob`] patterns and negated patterns.
+
+    import Review.FilePattern as FilePattern
+
+    filePatterns =
+        [ FilePattern.include "**/*.css"
+        , FilePattern.exclude "**/*-test.css"
+        , FilePattern.excludeDirectory "ignore-folder/"
+        ]
+
+Some `elm-review` APIs require a `List FilePattern` as an argument to figure out a list of files to match or not match.
+
+This list works similar like [`.gitignore`] files: any matching file excluded by a previous pattern will become included again.
+Files that are in [excluded directories](#excludeDirectory) are ignored entirely.
+
+A file pattern is always relative to the project's `elm.json` file,
+and should be written in the Unix style (`src/Some/File.elm`, not `src\Some\File.elm`).
 
 @docs FilePattern
 @docs include, exclude, excludeDirectory
-@docs compact, match, toStrings
+
+
+## Supported patterns
+
+The supported patterns are the following:
+
+  - `?` matches an unknown single character (except `/`). "a?c" would match "abc" or "a5c", but not "ac".
+  - `*` matches any number of unknown characters (except `/`). "some-\*.txt" would match "some-file.txt" and "some-other-file.txt", but not "other-file.txt" or "some-folder/file.txt".
+  - `**` matches any number of sub-directories. "projects/**/README.md" would match "projects/README.md", "projects/a/README.md" and "projects/a/b/README.md". If you desire to include all files in a folder, then you need to end the pattern with `/**/*` (eg "projects/**/\*" or "projects/\*\*/\*.md").
+  - `[characters]` matches one of the specified characters. `a[bc]d` would match "abc" and "acd", but not "axd".
+  - `[^characters]` matches anything that is not one of the specified characters. `a[^bc]d` would match "axc", but not "abd" or "acd".
+  - `[character1-character2]` matches a range of characters. `a[a-z]d` would match "aac" and "azd", but not "a5d".
+  - `{string1|string2}` matches one of the provided strings. "file.{js|ts}" would match "file.js" and "file.ts" but not "file.md".
+
+
+## Using FilePattern
+
+@docs compact, match
+@docs toStrings
+
+[`glob`]: https://en.wikipedia.org/wiki/Glob_%28programming%29
+[`.gitignore`]: https://git-scm.com/docs/gitignore#_pattern_format
 
 -}
 
 import Glob exposing (Glob)
 
 
-{-| REPLACEME
+{-| A pattern to included or exclude files from a selection.
 -}
 type FilePattern
     = Include String
