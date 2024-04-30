@@ -3,9 +3,9 @@ module Review.Project exposing
     , ProjectModule, addModule, addParsedModule, removeModule, modules, modulesThatFailedToParse, precomputeModuleGraph
     , addElmJson, elmJson
     , addReadme, readme
-    , addExtraFiles, updateFile, extraFiles
+    , addExtraFiles, addExtraFile, updateFile, extraFiles
     , addDependency, removeDependency, removeDependencies, directDependencies, dependencies
-    , addExtraFile, diff
+    , diff
     )
 
 {-| Represents the contents of the project to be analyzed. This information will
@@ -39,12 +39,20 @@ does not look at project information (like the `elm.json`, dependencies, ...).
 
 # Extra files
 
-@docs addExtraFiles, updateFile, extraFiles
+"Extra files" are files that `elm-review` doesn't load by default because they do not relate to Elm source files or Elm packages,
+that rules can then visit.
+
+@docs addExtraFiles, addExtraFile, updateFile, extraFiles
 
 
 # Project dependencies
 
 @docs addDependency, removeDependency, removeDependencies, directDependencies, dependencies
+
+
+# Diffing
+
+@docs diff
 
 -}
 
@@ -310,8 +318,7 @@ readme (Internal.Project project) =
     Maybe.map Tuple.first project.readme
 
 
-{-| Add extra files to the project. These are files that `elm-review` doesn't load by default
-but can be visited by rules if they're explicily requested.
+{-| Add (or update) extra files to the project.
 -}
 addExtraFiles : Dict String String -> Project -> Project
 addExtraFiles newFiles (Internal.Project project) =
@@ -330,7 +337,7 @@ addExtraFiles newFiles (Internal.Project project) =
         }
 
 
-{-| REPLACEME
+{-| Add (or update) a single extra file to the project.
 -}
 addExtraFile : { path : String, source : String } -> Project -> Project
 addExtraFile file (Internal.Project project) =
@@ -348,7 +355,8 @@ extraFiles (Internal.Project project) =
     project.extraFiles
 
 
-{-| REPLACEME
+{-| Update an existing file in the project. The file can be an Elm file of the project
+and/or an extra file.
 -}
 updateFile : { path : String, source : String } -> Project -> Project
 updateFile file ((Internal.Project project) as rawProject) =
