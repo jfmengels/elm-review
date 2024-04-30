@@ -3,7 +3,7 @@ module Review.Project exposing
     , ProjectModule, addModule, addParsedModule, removeModule, modules, modulesThatFailedToParse, precomputeModuleGraph
     , addElmJson, elmJson
     , addReadme, readme
-    , addExtraFiles, addExtraFile, updateFile, extraFiles
+    , addExtraFiles, addExtraFile, updateFile, removeExtraFile, removeFile, extraFiles
     , addDependency, removeDependency, removeDependencies, directDependencies, dependencies
     , diff
     )
@@ -42,7 +42,7 @@ does not look at project information (like the `elm.json`, dependencies, ...).
 "Extra files" are files that `elm-review` doesn't load by default because they do not relate to Elm source files or Elm packages,
 that rules can then visit.
 
-@docs addExtraFiles, addExtraFile, updateFile, extraFiles
+@docs addExtraFiles, addExtraFile, updateFile, removeExtraFile, removeFile, extraFiles
 
 
 # Project dependencies
@@ -374,6 +374,38 @@ updateFile file ((Internal.Project project) as rawProject) =
 
     else
         withElmModule
+
+
+{-| Remove a single extra file from the project.
+-}
+removeExtraFile : String -> Project -> Project
+removeExtraFile filePath (Internal.Project project) =
+    Internal.Project
+        { project
+            | extraFiles = Dict.remove filePath project.extraFiles
+            , extraFilesContentHashes = Dict.remove filePath project.extraFilesContentHashes
+        }
+
+
+{-| Remove an existing file from the project. The file can be an Elm file of the project
+and/or an extra file.
+-}
+removeFile : String -> Project -> Project
+removeFile filePath ((Internal.Project project) as rawProject) =
+    let
+        withoutElmModule : Project
+        withoutElmModule =
+            if Dict.member filePath project.modules then
+                removeModule filePath rawProject
+
+            else
+                rawProject
+    in
+    if Dict.member filePath project.extraFilesContentHashes then
+        removeExtraFile filePath withoutElmModule
+
+    else
+        withoutElmModule
 
 
 {-| Add a dependency to the project. These will be available for rules to make
