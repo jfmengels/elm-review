@@ -1316,7 +1316,6 @@ fromProjectRuleSchema (ProjectRuleSchema schema) =
                     RequestedData.combine
                         (Maybe.map requestedDataFromContextCreator schema.moduleContextCreator)
                         (Maybe.map (.fromModuleToProject >> requestedDataFromContextCreator) schema.folder)
-                        -- TODO Keep the original globs as strings and pass them here
                         |> RequestedData.withFiles extraFileGlobs
                 , providesFixes = schema.providesFixes
                 , ruleProjectVisitor =
