@@ -2,6 +2,7 @@ module Review.ExceptionsTest exposing (all)
 
 import Expect
 import Review.Exceptions as Exceptions exposing (Exceptions)
+import Review.FilePattern as FilePattern exposing (FilePattern)
 import Test exposing (Test, describe, test)
 
 
@@ -37,6 +38,33 @@ all =
                     exceptions =
                         Exceptions.init
                             |> Exceptions.addDirectories [ "src/Ignored/", "src/Foo/Thing" ]
+                in
+                [ "src/Foo/Bar.elm"
+                , "src/Ignored/File.elm" -- should be removed
+                , "src/IgnoredFile.elm"
+                , "src/Foo/Thing.elm"
+                , "src/Foo/Thing/SubThing.elm" -- should be removed
+                , "src/File.elm"
+                , "src-other/Ignored/File.elm"
+                ]
+                    |> List.filter (Exceptions.isFileWeWantReportsFor exceptions)
+                    |> Expect.equal
+                        [ "src/Foo/Bar.elm"
+                        , "src/IgnoredFile.elm"
+                        , "src/Foo/Thing.elm"
+                        , "src/File.elm"
+                        , "src-other/Ignored/File.elm"
+                        ]
+        , test "should remove files using Exceptions.addFilePatterns" <|
+            \() ->
+                let
+                    exceptions : Exceptions
+                    exceptions =
+                        Exceptions.init
+                            |> createValidFilePatterns
+                                [ FilePattern.include "src/Ignored/**/*"
+                                , FilePattern.include "src/Foo/Thing/**/*"
+                                ]
                 in
                 [ "src/Foo/Bar.elm"
                 , "src/Ignored/File.elm" -- should be removed
@@ -255,3 +283,13 @@ all =
                         , "src-other\\Ignored\\File.elm"
                         ]
         ]
+
+
+createValidFilePatterns : List FilePattern -> Exceptions -> Exceptions
+createValidFilePatterns filePatterns exceptions =
+    case FilePattern.compact filePatterns of
+        Ok summary ->
+            Exceptions.addFilePatterns summary exceptions
+
+        Err faultyGlobs ->
+            Debug.todo ("Invalid file patterns: " ++ String.join "\n" faultyGlobs)

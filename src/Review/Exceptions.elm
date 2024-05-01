@@ -2,7 +2,7 @@ module Review.Exceptions exposing
     ( Exceptions
     , init
     , addDirectories, addFiles
-    , addFilter, isFileWeWantReportsFor
+    , addFilePatterns, addFilter, isFileWeWantReportsFor
     , avoidFixing, isFileFixable
     )
 
@@ -11,7 +11,7 @@ module Review.Exceptions exposing
 @docs Exceptions
 @docs init
 @docs addDirectories, addFiles
-@docs addFilter, isFileWeWantReportsFor
+@docs addFilePatterns, addFilter, isFileWeWantReportsFor
 @docs avoidFixing, isFileFixable
 
 -}
@@ -71,6 +71,11 @@ addDirectories directories exceptions =
                     )
     in
     addFilter (\path -> not (isInAnIgnoredDirectory cleanedDirectories path)) exceptions
+
+
+addFilePatterns : FilePattern.Summary -> Exceptions -> Exceptions
+addFilePatterns filePatternSummary exceptions =
+    addFilter (\file -> not (FilePattern.match { includeByDefault = False } filePatternSummary file)) exceptions
 
 
 addFiles : List String -> Exceptions -> Exceptions
