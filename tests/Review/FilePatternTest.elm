@@ -65,6 +65,24 @@ matchTest =
                     ]
                     "some/file/path.ext"
                     |> Expect.equal True
+        , test "should return True when including then excluding then including again" <|
+            \() ->
+                matchAgainst
+                    [ FilePattern.include "some/file/**/*"
+                    , FilePattern.exclude "some/file/path.*"
+                    , FilePattern.include "some/file/path.ext"
+                    ]
+                    "some/file/path.ext"
+                    |> Expect.equal True
+        , test "should return False when including then excluding then including again" <|
+            \() ->
+                matchAgainst
+                    [ FilePattern.exclude "some/file/**/*"
+                    , FilePattern.include "some/file/path.*"
+                    , FilePattern.exclude "some/file/path.ext"
+                    ]
+                    "some/file/path.ext"
+                    |> Expect.equal False
         , test "should return False when excluding the folder even when re-including the target file" <|
             \() ->
                 matchAgainst
