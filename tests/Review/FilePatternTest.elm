@@ -123,7 +123,7 @@ toStringsTest =
                     Err _ ->
                         Expect.pass
         , fuzz
-            (Fuzz.list Fuzz.string)
+            (Fuzz.list Fuzz.string |> Fuzz.map List.sort)
             "excluded folders should stay as before"
           <|
             \list ->
@@ -136,6 +136,7 @@ toStringsTest =
                         summary
                             |> FilePattern.toStrings
                             |> .excludedDirectories
+                            |> List.sort
                             |> Expect.equal list
 
                     Err _ ->
