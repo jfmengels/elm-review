@@ -2028,7 +2028,7 @@ withExtraFilesProjectVisitor baseVisitor filePatterns (ProjectRuleSchema schema)
             let
                 visitor : ExtraFileData -> projectContext -> ( List (Error {}), projectContext )
                 visitor files context =
-                    baseVisitor (Dict.filter (\path _ -> FilePattern.match filePatternSummary path) files.withFileKeys) context
+                    baseVisitor (Dict.filter (\path _ -> FilePattern.match { includeByDefault = False } filePatternSummary path) files.withFileKeys) context
                         |> Tuple.mapFirst removeErrorPhantomTypes
             in
             ProjectRuleSchema
@@ -2582,7 +2582,7 @@ withExtraFilesModuleVisitor baseVisitor filePatterns (ModuleRuleSchema schema) =
             let
                 visitor : ExtraFileData -> moduleContext -> moduleContext
                 visitor files context =
-                    baseVisitor (Dict.filter (\path _ -> FilePattern.match filePatternSummary path) files.withoutFileKeys) context
+                    baseVisitor (Dict.filter (\path _ -> FilePattern.match { includeByDefault = False } filePatternSummary path) files.withoutFileKeys) context
             in
             ModuleRuleSchema
                 { schema

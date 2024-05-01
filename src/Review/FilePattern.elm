@@ -293,31 +293,31 @@ toDirectory globStr =
 
 {-| REPLACEME
 -}
-match : Summary -> String -> Bool
-match (Summary summary) str =
+match : { includeByDefault : Bool } -> Summary -> String -> Bool
+match { includeByDefault } (Summary summary) str =
     if List.any (\dirGlob -> Glob.match dirGlob str) summary.excludedDirectories then
         False
 
     else
-        matchHelp summary.includeExclude str
+        matchHelp includeByDefault summary.includeExclude str
 
 
-matchHelp : List CompactFilePattern -> String -> Bool
-matchHelp filePatterns str =
+matchHelp : Bool -> List CompactFilePattern -> String -> Bool
+matchHelp includeByDefault filePatterns str =
     case filePatterns of
         [] ->
-            False
+            includeByDefault
 
         (CompactInclude globs) :: rest ->
             if List.any (\glob -> Glob.match glob str) globs then
                 True
 
             else
-                matchHelp rest str
+                matchHelp includeByDefault rest str
 
         (CompactExclude globs) :: rest ->
             if List.any (\glob -> Glob.match glob str) globs then
                 False
 
             else
-                matchHelp rest str
+                matchHelp includeByDefault rest str
