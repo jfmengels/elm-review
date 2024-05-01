@@ -75,7 +75,7 @@ addDirectories directories exceptions =
 
 addFilePatterns : FilePattern.Summary -> Exceptions -> Exceptions
 addFilePatterns filePatternSummary exceptions =
-    addFilter (\file -> not (FilePattern.match { includeByDefault = False } filePatternSummary file)) exceptions
+    addFilter (\file -> FilePattern.match { includeByDefault = True } filePatternSummary file) exceptions
 
 
 addFiles : List String -> Exceptions -> Exceptions

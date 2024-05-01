@@ -62,8 +62,8 @@ all =
                     exceptions =
                         Exceptions.init
                             |> createValidFilePatterns
-                                [ FilePattern.include "src/Ignored/**/*"
-                                , FilePattern.include "src/Foo/Thing/**/*"
+                                [ FilePattern.exclude "src/Ignored/*"
+                                , FilePattern.exclude "src/Foo/Thing/**/*"
                                 ]
                 in
                 [ "src/Foo/Bar.elm"

@@ -24,7 +24,7 @@ module Review.Rule exposing
     , ExtraFileKey, errorForExtraFile, errorForExtraFileWithFix
     , globalError, configurationError
     , FixV2, withFixesV2, editModule, removeModule, editElmJson, editReadme, editExtraFile, removeExtraFile
-    , ignoreErrorsForDirectories, ignoreErrorsForFiles, filterErrorsForFiles
+    , ignoreErrorsFor, ignoreErrorsForDirectories, ignoreErrorsForFiles, filterErrorsForFiles
     , ignoreFixesFor
     , withDataExtractor, preventExtract
     , reviewV3, reviewV2, review, ProjectData, ruleName, ruleProvidesFixes, ruleKnowsAboutIgnoredFiles, ruleRequestedFiles, withRuleId, getConfigurationError
@@ -289,7 +289,7 @@ leave a comment explaining the reason why you use these functions, or to
 communicate with your colleagues if you see them adding exceptions without
 reason or seemingly inappropriately.
 
-@docs ignoreErrorsForDirectories, ignoreErrorsForFiles, filterErrorsForFiles
+@docs ignoreErrorsFor, ignoreErrorsForDirectories, ignoreErrorsForFiles, filterErrorsForFiles
 @docs ignoreFixesFor
 
 
@@ -4684,6 +4684,60 @@ mapInternalError fn (Error err) =
 
 
 -- EXCEPTION CONFIGURATION
+
+
+{-| Ignore the errors reported for modules in specific directories of the project.
+
+Use it when you don't want to get review errors for generated source code or for
+libraries that you forked and copied over to your project.
+
+    config : List Rule
+    config =
+        [ Some.Rule.rule
+            |> Rule.ignoreErrorsFor [ FilePattern.exclude "src/Folder/**/Example.elm" ]
+        , Some.Other.Rule.rule
+        ]
+
+If you want to ignore some directories for all of your rules, you can apply
+`ignoreErrorsFor` like this:
+
+    config : List Rule
+    config =
+        [ Some.Rule.rule
+        , Some.Other.Rule.rule
+        ]
+            |> List.map (Rule.ignoreErrorsFor [ FilePattern.exclude "src/Folder/**/Example.elm" ])
+
+The paths should be relative to the `elm.json` file, just like the ones for the
+`elm.json`'s `source-directories`.
+
+You can apply `ignoreErrorsForDirectories`several times for a rule, to add more
+ignored directories.
+
+-}
+ignoreErrorsFor : List FilePattern -> Rule -> Rule
+ignoreErrorsFor filePatterns (Rule rule) =
+    case FilePattern.compact filePatterns of
+        Ok filePatternSummary ->
+            Rule
+                { name = rule.name
+                , id = rule.id
+                , exceptions = Exceptions.addFilePatterns filePatternSummary rule.exceptions
+                , requestedData = rule.requestedData
+                , providesFixes = rule.providesFixes
+                , ruleProjectVisitor = rule.ruleProjectVisitor
+                }
+
+        Err faultyGlobs ->
+            configurationError rule.name
+                { message = "Invalid globs provided when using Rule.ignoreErrorsFor"
+                , details =
+                    [ "This rule was configured to ignore some file patterns, but did so by specifying globs that I could not make sense of:"
+                    , faultyGlobs
+                        |> List.indexedMap (\index glob -> "  " ++ String.fromInt (index + 1) ++ ". " ++ glob)
+                        |> String.join "\n"
+                    ]
+                }
 
 
 {-| Ignore the errors reported for modules in specific directories of the project.
