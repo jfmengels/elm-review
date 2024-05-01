@@ -79,7 +79,7 @@ a = ()
                             ]
                           )
                         ]
-        , test "Using expectErrorsForModules" <|
+        , test "Using ignoreErrorsForDirectories" <|
             \() ->
                 [ """module A exposing (a)
 a = ()
