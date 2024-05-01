@@ -21,7 +21,7 @@ Some `elm-review` APIs require a `List FilePattern` as an argument to figure out
 This list works similar like [`.gitignore`] files: any matching file excluded by a previous pattern will become included again.
 Files that are in [excluded directories](#excludeDirectory) are ignored entirely.
 
-A file pattern is always relative to the project's `elm.json` file,
+A file pattern is always relative to the project's `elm.json` file, is case-sensitive,
 and should be written in the Unix style (`src/Some/File.elm`, not `src\Some\File.elm`).
 
 @docs FilePattern
