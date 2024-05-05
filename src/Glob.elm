@@ -1,5 +1,5 @@
 module Glob exposing
-    ( Glob, fromString, never
+    ( Glob, fromString
     , match
     )
 
@@ -7,7 +7,7 @@ module Glob exposing
 
 [glob]: https://en.wikipedia.org/wiki/Glob_%28programming%29
 
-@docs Glob, fromString, never
+@docs Glob, fromString
 @docs match
 
 -}
@@ -68,13 +68,6 @@ matchComponents components segments =
 
             else
                 False
-
-
-{-| A `glob` that never matches.
--}
-never : Glob
-never =
-    Glob []
 
 
 {-| Parse a string into a `glob`.

@@ -315,7 +315,6 @@ import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern exposing (Pattern)
 import Elm.Syntax.Range as Range exposing (Range)
-import Glob exposing (Glob)
 import Json.Encode as Encode
 import Review.Cache.ContentHash exposing (ContentHash)
 import Review.Cache.ContextHash as ContextHash exposing (ComparableContextHash, ContextHash)
@@ -328,7 +327,7 @@ import Review.Error exposing (InternalError)
 import Review.Exceptions as Exceptions exposing (Exceptions)
 import Review.FilePath exposing (FilePath)
 import Review.FilePattern as FilePattern exposing (FilePattern)
-import Review.Fix as Fix exposing (Fix, FixResult(..))
+import Review.Fix as Fix exposing (Fix)
 import Review.Fix.FixProblem as FixProblem
 import Review.Fix.FixedErrors as FixedErrors exposing (FixedErrors)
 import Review.Fix.Internal as InternalFix
@@ -347,7 +346,6 @@ import Review.Project.Valid as ValidProject exposing (ValidProject)
 import Review.RequestedData as RequestedData exposing (RequestedData(..))
 import Vendor.Graph as Graph exposing (Graph)
 import Vendor.IntDict as IntDict
-import Vendor.ListExtra as ListExtra
 import Vendor.Zipper as Zipper exposing (Zipper)
 
 
@@ -417,12 +415,6 @@ type alias ModuleRuleSchemaData moduleContext =
 
 type alias ExtraFileRequest =
     Result (List String) (List { files : List { pattern : String, included : Bool }, excludedDirectories : List String })
-
-
-type alias StringableGlob =
-    { glob : Glob
-    , string : String
-    }
 
 
 
@@ -1199,11 +1191,6 @@ compactExtraFilesVisitor maybeExtraFilesVisitor =
 
         Nothing ->
             Nothing
-
-
-globMatch : List Glob -> { a | path : String } -> Bool
-globMatch globs file =
-    List.any (\glob -> Glob.match glob file.path) globs
 
 
 
@@ -2054,65 +2041,6 @@ withExtraFilesProjectVisitor baseVisitor filePatterns (ProjectRuleSchema schema)
                             Ok _ ->
                                 Err globErrors
                 }
-
-
-parseGlobs : List String -> Result (List String) (List StringableGlob)
-parseGlobs requestedFiles =
-    requestedFiles
-        |> List.map
-            (\str ->
-                Glob.fromString str
-                    |> Result.map (\glob -> { glob = glob, string = str })
-                    |> Result.mapError (always str)
-            )
-        |> toResults
-
-
-combineGlobs : Result appendable appendable -> Result appendable appendable -> Result appendable appendable
-combineGlobs previous new =
-    case ( previous, new ) of
-        ( Ok previousGlobs, Ok newGlobs ) ->
-            Ok (previousGlobs ++ newGlobs)
-
-        ( Err previousErrors, Err newErrors ) ->
-            Err (previousErrors ++ newErrors)
-
-        ( Err errors, _ ) ->
-            previous
-
-        ( _, Err _ ) ->
-            new
-
-
-toResults : List (Result String a) -> Result (List String) (List a)
-toResults results =
-    toResultsHelp results []
-
-
-toResultsHelp : List (Result String a) -> List a -> Result (List String) (List a)
-toResultsHelp results acc =
-    case results of
-        [] ->
-            Ok acc
-
-        (Ok result) :: rest ->
-            toResultsHelp rest (result :: acc)
-
-        (Err str) :: rest ->
-            collectErrs rest [ str ]
-
-
-collectErrs : List (Result error value) -> List error -> Result (List error) never
-collectErrs results acc =
-    case results of
-        [] ->
-            Err acc
-
-        (Err str) :: rest ->
-            collectErrs rest (str :: acc)
-
-        (Ok _) :: rest ->
-            collectErrs rest []
 
 
 {-| Add a visitor to the [`ProjectRuleSchema`](#ProjectRuleSchema) which will examine the project's

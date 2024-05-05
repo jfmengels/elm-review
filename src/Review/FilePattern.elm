@@ -3,6 +3,7 @@ module Review.FilePattern exposing
     , include, exclude, excludeDirectory
     , compact, match
     , toStrings
+    , Summary
     )
 
 {-| A module for selecting multiple files from the file system

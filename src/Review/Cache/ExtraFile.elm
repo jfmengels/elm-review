@@ -14,7 +14,7 @@ module Review.Cache.ExtraFile exposing
 
 -}
 
-import Review.Cache.ContentHash as ContentHash exposing (ContentHash)
+import Review.Cache.ContentHash exposing (ContentHash)
 import Review.Cache.ContextHash as ContextHash exposing (ComparableContextHash, ContextHash)
 
 

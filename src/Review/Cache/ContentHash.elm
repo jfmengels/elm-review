@@ -1,4 +1,4 @@
-module Review.Cache.ContentHash exposing (ContentHash, combine, hash, nil)
+module Review.Cache.ContentHash exposing (ContentHash, combine, hash)
 
 import Dict exposing (Dict)
 import Vendor.Murmur3 as Murmur3
@@ -6,11 +6,6 @@ import Vendor.Murmur3 as Murmur3
 
 type ContentHash
     = ContentHash Int
-
-
-nil : ContentHash
-nil =
-    ContentHash 0
 
 
 hash : String -> ContentHash
