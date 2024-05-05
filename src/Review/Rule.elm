@@ -3934,7 +3934,7 @@ Take a look at [`Review.Fix`](./Review-Fix) to know more on how to makes fixes.
 If the list of fixes is empty, then it will give the same error as if you had
 called [`errorForReadme`](#errorForReadme) instead.
 
-**Note**: Each fix applies on a location in the code, defined by a range. To avoid an
+**Note**: Each fix applies on a location in the file, defined by a range. To avoid an
 unpredictable result, those ranges may not overlap. The order of the fixes does
 not matter.
 
@@ -3945,7 +3945,12 @@ errorForReadmeWithFix readmeKey info range fixes =
         |> withFixes fixes
 
 
-{-| REPLACEME
+{-| A key to be able to report an error for an extra file. You need this
+key in order to use the [`errorForReadmeWithFix`](#errorForReadmeWithFix) function. This is
+to prevent creating errors for it if you have not visited it.
+
+You can get a `ExtraFileKey` using the [`withExtraFilesProjectVisitor`](#withExtraFilesProjectVisitor) function.
+
 -}
 type ExtraFileKey
     = ExtraFileKey
@@ -3958,7 +3963,11 @@ type alias ExtraFileData =
     ValidProject.ExtraFileData ExtraFileKey
 
 
-{-| REPLACEME
+{-| Create an [`Error`](#Error) for an extra file.
+
+You will need an [`ExtraFileKey`](#ExtraFileKey), which you can get from the [`withExtraFilesProjectVisitor`](#withExtraFilesProjectVisitor)
+function.
+
 -}
 errorForExtraFile : ExtraFileKey -> { message : String, details : List String } -> Range -> Error scope
 errorForExtraFile (ExtraFileKey { path }) { message, details } range =
@@ -3974,7 +3983,18 @@ errorForExtraFile (ExtraFileKey { path }) { message, details } range =
         }
 
 
-{-| REPLACEME
+{-| Just like [`errorForExtraFile`](#errorForExtraFile), create an [`Error`](#Error) for an extra file, but
+provides an automatic fix that the user can apply.
+
+Take a look at [`Review.Fix`](./Review-Fix) to know more on how to makes fixes.
+
+If the list of fixes is empty, then it will give the same error as if you had
+called [`errorForExtraFile`](#errorForExtraFile) instead.
+
+**Note**: Each fix applies on a location in the file, defined by a range. To avoid an
+unpredictable result, those ranges may not overlap. The order of the fixes does
+not matter.
+
 -}
 errorForExtraFileWithFix : ExtraFileKey -> { message : String, details : List String } -> Range -> List Fix -> Error scope
 errorForExtraFileWithFix readmeKey info range fixes =
