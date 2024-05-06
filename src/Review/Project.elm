@@ -1,10 +1,17 @@
 module Review.Project exposing
     ( Project, new
-    , ProjectModule, addModule, addParsedModule, removeModule, modules, modulesThatFailedToParse, precomputeModuleGraph
+    , ProjectModule, addModule, addParsedModule
+    , removeModule
+    , modules, modulesThatFailedToParse
+    , precomputeModuleGraph
     , addElmJson, elmJson
     , addReadme, readme
-    , addExtraFiles, addExtraFile, updateFile, removeExtraFile, removeFile, extraFiles
-    , addDependency, removeDependency, removeDependencies, directDependencies, dependencies
+    , addExtraFiles, addExtraFile, updateFile
+    , removeExtraFile, removeFile
+    , extraFiles
+    , addDependency
+    , removeDependency, removeDependencies
+    , directDependencies, dependencies
     , diff
     )
 
@@ -24,7 +31,10 @@ does not look at project information (like the `elm.json`, dependencies, ...).
 
 ## Elm modules
 
-@docs ProjectModule, addModule, addParsedModule, removeModule, modules, modulesThatFailedToParse, precomputeModuleGraph
+@docs ProjectModule, addModule, addParsedModule
+@docs removeModule
+@docs modules, modulesThatFailedToParse
+@docs precomputeModuleGraph
 
 
 # `elm.json`
@@ -42,12 +52,16 @@ does not look at project information (like the `elm.json`, dependencies, ...).
 "Extra files" are files that `elm-review` doesn't load by default because they do not relate to Elm source files or Elm packages,
 that rules can then visit.
 
-@docs addExtraFiles, addExtraFile, updateFile, removeExtraFile, removeFile, extraFiles
+@docs addExtraFiles, addExtraFile, updateFile
+@docs removeExtraFile, removeFile
+@docs extraFiles
 
 
 # Project dependencies
 
-@docs addDependency, removeDependency, removeDependencies, directDependencies, dependencies
+@docs addDependency
+@docs removeDependency, removeDependencies
+@docs directDependencies, dependencies
 
 
 # Diffing
