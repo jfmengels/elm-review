@@ -6,6 +6,7 @@ import Dict exposing (Dict)
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Range exposing (Range)
+import RangeDict exposing (RangeDict)
 import Regex exposing (Regex)
 import Review.FilePattern as FilePattern exposing (FilePattern)
 import Review.ModuleNameLookupTable exposing (ModuleNameLookupTable)
@@ -82,6 +83,7 @@ type alias ProjectContext =
 type alias ModuleContext =
     { lookupTable : ModuleNameLookupTable
     , usedCssClasses : Set String
+    , functionOrValuesToIgnore : RangeDict ()
     }
 
 
@@ -98,6 +100,7 @@ fromProjectToModule =
         (\lookupTable _ ->
             { lookupTable = lookupTable
             , usedCssClasses = Set.empty
+            , functionOrValuesToIgnore = RangeDict.empty
             }
         )
         |> Rule.withModuleNameLookupTable
