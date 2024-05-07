@@ -1,12 +1,12 @@
 module Review.Test exposing
     ( ReviewResult, run, runWithProjectData, runOnModules, runOnModulesWithProjectData
-    , ExpectedError, expectNoErrors, expectErrors, error, atExactly, whenFixed, expectErrorsForModules, expectErrorsForElmJson, expectErrorsForReadme
+    , ExpectedError, expectNoErrors, expectErrors, error, atExactly, whenFixed, expectErrorsForModules, expectErrorsForElmJson, expectErrorsForReadme, expectErrorsForExtraFile
     , expectGlobalErrors
     , expectConfigurationError
     , expectDataExtract
     , ignoredFilesImpactResults
     , expect, ReviewExpectation
-    , moduleErrors, globalErrors, elmJsonErrors, readmeErrors, dataExtract
+    , moduleErrors, globalErrors, elmJsonErrors, readmeErrors, extraFileErrors, dataExtract
     , expectGlobalAndLocalErrors, expectGlobalAndModuleErrors
     )
 
@@ -107,7 +107,7 @@ for this module.
 
 # Making assertions
 
-@docs ExpectedError, expectNoErrors, expectErrors, error, atExactly, whenFixed, expectErrorsForModules, expectErrorsForElmJson, expectErrorsForReadme
+@docs ExpectedError, expectNoErrors, expectErrors, error, atExactly, whenFixed, expectErrorsForModules, expectErrorsForElmJson, expectErrorsForReadme, expectErrorsForExtraFile
 @docs expectGlobalErrors
 @docs expectConfigurationError
 @docs expectDataExtract
@@ -117,7 +117,7 @@ for this module.
 ## Composite assertions
 
 @docs expect, ReviewExpectation
-@docs moduleErrors, globalErrors, elmJsonErrors, readmeErrors, dataExtract
+@docs moduleErrors, globalErrors, elmJsonErrors, readmeErrors, extraFileErrors, dataExtract
 
 
 # Deprecated
@@ -1183,6 +1183,40 @@ expectErrorsForReadme expectedErrors reviewResult =
     expectErrorsForModules [ ( "README.md", expectedErrors ) ] reviewResult
 
 
+{-| Assert that the rule reported some errors for an extra file, by specifying which ones.
+
+If you expect the rule to report other kinds of errors or extract data, then you should use the [`Review.Test.expect`](#expect) and [`extraFileErrors`](#extraFileErrors) functions.
+
+    test "report an error when a module is unused" <|
+        \() ->
+            let
+                project : Project
+                project =
+                    Project.new
+                        |> Project.addReadme { path = "some-file.ext", context = "some string" }
+            in
+            """
+    module ModuleA exposing (a)
+    a = 1"""
+                |> Review.Test.runWithProjectData project rule
+                |> Review.Test.expectErrorsForExtraFile "some-file.ext"
+                    [ Review.Test.error
+                        { message = "Some message"
+                        , details = [ "Some details" ]
+                        , under = "some string"
+                        }
+                    ]
+
+Assert which errors are reported using [`error`](#error). The test will fail if
+a different number of errors than expected are reported, or if the message or the
+location is incorrect.
+
+-}
+expectErrorsForExtraFile : String -> List ExpectedError -> ReviewResult -> Expectation
+expectErrorsForExtraFile filePath expectedErrors reviewResult =
+    expectErrorsForModules [ ( filePath, expectedErrors ) ] reviewResult
+
+
 {-| Create an expectation for an error.
 
 `message` should be the message you're expecting to be shown to the user.
@@ -2129,6 +2163,45 @@ If you expect only errors for `README.md`, then you may want to use [`expectErro
 readmeErrors : List ExpectedError -> ReviewExpectation
 readmeErrors expected =
     FileErrorExpectation "README.md" expected
+
+
+{-| Assert that the rule reported some errors for a specific extra file. To be used along with [`Review.Test.expect`](#expect).
+
+If you expect only errors for one file, then you may want to use [`expectErrorsForExtraFile`](#expectErrorsForExtraFile) which is simpler.
+
+    import Review.Test
+    import Test exposing (Test, describe, test)
+    import The.Rule.You.Want.To.Test exposing (rule)
+
+    tests : Test
+    tests =
+        describe "The.Rule.You.Want.To.Test"
+            [ test "should extract even if there are errors" <|
+                \() ->
+                    let
+                        project : Project
+                        project =
+                            Project.new
+                                |> Project.addExtraFile { path = "my-file.ext", context = "some string" }
+                    in
+                    """module ModuleA exposing (a)
+    a = 1"""
+                        |> Review.Test.runWithProjectData project rule
+                        |> Review.Test.expect
+                            [ Review.Test.extraFileErrors
+                                [ Review.Test.error
+                                    { message = "Some message"
+                                    , details = [ "Some details" ]
+                                    , under = "some string"
+                                    }
+                                ]
+                            ]
+            ]
+
+-}
+extraFileErrors : String -> List ExpectedError -> ReviewExpectation
+extraFileErrors filePath expected =
+    FileErrorExpectation filePath expected
 
 
 {-| Expect the rule to produce a specific data extract. To be used along with [`Review.Test.expect`](#expect).
