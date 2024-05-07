@@ -8,6 +8,7 @@ import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Range exposing (Range)
 import Regex exposing (Regex)
 import Review.FilePattern as FilePattern exposing (FilePattern)
+import Review.ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Rule as Rule exposing (Rule)
 import Set exposing (Set)
 
@@ -79,7 +80,8 @@ type alias ProjectContext =
 
 
 type alias ModuleContext =
-    { usedCssClasses : Set String
+    { lookupTable : ModuleNameLookupTable
+    , usedCssClasses : Set String
     }
 
 
@@ -92,7 +94,13 @@ initialProjectContext =
 
 fromProjectToModule : Rule.ContextCreator ProjectContext ModuleContext
 fromProjectToModule =
-    Rule.initContextCreator (\_ -> { usedCssClasses = Set.empty })
+    Rule.initContextCreator
+        (\lookupTable _ ->
+            { lookupTable = lookupTable
+            , usedCssClasses = Set.empty
+            }
+        )
+        |> Rule.withModuleNameLookupTable
 
 
 fromModuleToProject : Rule.ContextCreator ModuleContext ProjectContext
