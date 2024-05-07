@@ -1038,20 +1038,19 @@ maybeCons mapper maybe list =
 expectErrorsForModulesHelp : RuleCanProvideFixes -> List ( String, List ExpectedError ) -> List SuccessfulRunResult -> Expectation
 expectErrorsForModulesHelp ruleCanProvideFixes expectedErrorsList runResults =
     let
-        maybeUnknownModule : Maybe String
-        maybeUnknownModule =
+        unknownModules : List String
+        unknownModules =
             Set.diff
                 (expectedErrorsList |> List.map Tuple.first |> Set.fromList)
                 (Set.fromList (List.map .moduleName runResults))
                 |> Set.toList
-                |> List.head
     in
-    case maybeUnknownModule of
-        Just unknownModule ->
+    case unknownModules of
+        unknownModule :: _ ->
             FailureMessage.unknownModulesInExpectedErrors unknownModule
                 |> Expect.fail
 
-        Nothing ->
+        [] ->
             Expect.all
                 (expectErrorsForModuleFiles ruleCanProvideFixes expectedErrorsList runResults)
                 ()
