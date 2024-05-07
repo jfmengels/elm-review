@@ -37,18 +37,15 @@ view model =
 """
                     |> Review.Test.runWithProjectData projectWithCssClasses
                         (cssFiles [ FilePattern.include "*.css" ] |> rule)
-                    |> Review.Test.expectErrorsForModules
-                        [ ( "some-files.css"
-                          , [ Review.Test.error
-                                { message = "Unknown CSS class \"unknown\""
-                                , details =
-                                    [ "I could not find this class in CSS files. Have you made a typo?"
-                                    , "Here are similarly-named classes:\n - unknown2\n - known"
-                                    ]
-                                , under = "-- First line"
-                                }
-                            ]
-                          )
+                    |> Review.Test.expectErrorsForExtraFile "some-file.css"
+                        [ Review.Test.error
+                            { message = "Unknown CSS class \"unknown\""
+                            , details =
+                                [ "I could not find this class in CSS files. Have you made a typo?"
+                                , "Here are similarly-named classes:\n - unknown2\n - known"
+                                ]
+                            , under = "-- First line"
+                            }
                         ]
         ]
 
