@@ -2048,7 +2048,7 @@ and reports errors when the classes given as argument are unknown.
                         , "Here are the classes that seem unused: " ++ String.join " " (Set.toList unusedClasses)
                         ]
                     }
-                    { start = { row = 1, column = 1 }, end = { row = 2, column = 1 } }
+                    { start = { row = 1, column = 1 }, end = { row = 1, column = 100000 } }
                 )
 
 -}
