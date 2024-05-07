@@ -1,6 +1,7 @@
 module Css.NoUnusedClasses exposing (cssFiles, dontReport, rule, withCssUsingFunctions)
 
 import Css.ClassFunction as ClassFunction exposing (CssArgument)
+import Css.CssParser
 import Dict exposing (Dict)
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Node as Node exposing (Node)
@@ -111,29 +112,48 @@ foldProjectContexts newContext previousContext =
     }
 
 
-cssClassRegex : Regex
-cssClassRegex =
-    Regex.fromString "\\.([\\w-_]+)"
-        |> Maybe.withDefault Regex.never
-
-
-cssFilesVisitor : Dict String { fileKey : Rule.ExtraFileKey, content : String } -> ProjectContext -> ( List (Rule.Error { useErrorForModule : () }), ProjectContext )
+cssFilesVisitor : Dict String { fileKey : Rule.ExtraFileKey, content : String } -> ProjectContext -> ( List (Rule.Error scope), ProjectContext )
 cssFilesVisitor files context =
-    ( []
-    , { context
-        | cssFiles =
-            Dict.map
-                (\_ { fileKey, content } ->
-                    { fileKey = fileKey
-                    , classes =
-                        Regex.find cssClassRegex content
-                            |> List.map (\m -> String.dropLeft 1 m.match)
-                            |> Set.fromList
-                    }
-                )
-                files
-      }
-    )
+    let
+        ( errors, cssFiles_ ) =
+            Dict.foldl parseCssFile ( [], Dict.empty ) files
+    in
+    ( errors, { cssFiles = cssFiles_, usedCssClasses = context.usedCssClasses } )
+
+
+parseCssFile :
+    String
+    -> { fileKey : Rule.ExtraFileKey, content : String }
+    ->
+        ( List (Rule.Error scope)
+        , Dict
+            String
+            { fileKey : Rule.ExtraFileKey
+            , classes : Set String
+            }
+        )
+    ->
+        ( List (Rule.Error scope)
+        , Dict
+            String
+            { fileKey : Rule.ExtraFileKey
+            , classes : Set String
+            }
+        )
+parseCssFile filePath file ( errors, dict ) =
+    case Css.CssParser.parse file.content of
+        Ok cssClasses ->
+            ( errors, Dict.insert filePath { fileKey = file.fileKey, classes = cssClasses } dict )
+
+        Err _ ->
+            ( Rule.errorForExtraFile file.fileKey
+                { message = "Unable to parse CSS file `" ++ filePath ++ "`"
+                , details = [ "Please check that this file is syntactically correct. It is possible that I'm mistaken as my CSS parser is still very naive. Contributions are welcome to solve the issue." ]
+                }
+                { start = { row = 1, column = 1 }, end = { row = 1, column = 100000 } }
+                :: errors
+            , dict
+            )
 
 
 expressionVisitor : Node Expression -> ModuleContext -> ( List (Rule.Error {}), ModuleContext )
