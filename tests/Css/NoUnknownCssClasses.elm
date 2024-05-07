@@ -138,6 +138,7 @@ elm-review --template jfmengels/elm-review/example --rules NoUnknownCssClasses
 -}
 
 import Css.ClassFunction as ClassFunction exposing (CssArgument)
+import Css.CssParser
 import Dict exposing (Dict)
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Node as Node exposing (Node(..))
@@ -189,6 +190,23 @@ cssFilesVisitor files context =
             Dict.foldl parseCssFile ( [], context.knownClasses ) files
     in
     ( errors, { knownClasses = knownClasses } )
+
+
+parseCssFile : String -> { fileKey : Rule.ExtraFileKey, content : String } -> ( List (Rule.Error scope), Set String ) -> ( List (Rule.Error scope), Set String )
+parseCssFile filePath file ( errors, knownClasses ) =
+    case Css.CssParser.parse file.content of
+        Ok cssClasses ->
+            ( errors, Set.union cssClasses knownClasses )
+
+        Err _ ->
+            ( Rule.errorForExtraFile file.fileKey
+                { message = "Unable to parse CSS file `" ++ filePath ++ "`"
+                , details = [ "Please check that this file is syntactically correct. It is possible that I'm mistaken as my CSS parser is still very naive. Contributions are welcome to solve the issue." ]
+                }
+                { start = { row = 1, column = 1 }, end = { row = 1, column = 100000 } }
+                :: errors
+            , knownClasses
+            )
 
 
 addKnownClasses : List String -> Configuration -> Configuration
@@ -538,50 +556,3 @@ unknownClassesHelp knownClasses row column classes errors =
                 column
                 rest
                 newErrors
-
-
-
----
-
-
-parseCssFile : String -> { fileKey : Rule.ExtraFileKey, content : String } -> ( List (Rule.Error externalFile), Set String ) -> ( List (Rule.Error externalFile), Set String )
-parseCssFile path file ( errors, knownClasses ) =
-    case Parser.run cssParser file.content of
-        Ok cssClasses ->
-            ( errors, Set.union cssClasses knownClasses )
-
-        Err _ ->
-            -- Create an error?
-            ( Rule.errorForExtraFile file.fileKey
-                { message = "Unable to parse CSS file `some-file.css`"
-                , details = [ "Please check that this file is syntactically correct. It is possible that I'm mistaken as my CSS parser is still very naive. Contributions are welcome to solve the issue." ]
-                }
-                { start = { row = 1, column = 1 }, end = { row = 1, column = 100000 } }
-                :: errors
-            , knownClasses
-            )
-
-
-cssParser : Parser (Set String)
-cssParser =
-    Parser.loop Set.empty cssRule
-
-
-cssRule : Set String -> Parser (Parser.Step (Set String) (Set String))
-cssRule acc =
-    Parser.oneOf
-        [ Parser.succeed (\selector -> Parser.Loop (Set.insert selector acc))
-            |. Parser.token "."
-            |= (Parser.chompWhile (\c -> Char.isAlphaNum c || c == '-' || c == '_')
-                    |> Parser.getChompedString
-               )
-        , Parser.end
-            |> Parser.map (\_ -> Parser.Done acc)
-        , Parser.succeed (\() -> Parser.Loop acc)
-            |. Parser.token "{"
-            |. Parser.chompUntil "}"
-            |. Parser.token "}"
-            |= Parser.spaces
-        , Parser.succeed (\() -> Parser.Loop acc)
-            |= Parser.chompIf (always True)
-        ]
