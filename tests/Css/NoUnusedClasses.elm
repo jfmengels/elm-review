@@ -4,12 +4,12 @@ import Css.ClassFunction as ClassFunction exposing (CssArgument)
 import Css.CssParser
 import Dict exposing (Dict)
 import Elm.Syntax.Expression as Expression exposing (Expression)
-import Elm.Syntax.Node as Node exposing (Node)
+import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Range exposing (Range)
 import RangeDict exposing (RangeDict)
 import Regex exposing (Regex)
 import Review.FilePattern as FilePattern exposing (FilePattern)
-import Review.ModuleNameLookupTable exposing (ModuleNameLookupTable)
+import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Rule as Rule exposing (Rule)
 import Set exposing (Set)
 
@@ -19,7 +19,7 @@ rule (Configuration configuration) =
     Rule.newProjectRuleSchema "Css.NoUnusedClasses" initialProjectContext
         |> Rule.withExtraFilesProjectVisitor cssFilesVisitor
             [ FilePattern.include "**/*.css" ]
-        |> Rule.withModuleVisitor moduleVisitor
+        |> Rule.withModuleVisitor (moduleVisitor configuration.cssFunctions)
         |> Rule.withModuleContextUsingContextCreator
             { fromProjectToModule = fromProjectToModule
             , fromModuleToProject = fromModuleToProject
@@ -58,10 +58,10 @@ withCssUsingFunctions newFunctions (Configuration configuration) =
     Configuration { configuration | cssFunctions = List.foldl (\( key, fn ) acc -> Dict.insert key fn acc) configuration.cssFunctions newFunctions }
 
 
-moduleVisitor : Rule.ModuleRuleSchema {} ModuleContext -> Rule.ModuleRuleSchema { hasAtLeastOneVisitor : () } ModuleContext
-moduleVisitor schema =
+moduleVisitor : CssFunctions -> Rule.ModuleRuleSchema {} ModuleContext -> Rule.ModuleRuleSchema { hasAtLeastOneVisitor : () } ModuleContext
+moduleVisitor cssFunctions schema =
     schema
-        |> Rule.withExpressionEnterVisitor expressionVisitor
+        |> Rule.withExpressionEnterVisitor (expressionVisitor cssFunctions)
 
 
 dontReport : List String -> Configuration -> Configuration
@@ -167,31 +167,96 @@ parseCssFile filePath file ( errors, dict ) =
             )
 
 
-expressionVisitor : Node Expression -> ModuleContext -> ( List (Rule.Error {}), ModuleContext )
-expressionVisitor node context =
+expressionVisitor : CssFunctions -> Node Expression -> ModuleContext -> ( List (Rule.Error {}), ModuleContext )
+expressionVisitor cssFunctions node context =
     case Node.value node of
-        Expression.Application [ function, firstArg ] ->
-            case Node.value function of
-                Expression.FunctionOrValue [ "Html", "Attributes" ] "class" ->
-                    case Node.value firstArg of
-                        Expression.Literal stringLiteral ->
-                            let
-                                usedCssClasses : List String
-                                usedCssClasses =
-                                    String.split " " stringLiteral
-                            in
-                            ( []
-                            , { context | usedCssClasses = List.foldl Set.insert context.usedCssClasses usedCssClasses }
-                            )
+        Expression.Application ((Node fnRange (Expression.FunctionOrValue _ name)) :: firstArg :: restOfArguments) ->
+            registerClasses cssFunctions context fnRange name firstArg restOfArguments
 
-                        _ ->
-                            ( [], context )
+        Expression.OperatorApplication "|>" _ firstArg (Node fnRange (Expression.FunctionOrValue _ name)) ->
+            registerClasses cssFunctions context fnRange name firstArg []
 
-                _ ->
-                    ( [], context )
+        Expression.OperatorApplication "<|" _ (Node fnRange (Expression.FunctionOrValue _ name)) firstArg ->
+            registerClasses cssFunctions context fnRange name firstArg []
+
+        Expression.FunctionOrValue _ name ->
+            ( reportStrayCssFunction cssFunctions context (Node.range node) name
+            , context
+            )
 
         _ ->
             ( [], context )
+
+
+reportStrayCssFunction : CssFunctions -> ModuleContext -> Range -> String -> List (Rule.Error {})
+reportStrayCssFunction cssFunctions context range name =
+    if RangeDict.member range context.functionOrValuesToIgnore then
+        []
+
+    else
+        case
+            ModuleNameLookupTable.moduleNameAt context.lookupTable range
+                |> Maybe.andThen (\moduleName -> getCssFunction cssFunctions name moduleName)
+        of
+            Just _ ->
+                [ Rule.error
+                    { message = "Class using function is used without arguments"
+                    , details = [ "Having the function used without arguments confuses me and will prevent me from figuring out whether the classes passed to this function will be known or unknown. Please pass in all the arguments at the location." ]
+                    }
+                    range
+                ]
+
+            Nothing ->
+                []
+
+
+getCssFunction : Dict String v -> String -> List String -> Maybe v
+getCssFunction cssFunctions name moduleName =
+    Dict.get (String.join "." moduleName ++ "." ++ name) cssFunctions
+
+
+registerClasses : CssFunctions -> ModuleContext -> Range -> String -> Node Expression -> List (Node Expression) -> ( List (Rule.Error {}), ModuleContext )
+registerClasses cssFunctions context fnRange name firstArgument restOfArguments =
+    case
+        ModuleNameLookupTable.moduleNameAt context.lookupTable fnRange
+            |> Maybe.andThen (\moduleName -> getCssFunction cssFunctions name moduleName)
+    of
+        Just cssFunction ->
+            ( []
+            , { context
+                | usedCssClasses = errorsForCssFunction context.usedCssClasses cssFunction fnRange { lookupTable = context.lookupTable, firstArgument = firstArgument, restOfArguments = restOfArguments }
+                , functionOrValuesToIgnore = RangeDict.insert fnRange () context.functionOrValuesToIgnore
+              }
+            )
+
+        Nothing ->
+            ( [], context )
+
+
+errorsForCssFunction :
+    Set String
+    -> (ClassFunction.Arguments -> List CssArgument)
+    -> Range
+    -> ClassFunction.Arguments
+    -> Set String
+errorsForCssFunction usedCssClasses cssFunction fnRange target =
+    List.foldl
+        (\arg acc ->
+            case arg of
+                ClassFunction.Literal class ->
+                    Set.insert class acc
+
+                ClassFunction.Variable range ->
+                    Debug.todo "Variable"
+
+                ClassFunction.UngraspableExpression range ->
+                    Debug.todo "UngraspableExpression"
+
+                ClassFunction.MissingArgument index ->
+                    Debug.todo "Missing argument"
+        )
+        usedCssClasses
+        (cssFunction target)
 
 
 finalEvaluation : ProjectContext -> List (Rule.Error { useErrorForModule : () })
