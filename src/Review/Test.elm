@@ -353,6 +353,7 @@ This is especially useful to test rules created with
 several modules, and where the context of the project is important.
 
     import My.Rule exposing (rule)
+    import Review.Project as Project exposing (Project)
     import Review.Test
     import Test exposing (Test, test)
 
@@ -1081,25 +1082,32 @@ expectErrorsForModuleFiles ruleCanProvideFixes expectedErrorsList runResults =
 
 If you expect the rule to report other kinds of errors or extract data, then you should use the [`Review.Test.expect`](#expect) and [`elmJsonErrors`](#elmJsonErrors) functions.
 
-    test "report an error when a module is unused" <|
-        \() ->
-            let
-                project : Project
-                project =
-                    Project.new
-                        |> Project.addElmJson elmJsonToConstructManually
-            in
-            """
+    import Review.Project as Project exposing (Project)
+    import Review.Test
+    import Test exposing (Test, test)
+    import The.Rule.You.Want.To.Test exposing (rule)
+
+    someTest : Test
+    someTest =
+        test "report an error when a module is unused" <|
+            \() ->
+                let
+                    project : Project
+                    project =
+                        Project.new
+                            |> Project.addElmJson elmJsonToConstructManually
+                in
+                """
     module ModuleA exposing (a)
     a = 1"""
-                |> Review.Test.runWithProjectData project rule
-                |> Review.Test.expectErrorsForElmJson
-                    [ Review.Test.error
-                        { message = "Unused dependency `author/package`"
-                        , details = [ "Dependency should be removed" ]
-                        , under = "author/package"
-                        }
-                    ]
+                    |> Review.Test.runWithProjectData project rule
+                    |> Review.Test.expectErrorsForElmJson
+                        [ Review.Test.error
+                            { message = "Unused dependency `author/package`"
+                            , details = [ "Dependency should be removed" ]
+                            , under = "author/package"
+                            }
+                        ]
 
 Assert which errors are reported using [`error`](#error). The test will fail if
 a different number of errors than expected are reported, or if the message or the
@@ -1153,25 +1161,32 @@ expectGlobalErrors expectedErrors reviewResult =
 
 If you expect the rule to report other kinds of errors or extract data, then you should use the [`Review.Test.expect`](#expect) and [`readmeErrors`](#readmeErrors) functions.
 
-    test "report an error when a module is unused" <|
-        \() ->
-            let
-                project : Project
-                project =
-                    Project.new
-                        |> Project.addReadme { path = "README.md", context = "# Project\n..." }
-            in
-            """
+    import Review.Project as Project exposing (Project)
+    import Review.Test
+    import Test exposing (Test, test)
+    import The.Rule.You.Want.To.Test exposing (rule)
+
+    someTest : Test
+    someTest =
+        test "report an error when a module is unused" <|
+            \() ->
+                let
+                    project : Project
+                    project =
+                        Project.new
+                            |> Project.addReadme { path = "README.md", context = "# Project\n..." }
+                in
+                """
     module ModuleA exposing (a)
     a = 1"""
-                |> Review.Test.runWithProjectData project rule
-                |> Review.Test.expectErrorsForReadme
-                    [ Review.Test.error
-                        { message = "Invalid link"
-                        , details = [ "README contains an invalid link" ]
-                        , under = "htt://example.com"
-                        }
-                    ]
+                    |> Review.Test.runWithProjectData project rule
+                    |> Review.Test.expectErrorsForReadme
+                        [ Review.Test.error
+                            { message = "Invalid link"
+                            , details = [ "README contains an invalid link" ]
+                            , under = "htt://example.com"
+                            }
+                        ]
 
 Assert which errors are reported using [`error`](#error). The test will fail if
 a different number of errors than expected are reported, or if the message or the
@@ -1187,25 +1202,32 @@ expectErrorsForReadme expectedErrors reviewResult =
 
 If you expect the rule to report other kinds of errors or extract data, then you should use the [`Review.Test.expect`](#expect) and [`extraFileErrors`](#extraFileErrors) functions.
 
-    test "report an error when a module is unused" <|
-        \() ->
-            let
-                project : Project
-                project =
-                    Project.new
-                        |> Project.addReadme { path = "some-file.ext", context = "some string" }
-            in
-            """
+    import Review.Project as Project exposing (Project)
+    import Review.Test
+    import Test exposing (Test, test)
+    import The.Rule.You.Want.To.Test exposing (rule)
+
+    someTest : Test
+    someTest =
+        test "report an error when a module is unused" <|
+            \() ->
+                let
+                    project : Project
+                    project =
+                        Project.new
+                            |> Project.addExtraFile { path = "some-file.ext", context = "some string" }
+                in
+                """
     module ModuleA exposing (a)
     a = 1"""
-                |> Review.Test.runWithProjectData project rule
-                |> Review.Test.expectErrorsForExtraFile "some-file.ext"
-                    [ Review.Test.error
-                        { message = "Some message"
-                        , details = [ "Some details" ]
-                        , under = "some string"
-                        }
-                    ]
+                    |> Review.Test.runWithProjectData project rule
+                    |> Review.Test.expectErrorsForExtraFile "some-file.ext"
+                        [ Review.Test.error
+                            { message = "Some message"
+                            , details = [ "Some details" ]
+                            , under = "some string"
+                            }
+                        ]
 
 Assert which errors are reported using [`error`](#error). The test will fail if
 a different number of errors than expected are reported, or if the message or the
@@ -2094,27 +2116,34 @@ moduleErrors moduleName expected =
 
 If you expect only errors for `elm.json`, then you may want to use [`expectErrorsForElmJson`](#expectErrorsForElmJson) which is simpler.
 
-    test "report an error when a module is unused" <|
-        \() ->
-            let
-                project : Project
-                project =
-                    Project.new
-                        |> Project.addElmJson elmJsonToConstructManually
-            in
-            """
+    import Review.Project as Project exposing (Project)
+    import Review.Test
+    import Test exposing (Test, test)
+    import The.Rule.You.Want.To.Test exposing (rule)
+
+    someTest : Test
+    someTest =
+        test "report an error when a module is unused" <|
+            \() ->
+                let
+                    project : Project
+                    project =
+                        Project.new
+                            |> Project.addElmJson elmJsonToConstructManually
+                in
+                """
     module ModuleA exposing (a)
     a = 1"""
-                |> Review.Test.runWithProjectData project rule
-                |> Review.Test.expect
-                    [ Review.Test.elmJson
-                        [ Review.Test.error
-                            { message = "Unused dependency `author/package`"
-                            , details = [ "Dependency should be removed" ]
-                            , under = "author/package"
-                            }
+                    |> Review.Test.runWithProjectData project rule
+                    |> Review.Test.expect
+                        [ Review.Test.elmJson
+                            [ Review.Test.error
+                                { message = "Unused dependency `author/package`"
+                                , details = [ "Dependency should be removed" ]
+                                , under = "author/package"
+                                }
+                            ]
                         ]
-                    ]
 
 Assert which errors are reported using [`error`](#error). The test will fail if
 a different number of errors than expected are reported, or if the message or the
@@ -2130,6 +2159,7 @@ elmJsonErrors expected =
 
 If you expect only errors for `README.md`, then you may want to use [`expectErrorsForReadme`](#expectErrorsForReadme) which is simpler.
 
+    import Review.Project as Project exposing (Project)
     import Review.Test
     import Test exposing (Test, describe, test)
     import The.Rule.You.Want.To.Test exposing (rule)
@@ -2169,6 +2199,7 @@ readmeErrors expected =
 
 If you expect only errors for one file, then you may want to use [`expectErrorsForExtraFile`](#expectErrorsForExtraFile) which is simpler.
 
+    import Review.Project as Project
     import Review.Test
     import Test exposing (Test, describe, test)
     import The.Rule.You.Want.To.Test exposing (rule)
