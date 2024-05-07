@@ -1,7 +1,7 @@
-module Css.NoUnusedCssClassesTest exposing (all)
+module Css.NoUnusedClassesTest exposing (all)
 
 import Css.ClassFunction as ClassFunction exposing (CssArgument, fromLiteral)
-import Css.NoUnusedCssClasses exposing (cssFiles, dontReport, rule, withCssUsingFunctions)
+import Css.NoUnusedClasses exposing (cssFiles, dontReport, rule, withCssUsingFunctions)
 import Dict
 import Elm.Syntax.Expression exposing (Expression)
 import Elm.Syntax.Node exposing (Node)
@@ -14,7 +14,7 @@ import Test exposing (Test, describe, test)
 
 all : Test
 all =
-    describe "NoUnusedCssClasses"
+    describe "Css.NoUnusedClasses"
         [ test "should not report an error when strings don't seem to be CSS classes" <|
             \() ->
                 """module A exposing (..)

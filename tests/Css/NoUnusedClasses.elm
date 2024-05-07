@@ -1,4 +1,4 @@
-module Css.NoUnusedCssClasses exposing (cssFiles, dontReport, rule, withCssUsingFunctions)
+module Css.NoUnusedClasses exposing (cssFiles, dontReport, rule, withCssUsingFunctions)
 
 import Css.ClassFunction as ClassFunction exposing (CssArgument)
 import Dict exposing (Dict)
@@ -13,7 +13,7 @@ import Set exposing (Set)
 
 rule : Configuration -> Rule
 rule (Configuration configuration) =
-    Rule.newProjectRuleSchema "NoUnusedCssClasses" initialProjectContext
+    Rule.newProjectRuleSchema "Css.NoUnusedClasses" initialProjectContext
         |> Rule.withExtraFilesProjectVisitor cssFilesVisitor
             [ FilePattern.include "**/*.css" ]
         |> Rule.withModuleVisitor moduleVisitor
