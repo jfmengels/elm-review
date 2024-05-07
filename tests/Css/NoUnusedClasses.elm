@@ -17,8 +17,7 @@ import Set exposing (Set)
 rule : Configuration -> Rule
 rule (Configuration configuration) =
     Rule.newProjectRuleSchema "Css.NoUnusedClasses" initialProjectContext
-        |> Rule.withExtraFilesProjectVisitor cssFilesVisitor
-            [ FilePattern.include "**/*.css" ]
+        |> Rule.withExtraFilesProjectVisitor cssFilesVisitor configuration.cssFiles
         |> Rule.withModuleVisitor (moduleVisitor configuration.cssFunctions)
         |> Rule.withModuleContextUsingContextCreator
             { fromProjectToModule = fromProjectToModule
