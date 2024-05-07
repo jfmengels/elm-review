@@ -548,25 +548,20 @@ readmeRunResult errors project =
 extraFileRunResult : List ReviewError -> Project -> List SuccessfulRunResult
 extraFileRunResult errors project =
     let
-        extraFilePaths : Dict String String
-        extraFilePaths =
-            Project.extraFiles project
+        errorsPerFile_ : Dict String (List ReviewError)
+        errorsPerFile_ =
+            errorsPerFile errors
     in
     Dict.foldl
-        (\path errorsForFile acc ->
-            case Dict.get path extraFilePaths of
-                Just content ->
-                    { moduleName = path
-                    , inspector = codeInspectorForSource False content
-                    , errors = errorsForFile
-                    }
-                        :: acc
-
-                Nothing ->
-                    acc
+        (\path content acc ->
+            { moduleName = path
+            , inspector = codeInspectorForSource False content
+            , errors = Dict.get path errorsPerFile_ |> Maybe.withDefault []
+            }
+                :: acc
         )
         []
-        (errorsPerFile errors)
+        (Project.extraFiles project)
 
 
 errorsPerFile : List ReviewError -> Dict String (List ReviewError)

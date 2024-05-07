@@ -80,9 +80,10 @@ import C
 a = 1
 """
                     |> Review.Test.runWithProjectData project rule
-                    |> Review.Test.expectErrors
-                        [ Review.Test.error
-                            { message = """
+                    |> Review.Test.expectErrorsForModules
+                        [ ( "A"
+                          , [ Review.Test.error
+                                { message = """
 0 - initial context
 1.1 - withElmJsonModuleVisitor
 1.2 - withElmJsonModuleVisitor
@@ -114,9 +115,11 @@ a = 1
 12.2 - withExpressionExitVisitor
 13.1 - withDeclarationExitVisitor
 13.2 - withDeclarationExitVisitor"""
-                            , details = [ "details" ]
-                            , under = "module"
-                            }
+                                , details = [ "details" ]
+                                , under = "module"
+                                }
+                            ]
+                          )
                         ]
         , test "should call the same type of visitors in order of call on enter, and reverse order on exit (expression)" <|
             \() ->
