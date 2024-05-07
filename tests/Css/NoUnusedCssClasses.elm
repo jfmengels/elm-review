@@ -1,17 +1,18 @@
-module Css.NoUnusedCssClasses exposing (rule)
+module Css.NoUnusedCssClasses exposing (cssFiles, dontReport, rule, withCssUsingFunctions)
 
+import Css.ClassFunction as ClassFunction exposing (CssArgument)
 import Dict exposing (Dict)
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Range exposing (Range)
 import Regex exposing (Regex)
-import Review.FilePattern as FilePattern
+import Review.FilePattern as FilePattern exposing (FilePattern)
 import Review.Rule as Rule exposing (Rule)
 import Set exposing (Set)
 
 
-rule : Rule
-rule =
+rule : Configuration -> Rule
+rule (Configuration configuration) =
     Rule.newProjectRuleSchema "NoUnusedCssClasses" initialProjectContext
         |> Rule.withExtraFilesProjectVisitor cssFilesVisitor
             [ FilePattern.include "**/*.css" ]
@@ -25,10 +26,44 @@ rule =
         |> Rule.fromProjectRuleSchema
 
 
+type Configuration
+    = Configuration
+        { classesNotToReport : Set String
+        , cssFiles : List FilePattern
+        , cssFunctions : CssFunctions
+        }
+
+
+type alias CssFunctions =
+    Dict String (ClassFunction.Arguments -> List CssArgument)
+
+
+cssFiles : List FilePattern -> Configuration
+cssFiles globs =
+    Configuration
+        { classesNotToReport = Set.empty
+        , cssFiles = globs
+        , cssFunctions = Dict.fromList ClassFunction.baseCssFunctions
+        }
+
+
+withCssUsingFunctions :
+    List ( String, ClassFunction.Arguments -> List CssArgument )
+    -> Configuration
+    -> Configuration
+withCssUsingFunctions newFunctions (Configuration configuration) =
+    Configuration { configuration | cssFunctions = List.foldl (\( key, fn ) acc -> Dict.insert key fn acc) configuration.cssFunctions newFunctions }
+
+
 moduleVisitor : Rule.ModuleRuleSchema {} ModuleContext -> Rule.ModuleRuleSchema { hasAtLeastOneVisitor : () } ModuleContext
 moduleVisitor schema =
     schema
         |> Rule.withExpressionEnterVisitor expressionVisitor
+
+
+dontReport : List String -> Configuration -> Configuration
+dontReport classesNotToReport (Configuration configuration) =
+    Configuration { configuration | classesNotToReport = List.foldl Set.insert configuration.classesNotToReport classesNotToReport }
 
 
 type alias ProjectContext =
