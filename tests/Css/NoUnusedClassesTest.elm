@@ -39,10 +39,10 @@ view model =
                         (cssFiles [ FilePattern.include "*.css" ] |> rule)
                     |> Review.Test.expectErrorsForExtraFile "some-file.css"
                         [ Review.Test.error
-                            { message = "Unknown CSS class \"unknown\""
+                            { message = "Found unused CSS classes"
                             , details =
-                                [ "I could not find this class in CSS files. Have you made a typo?"
-                                , "Here are similarly-named classes:\n - unknown2\n - known"
+                                [ "This file declared the usage of some CSS classes for which I could not any usage in the Elm codebase. Please check that no typo was made in the name of the classes, and remove them if they still seem unused."
+                                , "Here are the classes that seem unused: unused"
                                 ]
                             , under = "-- First line"
                             }

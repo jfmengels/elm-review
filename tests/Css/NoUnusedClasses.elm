@@ -203,11 +203,11 @@ reportUnusedClasses usedCssClasses filePath { fileKey, classes } =
     else
         Just
             (Rule.errorForExtraFile fileKey
-                { message = "Found unused CSS classes in " ++ filePath
+                { message = "Found unused CSS classes"
                 , details =
                     [ "This file declared the usage of some CSS classes for which I could not any usage in the Elm codebase. Please check that no typo was made in the name of the classes, and remove them if they still seem unused."
                     , "Here are the classes that seem unused: " ++ String.join " " (Set.toList unusedClasses)
                     ]
                 }
-                { start = { row = 1, column = 1 }, end = { row = 2, column = 1 } }
+                { start = { row = 1, column = 1 }, end = { row = 1, column = 100000 } }
             )
