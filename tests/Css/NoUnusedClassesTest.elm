@@ -47,6 +47,27 @@ view model =
                             , under = "-- First line"
                             }
                         ]
+        , test "should not report an error when all CSS classes are used" <|
+            \() ->
+                """module A exposing (..)
+import Html
+import Html.Attributes as Attr
+
+view model =
+    Html.span [ Attr.class "unused" ] []
+"""
+                    |> Review.Test.runWithProjectData projectWithCssClasses
+                        (cssFiles [ FilePattern.include "*.css" ] |> rule)
+                    |> Review.Test.expectErrorsForExtraFile "some-file.css"
+                        [ Review.Test.error
+                            { message = "Found unused CSS classes"
+                            , details =
+                                [ "This file declared the usage of some CSS classes for which I could not any usage in the Elm codebase. Please check that no typo was made in the name of the classes, and remove them if they still seem unused."
+                                , "Here are the classes that seem unused: unused"
+                                ]
+                            , under = "-- First line"
+                            }
+                        ]
         ]
 
 
