@@ -1,9 +1,8 @@
 module Review.FilePattern exposing
     ( FilePattern
     , include, exclude, excludeDirectory
-    , compact, match
+    , Summary, compact, match
     , toStrings
-    , Summary
     )
 
 {-| A module for selecting multiple files from the file system
@@ -44,7 +43,7 @@ The supported patterns are the following:
 
 ## Using FilePattern
 
-@docs compact, match
+@docs Summary, compact, match
 @docs toStrings
 
 [`glob`]: https://en.wikipedia.org/wiki/Glob_%28programming%29
