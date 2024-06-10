@@ -1,7 +1,7 @@
 module Review.Rule.WithExtraFilesVisitorTest exposing (all)
 
 import Dict exposing (Dict)
-import Review.FilePattern as FilePattern exposing (FilePattern)
+import Review.FilePattern as FilePattern
 import Review.Project as Project exposing (Project)
 import Review.Rule as Rule exposing (Error, Rule)
 import Review.Test

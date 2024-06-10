@@ -62,7 +62,7 @@ fromExpressionHelp lookupTable nodes acc =
                 Expression.Literal str ->
                     fromExpressionHelp lookupTable rest (Literal str :: acc)
 
-                Expression.FunctionOrValue [] name ->
+                Expression.FunctionOrValue [] _ ->
                     case ModuleNameLookupTable.moduleNameFor lookupTable node of
                         Just [] ->
                             fromExpressionHelp lookupTable rest (Variable (Node.range node) :: acc)

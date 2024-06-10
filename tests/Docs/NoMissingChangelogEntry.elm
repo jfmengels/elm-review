@@ -44,7 +44,6 @@ elm-review --template jfmengels/elm-review/example --rules Docs.NoMissingChangel
 
 import Dict exposing (Dict)
 import Elm.Project exposing (Project)
-import Elm.Syntax.Range exposing (Range)
 import Elm.Version
 import Review.FilePattern as FilePattern
 import Review.Fix as Fix

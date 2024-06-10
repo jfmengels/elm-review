@@ -144,7 +144,6 @@ import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Range exposing (Range)
 import Levenshtein
-import Parser exposing ((|.), (|=), Parser)
 import RangeDict exposing (RangeDict)
 import Regex exposing (Regex)
 import Review.FilePattern exposing (FilePattern)
@@ -438,7 +437,7 @@ errorsForCssFunction knownClasses cssFunction fnRange target =
                             range
                         ]
 
-                    ClassFunction.MissingArgument index ->
+                    ClassFunction.MissingArgument _ ->
                         [ Rule.error
                             { message = "Class using function is used without all of its CSS class arguments"
                             , details = [ "Having the function used without all of its arguments confuses me and will prevent me from figuring out whether the classes passed to this function will be known or unknown. Please pass in all the arguments at the location." ]

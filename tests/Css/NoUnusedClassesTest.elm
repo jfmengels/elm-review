@@ -1,11 +1,8 @@
 module Css.NoUnusedClassesTest exposing (all)
 
-import Css.ClassFunction as ClassFunction exposing (CssArgument, fromLiteral)
-import Css.NoUnusedClasses exposing (cssFiles, dontReport, rule, withCssUsingFunctions)
+import Css.NoUnusedClasses exposing (cssFiles, rule)
 import Dict
-import Elm.Syntax.Expression exposing (Expression)
-import Elm.Syntax.Node exposing (Node)
-import Review.FilePattern as FilePattern exposing (FilePattern)
+import Review.FilePattern as FilePattern
 import Review.Project as Project exposing (Project)
 import Review.Test
 import Review.Test.Dependencies
@@ -60,11 +57,6 @@ view model =
                         (cssFiles [ FilePattern.include "*.css" ] |> rule)
                     |> Review.Test.expectNoErrors
         ]
-
-
-classFromAttrFunction : ClassFunction.Arguments -> List CssArgument
-classFromAttrFunction { firstArgument } =
-    [ fromLiteral firstArgument ]
 
 
 projectWithCssClasses : Project

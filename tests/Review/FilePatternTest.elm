@@ -2,7 +2,7 @@ module Review.FilePatternTest exposing (all)
 
 import Expect
 import Fuzz
-import Review.FilePattern as FilePattern exposing (FilePattern, excludeDirectory, include)
+import Review.FilePattern as FilePattern exposing (FilePattern)
 import Test exposing (Test, describe, fuzz, test)
 
 

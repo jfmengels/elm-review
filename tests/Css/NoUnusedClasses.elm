@@ -7,8 +7,7 @@ import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Range exposing (Range)
 import RangeDict exposing (RangeDict)
-import Regex exposing (Regex)
-import Review.FilePattern as FilePattern exposing (FilePattern)
+import Review.FilePattern exposing (FilePattern)
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Rule as Rule exposing (Rule)
 import Set exposing (Set)
@@ -223,7 +222,7 @@ registerClasses cssFunctions context fnRange name firstArgument restOfArguments 
         Just cssFunction ->
             ( []
             , { context
-                | usedCssClasses = errorsForCssFunction context.usedCssClasses cssFunction fnRange { lookupTable = context.lookupTable, firstArgument = firstArgument, restOfArguments = restOfArguments }
+                | usedCssClasses = errorsForCssFunction context.usedCssClasses cssFunction { lookupTable = context.lookupTable, firstArgument = firstArgument, restOfArguments = restOfArguments }
                 , functionOrValuesToIgnore = RangeDict.insert fnRange () context.functionOrValuesToIgnore
               }
             )
@@ -235,23 +234,22 @@ registerClasses cssFunctions context fnRange name firstArgument restOfArguments 
 errorsForCssFunction :
     Set String
     -> (ClassFunction.Arguments -> List CssArgument)
-    -> Range
     -> ClassFunction.Arguments
     -> Set String
-errorsForCssFunction usedCssClasses cssFunction fnRange target =
+errorsForCssFunction usedCssClasses cssFunction target =
     List.foldl
         (\arg acc ->
             case arg of
                 ClassFunction.Literal class ->
                     Set.insert class acc
 
-                ClassFunction.Variable range ->
+                ClassFunction.Variable _ ->
                     Debug.todo "Variable"
 
-                ClassFunction.UngraspableExpression range ->
+                ClassFunction.UngraspableExpression _ ->
                     Debug.todo "UngraspableExpression"
 
-                ClassFunction.MissingArgument index ->
+                ClassFunction.MissingArgument _ ->
                     Debug.todo "Missing argument"
         )
         usedCssClasses
@@ -261,12 +259,12 @@ errorsForCssFunction usedCssClasses cssFunction fnRange target =
 finalEvaluation : ProjectContext -> List (Rule.Error { useErrorForModule : () })
 finalEvaluation context =
     context.cssFiles
-        |> Dict.toList
-        |> List.filterMap (\( filePath, file ) -> reportUnusedClasses context.usedCssClasses filePath file)
+        |> Dict.values
+        |> List.filterMap (\file -> reportUnusedClasses context.usedCssClasses file)
 
 
-reportUnusedClasses : Set String -> String -> { a | fileKey : Rule.ExtraFileKey, classes : Set String } -> Maybe (Rule.Error { useErrorForModule : () })
-reportUnusedClasses usedCssClasses filePath { fileKey, classes } =
+reportUnusedClasses : Set String -> { a | fileKey : Rule.ExtraFileKey, classes : Set String } -> Maybe (Rule.Error { useErrorForModule : () })
+reportUnusedClasses usedCssClasses { fileKey, classes } =
     let
         unusedClasses : Set String
         unusedClasses =
