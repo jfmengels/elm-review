@@ -469,29 +469,33 @@ reportError knownClasses range name =
 
 similarClasses : String -> Set String -> List String
 similarClasses targetClass knownClasses =
-    Set.foldl
-        (\class ({ first, second } as untouched) ->
-            let
-                distance : Int
-                distance =
-                    computeDistance class targetClass
-            in
-            if isSmallerDistance distance first then
-                { first = Just { class = class, distance = distance }
-                , second = first
-                }
+    let
+        classes : { first : Maybe { class : String, distance : Int }, second : Maybe { class : String, distance : Int } }
+        classes =
+            Set.foldl
+                (\class ({ first, second } as untouched) ->
+                    let
+                        distance : Int
+                        distance =
+                            computeDistance class targetClass
+                    in
+                    if isSmallerDistance distance first then
+                        { first = Just { class = class, distance = distance }
+                        , second = first
+                        }
 
-            else if isSmallerDistance distance second then
-                { first = first
-                , second = Just { class = class, distance = distance }
-                }
+                    else if isSmallerDistance distance second then
+                        { first = first
+                        , second = Just { class = class, distance = distance }
+                        }
 
-            else
-                untouched
-        )
-        { first = Nothing, second = Nothing }
-        knownClasses
-        |> (\{ first, second } -> List.filterMap (Maybe.map .class) [ first, second ])
+                    else
+                        untouched
+                )
+                { first = Nothing, second = Nothing }
+                knownClasses
+    in
+    List.filterMap (Maybe.map .class) [ classes.first, classes.second ]
 
 
 isSmallerDistance : Int -> Maybe { a | distance : Int } -> Bool
