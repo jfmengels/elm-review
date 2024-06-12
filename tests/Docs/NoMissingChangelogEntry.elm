@@ -14,22 +14,58 @@ module Docs.NoMissingChangelogEntry exposing
 @docs Configuration, defaults, withPathToChangelog
 
 
-## Fail
+## Example
 
-    a =
-        "REPLACEME example to replace"
+Given the following `CHANGELOG.md` file:
 
+    # Changelog
 
-## Success
+    ## [Unreleased]
 
-    a =
-        "REPLACEME example to replace"
+    Stuff happened
+
+    ## 1.2.0
+
+    More stuff happened
+
+    ## 1.1.0
+
+    Stuff happened
+
+    [Unreleased]: https://github.com/author/package-name/compare/v1.2.0...HEAD
+    [1.2.0]: https://github.com/author/package-name/releases/tag/1.2.0
+    [1.1.0]: https://github.com/author/package-name/releases/tag/1.1.0
+
+If the current version is `1.2.0`, then there won't be any error.
+If the current version is `1.2.1`, then an error will be reported,
+and a fix will be suggested to fix to the following:
+
+    # Changelog
+
+    ## [Unreleased]
+
+    ## [1.2.1]
+
+    Stuff happened
+
+    ## 1.2.0
+
+    More stuff happened
+
+    ## 1.1.0
+
+    Stuff happened
+
+    [Unreleased]: https://github.com/author/package-name/compare/v1.2.1...HEAD
+    [1.2.1]: https://github.com/author/package-name/releases/tag/1.2.1
+    [1.2.0]: https://github.com/author/package-name/releases/tag/1.2.0
+    [1.1.0]: https://github.com/author/package-name/releases/tag/1.1.0
 
 
 ## When (not) to enable this rule
 
-This rule is useful when REPLACEME.
-This rule is not useful when REPLACEME.
+This rule is useful only when the project is an Elm package
+and you would like to have an automated .
 
 
 ## Try it out
@@ -50,7 +86,7 @@ import Review.Fix as Fix
 import Review.Rule as Rule exposing (Rule)
 
 
-{-| Reports... REPLACEME
+{-| Reports when `CHANGELOG.md` is missing an entry for the current version of the Elm package.
 -}
 rule : Configuration -> Rule
 rule (Configuration { changelogPath }) =
@@ -61,23 +97,37 @@ rule (Configuration { changelogPath }) =
         |> Rule.fromProjectRuleSchema
 
 
+{-| Configuration for the rule.
+-}
 type Configuration
     = Configuration { changelogPath : Maybe String }
 
 
+{-| Default configuration for the rule.
+Considers the changelog to be `CHANGELOG.md` next to the project's `elm.json`.
+-}
 defaults : Configuration
 defaults =
     Configuration { changelogPath = Nothing }
 
 
-getChangelogPath : Maybe String -> String
-getChangelogPath changelogPath =
-    Maybe.withDefault "CHANGELOG.md" changelogPath
+{-| Define the path to the changelog.
 
+    config =
+        [ Docs.NoMissingChangelogEntry.defaults
+            |> Docs.NoMissingChangelogEntry.withPathToChangelog "path/to/changelog.txt"
+            |> Docs.NoMissingChangelogEntry.rule
+        ]
 
+-}
 withPathToChangelog : String -> Configuration -> Configuration
 withPathToChangelog changelogPath _ =
     Configuration { changelogPath = Just changelogPath }
+
+
+getChangelogPath : Maybe String -> String
+getChangelogPath changelogPath =
+    Maybe.withDefault "CHANGELOG.md" changelogPath
 
 
 type alias ProjectContext =
