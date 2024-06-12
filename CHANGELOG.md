@@ -169,7 +169,7 @@ Help would be appreciated to fill the blanks!
 [`Review.Rule.errorFixFailure`]: https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule#errorFixFailure
 [`Review.Test.ignoredFilesImpactResults`]: https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule-Test#ignoredFilesImpactResults
 
-[Unreleased]: https://github.com/jfmengels/elm-review-unused/compare/v2.13.2...HEAD
+[Unreleased]: https://github.com/jfmengels/elm-review/compare/v2.13.2...HEAD
 [2.13.2]: https://github.com/jfmengels/elm-review/releases/tag/2.13.2
 [2.13.1]: https://github.com/jfmengels/elm-review/releases/tag/2.13.1
 [2.13.0]: https://github.com/jfmengels/elm-review/releases/tag/2.13.0
