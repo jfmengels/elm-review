@@ -62,28 +62,53 @@ type FilePattern
     | ExcludeDirectory String
 
 
-{-| REPLACEME
+{-| Create a `FilePattern` that includes files that match a Glob-like pattern.
+
+    [ FilePattern.include "CHANGELOG.md"
+    , FilePattern.include "src/**/*.elm"
+    , FilePattern.include "*.css"
+    ]
+
 -}
 include : String -> FilePattern
 include =
     Include
 
 
-{-| REPLACEME
+{-| Create a `FilePattern` that excludes files that match a Glob-like pattern.
+
+    [ FilePattern.include "**/*.css"
+    , FilePattern.exclude "exception.css"
+    ]
+
+Files that get excluded this way can be re-included through `FilePattern.include`.
+
+    [ FilePattern.include "**/*.css"
+    , FilePattern.exclude "exception-*.css"
+    , FilePattern.include "exception-among-exceptions.css"
+    ]
+
 -}
 exclude : String -> FilePattern
 exclude =
     Exclude
 
 
-{-| REPLACEME
+{-| Create a `FilePattern` that excludes a whole directory.
+Files that get excluded this way can't be re-included.
+
+    [ FilePattern.include "**/*.css"
+    , FilePattern.excludeDirectory "build/"
+    ]
+
 -}
 excludeDirectory : String -> FilePattern
 excludeDirectory =
     ExcludeDirectory
 
 
-{-| REPLACEME
+{-| Compiled version of a list of `FilePattern`s.
+This is done to have good performance.
 -}
 type Summary
     = Summary SummaryInfo
@@ -97,7 +122,8 @@ type alias SummaryInfo =
     }
 
 
-{-| REPLACEME
+{-| Compile a list of `FilePattern`s.
+This is done to have good performance.
 -}
 compact : List FilePattern -> Result (List String) Summary
 compact filePatterns =
@@ -282,7 +308,7 @@ addRawIncludeExclude string included summary =
     }
 
 
-{-| REPLACEME
+{-| Check if a file path matches file patterns.
 -}
 match : { includeByDefault : Bool } -> Summary -> String -> Bool
 match { includeByDefault } (Summary summary) str =
@@ -314,7 +340,7 @@ matchHelp includeByDefault filePatterns str =
                 matchHelp includeByDefault rest str
 
 
-{-| REPLACEME
+{-| Stringify the file patterns in a way that is easily understandable by a JavaScript Glob-like API.
 -}
 toStrings : Summary -> { files : List { pattern : String, included : Bool }, excludedDirectories : List String }
 toStrings (Summary summary) =
