@@ -64,6 +64,27 @@ type FilePattern
 
 {-| REPLACEME
 -}
+include : String -> FilePattern
+include =
+    Include
+
+
+{-| REPLACEME
+-}
+exclude : String -> FilePattern
+exclude =
+    Exclude
+
+
+{-| REPLACEME
+-}
+excludeDirectory : String -> FilePattern
+excludeDirectory =
+    ExcludeDirectory
+
+
+{-| REPLACEME
+-}
 type Summary
     = Summary SummaryInfo
 
@@ -74,20 +95,6 @@ type alias SummaryInfo =
     , strings : List { pattern : String, included : Bool }
     , excludedDirectoriesStrings : List String
     }
-
-
-{-| REPLACEME
--}
-toStrings : Summary -> { files : List { pattern : String, included : Bool }, excludedDirectories : List String }
-toStrings (Summary summary) =
-    { files = summary.strings
-    , excludedDirectories = summary.excludedDirectoriesStrings
-    }
-
-
-type CompactFilePattern
-    = CompactInclude (List Glob)
-    | CompactExclude (List Glob)
 
 
 {-| REPLACEME
@@ -150,6 +157,11 @@ compactBase filePatterns accSummary =
 
                 Err _ ->
                     Err (compactErrors rest [ raw ])
+
+
+type CompactFilePattern
+    = CompactInclude (List Glob)
+    | CompactExclude (List Glob)
 
 
 compactHelp : List FilePattern -> List Glob -> Bool -> SummaryInfo -> Result (List String) SummaryInfo
@@ -224,6 +236,15 @@ compactHelp filePatterns accGlobs included accSummary =
                     Err (compactErrors rest [ raw ])
 
 
+toDirectory : String -> String
+toDirectory globStr =
+    if String.endsWith "/" globStr then
+        globStr ++ "**/*"
+
+    else
+        globStr ++ "/**/*"
+
+
 compactErrors : List FilePattern -> List String -> List String
 compactErrors filePatterns accGlobStrings =
     case filePatterns of
@@ -263,36 +284,6 @@ addRawIncludeExclude string included summary =
 
 {-| REPLACEME
 -}
-include : String -> FilePattern
-include =
-    Include
-
-
-{-| REPLACEME
--}
-exclude : String -> FilePattern
-exclude =
-    Exclude
-
-
-{-| REPLACEME
--}
-excludeDirectory : String -> FilePattern
-excludeDirectory =
-    ExcludeDirectory
-
-
-toDirectory : String -> String
-toDirectory globStr =
-    if String.endsWith "/" globStr then
-        globStr ++ "**/*"
-
-    else
-        globStr ++ "/**/*"
-
-
-{-| REPLACEME
--}
 match : { includeByDefault : Bool } -> Summary -> String -> Bool
 match { includeByDefault } (Summary summary) str =
     if List.any (\dirGlob -> Glob.match dirGlob str) summary.excludedDirectories then
@@ -321,3 +312,12 @@ matchHelp includeByDefault filePatterns str =
 
             else
                 matchHelp includeByDefault rest str
+
+
+{-| REPLACEME
+-}
+toStrings : Summary -> { files : List { pattern : String, included : Bool }, excludedDirectories : List String }
+toStrings (Summary summary) =
+    { files = summary.strings
+    , excludedDirectories = summary.excludedDirectoriesStrings
+    }
