@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [2.14.0] - 2024-06-14
+
+Support new visitors that visit "extra files".
+- Added `Review.Rule.withExtraFilesModuleVisitor` and `Review.Rule.withExtraFilesProjectVisitor` to request access to arbitrary files that the project doesn't analyze by default.
+- Added new functions to report an error for an extra file and `Review.Rule.errorForExtraFile` and `Review.Rule.errorForExtraFileWithFix`.
+- Added new functions to test errors reported for extra files: `Review.Test.expectErrorsForExtraFile` and `Review.Test.extraFileErrors`.
+- Added new module `Review.FilePattern` to specify the files to analyze.
+- Added new functions in `Review.Project` to add/update/remove/get (extra) files
+- Moved the logic of the diffing of `Review.Project.Project` from the CLI to the package.
+
 ## [2.13.2] - 2024-04-09
 
 Fixed an issue where the result of a module name lookup for let variables was sometimes incorrect. [#171](https://github.com/jfmengels/elm-review/pull/171)
@@ -169,7 +179,8 @@ Help would be appreciated to fill the blanks!
 [`Review.Rule.errorFixFailure`]: https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule#errorFixFailure
 [`Review.Test.ignoredFilesImpactResults`]: https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule-Test#ignoredFilesImpactResults
 
-[Unreleased]: https://github.com/jfmengels/elm-review/compare/v2.13.2...HEAD
+[Unreleased]: https://github.com/jfmengels/elm-review/compare/v2.14.0...HEAD
+[2.14.0]: https://github.com/jfmengels/elm-review/releases/tag/2.14.0
 [2.13.2]: https://github.com/jfmengels/elm-review/releases/tag/2.13.2
 [2.13.1]: https://github.com/jfmengels/elm-review/releases/tag/2.13.1
 [2.13.0]: https://github.com/jfmengels/elm-review/releases/tag/2.13.0
