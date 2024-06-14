@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "automatically created by": "elm-review suppress",
+  "learn more": "elm-review suppress --help",
+  "suppressions": [
+    { "count": 3, "filePath": "tests/Css/ClassFunction.elm" },
+    { "count": 2, "filePath": "tests/Css/NoUnusedClasses.elm" }
+  ]
+}
