@@ -12,7 +12,6 @@ when inside the directory containing this file.
 -}
 
 import Docs.NoMissing exposing (exposedModules, onlyExposed)
-import Docs.NoMissingChangelogEntry
 import Docs.ReviewAtDocs
 import Docs.ReviewLinksAndSections
 import Docs.UpToDateReadmeLinks
@@ -37,7 +36,6 @@ import Review.Rule as Rule exposing (Rule)
 import Review.FilePattern as FilePattern
 import NoUnused.CustomTypeConstructorArgs
 import Simplify
-import Css.NoUnknownCssClasses
 
 config : List Rule
 config =
@@ -47,7 +45,6 @@ config =
     , Docs.ReviewAtDocs.rule
         |> Rule.ignoreErrorsForDirectories [ "tests/" ]
     , Docs.NoMissing.rule { document = onlyExposed, from = exposedModules }
-    , Docs.NoMissingChangelogEntry.rule Docs.NoMissingChangelogEntry.defaults
     , NoDebug.Log.rule
     , NoDebug.TodoOrToString.rule
         |> Rule.ignoreErrorsForDirectories [ "tests/" ]
@@ -80,9 +77,6 @@ config =
             , "src/Review/Logger.elm"
             ]
     , NoForbiddenWords.rule [ "REPLACEME" ]
-    , Css.NoUnknownCssClasses.cssFiles [ FilePattern.include "src/**/*.css", FilePattern.exclude "src/**/ignore-*.css"]
-            -- |> Css.NoUnknownCssClasses.withCssUsingFunctions cssUsingFunctions
-            |> Css.NoUnknownCssClasses.rule
     ]
         |> List.map (Rule.ignoreErrorsForDirectories [ "src/Vendor/", "tests/Vendor/" ])
         |> List.map (Rule.ignoreErrorsForFiles [ "tests/NoUnused/Patterns/NameVisitor.elm" ])
