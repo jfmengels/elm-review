@@ -139,9 +139,8 @@ button = 1
         \() ->
             testRuleWithHtmlDependency """
 import Html exposing (..)
-a = let
-  button = 1
-  in button
+a = let button = 1
+    in button
 """
                 |> Review.Test.expectNoErrors
     , test "should not report the use of `button` when it has been imported using `exposing (..)` and the dependency is known, but it has been redefined at the top-level as a port" <|
@@ -156,18 +155,16 @@ port button : (() -> msg) -> Sub msg
         \() ->
             testRuleWithHtmlDependency """
 import Html exposing (..)
-a = let
-  button = 1
-  in button
+a = let button = 1
+    in button
 """
                 |> Review.Test.expectNoErrors
     , test "should report the use of `button` when it has been imported using `exposing (..)` and the dependency is known, and it has been redefined in an out-of-scope let..in declaration" <|
         \() ->
             testRuleWithHtmlDependency """
 import Html exposing (..)
-a = let
-  button = 1
-  in 2
+a = let button = 1
+    in 2
 b = button
 """
                 |> Review.Test.expectErrors
@@ -176,7 +173,7 @@ b = button
                         , details = details
                         , under = "button"
                         }
-                        |> Review.Test.atExactly { start = { row = 8, column = 5 }, end = { row = 8, column = 11 } }
+                        |> Review.Test.atExactly { start = { row = 7, column = 5 }, end = { row = 7, column = 11 } }
                     ]
     , test "should not report the use of `button` if it is shadowed by an accessible parameter" <|
         \() ->
