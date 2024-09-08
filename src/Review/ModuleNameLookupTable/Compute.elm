@@ -433,15 +433,17 @@ collectLookupTable declarations context =
 visitExpressions : Node Expression -> Context -> Context
 visitExpressions node context =
     -- IGNORE TCO
-    context
-        |> popScopeEnter node
-        |> expressionEnterVisitor node
-        |> (\newContext ->
-                List.foldl
-                    visitExpressions
-                    newContext
-                    (expressionChildren node)
-           )
+    let
+        newContext : Context
+        newContext =
+            context
+                |> popScopeEnter node
+                |> expressionEnterVisitor node
+    in
+    List.foldl
+        visitExpressions
+        newContext
+        (expressionChildren node)
         |> popScopeExit node
         |> expressionExitVisitor node
 

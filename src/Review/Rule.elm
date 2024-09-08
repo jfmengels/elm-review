@@ -5862,16 +5862,19 @@ visitDeclarationsAndExpressions declarations rules =
 
 visitDeclarationAndExpressions : Node Declaration -> JsArray RuleModuleVisitor -> JsArray RuleModuleVisitor
 visitDeclarationAndExpressions declaration rules =
-    rules
-        |> mutatingMap (\acc -> runVisitor .declarationVisitorOnEnter declaration acc)
-        |> (\updatedRules ->
-                case Node.value declaration of
-                    Declaration.FunctionDeclaration function ->
-                        visitExpression (Node.value function.declaration |> .expression) updatedRules
+    let
+        updatedRules : JsArray RuleModuleVisitor
+        updatedRules =
+            rules
+                |> mutatingMap (\acc -> runVisitor .declarationVisitorOnEnter declaration acc)
+    in
+    (case Node.value declaration of
+        Declaration.FunctionDeclaration function ->
+            visitExpression (Node.value function.declaration |> .expression) updatedRules
 
-                    _ ->
-                        updatedRules
-           )
+        _ ->
+            updatedRules
+    )
         |> mutatingMap (\acc -> runVisitor .declarationVisitorOnExit declaration acc)
 
 
@@ -5879,38 +5882,44 @@ visitExpression : Node Expression -> JsArray RuleModuleVisitor -> JsArray RuleMo
 visitExpression node rules =
     case Node.value node of
         Expression.LetExpression letBlock ->
-            rules
-                |> mutatingMap (\acc -> runVisitor .expressionVisitorOnEnter node acc)
-                |> (\updatedRules ->
-                        List.foldl
-                            (visitLetDeclaration (Node (Node.range node) letBlock))
-                            updatedRules
-                            letBlock.declarations
-                   )
+            let
+                updatedRules : JsArray RuleModuleVisitor
+                updatedRules =
+                    rules
+                        |> mutatingMap (\acc -> runVisitor .expressionVisitorOnEnter node acc)
+            in
+            List.foldl
+                (visitLetDeclaration (Node (Node.range node) letBlock))
+                updatedRules
+                letBlock.declarations
                 |> visitExpression letBlock.expression
                 |> mutatingMap (\acc -> runVisitor .expressionVisitorOnExit node acc)
 
         Expression.CaseExpression caseBlock ->
-            rules
-                |> mutatingMap (\acc -> runVisitor .expressionVisitorOnEnter node acc)
-                |> visitExpression caseBlock.expression
-                |> (\updatedRules ->
-                        List.foldl
-                            (\case_ acc -> visitCaseBranch (Node (Node.range node) caseBlock) case_ acc)
-                            updatedRules
-                            caseBlock.cases
-                   )
+            let
+                updatedRules : JsArray RuleModuleVisitor
+                updatedRules =
+                    rules
+                        |> mutatingMap (\acc -> runVisitor .expressionVisitorOnEnter node acc)
+                        |> visitExpression caseBlock.expression
+            in
+            List.foldl
+                (\case_ acc -> visitCaseBranch (Node (Node.range node) caseBlock) case_ acc)
+                updatedRules
+                caseBlock.cases
                 |> mutatingMap (\acc -> runVisitor .expressionVisitorOnExit node acc)
 
         _ ->
-            rules
-                |> mutatingMap (\acc -> runVisitor .expressionVisitorOnEnter node acc)
-                |> (\updatedRules ->
-                        List.foldl
-                            visitExpression
-                            updatedRules
-                            (expressionChildren node)
-                   )
+            let
+                updatedRules : JsArray RuleModuleVisitor
+                updatedRules =
+                    rules
+                        |> mutatingMap (\acc -> runVisitor .expressionVisitorOnEnter node acc)
+            in
+            List.foldl
+                visitExpression
+                updatedRules
+                (expressionChildren node)
                 |> mutatingMap (\acc -> runVisitor .expressionVisitorOnExit node acc)
 
 
