@@ -1361,6 +1361,7 @@ tests : Test
 tests = Test.describe "thing" B.helper
 """, """
 module B exposing (helper)
+{-| Module docs -}
 {-| @ignore-helper -}
 helper = 1
 """ ]

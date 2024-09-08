@@ -143,7 +143,7 @@ Hint: Maybe you forgot to add the module definition at the top, like:
         , test "when there are multiple files" <|
             \() ->
                 [ "module MyModule exposing (.."
-                , "module MyOtherModule exposing (..)"
+                , "module MyOtherModule exposing (..)\na = 1"
                 ]
                     |> Review.Test.runOnModules testRuleReportsLiterals
                     |> Review.Test.expectNoErrors

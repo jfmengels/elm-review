@@ -156,6 +156,7 @@ b = 2"""
     , test "should report unused top-level variables with documentation attached" <|
         \() ->
             """module SomeModule exposing (b)
+{-| Module docs -}
 {-| Documentation
 -}
 unusedVar = 1
@@ -168,11 +169,13 @@ b = 2"""
                         , under = "unusedVar"
                         }
                         |> Review.Test.whenFixed """module SomeModule exposing (b)
+{-| Module docs -}
 b = 2"""
                     ]
     , test "should report unused top-level variables with documentation attached even if they are annotated" <|
         \() ->
             """module SomeModule exposing (b)
+{-| Module docs -}
 {-| Documentation
 -}
 unusedVar : Int
@@ -185,8 +188,9 @@ b = 2"""
                         , details = details
                         , under = "unusedVar"
                         }
-                        |> Review.Test.atExactly { start = { row = 5, column = 1 }, end = { row = 5, column = 10 } }
+                        |> Review.Test.atExactly { start = { row = 6, column = 1 }, end = { row = 6, column = 10 } }
                         |> Review.Test.whenFixed """module SomeModule exposing (b)
+{-| Module docs -}
 b = 2"""
                     ]
     , test "should not report unused top-level variables if everything is exposed (functions)" <|
@@ -642,7 +646,7 @@ topLevelVariablesUsedInLetInTests =
             """module SomeModule exposing (a)
 b = 1
 a = let c = 1
-in b + c"""
+    in b + c"""
                 |> Review.Test.run rule
                 |> Review.Test.expectNoErrors
     , test "should not report top-level variables used inside let declarations" <|
@@ -650,21 +654,25 @@ in b + c"""
             """module SomeModule exposing (a)
 b = 1
 a = let c = b
-in c"""
+    in c
+"""
                 |> Review.Test.run rule
                 |> Review.Test.expectNoErrors
     , test "should not report top-level variables used in nested lets" <|
         \() ->
             """module SomeModule exposing (a)
 b = 1
-a = let
-  c = b
-  d = let
-        e = 1
-      in
-        b + c + e
-in
-  d"""
+a =
+    let
+        c = b
+        d =
+            let
+                e = 1
+            in
+            b + c + e
+    in
+    d
+"""
                 |> Review.Test.run rule
                 |> Review.Test.expectNoErrors
     ]
@@ -2016,6 +2024,7 @@ a = 1"""
     , test "should report unused custom type declarations with documentation" <|
         \() ->
             """module SomeModule exposing (a)
+{-| Module docs -}
 {-| Documentation -}
 type UnusedType = B | C
 a = 1"""
@@ -2027,6 +2036,7 @@ a = 1"""
                         , under = "UnusedType"
                         }
                         |> Review.Test.whenFixed """module SomeModule exposing (a)
+{-| Module docs -}
 a = 1"""
                     ]
     , test "should report unused custom type declaration even when it references itself" <|
@@ -2089,6 +2099,7 @@ a = 1"""
     , test "should report unused type aliases declarations with documentation" <|
         \() ->
             """module SomeModule exposing (a)
+{-| Module docs -}
 {-| Documentation -}
 type alias UnusedType = { a : B }
 a = 1"""
@@ -2100,6 +2111,7 @@ a = 1"""
                         , under = "UnusedType"
                         }
                         |> Review.Test.whenFixed """module SomeModule exposing (a)
+{-| Module docs -}
 a = 1"""
                     ]
     , test "should not report type alias used in a signature" <|

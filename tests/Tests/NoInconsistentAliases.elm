@@ -274,10 +274,19 @@ shiftRange : ( ESN.Node String, Int ) -> { node : ESN.Node String } -> { a | nod
 shiftRange input _ _ =
     let
         asList : ( ESN.Node, Int ) -> List ESN.Node
-        asList ( node, _ ) = [ node ]
-        ( ESN.Node range1 value1, length1 ) = input
-        [ ESN.Node range2 value2 ] = asList input
-        ESN.Node range3 value3 :: [] = asList input
+        asList ( node, _ ) =
+            [ node ]
+
+        ( ESN.Node range value, length1 ) =
+            case asList input of
+                [ ESN.Node range2 value2 ] ->
+                    input
+
+                ESN.Node range3 value3 :: _ ->
+                    input
+
+                _ ->
+                    input
     in
     range
 """
@@ -298,10 +307,19 @@ shiftRange : ( Node.Node String, Int ) -> { node : Node.Node String } -> { a | n
 shiftRange input _ _ =
     let
         asList : ( Node.Node, Int ) -> List Node.Node
-        asList ( node, _ ) = [ node ]
-        ( Node.Node range1 value1, length1 ) = input
-        [ Node.Node range2 value2 ] = asList input
-        Node.Node range3 value3 :: [] = asList input
+        asList ( node, _ ) =
+            [ node ]
+
+        ( Node.Node range value, length1 ) =
+            case asList input of
+                [ Node.Node range2 value2 ] ->
+                    input
+
+                Node.Node range3 value3 :: _ ->
+                    input
+
+                _ ->
+                    input
     in
     range
 """
