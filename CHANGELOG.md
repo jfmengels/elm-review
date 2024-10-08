@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [2.14.1] - 2024-10-08
+
 - Fixed an issue where extracting code using `Review.Rule.withSourceCodeExtractor` would not get the correct source code when source contains Unicode characters.
 
 ## [2.14.0] - 2024-06-14
@@ -181,7 +183,8 @@ Help would be appreciated to fill the blanks!
 [`Review.Rule.errorFixFailure`]: https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule#errorFixFailure
 [`Review.Test.ignoredFilesImpactResults`]: https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule-Test#ignoredFilesImpactResults
 
-[Unreleased]: https://github.com/jfmengels/elm-review/compare/v2.14.0...HEAD
+[Unreleased]: https://github.com/jfmengels/elm-review/compare/v2.14.1...HEAD
+[2.14.1]: https://github.com/jfmengels/elm-review/releases/tag/2.14.1
 [2.14.0]: https://github.com/jfmengels/elm-review/releases/tag/2.14.0
 [2.13.2]: https://github.com/jfmengels/elm-review/releases/tag/2.13.2
 [2.13.1]: https://github.com/jfmengels/elm-review/releases/tag/2.13.1
