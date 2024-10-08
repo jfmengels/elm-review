@@ -344,6 +344,7 @@ import Review.Project.InvalidProjectError as InvalidProjectError
 import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModule)
 import Review.Project.Valid as ValidProject exposing (ValidProject)
 import Review.RequestedData as RequestedData exposing (RequestedData(..))
+import Unicode
 import Vendor.Graph as Graph exposing (Graph)
 import Vendor.IntDict as IntDict
 import Vendor.Zipper as Zipper exposing (Zipper)
@@ -5958,23 +5959,48 @@ visitCaseBranch caseBlockWithRange (( _, caseExpression ) as caseBranch) rules =
 
 
 extractSourceCode : List String -> Range -> String
-extractSourceCode lines range =
-    lines
-        |> List.drop (range.start.row - 1)
-        |> List.take (range.end.row - range.start.row + 1)
-        |> mapLast (String.slice 0 (range.end.column - 1))
-        |> String.join "\n"
-        |> String.dropLeft (range.start.column - 1)
-
-
-mapLast : (a -> a) -> List a -> List a
-mapLast mapper lines =
-    case List.reverse lines of
+extractSourceCode lines { start, end } =
+    case List.drop (start.row - 1) lines of
         [] ->
-            lines
+            ""
 
-        first :: rest ->
-            List.reverse (mapper first :: rest)
+        firstLine :: rest ->
+            if start.row == end.row then
+                Unicode.slice
+                    (start.column - 1)
+                    (end.column - 1)
+                    firstLine
+
+            else
+                let
+                    { linesTaken, lastLine } =
+                        takeNLines (end.row - start.row - 1) rest ""
+                in
+                Unicode.dropLeft (start.column - 1) firstLine
+                    ++ linesTaken
+                    ++ (case lastLine of
+                            Just lastLine_ ->
+                                "\n" ++ Unicode.left (end.column - 1) lastLine_
+
+                            Nothing ->
+                                ""
+                       )
+
+
+takeNLines : Int -> List String -> String -> { linesTaken : String, lastLine : Maybe String }
+takeNLines n lines linesTaken =
+    if n <= 0 then
+        { linesTaken = linesTaken, lastLine = List.head lines }
+
+    else
+        case lines of
+            [] ->
+                { linesTaken = linesTaken, lastLine = Nothing }
+
+            line :: rest ->
+                takeNLines (n - 1)
+                    rest
+                    (linesTaken ++ "\n" ++ line)
 
 
 type RuleProjectVisitor

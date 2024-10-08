@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Fixed an issue where extracting code using `Review.Rule.withSourceCodeExtractor` would not get the correct source code when source contains Unicode characters.
+
 ## [2.14.0] - 2024-06-14
 
 Support new visitors that visit "extra files".

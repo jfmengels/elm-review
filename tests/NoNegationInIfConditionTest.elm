@@ -55,4 +55,28 @@ a =
         1
 """
                         ]
+        , test "should correctly extract sources containing 2-part UTF-16 characters" <|
+            \() ->
+                """module A exposing (..)
+a =
+    if not condition then
+        "first🔧"
+    else
+        "second🌐"
+"""
+                    |> Review.Test.run rule
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Don't use if expressions with negated conditions"
+                            , details = [ "We at fruits.com think that if expressions are more readable when the condition is not negated." ]
+                            , under = "not"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a =
+    if  condition then
+        "second🌐"
+    else
+        "first🔧"
+"""
+                        ]
         ]
