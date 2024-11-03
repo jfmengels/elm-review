@@ -4322,8 +4322,8 @@ errorFixes (Review.Error.ReviewError err) =
         Review.Error.NoFixes ->
             Nothing
 
-        Review.Error.FailedToApply fixes _ ->
-            Just fixes
+        Review.Error.FailedToApply _ _ ->
+            Nothing
 
 
 {-| Get the reason why the fix for an error failed when its available automatic fix was attempted and deemed incorrect.
