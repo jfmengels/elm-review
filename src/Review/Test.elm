@@ -1749,7 +1749,7 @@ checkFixesAreCorrect codeInspector ((Error.ReviewError err) as error_) ((Expecte
                 Fix.Errored Fix.HasCollisionsInFixRanges ->
                     Expect.fail <| FailureMessage.hasCollisionsInFixRanges error_
 
-        ( _, Error.FailedToApply _ problem ) ->
+        ( _, Error.FailedToApply problem ) ->
             case problem of
                 FixProblem.Unchanged ->
                     Expect.fail <| FailureMessage.unchangedSourceAfterFix error_

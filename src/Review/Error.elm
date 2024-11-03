@@ -33,7 +33,7 @@ type alias InternalError =
 type ErrorFixes
     = NoFixes
     | Available (List Fix)
-    | FailedToApply (List Fix) FixProblem.FixProblem
+    | FailedToApply FixProblem.FixProblem
 
 
 fixesFromMaybe : Maybe (List Fix) -> ErrorFixes
@@ -48,12 +48,7 @@ fixesFromMaybe maybeFixes =
 
 markFixesAsProblem : FixProblem.FixProblem -> InternalError -> InternalError
 markFixesAsProblem fixProblem error_ =
-    case error_.fixes of
-        Available fixes ->
-            { error_ | fixes = FailedToApply fixes fixProblem }
-
-        _ ->
-            error_
+    { error_ | fixes = FailedToApply fixProblem }
 
 
 error : { message : String, details : List String } -> Range -> ReviewError

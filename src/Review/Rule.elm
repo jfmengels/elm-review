@@ -4322,7 +4322,7 @@ errorFixes (Review.Error.ReviewError err) =
         Review.Error.NoFixes ->
             Nothing
 
-        Review.Error.FailedToApply _ _ ->
+        Review.Error.FailedToApply _ ->
             Nothing
 
 
@@ -4340,7 +4340,7 @@ errorFixFailure (Review.Error.ReviewError err) =
         Review.Error.NoFixes ->
             Nothing
 
-        Review.Error.FailedToApply _ problem ->
+        Review.Error.FailedToApply problem ->
             Just <|
                 case problem of
                     FixProblem.Unchanged ->
@@ -5823,7 +5823,7 @@ isFixable predicate err =
         Review.Error.NoFixes ->
             Nothing
 
-        Review.Error.FailedToApply _ _ ->
+        Review.Error.FailedToApply _ ->
             Nothing
 
 
