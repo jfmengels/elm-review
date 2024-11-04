@@ -4140,8 +4140,8 @@ not matter.
 
 -}
 errorForExtraFileWithFix : ExtraFileKey -> { message : String, details : List String } -> Range -> List Fix -> Error scope
-errorForExtraFileWithFix readmeKey info range fixes =
-    errorForExtraFile readmeKey info range
+errorForExtraFileWithFix extraFileKey info range fixes =
+    errorForExtraFile extraFileKey info range
         |> withFixes fixes
 
 
