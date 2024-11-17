@@ -209,7 +209,7 @@ type alias ExpectedErrorDetails =
     { message : String
     , details : List String
     , under : Under
-    , fixedSource : Maybe String
+    , fixedSource : Dict String String
     }
 
 
@@ -1263,7 +1263,7 @@ error input =
         { message = input.message
         , details = input.details
         , under = Under input.under
-        , fixedSource = Nothing
+        , fixedSource = Dict.empty
         }
 
 
@@ -1341,7 +1341,8 @@ In other words, you only need to use this function if the error provides a fix.
 -}
 whenFixed : String -> ExpectedError -> ExpectedError
 whenFixed fixedSource (ExpectedError expectedError) =
-    ExpectedError { expectedError | fixedSource = Just fixedSource }
+    -- TODO MULTIFILE-FIXES Fix file path to be the current file
+    ExpectedError { expectedError | fixedSource = Dict.singleton "" fixedSource }
 
 
 getUnder : ExpectedError -> String
@@ -1716,7 +1717,8 @@ checkDetailsAreCorrect error_ (ExpectedError expectedError) =
 
 checkFixesAreCorrect : CodeInspector -> ReviewError -> ExpectedError -> Expectation
 checkFixesAreCorrect codeInspector ((Error.ReviewError err) as error_) ((ExpectedError expectedError_) as expectedError) =
-    case ( expectedError_.fixedSource, err.fixes ) of
+    -- TODO MULTIFILE-FIXES Fix file path to be the current file
+    case ( Dict.get "" expectedError_.fixedSource, err.fixes ) of
         ( Nothing, Error.NoFixes ) ->
             Expect.pass
 
