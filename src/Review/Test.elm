@@ -166,6 +166,7 @@ type alias SuccessfulRunData =
     , runResults : List SuccessfulRunResult
     , extract : ExtractResult
     , allErrors : List ReviewError
+    , project : Project
     }
 
 
@@ -476,6 +477,7 @@ runOnModulesWithProjectDataHelp project rule sources =
                                     , runResults = fileErrors
                                     , extract = extract
                                     , allErrors = errors
+                                    , project = projectWithModules
                                     }
                                     (AttemptReRun rule projectWithModules)
 
@@ -1972,7 +1974,7 @@ expect expectations reviewResult =
         FailedRun errorMessage ->
             Expect.fail errorMessage
 
-        SuccessfulRun { foundGlobalErrors, runResults, extract, allErrors } reRun ->
+        SuccessfulRun { foundGlobalErrors, runResults, extract, allErrors, project } reRun ->
             let
                 expected : CompiledExpectations
                 expected =
