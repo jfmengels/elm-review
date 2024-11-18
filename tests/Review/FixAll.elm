@@ -88,7 +88,7 @@ a = 1
                                             , preventsExtract = False
                                             , range = { end = { column = 2, row = 4 }, start = { column = 1, row = 4 } }
                                             , ruleName = "NoUnused.Variables"
-                                            , target = Module
+                                            , target = Module "A.elm"
                                             }
                                         , ReviewError
                                             { message = "Top-level variable `b` is not used"
@@ -98,7 +98,7 @@ a = 1
                                             , preventsExtract = False
                                             , range = { end = { column = 2, row = 4 }, start = { column = 1, row = 4 } }
                                             , ruleName = "NoUnused.Variables"
-                                            , target = Module
+                                            , target = Module "A.elm"
                                             }
                                         ]
                                       )
@@ -158,7 +158,7 @@ d = 1
                                             , preventsExtract = False
                                             , range = { end = { column = 2, row = 4 }, start = { column = 1, row = 4 } }
                                             , ruleName = "NoUnused.Variables"
-                                            , target = Module
+                                            , target = Module "A.elm"
                                             }
                                         , ReviewError
                                             { message = "Top-level variable `b` is not used"
@@ -168,7 +168,7 @@ d = 1
                                             , preventsExtract = False
                                             , range = { end = { column = 2, row = 4 }, start = { column = 1, row = 4 } }
                                             , ruleName = "NoUnused.Variables"
-                                            , target = Module
+                                            , target = Module "A.elm"
                                             }
                                         ]
                                       )

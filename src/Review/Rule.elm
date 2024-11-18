@@ -3852,7 +3852,7 @@ error { message, details } range =
         , details = details
         , range = range
         , fixes = Review.Error.NoFixes
-        , target = Review.Error.Module
+        , target = Review.Error.Module ""
         , preventsExtract = False
         }
 
@@ -3915,7 +3915,7 @@ errorForModule (ModuleKey path) { message, details } range =
         , range = range
         , filePath = path
         , fixes = Review.Error.NoFixes
-        , target = Review.Error.Module
+        , target = Review.Error.Module path
         , preventsExtract = False
         }
 
@@ -4121,7 +4121,7 @@ errorForExtraFile (ExtraFileKey { path }) { message, details } range =
         , details = details
         , range = range
         , fixes = Review.Error.NoFixes
-        , target = Review.Error.ExtraFile
+        , target = Review.Error.ExtraFile path
         , preventsExtract = False
         }
 
@@ -4215,7 +4215,7 @@ parsingError path =
             ]
         , range = Range.emptyRange
         , fixes = Review.Error.NoFixes
-        , target = Review.Error.Module
+        , target = Review.Error.Module path
         , preventsExtract = False
         }
 
@@ -4255,13 +4255,13 @@ withFixes fixes error_ =
 
             else
                 case err.target of
-                    Review.Error.Module ->
+                    Review.Error.Module filePath ->
                         { err | fixes = Review.Error.Available fixes }
 
                     Review.Error.Readme ->
                         { err | fixes = Review.Error.Available fixes }
 
-                    Review.Error.ExtraFile ->
+                    Review.Error.ExtraFile filePath ->
                         { err | fixes = Review.Error.Available fixes }
 
                     Review.Error.ElmJson ->
@@ -4651,7 +4651,29 @@ qualifyError params (Error err) acc =
         newError : InternalError
         newError =
             if err.filePath == "" then
-                { err | filePath = params.filePath }
+                let
+                    newTarget : Review.Error.Target
+                    newTarget =
+                        case err.target of
+                            Review.Error.Module _ ->
+                                Review.Error.Module params.filePath
+
+                            Review.Error.ElmJson ->
+                                err.target
+
+                            Review.Error.Readme ->
+                                err.target
+
+                            Review.Error.ExtraFile _ ->
+                                Review.Error.ExtraFile params.filePath
+
+                            Review.Error.Global ->
+                                err.target
+
+                            Review.Error.UserGlobal ->
+                                err.target
+                in
+                { err | filePath = params.filePath, target = newTarget }
 
             else
                 err
@@ -5712,8 +5734,8 @@ findFixHelp project fixablePredicate errors accErrors maybeModuleZipper =
 
                 Just fixes ->
                     case headError.target of
-                        Review.Error.Module ->
-                            case ValidProject.getModuleByPath headError.filePath project of
+                        Review.Error.Module targetPath ->
+                            case ValidProject.getModuleByPath targetPath project of
                                 Nothing ->
                                     findFixHelp project fixablePredicate restOfErrors (err :: accErrors) maybeModuleZipper
 
@@ -5722,7 +5744,7 @@ findFixHelp project fixablePredicate errors accErrors maybeModuleZipper =
                                         InternalFix.fixModule fixes (ProjectModule.source file)
                                             |> Result.andThen
                                                 (\fixResult ->
-                                                    ValidProject.addParsedModule { path = headError.filePath, source = fixResult.source, ast = fixResult.ast } maybeModuleZipper project
+                                                    ValidProject.addParsedModule { path = targetPath, source = fixResult.source, ast = fixResult.ast } maybeModuleZipper project
                                                         |> Maybe.map
                                                             (\( newProject, newModuleZipper ) ->
                                                                 { project = newProject
@@ -5783,8 +5805,8 @@ findFixHelp project fixablePredicate errors accErrors maybeModuleZipper =
                                                 , error = errorToReviewError (Error headError)
                                                 }
 
-                        Review.Error.ExtraFile ->
-                            case Dict.get headError.filePath (ValidProject.extraFilesWithoutKeys project) of
+                        Review.Error.ExtraFile targetPath ->
+                            case Dict.get targetPath (ValidProject.extraFilesWithoutKeys project) of
                                 Nothing ->
                                     findFixHelp project fixablePredicate restOfErrors (err :: accErrors) maybeModuleZipper
 
@@ -5796,7 +5818,7 @@ findFixHelp project fixablePredicate errors accErrors maybeModuleZipper =
                                         Ok newFileContent ->
                                             FoundFixHelp
                                                 (errors ++ accErrors)
-                                                { project = ValidProject.addExtraFile { path = headError.filePath, content = newFileContent } project
+                                                { project = ValidProject.addExtraFile { path = targetPath, content = newFileContent } project
                                                 , fixedFile = FixedExtraFile
                                                 , error = errorToReviewError (Error headError)
                                                 }

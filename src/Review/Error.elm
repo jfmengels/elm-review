@@ -10,10 +10,10 @@ type ReviewError
 
 
 type Target
-    = Module
+    = Module String
     | ElmJson
     | Readme
-    | ExtraFile
+    | ExtraFile String
     | Global
     | UserGlobal
 
@@ -60,7 +60,7 @@ error { message, details } range =
         , details = details
         , range = range
         , fixes = NoFixes
-        , target = Module
+        , target = Module ""
         , preventsExtract = False
         }
 

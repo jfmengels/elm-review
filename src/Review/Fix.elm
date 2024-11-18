@@ -200,7 +200,7 @@ type Problem
 fix : Error.Target -> List Fix -> String -> FixResult
 fix target fixes sourceCode =
     case target of
-        Error.Module ->
+        Error.Module _ ->
             tryToApplyFix
                 fixes
                 sourceCode
@@ -212,7 +212,7 @@ fix target fixes sourceCode =
                 sourceCode
                 (always True)
 
-        Error.ExtraFile ->
+        Error.ExtraFile _ ->
             tryToApplyFix
                 fixes
                 sourceCode
