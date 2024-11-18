@@ -835,7 +835,7 @@ expectGlobalAndLocalErrors { global, local } reviewResult =
         FailedRun errorMessage ->
             Expect.fail errorMessage
 
-        SuccessfulRun { foundGlobalErrors, runResults, extract, allErrors } reRun ->
+        SuccessfulRun { foundGlobalErrors, runResults, extract, allErrors, project } reRun ->
             Expect.all
                 [ \() ->
                     if List.isEmpty global then
@@ -850,7 +850,7 @@ expectGlobalAndLocalErrors { global, local } reviewResult =
                     else
                         case runResults of
                             runResult :: [] ->
-                                checkAllErrorsMatch runResult local
+                                checkAllErrorsMatch project runResult local
 
                             _ ->
                                 Expect.fail FailureMessage.needToUsedExpectErrorsForModules
@@ -881,7 +881,7 @@ expectGlobalAndModuleErrors { global, modules } reviewResult =
         FailedRun errorMessage ->
             Expect.fail errorMessage
 
-        SuccessfulRun { foundGlobalErrors, runResults, extract, allErrors } reRun ->
+        SuccessfulRun { foundGlobalErrors, runResults, extract, allErrors, project } reRun ->
             Expect.all
                 [ \() ->
                     if List.isEmpty global then
@@ -889,7 +889,7 @@ expectGlobalAndModuleErrors { global, modules } reviewResult =
 
                     else
                         checkAllGlobalErrorsMatch (List.length global) { expected = global, actual = foundGlobalErrors }
-                , \() -> expectErrorsForModulesHelp modules runResults
+                , \() -> expectErrorsForModulesHelp project modules runResults
                 , \() -> expectNoDataExtract extract
                 , \() -> checkResultsAreTheSameWhenIgnoringFiles allErrors reRun
                 ]
@@ -1026,8 +1026,8 @@ maybeCons mapper maybe list =
             list
 
 
-expectErrorsForModulesHelp : List ( String, List ExpectedError ) -> List SuccessfulRunResult -> Expectation
-expectErrorsForModulesHelp expectedErrorsList runResults =
+expectErrorsForModulesHelp : Project -> List ( String, List ExpectedError ) -> List SuccessfulRunResult -> Expectation
+expectErrorsForModulesHelp project expectedErrorsList runResults =
     let
         unknownModules : List String
         unknownModules =
@@ -1043,12 +1043,12 @@ expectErrorsForModulesHelp expectedErrorsList runResults =
 
         [] ->
             Expect.all
-                (expectErrorsForModuleFiles expectedErrorsList runResults)
+                (expectErrorsForModuleFiles project expectedErrorsList runResults)
                 ()
 
 
-expectErrorsForModuleFiles : List ( String, List ExpectedError ) -> List SuccessfulRunResult -> List (() -> Expectation)
-expectErrorsForModuleFiles expectedErrorsList runResults =
+expectErrorsForModuleFiles : Project -> List ( String, List ExpectedError ) -> List SuccessfulRunResult -> List (() -> Expectation)
+expectErrorsForModuleFiles project expectedErrorsList runResults =
     List.map
         (\runResult () ->
             let
@@ -1063,7 +1063,7 @@ expectErrorsForModuleFiles expectedErrorsList runResults =
                 expectNoErrorForModuleRunResult runResult
 
             else
-                checkAllErrorsMatch runResult expectedErrors
+                checkAllErrorsMatch project runResult expectedErrors
         )
         runResults
 
@@ -1527,8 +1527,8 @@ matchingConfidenceLevel codeInspector expectedErrorDetails reviewError =
                     3
 
 
-checkAllErrorsMatch : SuccessfulRunResult -> List ExpectedError -> Expectation
-checkAllErrorsMatch runResult unorderedExpectedErrors =
+checkAllErrorsMatch : Project -> SuccessfulRunResult -> List ExpectedError -> Expectation
+checkAllErrorsMatch project runResult unorderedExpectedErrors =
     let
         ( expectedErrors, reviewErrors ) =
             reorderErrors
@@ -1540,7 +1540,7 @@ checkAllErrorsMatch runResult unorderedExpectedErrors =
                 }
     in
     Expect.all
-        (List.reverse (checkErrorsMatch runResult expectedErrors (List.length expectedErrors) reviewErrors))
+        (List.reverse (checkErrorsMatch project runResult expectedErrors (List.length expectedErrors) reviewErrors))
         ()
 
 
@@ -1613,15 +1613,15 @@ checkAllGlobalErrorsMatch expectedErrorToString params =
     checkGlobalErrorsMatch expectedErrorToString { expected = params.expected, actual = params.actual, needSecondPass = [] }
 
 
-checkErrorsMatch : SuccessfulRunResult -> List ExpectedError -> Int -> List ReviewError -> List (() -> Expectation)
-checkErrorsMatch runResult expectedErrors expectedNumberOfErrors errors =
+checkErrorsMatch : Project -> SuccessfulRunResult -> List ExpectedError -> Int -> List ReviewError -> List (() -> Expectation)
+checkErrorsMatch project runResult expectedErrors expectedNumberOfErrors errors =
     case ( expectedErrors, errors ) of
         ( [], [] ) ->
             [ always Expect.pass ]
 
         ( expected :: restOfExpectedErrors, error_ :: restOfErrors ) ->
-            checkErrorMatch runResult.inspector expected error_
-                :: checkErrorsMatch runResult restOfExpectedErrors expectedNumberOfErrors restOfErrors
+            checkErrorMatch project runResult.inspector expected error_
+                :: checkErrorsMatch project runResult restOfExpectedErrors expectedNumberOfErrors restOfErrors
 
         ( expected :: restOfExpectedErrors, [] ) ->
             [ \() ->
@@ -1638,8 +1638,8 @@ checkErrorsMatch runResult expectedErrors expectedNumberOfErrors errors =
             ]
 
 
-checkErrorMatch : CodeInspector -> ExpectedError -> ReviewError -> (() -> Expectation)
-checkErrorMatch codeInspector ((ExpectedError expectedError_) as expectedError) error_ =
+checkErrorMatch : Project -> CodeInspector -> ExpectedError -> ReviewError -> (() -> Expectation)
+checkErrorMatch project codeInspector ((ExpectedError expectedError_) as expectedError) error_ =
     Expect.all
         [ \() ->
             Rule.errorMessage error_
@@ -1651,7 +1651,7 @@ checkErrorMatch codeInspector ((ExpectedError expectedError_) as expectedError) 
                     )
         , checkMessageAppearsUnder codeInspector error_ expectedError
         , checkDetailsAreCorrect error_ expectedError
-        , \() -> checkFixesAreCorrect codeInspector error_ expectedError
+        , \() -> checkFixesAreCorrect project codeInspector error_ expectedError
         ]
 
 
@@ -1717,8 +1717,8 @@ checkDetailsAreCorrect error_ (ExpectedError expectedError) =
         ]
 
 
-checkFixesAreCorrect : CodeInspector -> ReviewError -> ExpectedError -> Expectation
-checkFixesAreCorrect codeInspector ((Error.ReviewError err) as error_) ((ExpectedError expectedError_) as expectedError) =
+checkFixesAreCorrect : Project -> CodeInspector -> ReviewError -> ExpectedError -> Expectation
+checkFixesAreCorrect project codeInspector ((Error.ReviewError err) as error_) ((ExpectedError expectedError_) as expectedError) =
     -- TODO MULTIFILE-FIXES Fix file path to be the current file
     case ( Dict.get "" expectedError_.fixedSource, err.fixes ) of
         ( Nothing, Error.NoFixes ) ->
@@ -1987,7 +1987,7 @@ expect expectations reviewResult =
 
                     else
                         checkAllGlobalErrorsMatch (List.length expected.globals) { expected = expected.globals, actual = foundGlobalErrors }
-                , \() -> expectErrorsForModulesHelp expected.modules runResults
+                , \() -> expectErrorsForModulesHelp project expected.modules runResults
                 , \() ->
                     case expected.dataExtract of
                         NoDataExtractExpected ->
