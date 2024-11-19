@@ -1,5 +1,6 @@
 module Review.Error exposing (ErrorFixes(..), InternalError, ReviewError(..), Target(..), doesPreventExtract, error, fixesFromMaybe, markFixesAsProblem, preventExtract, withFixes)
 
+import Dict exposing (Dict)
 import Elm.Syntax.Range exposing (Range)
 import Review.Fix.FixProblem as FixProblem
 import Review.Fix.Internal exposing (Fix)
@@ -32,15 +33,15 @@ type alias InternalError =
 
 type ErrorFixes
     = NoFixes
-    | Available (List Fix)
+    | Available (Dict String (List Fix))
     | FailedToApply FixProblem.FixProblem
 
 
-fixesFromMaybe : Maybe (List Fix) -> ErrorFixes
-fixesFromMaybe maybeFixes =
+fixesFromMaybe : String -> Maybe (List Fix) -> ErrorFixes
+fixesFromMaybe elmJsonPath maybeFixes =
     case maybeFixes of
         Just fixes ->
-            Available fixes
+            Available (Dict.singleton elmJsonPath fixes)
 
         Nothing ->
             NoFixes
@@ -74,7 +75,7 @@ withFixes fixes (ReviewError error_) =
                     NoFixes
 
                 else
-                    Available fixes
+                    Available (Dict.singleton error_.filePath fixes)
         }
 
 

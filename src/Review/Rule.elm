@@ -4029,7 +4029,7 @@ errorForElmJsonWithFix (ElmJsonKey elmJson) getErrorInfo getFix =
                     ]
                 )
                 (getFix elmJson.project)
-                |> Review.Error.fixesFromMaybe
+                |> Review.Error.fixesFromMaybe elmJson.path
         , target = Review.Error.ElmJson
         , preventsExtract = False
         }
@@ -4256,13 +4256,13 @@ withFixes fixes error_ =
             else
                 case err.target of
                     Review.Error.Module filePath ->
-                        { err | fixes = Review.Error.Available fixes }
+                        { err | fixes = Review.Error.Available (Dict.singleton filePath fixes) }
 
                     Review.Error.Readme ->
-                        { err | fixes = Review.Error.Available fixes }
+                        { err | fixes = Review.Error.Available (Dict.singleton "README.md" fixes) }
 
                     Review.Error.ExtraFile filePath ->
-                        { err | fixes = Review.Error.Available fixes }
+                        { err | fixes = Review.Error.Available (Dict.singleton filePath fixes) }
 
                     Review.Error.ElmJson ->
                         err
@@ -4317,7 +4317,7 @@ errorFixes : ReviewError -> Maybe (List Fix)
 errorFixes (Review.Error.ReviewError err) =
     case err.fixes of
         Review.Error.Available fixes ->
-            Just fixes
+            Dict.get err.filePath fixes
 
         Review.Error.NoFixes ->
             Nothing
@@ -5830,7 +5830,7 @@ findFixHelp project fixablePredicate errors accErrors maybeModuleZipper =
                             findFixHelp project fixablePredicate restOfErrors (err :: accErrors) maybeModuleZipper
 
 
-isFixable : ({ ruleName : String, filePath : String, message : String, details : List String, range : Range } -> Bool) -> InternalError -> Maybe (List Fix)
+isFixable : ({ ruleName : String, filePath : String, message : String, details : List String, range : Range } -> Bool) -> InternalError -> Maybe (Dict String (List Fix))
 isFixable predicate err =
     case err.fixes of
         Review.Error.Available fixes ->
