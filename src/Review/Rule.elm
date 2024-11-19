@@ -4652,32 +4652,10 @@ qualifyError params (Error err) acc =
         newError : InternalError
         newError =
             if err.filePath == "" then
-                let
-                    newTarget : Review.Error.Target
-                    newTarget =
-                        case err.target of
-                            Review.Error.Module "" ->
-                                Review.Error.Module params.filePath
-
-                            Review.Error.ExtraFile _ ->
-                                err.target
-
-                            Review.Error.Module _ ->
-                                err.target
-
-                            Review.Error.ElmJson ->
-                                err.target
-
-                            Review.Error.Readme ->
-                                err.target
-
-                            Review.Error.Global ->
-                                err.target
-
-                            Review.Error.UserGlobal ->
-                                err.target
-                in
-                { err | filePath = params.filePath, target = newTarget }
+                { err
+                    | filePath = params.filePath
+                    , target = setCurrentFilePathOnTargetIfNeeded params.filePath err.target
+                }
 
             else
                 err
@@ -4687,6 +4665,31 @@ qualifyError params (Error err) acc =
 
     else
         acc
+
+
+setCurrentFilePathOnTargetIfNeeded : String -> Review.Error.Target -> Review.Error.Target
+setCurrentFilePathOnTargetIfNeeded filePath target =
+    case target of
+        Review.Error.Module "" ->
+            Review.Error.Module filePath
+
+        Review.Error.ExtraFile _ ->
+            target
+
+        Review.Error.Module _ ->
+            target
+
+        Review.Error.ElmJson ->
+            target
+
+        Review.Error.Readme ->
+            target
+
+        Review.Error.Global ->
+            target
+
+        Review.Error.UserGlobal ->
+            target
 
 
 runProjectVisitor :
