@@ -4656,17 +4656,20 @@ qualifyError params (Error err) acc =
                     newTarget : Review.Error.Target
                     newTarget =
                         case err.target of
-                            Review.Error.Module _ ->
+                            Review.Error.Module "" ->
                                 Review.Error.Module params.filePath
+
+                            Review.Error.ExtraFile _ ->
+                                err.target
+
+                            Review.Error.Module _ ->
+                                err.target
 
                             Review.Error.ElmJson ->
                                 err.target
 
                             Review.Error.Readme ->
                                 err.target
-
-                            Review.Error.ExtraFile _ ->
-                                Review.Error.ExtraFile params.filePath
 
                             Review.Error.Global ->
                                 err.target
