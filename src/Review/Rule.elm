@@ -4256,13 +4256,13 @@ withFixes fixes error_ =
             else
                 case err.target of
                     Review.Error.Module filePath ->
-                        { err | fixes = Review.Error.Available (Dict.singleton filePath fixes) }
+                        { err | fixes = Review.Error.Available (Dict.singleton filePath ( err.target, fixes )) }
 
                     Review.Error.Readme ->
-                        { err | fixes = Review.Error.Available (Dict.singleton "README.md" fixes) }
+                        { err | fixes = Review.Error.Available (Dict.singleton "README.md" ( err.target, fixes )) }
 
                     Review.Error.ExtraFile filePath ->
-                        { err | fixes = Review.Error.Available (Dict.singleton filePath fixes) }
+                        { err | fixes = Review.Error.Available (Dict.singleton filePath ( err.target, fixes )) }
 
                     Review.Error.ElmJson ->
                         err
@@ -4318,6 +4318,7 @@ errorFixes (Review.Error.ReviewError err) =
     case err.fixes of
         Review.Error.Available fixes ->
             Dict.get err.filePath fixes
+                |> Maybe.map Tuple.second
 
         Review.Error.NoFixes ->
             Nothing
@@ -5728,12 +5729,13 @@ findFixHelp project fixablePredicate errors accErrors maybeModuleZipper =
             FoundNoFixesHelp accErrors
 
         ((Error headError) as err) :: restOfErrors ->
-            case isFixable fixablePredicate headError of
+            -- TODO MULTIFILE-FIXES Do not stop at the first fix
+            case isFixable fixablePredicate headError |> Maybe.andThen (Dict.values >> List.head) of
                 Nothing ->
                     findFixHelp project fixablePredicate restOfErrors (err :: accErrors) maybeModuleZipper
 
-                Just fixes ->
-                    case headError.target of
+                Just ( target, fixes ) ->
+                    case target of
                         Review.Error.Module targetPath ->
                             case ValidProject.getModuleByPath targetPath project of
                                 Nothing ->
@@ -5830,7 +5832,7 @@ findFixHelp project fixablePredicate errors accErrors maybeModuleZipper =
                             findFixHelp project fixablePredicate restOfErrors (err :: accErrors) maybeModuleZipper
 
 
-isFixable : ({ ruleName : String, filePath : String, message : String, details : List String, range : Range } -> Bool) -> InternalError -> Maybe (Dict String (List Fix))
+isFixable : ({ ruleName : String, filePath : String, message : String, details : List String, range : Range } -> Bool) -> InternalError -> Maybe (Dict String ( Review.Error.Target, List Fix ))
 isFixable predicate err =
     case err.fixes of
         Review.Error.Available fixes ->

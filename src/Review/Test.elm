@@ -1733,8 +1733,9 @@ checkFixesAreCorrect project codeInspector ((Error.ReviewError err) as error_) (
                 |> Expect.fail
 
         ( Just expectedFixedSource, Error.Available fixes ) ->
-            case Fix.fix err.target fixes codeInspector.source of
-                Fix.Successful fixedSource ->
+            -- TODO MULTIFILE-FIXES Do not stop at the first fix
+            case fixes |> Dict.values |> List.head |> Maybe.map (\( target, fileFixes ) -> Fix.fix target fileFixes codeInspector.source) of
+                Just (Fix.Successful fixedSource) ->
                     if fixedSource == expectedFixedSource then
                         Expect.pass
 
@@ -1744,14 +1745,18 @@ checkFixesAreCorrect project codeInspector ((Error.ReviewError err) as error_) (
                     else
                         Expect.fail <| FailureMessage.fixedCodeMismatch fixedSource expectedFixedSource error_
 
-                Fix.Errored Fix.Unchanged ->
+                Just (Fix.Errored Fix.Unchanged) ->
                     Expect.fail <| FailureMessage.unchangedSourceAfterFix error_
 
-                Fix.Errored (Fix.SourceCodeIsNotValid sourceCode) ->
+                Just (Fix.Errored (Fix.SourceCodeIsNotValid sourceCode)) ->
                     Expect.fail <| FailureMessage.invalidSourceAfterFix error_ sourceCode
 
-                Fix.Errored Fix.HasCollisionsInFixRanges ->
+                Just (Fix.Errored Fix.HasCollisionsInFixRanges) ->
                     Expect.fail <| FailureMessage.hasCollisionsInFixRanges error_
+
+                Nothing ->
+                    FailureMessage.missingFixes (extractExpectedErrorData expectedError)
+                        |> Expect.fail
 
         ( _, Error.FailedToApply problem ) ->
             case problem of

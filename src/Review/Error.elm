@@ -33,7 +33,7 @@ type alias InternalError =
 
 type ErrorFixes
     = NoFixes
-    | Available (Dict String (List Fix))
+    | Available (Dict String ( Target, List Fix ))
     | FailedToApply FixProblem.FixProblem
 
 
@@ -41,7 +41,7 @@ fixesFromMaybe : String -> Maybe (List Fix) -> ErrorFixes
 fixesFromMaybe elmJsonPath maybeFixes =
     case maybeFixes of
         Just fixes ->
-            Available (Dict.singleton elmJsonPath fixes)
+            Available (Dict.singleton elmJsonPath ( ElmJson, fixes ))
 
         Nothing ->
             NoFixes
@@ -75,7 +75,7 @@ withFixes fixes (ReviewError error_) =
                     NoFixes
 
                 else
-                    Available (Dict.singleton error_.filePath fixes)
+                    Available (Dict.singleton error_.filePath ( Module error_.filePath, fixes ))
         }
 
 
