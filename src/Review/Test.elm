@@ -8,6 +8,7 @@ module Review.Test exposing
     , expect, ReviewExpectation
     , moduleErrors, globalErrors, elmJsonErrors, readmeErrors, extraFileErrors, dataExtract
     , expectGlobalAndLocalErrors, expectGlobalAndModuleErrors
+    , shouldFixFiles
     )
 
 {-| Module that helps you test your rules, using [`elm-test`](https://package.elm-lang.org/packages/elm-explorations/test/latest/).
@@ -1345,6 +1346,12 @@ whenFixed : String -> ExpectedError -> ExpectedError
 whenFixed fixedSource (ExpectedError expectedError) =
     -- TODO MULTIFILE-FIXES Fix file path to be the current file
     ExpectedError { expectedError | fixedSource = Dict.singleton "" fixedSource }
+
+
+shouldFixFiles : List ( String, String ) -> ExpectedError -> ExpectedError
+shouldFixFiles fixedFiles (ExpectedError expectedError) =
+    -- TODO MULTIFILE-FIXES Add documentation
+    ExpectedError { expectedError | fixedSource = Dict.fromList fixedFiles }
 
 
 getUnder : ExpectedError -> String
