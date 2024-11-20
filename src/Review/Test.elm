@@ -1725,14 +1725,14 @@ checkDetailsAreCorrect error_ (ExpectedError expectedError) =
 
 
 checkFixesAreCorrect : Project -> CodeInspector -> ReviewError -> ExpectedError -> Expectation
-checkFixesAreCorrect project codeInspector ((Error.ReviewError err) as error_) ((ExpectedError expectedError_) as expectedError) =
+checkFixesAreCorrect project codeInspector ((Error.ReviewError err) as error_) (ExpectedError expectedError) =
     -- TODO MULTIFILE-FIXES Fix file path to be the current file
-    case ( Dict.get "" expectedError_.fixedSource, err.fixes ) of
+    case ( Dict.get "" expectedError.fixedSource, err.fixes ) of
         ( Nothing, Error.NoFixes ) ->
             Expect.pass
 
         ( Just _, Error.NoFixes ) ->
-            FailureMessage.missingFixes (extractExpectedErrorData expectedError)
+            FailureMessage.missingFixes expectedError.message
                 |> Expect.fail
 
         ( Nothing, Error.Available _ ) ->
@@ -1762,7 +1762,7 @@ checkFixesAreCorrect project codeInspector ((Error.ReviewError err) as error_) (
                     Expect.fail <| FailureMessage.hasCollisionsInFixRanges error_
 
                 Nothing ->
-                    FailureMessage.missingFixes (extractExpectedErrorData expectedError)
+                    FailureMessage.missingFixes expectedError.message
                         |> Expect.fail
 
         ( _, Error.FailedToApply problem ) ->

@@ -1073,15 +1073,7 @@ missingFixesTest : Test
 missingFixesTest =
     test "missingFixes" <|
         \() ->
-            let
-                expectedError : ExpectedErrorData
-                expectedError =
-                    { message = "Some error"
-                    , details = [ "Some details" ]
-                    , under = "Debug.log"
-                    }
-            in
-            FailureMessage.missingFixes expectedError
+            FailureMessage.missingFixes "Some error"
                 |> expectMessageEqual """
 \u{001B}[31m\u{001B}[1mMISSING FIXES\u{001B}[22m\u{001B}[39m
 

@@ -447,12 +447,12 @@ match the names of the modules in the test source codes to the ones in the
 expected errors list.""")
 
 
-missingFixes : ExpectedErrorData -> String
-missingFixes expectedError =
+missingFixes : String -> String
+missingFixes message =
     failureMessage "MISSING FIXES"
         ("""I expected that the error with the following message
 
-  """ ++ wrapInQuotes expectedError.message ++ """
+  """ ++ wrapInQuotes message ++ """
 
 would provide some fixes, but I didn't find any.
 
