@@ -1,6 +1,5 @@
 module Review.Test.FailureMessage exposing
-    ( ExpectedErrorData
-    , parsingFailure, globalErrorInTest, messageMismatch, emptyDetails, unexpectedDetails, wrongLocation, didNotExpectErrors
+    ( parsingFailure, globalErrorInTest, messageMismatch, emptyDetails, unexpectedDetails, wrongLocation, didNotExpectErrors
     , underMismatch, expectedMoreErrors, tooManyErrors, locationNotFound, underMayNotBeEmpty, locationIsAmbiguousInSourceCode
     , needToUsedExpectErrorsForModules, missingSources, duplicateModuleName, unknownModulesInExpectedErrors
     , missingFixes, unexpectedFixes, fixedCodeMismatch, unchangedSourceAfterFix, invalidSourceAfterFix, hasCollisionsInFixRanges
@@ -16,7 +15,6 @@ module Review.Test.FailureMessage exposing
 
 # ReviewError messages
 
-@docs ExpectedErrorData
 @docs parsingFailure, globalErrorInTest, messageMismatch, emptyDetails, unexpectedDetails, wrongLocation, didNotExpectErrors
 @docs underMismatch, expectedMoreErrors, tooManyErrors, locationNotFound, underMayNotBeEmpty, locationIsAmbiguousInSourceCode
 @docs needToUsedExpectErrorsForModules, missingSources, duplicateModuleName, unknownModulesInExpectedErrors
@@ -36,15 +34,6 @@ import Json.Encode as Encode
 import Review.Rule as Rule exposing (ReviewError)
 import Vendor.Diff as Diff
 import Vendor.ListExtra as ListExtra
-
-
-{-| An expectation for an error. Use [`error`](Review-Test#error) to create one.
--}
-type alias ExpectedErrorData =
-    { message : String
-    , details : List String
-    , under : String
-    }
 
 
 type alias SourceCode =
@@ -121,12 +110,12 @@ the same issue. Please fix this issue in your test.
 """)
 
 
-messageMismatch : ExpectedErrorData -> ReviewError -> String
-messageMismatch expectedError error =
+messageMismatch : String -> ReviewError -> String
+messageMismatch expectedErrorMessage error =
     failureMessage "UNEXPECTED ERROR MESSAGE"
         ("""I was looking for the error with the following message:
 
-  """ ++ wrapInQuotes expectedError.message ++ """
+  """ ++ wrapInQuotes expectedErrorMessage ++ """
 
 but I found the following error message:
 
@@ -275,37 +264,37 @@ but I found it at:
   """ ++ rangeAsString (Rule.errorRange error))
 
 
-expectedMoreErrors : String -> Int -> List ExpectedErrorData -> String
-expectedMoreErrors moduleName expectedNumberOfErrors missingExpectedErrors =
+expectedMoreErrors : String -> Int -> List String -> String
+expectedMoreErrors moduleName expectedNumberOfErrors missingExpectedErrorMessages =
     let
         numberOfErrors : Int
         numberOfErrors =
-            List.length missingExpectedErrors
+            List.length missingExpectedErrorMessages
     in
     failureMessage "RULE REPORTED LESS ERRORS THAN EXPECTED"
         ("I expected to see " ++ String.fromInt expectedNumberOfErrors ++ " errors for module `" ++ moduleName ++ "` but only found " ++ String.fromInt (expectedNumberOfErrors - numberOfErrors) ++ """.
 Here are the """ ++ String.fromInt numberOfErrors ++ """ I could not find:
 
 """)
-        ++ (missingExpectedErrors
+        ++ (missingExpectedErrorMessages
                 |> List.map expectedErrorToString
                 |> String.join "\n"
            )
 
 
-expectedMoreGlobalErrors : Int -> List { a | message : String } -> String
-expectedMoreGlobalErrors expectedNumberOfErrors missingExpectedErrors =
+expectedMoreGlobalErrors : Int -> List String -> String
+expectedMoreGlobalErrors expectedNumberOfErrors missingExpectedErrorMessages =
     let
         numberOfErrors : Int
         numberOfErrors =
-            List.length missingExpectedErrors
+            List.length missingExpectedErrorMessages
     in
     failureMessage "RULE REPORTED LESS GLOBAL ERRORS THAN EXPECTED"
         ("I expected to see " ++ String.fromInt expectedNumberOfErrors ++ " global errors but only found " ++ String.fromInt (expectedNumberOfErrors - numberOfErrors) ++ """.
 Here are the """ ++ String.fromInt numberOfErrors ++ """ I could not find:
 
 """)
-        ++ (missingExpectedErrors
+        ++ (missingExpectedErrorMessages
                 |> List.map expectedErrorToString
                 |> String.join "\n"
            )
@@ -901,9 +890,9 @@ errorMessageAndPosition error =
     "  - " ++ wrapInQuotes (Rule.errorMessage error) ++ "\n    at " ++ rangeAsString (Rule.errorRange error)
 
 
-expectedErrorToString : { a | message : String } -> String
-expectedErrorToString expectedError =
-    "  - " ++ wrapInQuotes expectedError.message
+expectedErrorToString : String -> String
+expectedErrorToString expectedErrorMessage =
+    "  - " ++ wrapInQuotes expectedErrorMessage
 
 
 wrapInQuotes : String -> String

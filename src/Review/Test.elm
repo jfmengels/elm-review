@@ -1583,7 +1583,7 @@ checkGlobalErrorsMatch originalNumberOfExpectedErrors params =
 
                     else
                         -- We expected more errors
-                        Expect.fail <| FailureMessage.expectedMoreGlobalErrors originalNumberOfExpectedErrors params.needSecondPass
+                        Expect.fail <| FailureMessage.expectedMoreGlobalErrors originalNumberOfExpectedErrors (List.map .message params.needSecondPass)
 
 
 findAndRemove : a -> List a -> Maybe (List a)
@@ -1633,7 +1633,7 @@ checkErrorsMatch project runResult expectedErrors expectedNumberOfErrors errors 
         ( _ :: _, [] ) ->
             [ \() ->
                 expectedErrors
-                    |> List.map extractExpectedErrorData
+                    |> List.map (\(ExpectedError { message }) -> message)
                     |> FailureMessage.expectedMoreErrors runResult.moduleName expectedNumberOfErrors
                     |> Expect.fail
             ]
@@ -1646,24 +1646,20 @@ checkErrorsMatch project runResult expectedErrors expectedNumberOfErrors errors 
 
 
 checkErrorMatch : Project -> CodeInspector -> ExpectedError -> ReviewError -> (() -> Expectation)
-checkErrorMatch project codeInspector ((ExpectedError expectedError_) as expectedError) error_ =
+checkErrorMatch project codeInspector (ExpectedError expectedError) error_ =
     Expect.all
         [ \() ->
             Rule.errorMessage error_
-                |> Expect.equal expectedError_.message
-                |> Expect.onFail
-                    (FailureMessage.messageMismatch
-                        (extractExpectedErrorData expectedError)
-                        error_
-                    )
+                |> Expect.equal expectedError.message
+                |> Expect.onFail (FailureMessage.messageMismatch expectedError.message error_)
         , checkMessageAppearsUnder codeInspector error_ expectedError
-        , checkDetailsAreCorrect error_ expectedError
+        , checkDetailsAreCorrect error_ expectedError.details
         , \() -> checkFixesAreCorrect project codeInspector error_ expectedError
         ]
 
 
-checkMessageAppearsUnder : CodeInspector -> ReviewError -> ExpectedError -> (() -> Expectation)
-checkMessageAppearsUnder codeInspector error_ (ExpectedError expectedError) =
+checkMessageAppearsUnder : CodeInspector -> ReviewError -> ExpectedErrorDetails -> (() -> Expectation)
+checkMessageAppearsUnder codeInspector error_ expectedError =
     if Rule.errorTarget error_ == Error.UserGlobal then
         \() -> Expect.pass
 
@@ -1710,8 +1706,8 @@ checkMessageAppearsUnder codeInspector error_ (ExpectedError expectedError) =
                         |> Expect.fail
 
 
-checkDetailsAreCorrect : ReviewError -> ExpectedError -> (() -> Expectation)
-checkDetailsAreCorrect error_ (ExpectedError expectedError) =
+checkDetailsAreCorrect : ReviewError -> List String -> (() -> Expectation)
+checkDetailsAreCorrect error_ expectedErrorDetails =
     Expect.all
         [ \() ->
             (List.isEmpty <| Rule.errorDetails error_)
@@ -1719,13 +1715,13 @@ checkDetailsAreCorrect error_ (ExpectedError expectedError) =
                 |> Expect.onFail (FailureMessage.emptyDetails (Rule.errorMessage error_))
         , \() ->
             Rule.errorDetails error_
-                |> Expect.equal expectedError.details
-                |> Expect.onFail (FailureMessage.unexpectedDetails expectedError.details error_)
+                |> Expect.equal expectedErrorDetails
+                |> Expect.onFail (FailureMessage.unexpectedDetails expectedErrorDetails error_)
         ]
 
 
-checkFixesAreCorrect : Project -> CodeInspector -> ReviewError -> ExpectedError -> Expectation
-checkFixesAreCorrect project codeInspector ((Error.ReviewError err) as error_) (ExpectedError expectedError) =
+checkFixesAreCorrect : Project -> CodeInspector -> ReviewError -> ExpectedErrorDetails -> Expectation
+checkFixesAreCorrect project codeInspector ((Error.ReviewError err) as error_) expectedError =
     -- TODO MULTIFILE-FIXES Fix file path to be the current file
     case ( Dict.get "" expectedError.fixedSource, err.fixes ) of
         ( Nothing, Error.NoFixes ) ->
@@ -1781,14 +1777,6 @@ removeWhitespace : String -> String
 removeWhitespace =
     String.replace " " ""
         >> String.replace "\n" ""
-
-
-extractExpectedErrorData : ExpectedError -> FailureMessage.ExpectedErrorData
-extractExpectedErrorData (ExpectedError expectedError) =
-    { message = expectedError.message
-    , details = expectedError.details
-    , under = formatUnder expectedError.under
-    }
 
 
 {-| Assert that the rule will report a configuration error.

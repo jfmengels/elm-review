@@ -12,7 +12,7 @@ import Review.Error exposing (ReviewError)
 import Review.Fix as Fix
 import Review.Rule as Rule exposing (Error, Rule)
 import Review.Test
-import Review.Test.FailureMessage as FailureMessage exposing (ExpectedErrorData)
+import Review.Test.FailureMessage as FailureMessage
 import Test exposing (Test, describe, test)
 import Test.Runner
 import Vendor.Diff as Diff
@@ -749,19 +749,13 @@ expectedMoreErrorsTest =
     test "expectedMoreErrors" <|
         \() ->
             let
-                missingErrors : List ExpectedErrorData
-                missingErrors =
-                    [ { message = "Remove the use of `Debug` before shipping to production"
-                      , details = [ "Some details" ]
-                      , under = "Debug.log"
-                      }
-                    , { message = "Remove the use of `Debug` before shipping to production"
-                      , details = [ "Some details" ]
-                      , under = "Debug.log"
-                      }
+                missingErrorMessages : List String
+                missingErrorMessages =
+                    [ "Remove the use of `Debug` before shipping to production"
+                    , "Remove the use of `Debug` before shipping to production"
                     ]
             in
-            FailureMessage.expectedMoreErrors "MyModule" 5 missingErrors
+            FailureMessage.expectedMoreErrors "MyModule" 5 missingErrorMessages
                 |> expectMessageEqual """
 \u{001B}[31m\u{001B}[1mRULE REPORTED LESS ERRORS THAN EXPECTED\u{001B}[22m\u{001B}[39m
 
@@ -778,13 +772,13 @@ expectedMoreGlobalErrorsTest =
     test "expectedMoreGlobalErrors" <|
         \() ->
             let
-                missingErrors : List { message : String }
-                missingErrors =
-                    [ { message = "Remove the use of `Debug` before shipping to production" }
-                    , { message = "Remove the use of `Debug` before shipping to production" }
+                missingErrorMessages : List String
+                missingErrorMessages =
+                    [ "Remove the use of `Debug` before shipping to production"
+                    , "Remove the use of `Debug` before shipping to production"
                     ]
             in
-            FailureMessage.expectedMoreGlobalErrors 5 missingErrors
+            FailureMessage.expectedMoreGlobalErrors 5 missingErrorMessages
                 |> expectMessageEqual """
 \u{001B}[31m\u{001B}[1mRULE REPORTED LESS GLOBAL ERRORS THAN EXPECTED\u{001B}[22m\u{001B}[39m
 
