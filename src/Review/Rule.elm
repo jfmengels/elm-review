@@ -4654,7 +4654,7 @@ qualifyError params (Error err) acc =
             if err.filePath == "" then
                 { err
                     | filePath = params.filePath
-                    , target = setCurrentFilePathOnTargetIfNeeded params.filePath err.target
+                    , target = Review.Error.setCurrentFilePathOnTargetIfNeeded params.filePath err.target
                     , fixes =
                         case err.fixes of
                             Review.Error.Available dict ->
@@ -4666,7 +4666,7 @@ qualifyError params (Error err) acc =
                                         Just ( target, fixes ) ->
                                             dict
                                                 |> Dict.remove ""
-                                                |> Dict.insert params.filePath ( setCurrentFilePathOnTargetIfNeeded params.filePath target, fixes )
+                                                |> Dict.insert params.filePath ( Review.Error.setCurrentFilePathOnTargetIfNeeded params.filePath target, fixes )
                                                 |> Review.Error.Available
 
                                         Nothing ->
@@ -4687,31 +4687,6 @@ qualifyError params (Error err) acc =
 
     else
         acc
-
-
-setCurrentFilePathOnTargetIfNeeded : String -> Review.Error.Target -> Review.Error.Target
-setCurrentFilePathOnTargetIfNeeded filePath target =
-    case target of
-        Review.Error.Module "" ->
-            Review.Error.Module filePath
-
-        Review.Error.ExtraFile _ ->
-            target
-
-        Review.Error.Module _ ->
-            target
-
-        Review.Error.ElmJson ->
-            target
-
-        Review.Error.Readme ->
-            target
-
-        Review.Error.Global ->
-            target
-
-        Review.Error.UserGlobal ->
-            target
 
 
 runProjectVisitor :

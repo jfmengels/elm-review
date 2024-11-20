@@ -1,4 +1,4 @@
-module Review.Error exposing (ErrorFixes(..), InternalError, ReviewError(..), Target(..), doesPreventExtract, error, fixesFromMaybe, markFixesAsProblem, preventExtract, withFixes)
+module Review.Error exposing (ErrorFixes(..), InternalError, ReviewError(..), Target(..), doesPreventExtract, error, fixesFromMaybe, markFixesAsProblem, preventExtract, setCurrentFilePathOnTargetIfNeeded, withFixes)
 
 import Dict exposing (Dict)
 import Elm.Syntax.Range exposing (Range)
@@ -17,6 +17,31 @@ type Target
     | ExtraFile String
     | Global
     | UserGlobal
+
+
+setCurrentFilePathOnTargetIfNeeded : String -> Target -> Target
+setCurrentFilePathOnTargetIfNeeded filePath target =
+    case target of
+        Module "" ->
+            Module filePath
+
+        ExtraFile _ ->
+            target
+
+        Module _ ->
+            target
+
+        ElmJson ->
+            target
+
+        Readme ->
+            target
+
+        Global ->
+            target
+
+        UserGlobal ->
+            target
 
 
 type alias InternalError =
