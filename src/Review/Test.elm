@@ -141,6 +141,8 @@ import Review.Fix as Fix exposing (Fix)
 import Review.Fix.FixProblem as FixProblem
 import Review.Options as ReviewOptions
 import Review.Project as Project exposing (Project, ProjectModule)
+import Review.Project.Internal exposing (ProjectInternals)
+import Review.Project.ProjectModule as ProjectModule
 import Review.Rule as Rule exposing (ReviewError, Rule)
 import Review.Test.Dependencies exposing (projectWithElmCore)
 import Review.Test.FailureMessage as FailureMessage
@@ -1653,7 +1655,7 @@ checkErrorMatch project codeInspector (ExpectedError expectedError) error_ =
                 |> Expect.onFail (FailureMessage.messageMismatch expectedError.message error_)
         , checkMessageAppearsUnder codeInspector error_ expectedError
         , checkDetailsAreCorrect error_ expectedError.details
-        , \() -> checkFixesAreCorrect project codeInspector error_ expectedError
+        , \() -> checkFixesAreCorrect project error_ expectedError
         ]
 
 
@@ -1719,8 +1721,8 @@ checkDetailsAreCorrect error_ expectedErrorDetails =
         ]
 
 
-checkFixesAreCorrect : Project -> CodeInspector -> ReviewError -> ExpectedErrorDetails -> Expectation
-checkFixesAreCorrect project codeInspector ((Error.ReviewError err) as error_) expectedError =
+checkFixesAreCorrect : Project -> ReviewError -> ExpectedErrorDetails -> Expectation
+checkFixesAreCorrect (Review.Project.Internal.Project project) ((Error.ReviewError err) as error_) expectedError =
     case err.fixes of
         Error.NoFixes ->
             if Dict.isEmpty expectedError.fixedSource then
@@ -1733,7 +1735,6 @@ checkFixesAreCorrect project codeInspector ((Error.ReviewError err) as error_) e
         Error.Available dict ->
             checkFixesMatch
                 project
-                codeInspector
                 error_
                 (case Dict.get "" expectedError.fixedSource of
                     Just fixes ->
@@ -1758,8 +1759,8 @@ checkFixesAreCorrect project codeInspector ((Error.ReviewError err) as error_) e
                     Expect.fail <| FailureMessage.hasCollisionsInFixRanges error_
 
 
-checkFixesMatch : Project -> CodeInspector -> ReviewError -> Dict String String -> List ( String, ( Error.Target, List Fix ) ) -> Expectation
-checkFixesMatch project codeInspector error_ expectedFixed fixes =
+checkFixesMatch : ProjectInternals -> ReviewError -> Dict String String -> List ( String, ( Error.Target, List Fix ) ) -> Expectation
+checkFixesMatch project error_ expectedFixed fixes =
     case fixes of
         [] ->
             if Dict.isEmpty expectedFixed then
@@ -1773,36 +1774,63 @@ checkFixesMatch project codeInspector error_ expectedFixed fixes =
         ( filePath, ( target, fileFixes ) ) :: rest ->
             case Dict.get filePath expectedFixed of
                 Just expectedFixedSource ->
-                    -- TODO MULTIFILE-FIXES Fixes should be applied on the target file
-                    case Fix.fix target fileFixes codeInspector.source of
-                        Fix.Successful fixedSource ->
-                            if fixedSource == expectedFixedSource then
-                                checkFixesMatch
-                                    project
-                                    codeInspector
-                                    error_
-                                    (Dict.remove filePath expectedFixed)
-                                    rest
+                    case getTargetFileFromProject target project of
+                        Just source ->
+                            case Fix.fix target fileFixes source of
+                                Fix.Successful fixedSource ->
+                                    if fixedSource == expectedFixedSource then
+                                        checkFixesMatch
+                                            project
+                                            error_
+                                            (Dict.remove filePath expectedFixed)
+                                            rest
 
-                            else if removeWhitespace fixedSource == removeWhitespace expectedFixedSource then
-                                Expect.fail <| FailureMessage.fixedCodeWhitespaceMismatch fixedSource expectedFixedSource error_
+                                    else if removeWhitespace fixedSource == removeWhitespace expectedFixedSource then
+                                        Expect.fail <| FailureMessage.fixedCodeWhitespaceMismatch fixedSource expectedFixedSource error_
 
-                            else
-                                Expect.fail <| FailureMessage.fixedCodeMismatch fixedSource expectedFixedSource error_
+                                    else
+                                        Expect.fail <| FailureMessage.fixedCodeMismatch fixedSource expectedFixedSource error_
 
-                        Fix.Errored Fix.Unchanged ->
-                            Expect.fail <| FailureMessage.unchangedSourceAfterFix error_
+                                Fix.Errored Fix.Unchanged ->
+                                    Expect.fail <| FailureMessage.unchangedSourceAfterFix error_
 
-                        Fix.Errored (Fix.SourceCodeIsNotValid sourceCode) ->
-                            Expect.fail <| FailureMessage.invalidSourceAfterFix error_ sourceCode
+                                Fix.Errored (Fix.SourceCodeIsNotValid sourceCode) ->
+                                    Expect.fail <| FailureMessage.invalidSourceAfterFix error_ sourceCode
 
-                        Fix.Errored Fix.HasCollisionsInFixRanges ->
+                                Fix.Errored Fix.HasCollisionsInFixRanges ->
+                                    Expect.fail <| FailureMessage.hasCollisionsInFixRanges error_
+
+                        Nothing ->
+                            -- TODO MULTIFILE-FIXES Report an error?
                             Expect.fail <| FailureMessage.hasCollisionsInFixRanges error_
 
                 Nothing ->
                     -- TODO MULTIFILE-FIXES Test failure message should say it didn't find "any" fixes (unless expectedFixed was originally empty), but that it didn't find the remaining ones
                     FailureMessage.unexpectedFixes (Rule.errorMessage error_)
                         |> Expect.fail
+
+
+getTargetFileFromProject : Error.Target -> ProjectInternals -> Maybe String
+getTargetFileFromProject target project =
+    case target of
+        Error.Module filePath ->
+            Dict.get filePath project.modules
+                |> Maybe.map ProjectModule.source
+
+        Error.ElmJson ->
+            Maybe.map (Tuple.first >> .raw) project.elmJson
+
+        Error.Readme ->
+            Maybe.map (Tuple.first >> .content) project.readme
+
+        Error.ExtraFile filePath ->
+            Dict.get filePath project.extraFiles
+
+        Error.Global ->
+            Nothing
+
+        Error.UserGlobal ->
+            Nothing
 
 
 removeWhitespace : String -> String
