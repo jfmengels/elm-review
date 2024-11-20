@@ -1630,9 +1630,9 @@ checkErrorsMatch project runResult expectedErrors expectedNumberOfErrors errors 
             checkErrorMatch project runResult.inspector expected error_
                 :: checkErrorsMatch project runResult restOfExpectedErrors expectedNumberOfErrors restOfErrors
 
-        ( expected :: restOfExpectedErrors, [] ) ->
+        ( _ :: _, [] ) ->
             [ \() ->
-                (expected :: restOfExpectedErrors)
+                expectedErrors
                     |> List.map extractExpectedErrorData
                     |> FailureMessage.expectedMoreErrors runResult.moduleName expectedNumberOfErrors
                     |> Expect.fail
