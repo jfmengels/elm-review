@@ -1307,8 +1307,8 @@ of `atExactly`, so you do not have to bother writing this hard-to-write argument
 
 -}
 atExactly : { start : { row : Int, column : Int }, end : { row : Int, column : Int } } -> ExpectedError -> ExpectedError
-atExactly range ((ExpectedError expectedError_) as expectedError) =
-    ExpectedError { expectedError_ | under = UnderExactly (getUnder expectedError) range }
+atExactly range (ExpectedError expectedError) =
+    ExpectedError { expectedError | under = UnderExactly (getUnder expectedError.under) range }
 
 
 {-| Create an expectation that the error provides an automatic fix, meaning that it used
@@ -1354,9 +1354,9 @@ shouldFixFiles fixedFiles (ExpectedError expectedError) =
     ExpectedError { expectedError | fixedSource = Dict.fromList fixedFiles }
 
 
-getUnder : ExpectedError -> String
-getUnder (ExpectedError expectedError) =
-    case expectedError.under of
+getUnder : Under -> String
+getUnder under =
+    case under of
         Under str ->
             str
 
@@ -1784,10 +1784,10 @@ removeWhitespace =
 
 
 extractExpectedErrorData : ExpectedError -> FailureMessage.ExpectedErrorData
-extractExpectedErrorData ((ExpectedError expectedErrorContent) as expectedError) =
-    { message = expectedErrorContent.message
-    , details = expectedErrorContent.details
-    , under = getUnder expectedError
+extractExpectedErrorData (ExpectedError expectedError) =
+    { message = expectedError.message
+    , details = expectedError.details
+    , under = getUnder expectedError.under
     }
 
 
