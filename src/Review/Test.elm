@@ -1732,7 +1732,7 @@ checkFixesAreCorrect project codeInspector ((Error.ReviewError err) as error_) e
                 |> Expect.fail
 
         ( Nothing, Error.Available _ ) ->
-            FailureMessage.unexpectedFixes error_
+            FailureMessage.unexpectedFixes err.message
                 |> Expect.fail
 
         ( Just expectedFixedSource, Error.Available fixes ) ->

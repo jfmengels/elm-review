@@ -1,4 +1,4 @@
-module Review.Error exposing (ErrorFixes(..), InternalError, ReviewError(..), Target(..), doesPreventExtract, error, fixesFromMaybe, markFixesAsProblem, preventExtract, setCurrentFilePathOnTargetIfNeeded, withFixes)
+module Review.Error exposing (ErrorFixes(..), InternalError, ReviewError(..), Target(..), doesPreventExtract, error, fixesFromMaybe, markFixesAsProblem, preventExtract, setCurrentFilePathOnTargetIfNeeded)
 
 import Dict exposing (Dict)
 import Elm.Syntax.Range exposing (Range)
@@ -88,19 +88,6 @@ error { message, details } range =
         , fixes = NoFixes
         , target = Module ""
         , preventsExtract = False
-        }
-
-
-withFixes : List Fix -> ReviewError -> ReviewError
-withFixes fixes (ReviewError error_) =
-    ReviewError
-        { error_
-            | fixes =
-                if List.isEmpty fixes || String.endsWith ".json" error_.filePath then
-                    NoFixes
-
-                else
-                    Available (Dict.singleton error_.filePath ( Module error_.filePath, fixes ))
         }
 
 

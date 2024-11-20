@@ -9,7 +9,6 @@ import Expect exposing (Expectation)
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Review.Error exposing (ReviewError)
-import Review.Fix as Fix
 import Review.Rule as Rule exposing (Error, Rule)
 import Review.Test
 import Review.Test.FailureMessage as FailureMessage
@@ -1085,21 +1084,7 @@ unexpectedFixesTest : Test
 unexpectedFixesTest =
     test "unexpectedFixes" <|
         \() ->
-            let
-                range : Range
-                range =
-                    { start = { row = 3, column = 1 }, end = { row = 4, column = 3 } }
-
-                error : ReviewError
-                error =
-                    Review.Error.error
-                        { message = "Some error"
-                        , details = [ "Some details" ]
-                        }
-                        range
-                        |> Review.Error.withFixes [ Fix.removeRange range ]
-            in
-            FailureMessage.unexpectedFixes error
+            FailureMessage.unexpectedFixes "Some error"
                 |> expectMessageEqual """
 \u{001B}[31m\u{001B}[1mUNEXPECTED FIXES\u{001B}[22m\u{001B}[39m
 

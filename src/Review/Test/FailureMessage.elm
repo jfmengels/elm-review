@@ -449,12 +449,12 @@ Hint: Maybe you forgot to call a function like `Rule.errorWithFix` or maybe
 the list of provided fixes was empty.""")
 
 
-unexpectedFixes : ReviewError -> String
-unexpectedFixes error =
+unexpectedFixes : String -> String
+unexpectedFixes errorMessage =
     failureMessage "UNEXPECTED FIXES"
         ("""I expected that the error with the following message
 
-  """ ++ wrapInQuotes (Rule.errorMessage error) ++ """
+  """ ++ wrapInQuotes errorMessage ++ """
 
 would not have any fixes, but it provided some.
 
