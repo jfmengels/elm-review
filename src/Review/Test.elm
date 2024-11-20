@@ -137,7 +137,7 @@ import Json.Decode as Decode
 import Json.Encode as Encode
 import Review.Error as Error
 import Review.FileParser as FileParser
-import Review.Fix as Fix
+import Review.Fix as Fix exposing (Fix)
 import Review.Fix.FixProblem as FixProblem
 import Review.Options as ReviewOptions
 import Review.Project as Project exposing (Project, ProjectModule)
@@ -1344,7 +1344,6 @@ In other words, you only need to use this function if the error provides a fix.
 -}
 whenFixed : String -> ExpectedError -> ExpectedError
 whenFixed fixedSource (ExpectedError expectedError) =
-    -- TODO MULTIFILE-FIXES Fix file path to be the current file
     ExpectedError { expectedError | fixedSource = Dict.singleton "" fixedSource }
 
 
@@ -1722,46 +1721,32 @@ checkDetailsAreCorrect error_ expectedErrorDetails =
 
 checkFixesAreCorrect : Project -> CodeInspector -> ReviewError -> ExpectedErrorDetails -> Expectation
 checkFixesAreCorrect project codeInspector ((Error.ReviewError err) as error_) expectedError =
-    -- TODO MULTIFILE-FIXES Fix file path to be the current file
-    case ( Dict.get "" expectedError.fixedSource, err.fixes ) of
-        ( Nothing, Error.NoFixes ) ->
-            Expect.pass
+    case err.fixes of
+        Error.NoFixes ->
+            if Dict.isEmpty expectedError.fixedSource then
+                Expect.pass
 
-        ( Just _, Error.NoFixes ) ->
-            FailureMessage.missingFixes expectedError.message
-                |> Expect.fail
+            else
+                FailureMessage.missingFixes expectedError.message
+                    |> Expect.fail
 
-        ( Nothing, Error.Available _ ) ->
-            FailureMessage.unexpectedFixes err.message
-                |> Expect.fail
+        Error.Available dict ->
+            checkFixesMatch
+                project
+                codeInspector
+                error_
+                (case Dict.get "" expectedError.fixedSource of
+                    Just fixes ->
+                        expectedError.fixedSource
+                            |> Dict.remove ""
+                            |> Dict.insert err.filePath fixes
 
-        ( Just expectedFixedSource, Error.Available fixes ) ->
-            -- TODO MULTIFILE-FIXES Do not stop at the first fix
-            case fixes |> Dict.values |> List.head |> Maybe.map (\( target, fileFixes ) -> Fix.fix target fileFixes codeInspector.source) of
-                Just (Fix.Successful fixedSource) ->
-                    if fixedSource == expectedFixedSource then
-                        Expect.pass
+                    Nothing ->
+                        expectedError.fixedSource
+                )
+                (Dict.toList dict)
 
-                    else if removeWhitespace fixedSource == removeWhitespace expectedFixedSource then
-                        Expect.fail <| FailureMessage.fixedCodeWhitespaceMismatch fixedSource expectedFixedSource error_
-
-                    else
-                        Expect.fail <| FailureMessage.fixedCodeMismatch fixedSource expectedFixedSource error_
-
-                Just (Fix.Errored Fix.Unchanged) ->
-                    Expect.fail <| FailureMessage.unchangedSourceAfterFix error_
-
-                Just (Fix.Errored (Fix.SourceCodeIsNotValid sourceCode)) ->
-                    Expect.fail <| FailureMessage.invalidSourceAfterFix error_ sourceCode
-
-                Just (Fix.Errored Fix.HasCollisionsInFixRanges) ->
-                    Expect.fail <| FailureMessage.hasCollisionsInFixRanges error_
-
-                Nothing ->
-                    FailureMessage.missingFixes expectedError.message
-                        |> Expect.fail
-
-        ( _, Error.FailedToApply problem ) ->
+        Error.FailedToApply problem ->
             case problem of
                 FixProblem.Unchanged ->
                     Expect.fail <| FailureMessage.unchangedSourceAfterFix error_
@@ -1771,6 +1756,53 @@ checkFixesAreCorrect project codeInspector ((Error.ReviewError err) as error_) e
 
                 FixProblem.HasCollisionsInFixRanges ->
                     Expect.fail <| FailureMessage.hasCollisionsInFixRanges error_
+
+
+checkFixesMatch : Project -> CodeInspector -> ReviewError -> Dict String String -> List ( String, ( Error.Target, List Fix ) ) -> Expectation
+checkFixesMatch project codeInspector error_ expectedFixed fixes =
+    case fixes of
+        [] ->
+            if Dict.isEmpty expectedFixed then
+                Expect.pass
+
+            else
+                -- TODO MULTIFILE-FIXES Test failure message should not say it didn't find "any" fixes (unless expectedFixed was originally empty), but that it didn't find the remaining ones
+                FailureMessage.missingFixes (Rule.errorMessage error_)
+                    |> Expect.fail
+
+        ( filePath, ( target, fileFixes ) ) :: rest ->
+            case Dict.get filePath expectedFixed of
+                Just expectedFixedSource ->
+                    -- TODO MULTIFILE-FIXES Fixes should be applied on the target file
+                    case Fix.fix target fileFixes codeInspector.source of
+                        Fix.Successful fixedSource ->
+                            if fixedSource == expectedFixedSource then
+                                checkFixesMatch
+                                    project
+                                    codeInspector
+                                    error_
+                                    (Dict.remove filePath expectedFixed)
+                                    rest
+
+                            else if removeWhitespace fixedSource == removeWhitespace expectedFixedSource then
+                                Expect.fail <| FailureMessage.fixedCodeWhitespaceMismatch fixedSource expectedFixedSource error_
+
+                            else
+                                Expect.fail <| FailureMessage.fixedCodeMismatch fixedSource expectedFixedSource error_
+
+                        Fix.Errored Fix.Unchanged ->
+                            Expect.fail <| FailureMessage.unchangedSourceAfterFix error_
+
+                        Fix.Errored (Fix.SourceCodeIsNotValid sourceCode) ->
+                            Expect.fail <| FailureMessage.invalidSourceAfterFix error_ sourceCode
+
+                        Fix.Errored Fix.HasCollisionsInFixRanges ->
+                            Expect.fail <| FailureMessage.hasCollisionsInFixRanges error_
+
+                Nothing ->
+                    -- TODO MULTIFILE-FIXES Test failure message should say it didn't find "any" fixes (unless expectedFixed was originally empty), but that it didn't find the remaining ones
+                    FailureMessage.unexpectedFixes (Rule.errorMessage error_)
+                        |> Expect.fail
 
 
 removeWhitespace : String -> String
