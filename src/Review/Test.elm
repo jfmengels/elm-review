@@ -219,7 +219,7 @@ type alias ExpectedErrorDetails =
 
 type ExpectedFixSource
     = NoFixesExpected
-    | ComesFromWhenFixed (Dict String String)
+    | ComesFromWhenFixed String
     | ComesFromShouldFixFiles (Dict String String)
 
 
@@ -1352,7 +1352,7 @@ In other words, you only need to use this function if the error provides a fix.
 -}
 whenFixed : String -> ExpectedError -> ExpectedError
 whenFixed fixedSource (ExpectedError expectedError) =
-    ExpectedError { expectedError | fixedFiles = ComesFromWhenFixed (Dict.singleton "" fixedSource) }
+    ExpectedError { expectedError | fixedFiles = ComesFromWhenFixed fixedSource }
 
 
 shouldFixFiles : List ( String, String ) -> ExpectedError -> ExpectedError
@@ -1748,20 +1748,11 @@ checkFixesAreCorrect (Review.Project.Internal.Project project) ((Error.ReviewErr
                     FailureMessage.unexpectedFixes (Rule.errorMessage error_)
                         |> Expect.fail
 
-                ComesFromWhenFixed fixedFiles ->
-                    -- TODO MULTIFILE-FIXES Only store the fixed source
+                ComesFromWhenFixed fixedSource ->
                     checkFixesMatch
                         project
                         error_
-                        (case Dict.get "" fixedFiles of
-                            Just fixes ->
-                                fixedFiles
-                                    |> Dict.remove ""
-                                    |> Dict.insert err.filePath fixes
-
-                            Nothing ->
-                                fixedFiles
-                        )
+                        (Dict.singleton err.filePath fixedSource)
                         (Dict.toList dict)
 
                 ComesFromShouldFixFiles fixedFiles ->
