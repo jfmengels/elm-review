@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+- [`Review.Rule.providesFixesForModuleRule`](https://package.elm-lang.org/packages/jfmengels/elm-review/2.14.1/Review-Rule#providesFixesForModuleRule)
+  and [`Review.Rule.providesFixesForProjectRule`](https://package.elm-lang.org/packages/jfmengels/elm-review/2.14.1/Review-Rule#providesFixesForProjectRule) are now unnecessary and are marked as deprecated. This information was used in the past to speed up fixes, but ended up not being useful later on.
+
 ## [2.14.1] - 2024-10-08
 
 - Fixed an issue where extracting code using `Review.Rule.withSourceCodeExtractor` would not get the correct source code when source contains Unicode characters.

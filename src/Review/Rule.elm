@@ -826,6 +826,8 @@ computeErrorsAndRulesAndExtracts reviewOptions ruleProjectVisitors =
 
 {-| Let `elm-review` know that this rule may provide fixes in the reported errors.
 
+**@deprecated**: This information is not necessary anymore.
+
 This information is hard for `elm-review` to deduce on its own, but can be very useful for improving the performance of
 the tool while running in fix mode.
 
@@ -834,10 +836,12 @@ If your rule is a project rule, then you should use [`providesFixesForProjectRul
 -}
 providesFixesForModuleRule : ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema schemaState moduleContext
 providesFixesForModuleRule (ModuleRuleSchema moduleRuleSchema) =
+    -- TODO Breaking change: Remove providesFixes field, unless we find a new use for it.
     ModuleRuleSchema { moduleRuleSchema | providesFixes = True }
 
 
 {-| Let `elm-review` know that this rule may provide fixes in the reported errors.
+**@deprecated**: This information is not necessary anymore.
 
 This information is hard for `elm-review` to deduce on its own, but can be very useful for improving the performance of
 the tool while running in fix mode.
@@ -847,6 +851,7 @@ If your rule is a module rule, then you should use [`providesFixesForModuleRule`
 -}
 providesFixesForProjectRule : ProjectRuleSchema schemaState projectContext moduleContext -> ProjectRuleSchema schemaState projectContext moduleContext
 providesFixesForProjectRule (ProjectRuleSchema projectRuleSchema) =
+    -- TODO Breaking change: Remove providesFixes field, unless we find a new use for it.
     ProjectRuleSchema { projectRuleSchema | providesFixes = True }
 
 
