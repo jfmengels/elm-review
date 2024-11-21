@@ -138,7 +138,6 @@ import Json.Encode as Encode
 import Review.Error as Error
 import Review.FileParser as FileParser
 import Review.Fix as Fix exposing (Fix)
-import Review.Fix.FixProblem as FixProblem
 import Review.Options as ReviewOptions
 import Review.Project as Project exposing (Project, ProjectModule)
 import Review.Project.Internal exposing (ProjectInternals)
@@ -1762,16 +1761,8 @@ checkFixesAreCorrect (Review.Project.Internal.Project project) ((Error.ReviewErr
                         fixedFiles
                         (Dict.toList dict)
 
-        Error.FailedToApply problem ->
-            case problem of
-                FixProblem.Unchanged ->
-                    Expect.fail <| FailureMessage.unchangedSourceAfterFix error_
-
-                FixProblem.SourceCodeIsNotValid sourceCode ->
-                    Expect.fail <| FailureMessage.invalidSourceAfterFix error_ sourceCode
-
-                FixProblem.HasCollisionsInFixRanges ->
-                    Expect.fail <| FailureMessage.hasCollisionsInFixRanges error_
+        Error.FailedToApply fixProblem ->
+            Expect.fail <| FailureMessage.fixProblem_ fixProblem error_
 
 
 checkFixesMatch : ProjectInternals -> ReviewError -> Dict String String -> List ( String, ( Error.Target, List Fix ) ) -> Expectation
@@ -1806,14 +1797,8 @@ checkFixesMatch project error_ expectedFixed fixes =
                                     else
                                         Expect.fail <| FailureMessage.fixedCodeMismatch fixedSource expectedFixedSource error_
 
-                                Fix.Errored Fix.Unchanged ->
-                                    Expect.fail <| FailureMessage.unchangedSourceAfterFix error_
-
-                                Fix.Errored (Fix.SourceCodeIsNotValid sourceCode) ->
-                                    Expect.fail <| FailureMessage.invalidSourceAfterFix error_ sourceCode
-
-                                Fix.Errored Fix.HasCollisionsInFixRanges ->
-                                    Expect.fail <| FailureMessage.hasCollisionsInFixRanges error_
+                                Fix.Errored fixProblem ->
+                                    Expect.fail <| FailureMessage.fixProblem fixProblem error_
 
                         Nothing ->
                             -- TODO MULTIFILE-FIXES Report an error?

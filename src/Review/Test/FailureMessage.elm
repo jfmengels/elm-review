@@ -2,7 +2,7 @@ module Review.Test.FailureMessage exposing
     ( parsingFailure, globalErrorInTest, messageMismatch, emptyDetails, unexpectedDetails, wrongLocation, didNotExpectErrors
     , underMismatch, expectedMoreErrors, tooManyErrors, locationNotFound, underMayNotBeEmpty, locationIsAmbiguousInSourceCode
     , needToUsedExpectErrorsForModules, missingSources, duplicateModuleName, unknownModulesInExpectedErrors
-    , missingFixes, unexpectedFixes, fixedCodeMismatch, unchangedSourceAfterFix, invalidSourceAfterFix, hasCollisionsInFixRanges
+    , missingFixes, unexpectedFixes, fixedCodeMismatch, fixProblem, fixProblem_, unchangedSourceAfterFix, invalidSourceAfterFix, hasCollisionsInFixRanges
     , didNotExpectGlobalErrors, expectedMoreGlobalErrors, fixedCodeWhitespaceMismatch, messageMismatchForConfigurationError
     , messageMismatchForGlobalError, missingConfigurationError, tooManyGlobalErrors
     , unexpectedConfigurationError, unexpectedConfigurationErrorDetails, unexpectedGlobalErrorDetails
@@ -18,7 +18,7 @@ module Review.Test.FailureMessage exposing
 @docs parsingFailure, globalErrorInTest, messageMismatch, emptyDetails, unexpectedDetails, wrongLocation, didNotExpectErrors
 @docs underMismatch, expectedMoreErrors, tooManyErrors, locationNotFound, underMayNotBeEmpty, locationIsAmbiguousInSourceCode
 @docs needToUsedExpectErrorsForModules, missingSources, duplicateModuleName, unknownModulesInExpectedErrors
-@docs missingFixes, unexpectedFixes, fixedCodeMismatch, unchangedSourceAfterFix, invalidSourceAfterFix, hasCollisionsInFixRanges
+@docs missingFixes, unexpectedFixes, fixedCodeMismatch, fixProblem, fixProblem_, unchangedSourceAfterFix, invalidSourceAfterFix, hasCollisionsInFixRanges
 @docs didNotExpectGlobalErrors, expectedMoreGlobalErrors, fixedCodeWhitespaceMismatch, messageMismatchForConfigurationError
 @docs messageMismatchForGlobalError, missingConfigurationError, tooManyGlobalErrors
 @docs unexpectedConfigurationError, unexpectedConfigurationErrorDetails, unexpectedGlobalErrorDetails
@@ -31,6 +31,8 @@ import Ansi
 import Elm.Syntax.Range exposing (Range)
 import Json.Decode as Decode
 import Json.Encode as Encode
+import Review.Fix as Fix
+import Review.Fix.FixProblem as FixProblem
 import Review.Rule as Rule exposing (ReviewError)
 import Vendor.Diff as Diff
 import Vendor.ListExtra as ListExtra
@@ -550,6 +552,32 @@ replaceWhitespace lines =
         |> List.map (String.replace " " (Ansi.cyan "·"))
         |> String.join (Ansi.cyan "\n")
         |> String.split "\n"
+
+
+fixProblem : Fix.Problem -> ReviewError -> String
+fixProblem problem error_ =
+    case problem of
+        Fix.Unchanged ->
+            unchangedSourceAfterFix error_
+
+        Fix.SourceCodeIsNotValid sourceCode ->
+            invalidSourceAfterFix error_ sourceCode
+
+        Fix.HasCollisionsInFixRanges ->
+            hasCollisionsInFixRanges error_
+
+
+fixProblem_ : FixProblem.FixProblem -> ReviewError -> String
+fixProblem_ problem error_ =
+    case problem of
+        FixProblem.Unchanged ->
+            unchangedSourceAfterFix error_
+
+        FixProblem.SourceCodeIsNotValid sourceCode ->
+            invalidSourceAfterFix error_ sourceCode
+
+        FixProblem.HasCollisionsInFixRanges ->
+            hasCollisionsInFixRanges error_
 
 
 unchangedSourceAfterFix : ReviewError -> String
