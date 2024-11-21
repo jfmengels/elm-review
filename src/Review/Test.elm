@@ -213,8 +213,14 @@ type alias ExpectedErrorDetails =
     { message : String
     , details : List String
     , under : Under
-    , fixedFiles : Dict String String
+    , fixedFiles : ExpectedFixSource
     }
+
+
+type ExpectedFixSource
+    = NoFixesExpected
+    | ComesFromWhenFixed (Dict String String)
+    | ComesFromShouldFixFiles (Dict String String)
 
 
 type Under
@@ -1268,7 +1274,7 @@ error input =
         { message = input.message
         , details = input.details
         , under = Under input.under
-        , fixedFiles = Dict.empty
+        , fixedFiles = NoFixesExpected
         }
 
 
@@ -1346,13 +1352,13 @@ In other words, you only need to use this function if the error provides a fix.
 -}
 whenFixed : String -> ExpectedError -> ExpectedError
 whenFixed fixedSource (ExpectedError expectedError) =
-    ExpectedError { expectedError | fixedFiles = Dict.singleton "" fixedSource }
+    ExpectedError { expectedError | fixedFiles = ComesFromWhenFixed (Dict.singleton "" fixedSource) }
 
 
 shouldFixFiles : List ( String, String ) -> ExpectedError -> ExpectedError
 shouldFixFiles fixedFiles (ExpectedError expectedError) =
     -- TODO MULTIFILE-FIXES Add documentation
-    ExpectedError { expectedError | fixedFiles = Dict.fromList fixedFiles }
+    ExpectedError { expectedError | fixedFiles = ComesFromShouldFixFiles (Dict.fromList fixedFiles) }
 
 
 formatUnder : Under -> String
@@ -1725,27 +1731,45 @@ checkFixesAreCorrect : Project -> ReviewError -> ExpectedErrorDetails -> Expecta
 checkFixesAreCorrect (Review.Project.Internal.Project project) ((Error.ReviewError err) as error_) expectedError =
     case err.fixes of
         Error.NoFixes ->
-            if Dict.isEmpty expectedError.fixedFiles then
-                Expect.pass
+            case expectedError.fixedFiles of
+                NoFixesExpected ->
+                    Expect.pass
 
-            else
-                FailureMessage.missingFixes expectedError.message
-                    |> Expect.fail
+                ComesFromWhenFixed _ ->
+                    Expect.fail (FailureMessage.missingFixes expectedError.message)
+
+                ComesFromShouldFixFiles _ ->
+                    Expect.fail (FailureMessage.missingFixes expectedError.message)
 
         Error.Available dict ->
-            checkFixesMatch
-                project
-                error_
-                (case Dict.get "" expectedError.fixedFiles of
-                    Just fixes ->
-                        expectedError.fixedFiles
-                            |> Dict.remove ""
-                            |> Dict.insert err.filePath fixes
+            case expectedError.fixedFiles of
+                NoFixesExpected ->
+                    -- TODO MULTIFILE-FIXES Indicate for which file?
+                    FailureMessage.unexpectedFixes (Rule.errorMessage error_)
+                        |> Expect.fail
 
-                    Nothing ->
-                        expectedError.fixedFiles
-                )
-                (Dict.toList dict)
+                ComesFromWhenFixed fixedFiles ->
+                    -- TODO MULTIFILE-FIXES Only store the fixed source
+                    checkFixesMatch
+                        project
+                        error_
+                        (case Dict.get "" fixedFiles of
+                            Just fixes ->
+                                fixedFiles
+                                    |> Dict.remove ""
+                                    |> Dict.insert err.filePath fixes
+
+                            Nothing ->
+                                fixedFiles
+                        )
+                        (Dict.toList dict)
+
+                ComesFromShouldFixFiles fixedFiles ->
+                    checkFixesMatch
+                        project
+                        error_
+                        fixedFiles
+                        (Dict.toList dict)
 
         Error.FailedToApply problem ->
             case problem of
