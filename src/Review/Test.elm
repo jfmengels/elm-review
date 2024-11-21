@@ -1782,23 +1782,16 @@ checkFixesMatch project error_ expectedFixed fixes =
                 Just expectedFixedSource ->
                     case getTargetFileFromProject target project of
                         Just source ->
-                            case Fix.fix target fileFixes source of
-                                Fix.Successful fixedSource ->
-                                    if fixedSource == expectedFixedSource then
-                                        checkFixesMatch
-                                            project
-                                            error_
-                                            (Dict.remove filePath expectedFixed)
-                                            rest
+                            case fixOneError target fileFixes source expectedFixedSource error_ of
+                                Just failureMessage ->
+                                    Expect.fail failureMessage
 
-                                    else if removeWhitespace fixedSource == removeWhitespace expectedFixedSource then
-                                        Expect.fail <| FailureMessage.fixedCodeWhitespaceMismatch fixedSource expectedFixedSource error_
-
-                                    else
-                                        Expect.fail <| FailureMessage.fixedCodeMismatch fixedSource expectedFixedSource error_
-
-                                Fix.Errored fixProblem ->
-                                    Expect.fail <| FailureMessage.fixProblem fixProblem error_
+                                Nothing ->
+                                    checkFixesMatch
+                                        project
+                                        error_
+                                        (Dict.remove filePath expectedFixed)
+                                        rest
 
                         Nothing ->
                             -- TODO MULTIFILE-FIXES Report an error?
@@ -1808,6 +1801,23 @@ checkFixesMatch project error_ expectedFixed fixes =
                     -- TODO MULTIFILE-FIXES Test failure message should say it didn't find "any" fixes (unless expectedFixed was originally empty), but that it didn't find the remaining ones
                     FailureMessage.unexpectedFixes (Rule.errorMessage error_)
                         |> Expect.fail
+
+
+fixOneError : Error.Target -> List Fix -> String -> String -> ReviewError -> Maybe String
+fixOneError target fileFixes source expectedFixedSource error_ =
+    case Fix.fix target fileFixes source of
+        Fix.Successful fixedSource ->
+            if fixedSource == expectedFixedSource then
+                Nothing
+
+            else if removeWhitespace fixedSource == removeWhitespace expectedFixedSource then
+                Just <| FailureMessage.fixedCodeWhitespaceMismatch fixedSource expectedFixedSource error_
+
+            else
+                Just <| FailureMessage.fixedCodeMismatch fixedSource expectedFixedSource error_
+
+        Fix.Errored fixProblem ->
+            Just <| FailureMessage.fixProblem fixProblem error_
 
 
 getTargetFileFromProject : Error.Target -> ProjectInternals -> Maybe String
