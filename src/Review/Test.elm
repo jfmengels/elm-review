@@ -213,7 +213,7 @@ type alias ExpectedErrorDetails =
     { message : String
     , details : List String
     , under : Under
-    , fixedSource : Dict String String
+    , fixedFiles : Dict String String
     }
 
 
@@ -1268,7 +1268,7 @@ error input =
         { message = input.message
         , details = input.details
         , under = Under input.under
-        , fixedSource = Dict.empty
+        , fixedFiles = Dict.empty
         }
 
 
@@ -1346,13 +1346,13 @@ In other words, you only need to use this function if the error provides a fix.
 -}
 whenFixed : String -> ExpectedError -> ExpectedError
 whenFixed fixedSource (ExpectedError expectedError) =
-    ExpectedError { expectedError | fixedSource = Dict.singleton "" fixedSource }
+    ExpectedError { expectedError | fixedFiles = Dict.singleton "" fixedSource }
 
 
 shouldFixFiles : List ( String, String ) -> ExpectedError -> ExpectedError
 shouldFixFiles fixedFiles (ExpectedError expectedError) =
     -- TODO MULTIFILE-FIXES Add documentation
-    ExpectedError { expectedError | fixedSource = Dict.fromList fixedFiles }
+    ExpectedError { expectedError | fixedFiles = Dict.fromList fixedFiles }
 
 
 formatUnder : Under -> String
@@ -1725,7 +1725,7 @@ checkFixesAreCorrect : Project -> ReviewError -> ExpectedErrorDetails -> Expecta
 checkFixesAreCorrect (Review.Project.Internal.Project project) ((Error.ReviewError err) as error_) expectedError =
     case err.fixes of
         Error.NoFixes ->
-            if Dict.isEmpty expectedError.fixedSource then
+            if Dict.isEmpty expectedError.fixedFiles then
                 Expect.pass
 
             else
@@ -1736,14 +1736,14 @@ checkFixesAreCorrect (Review.Project.Internal.Project project) ((Error.ReviewErr
             checkFixesMatch
                 project
                 error_
-                (case Dict.get "" expectedError.fixedSource of
+                (case Dict.get "" expectedError.fixedFiles of
                     Just fixes ->
-                        expectedError.fixedSource
+                        expectedError.fixedFiles
                             |> Dict.remove ""
                             |> Dict.insert err.filePath fixes
 
                     Nothing ->
-                        expectedError.fixedSource
+                        expectedError.fixedFiles
                 )
                 (Dict.toList dict)
 
