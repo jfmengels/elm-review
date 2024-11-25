@@ -1783,10 +1783,10 @@ checkFixesMatch project error_ expectedFixed fixes =
                     case getTargetFileFromProject target project of
                         Just source ->
                             case fixOneError target fileFixes source expectedFixedSource error_ of
-                                Just failureMessage ->
+                                Err failureMessage ->
                                     Expect.fail failureMessage
 
-                                Nothing ->
+                                Ok () ->
                                     checkFixesMatch
                                         project
                                         error_
@@ -1803,21 +1803,21 @@ checkFixesMatch project error_ expectedFixed fixes =
                         |> Expect.fail
 
 
-fixOneError : Error.Target -> List Fix -> String -> String -> ReviewError -> Maybe String
+fixOneError : Error.Target -> List Fix -> String -> String -> ReviewError -> Result String ()
 fixOneError target fileFixes source expectedFixedSource error_ =
     case Fix.fix target fileFixes source of
         Fix.Successful fixedSource ->
             if fixedSource == expectedFixedSource then
-                Nothing
+                Ok ()
 
             else if removeWhitespace fixedSource == removeWhitespace expectedFixedSource then
-                Just <| FailureMessage.fixedCodeWhitespaceMismatch fixedSource expectedFixedSource error_
+                Err <| FailureMessage.fixedCodeWhitespaceMismatch fixedSource expectedFixedSource error_
 
             else
-                Just <| FailureMessage.fixedCodeMismatch fixedSource expectedFixedSource error_
+                Err <| FailureMessage.fixedCodeMismatch fixedSource expectedFixedSource error_
 
         Fix.Errored fixProblem ->
-            Just <| FailureMessage.fixProblem fixProblem error_
+            Err <| FailureMessage.fixProblem fixProblem error_
 
 
 getTargetFileFromProject : Error.Target -> ProjectInternals -> Maybe String
