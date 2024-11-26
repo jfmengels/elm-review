@@ -4355,7 +4355,16 @@ withFixesV2 providedFixes error_ =
                         acc
 
                     else
-                        Dict.insert path ( target, fixes ) acc
+                        Dict.update path
+                            (\maybePreviousFixes ->
+                                case maybePreviousFixes of
+                                    Just ( _, previousFixes ) ->
+                                        Just ( target, fixes ++ previousFixes )
+
+                                    Nothing ->
+                                        Just ( target, fixes )
+                            )
+                            acc
                 )
                 Dict.empty
                 providedFixes
