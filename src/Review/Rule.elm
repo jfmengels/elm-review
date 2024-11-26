@@ -29,6 +29,7 @@ module Review.Rule exposing
     , withDataExtractor, preventExtract
     , reviewV3, reviewV2, review, ProjectData, ruleName, ruleProvidesFixes, ruleKnowsAboutIgnoredFiles, ruleRequestedFiles, withRuleId, getConfigurationError
     , Required, Forbidden
+    , FixesV2, fixesForElmJson, fixesForExtraFile, fixesForModule, fixesForReadme, withFixesV2
     )
 
 {-| This module contains functions that are used for writing rules.
@@ -4272,6 +4273,100 @@ withFixes fixes error_ =
 
                     Review.Error.UserGlobal ->
                         err
+        )
+        error_
+
+
+type FixesV2
+    = FixesV2
+        { path : String
+        , target : Review.Error.Target
+        , fixes : List Fix
+        }
+
+
+fixesForModule : ModuleKey -> List Fix -> FixesV2
+fixesForModule (ModuleKey path) fixes =
+    FixesV2
+        { path = path
+        , target = Review.Error.Module path
+        , fixes = fixes
+        }
+
+
+fixesForExtraFile : ExtraFileKey -> List Fix -> FixesV2
+fixesForExtraFile (ExtraFileKey { path }) fixes =
+    FixesV2
+        { path = path
+        , target = Review.Error.ExtraFile path
+        , fixes = fixes
+        }
+
+
+fixesForReadme : ReadmeKey -> List Fix -> FixesV2
+fixesForReadme (ReadmeKey { path }) fixes =
+    FixesV2
+        { path = path
+        , target = Review.Error.Readme
+        , fixes = fixes
+        }
+
+
+fixesForElmJson :
+    ElmJsonKey
+    -> (Elm.Project.Project -> Maybe Elm.Project.Project)
+    -> FixesV2
+fixesForElmJson (ElmJsonKey elmJson) fixer =
+    let
+        fixes : List Fix
+        fixes =
+            case fixer elmJson.project of
+                Just updatedProject ->
+                    let
+                        encoded : String
+                        encoded =
+                            updatedProject
+                                |> Review.ElmProjectEncoder.encode
+                                |> Encode.encode 4
+                    in
+                    [ Fix.replaceRangeBy
+                        { start = { row = 1, column = 1 }, end = { row = 100000000, column = 1 } }
+                        (encoded ++ "\n")
+                    ]
+
+                Nothing ->
+                    []
+    in
+    FixesV2
+        { path = elmJson.path
+        , target = Review.Error.ElmJson
+        , fixes = fixes
+        }
+
+
+withFixesV2 : List FixesV2 -> Error scope -> Error scope
+withFixesV2 providedFixes error_ =
+    let
+        dict : Dict String ( Review.Error.Target, List Fix )
+        dict =
+            List.foldl
+                (\(FixesV2 { path, target, fixes }) acc ->
+                    if List.isEmpty fixes then
+                        acc
+
+                    else
+                        Dict.insert path ( target, fixes ) acc
+                )
+                Dict.empty
+                providedFixes
+    in
+    mapInternalError
+        (\err ->
+            if Dict.isEmpty dict then
+                { err | fixes = Review.Error.NoFixes }
+
+            else
+                { err | fixes = Review.Error.Available dict }
         )
         error_
 
