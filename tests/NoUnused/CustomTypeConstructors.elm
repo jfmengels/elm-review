@@ -1155,7 +1155,18 @@ errorForModule :
     -> ConstructorInformation
     -> Error scope
 errorForModule moduleKey params constructorInformation =
-    Rule.errorForModuleWithFix
+    let
+        fixes : List Rule.FixesV2
+        fixes =
+            case constructorInformation.rangeToRemove of
+                Just rangeToRemove ->
+                    [ Rule.fixesForModule moduleKey (Fix.removeRange rangeToRemove :: params.fixesForRemovingConstructor)
+                    ]
+
+                Nothing ->
+                    []
+    in
+    Rule.errorForModule
         moduleKey
         (errorInformation
             { wasUsedInLocationThatNeedsItself = params.wasUsedInLocationThatNeedsItself
@@ -1164,13 +1175,7 @@ errorForModule moduleKey params constructorInformation =
             constructorInformation.name
         )
         constructorInformation.rangeToReport
-        (case constructorInformation.rangeToRemove of
-            Just rangeToRemove ->
-                Fix.removeRange rangeToRemove :: params.fixesForRemovingConstructor
-
-            Nothing ->
-                []
-        )
+        |> Rule.withFixesV2 fixes
 
 
 
