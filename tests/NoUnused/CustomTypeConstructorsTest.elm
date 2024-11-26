@@ -1096,7 +1096,7 @@ type Msg = NoOp
                             ]
                           )
                         ]
-        , test "should report but not fix if constructor is handled in a pattern" <|
+        , test "should report even if constructor is handled in a pattern in another file" <|
             \() ->
                 [ """module A exposing (main)
 import Other exposing (Msg(..))
