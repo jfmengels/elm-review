@@ -1103,6 +1103,7 @@ import Other exposing (Msg(..))
 a = Used
 main = case foo of
   Unused -> 1
+  Used -> 2
 """, """module Other exposing (Msg(..))
 type Msg = Unused | Used
 """ ]
@@ -1114,6 +1115,18 @@ type Msg = Unused | Used
                                 , details = [ defaultDetails ]
                                 , under = "Unused"
                                 }
+                                |> Review.Test.shouldFixFiles
+                                    [ ( "A", """module A exposing (main)
+import Other exposing (Msg(..))
+a = Used
+main = case foo of
+  $
+  Used -> 2
+""" |> String.replace "$" "" )
+                                    , ( "Other", """module Other exposing (Msg(..))
+type Msg = Used
+""" )
+                                    ]
                             ]
                           )
                         ]
