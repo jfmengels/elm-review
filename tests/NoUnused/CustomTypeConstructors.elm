@@ -1112,6 +1112,7 @@ errorsForConstructors projectContext usedConstructors moduleName moduleKey const
                     , wasUsedInComparisons = Set.member ( moduleName, constructorInformation.name ) projectContext.wasUsedInComparisons
                     , isUsedInOtherModules = Set.member ( moduleName, constructorInformation.name ) projectContext.wasUsedInOtherModules
                     , fixesForRemovingConstructor = Dict.get ( moduleName, constructorInformation.name ) projectContext.fixesForRemovingConstructor |> Maybe.withDefault []
+                    , moduleKeys = projectContext.moduleKeys
                     }
                     constructorInformation
                     :: subAcc
@@ -1149,6 +1150,7 @@ errorForModule :
         , wasUsedInComparisons : Bool
         , isUsedInOtherModules : Bool
         , fixesForRemovingConstructor : List Fix
+        , moduleKeys : Dict ModuleNameAsString Rule.ModuleKey
         }
     -> ConstructorInformation
     -> Error scope
