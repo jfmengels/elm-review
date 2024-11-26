@@ -1160,11 +1160,7 @@ errorForModule moduleKey params constructorInformation =
         constructorInformation.rangeToReport
         (case constructorInformation.rangeToRemove of
             Just rangeToRemove ->
-                if params.isUsedInOtherModules then
-                    []
-
-                else
-                    Fix.removeRange rangeToRemove :: params.fixesForRemovingConstructor
+                Fix.removeRange rangeToRemove :: params.fixesForRemovingConstructor
 
             Nothing ->
                 []
