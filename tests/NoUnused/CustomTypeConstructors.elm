@@ -694,7 +694,7 @@ expressionVisitor node moduleContext =
                                     dict
                             )
                             moduleContext.fixesForRemovingConstructor
-                            fromThisModule
+                            (Set.union fromThisModule fromOtherModules)
                 in
                 { moduleContext
                     | ignoredComparisonRanges = staticRanges [ node ] moduleContext.ignoredComparisonRanges
@@ -742,7 +742,7 @@ expressionVisitor node moduleContext =
                                     dict
                             )
                             moduleContext.fixesForRemovingConstructor
-                            fromThisModule
+                            (Set.union fromThisModule fromOtherModules)
                 in
                 { moduleContext
                     | ignoredComparisonRanges = staticRanges [ node ] moduleContext.ignoredComparisonRanges
