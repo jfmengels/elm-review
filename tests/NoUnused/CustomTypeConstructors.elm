@@ -698,12 +698,12 @@ expressionVisitor node moduleContext =
                     fixes : Dict ConstructorName (Dict ModuleNameAsString (List Fix))
                     fixes =
                         List.foldl
-                            (\( _, constructor ) dict ->
+                            (\( moduleName, constructor ) dict ->
                                 Dict.update
                                     constructor
                                     (\existingValues ->
                                         updateToAdd
-                                            moduleContext.currentModuleName
+                                            moduleName
                                             (Fix.replaceRangeBy (Node.range node) replacement)
                                             (Maybe.withDefault Dict.empty existingValues)
                                             |> Just
