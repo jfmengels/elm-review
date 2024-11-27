@@ -685,7 +685,7 @@ expressionVisitor node moduleContext =
             if operator == "==" || operator == "/=" then
                 let
                     { fromThisModule, fromOtherModules } =
-                        findConstructors moduleContext.lookupTable [ left, right ] moduleContext.wasUsedInOtherModules
+                        findConstructors moduleContext.lookupTable moduleContext.currentModuleName [ left, right ] moduleContext.wasUsedInOtherModules
 
                     replacement : String
                     replacement =
@@ -726,7 +726,7 @@ expressionVisitor node moduleContext =
             if operator == "==" || operator == "/=" then
                 let
                     { fromThisModule, fromOtherModules } =
-                        findConstructors moduleContext.lookupTable arguments moduleContext.wasUsedInOtherModules
+                        findConstructors moduleContext.lookupTable moduleContext.currentModuleName arguments moduleContext.wasUsedInOtherModules
 
                     replacementBoolean : String
                     replacementBoolean =
@@ -923,17 +923,18 @@ staticRanges nodes acc =
                     staticRanges restOfNodes acc
 
 
-findConstructors : ModuleNameLookupTable -> List (Node Expression) -> Set ( ModuleNameAsString, ConstructorName ) -> { fromThisModule : Set ( ModuleNameAsString, ConstructorName ), fromOtherModules : Set ( ModuleNameAsString, ConstructorName ) }
-findConstructors lookupTable nodes fromOtherModulesBase =
-    findConstructorsHelp lookupTable nodes { fromThisModule = Set.empty, fromOtherModules = fromOtherModulesBase }
+findConstructors : ModuleNameLookupTable -> ModuleNameAsString -> List (Node Expression) -> Set ( ModuleNameAsString, ConstructorName ) -> { fromThisModule : Set ( ModuleNameAsString, ConstructorName ), fromOtherModules : Set ( ModuleNameAsString, ConstructorName ) }
+findConstructors lookupTable moduleName nodes fromOtherModulesBase =
+    findConstructorsHelp lookupTable moduleName nodes { fromThisModule = Set.empty, fromOtherModules = fromOtherModulesBase }
 
 
 findConstructorsHelp :
     ModuleNameLookupTable
+    -> ModuleNameAsString
     -> List (Node Expression)
     -> { fromThisModule : Set ( ModuleNameAsString, ConstructorName ), fromOtherModules : Set ( ModuleNameAsString, ConstructorName ) }
     -> { fromThisModule : Set ( ModuleNameAsString, ConstructorName ), fromOtherModules : Set ( ModuleNameAsString, ConstructorName ) }
-findConstructorsHelp lookupTable nodes acc =
+findConstructorsHelp lookupTable moduleName nodes acc =
     case nodes of
         [] ->
             acc
@@ -944,37 +945,39 @@ findConstructorsHelp lookupTable nodes acc =
                     if String.Extra.isCapitalized name then
                         findConstructorsHelp
                             lookupTable
+                            moduleName
                             restOfNodes
-                            (addElementToUniqueList lookupTable node name acc)
+                            (addElementToUniqueList lookupTable moduleName node name acc)
 
                     else
-                        findConstructorsHelp lookupTable restOfNodes acc
+                        findConstructorsHelp lookupTable moduleName restOfNodes acc
 
                 Expression.Application ((Node _ (Expression.FunctionOrValue _ name)) :: restOfArgs) ->
                     if String.Extra.isCapitalized name then
                         findConstructorsHelp
                             lookupTable
+                            moduleName
                             (restOfArgs ++ restOfNodes)
-                            (addElementToUniqueList lookupTable node name acc)
+                            (addElementToUniqueList lookupTable moduleName node name acc)
 
                     else
-                        findConstructorsHelp lookupTable restOfNodes acc
+                        findConstructorsHelp lookupTable moduleName restOfNodes acc
 
                 Expression.OperatorApplication operator _ left right ->
                     if List.member operator [ "+", "-" ] then
-                        findConstructorsHelp lookupTable (left :: right :: restOfNodes) acc
+                        findConstructorsHelp lookupTable moduleName (left :: right :: restOfNodes) acc
 
                     else
-                        findConstructorsHelp lookupTable restOfNodes acc
+                        findConstructorsHelp lookupTable moduleName restOfNodes acc
 
                 Expression.ListExpr subNodes ->
-                    findConstructorsHelp lookupTable (subNodes ++ restOfNodes) acc
+                    findConstructorsHelp lookupTable moduleName (subNodes ++ restOfNodes) acc
 
                 Expression.TupledExpression subNodes ->
-                    findConstructorsHelp lookupTable (subNodes ++ restOfNodes) acc
+                    findConstructorsHelp lookupTable moduleName (subNodes ++ restOfNodes) acc
 
                 Expression.ParenthesizedExpression expr ->
-                    findConstructorsHelp lookupTable (expr :: restOfNodes) acc
+                    findConstructorsHelp lookupTable moduleName (expr :: restOfNodes) acc
 
                 Expression.RecordExpr fields ->
                     let
@@ -982,7 +985,7 @@ findConstructorsHelp lookupTable nodes acc =
                         expressions =
                             List.map (\(Node _ ( _, value )) -> value) fields
                     in
-                    findConstructorsHelp lookupTable (expressions ++ restOfNodes) acc
+                    findConstructorsHelp lookupTable moduleName (expressions ++ restOfNodes) acc
 
                 Expression.RecordUpdateExpression _ fields ->
                     let
@@ -990,36 +993,39 @@ findConstructorsHelp lookupTable nodes acc =
                         expressions =
                             List.map (\(Node _ ( _, value )) -> value) fields
                     in
-                    findConstructorsHelp lookupTable (expressions ++ restOfNodes) acc
+                    findConstructorsHelp lookupTable moduleName (expressions ++ restOfNodes) acc
 
                 Expression.RecordAccess expr _ ->
-                    findConstructorsHelp lookupTable (expr :: restOfNodes) acc
+                    findConstructorsHelp lookupTable moduleName (expr :: restOfNodes) acc
 
                 _ ->
-                    findConstructorsHelp lookupTable restOfNodes acc
+                    findConstructorsHelp lookupTable moduleName restOfNodes acc
 
 
 addElementToUniqueList :
     ModuleNameLookupTable
+    -> ModuleNameAsString
     -> Node Expression
     -> ConstructorName
     -> { fromThisModule : Set ( ModuleNameAsString, ConstructorName ), fromOtherModules : Set ( ModuleNameAsString, ConstructorName ) }
     -> { fromThisModule : Set ( ModuleNameAsString, ConstructorName ), fromOtherModules : Set ( ModuleNameAsString, ConstructorName ) }
-addElementToUniqueList lookupTable node name acc =
-    case ModuleNameLookupTable.fullModuleNameFor lookupTable node of
+addElementToUniqueList lookupTable currentModuleName node name acc =
+    case ModuleNameLookupTable.moduleNameFor lookupTable node of
         Just realModuleName ->
             let
                 moduleName : ModuleNameAsString
                 moduleName =
                     String.join "." realModuleName
-
-                key : ( ModuleNameAsString, ConstructorName )
-                key =
-                    ( moduleName, name )
             in
-            { fromThisModule = acc.fromThisModule
-            , fromOtherModules = Set.insert key acc.fromOtherModules
-            }
+            if moduleName == "" then
+                { fromThisModule = Set.insert ( currentModuleName, name ) acc.fromThisModule
+                , fromOtherModules = acc.fromOtherModules
+                }
+
+            else
+                { fromThisModule = acc.fromThisModule
+                , fromOtherModules = Set.insert ( moduleName, name ) acc.fromOtherModules
+                }
 
         Nothing ->
             acc
