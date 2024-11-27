@@ -197,6 +197,7 @@ type alias ProjectContext =
 
 type alias ModuleContext =
     { lookupTable : ModuleNameLookupTable
+    , currentModuleName : ModuleNameAsString
     , exposedCustomTypesWithConstructors : Set CustomTypeName
     , isExposed : Bool
     , exposesEverything : Bool
@@ -237,9 +238,15 @@ fromProjectToModule : Rule.ContextCreator ProjectContext ModuleContext
 fromProjectToModule =
     Rule.initContextCreator
         (\lookupTable moduleName projectContext ->
+            let
+                moduleNameAsString : ModuleNameAsString
+                moduleNameAsString =
+                    String.join "." moduleName
+            in
             { lookupTable = lookupTable
+            , currentModuleName = moduleNameAsString
             , exposedCustomTypesWithConstructors = Set.empty
-            , isExposed = Set.member (String.join "." moduleName) projectContext.exposedModules
+            , isExposed = Set.member moduleNameAsString projectContext.exposedModules
             , exposedConstructors = projectContext.declaredConstructors
             , exposesEverything = False
             , declaredTypesWithConstructors = Dict.empty
