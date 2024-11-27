@@ -1006,7 +1006,7 @@ addElementToUniqueList :
     -> { fromThisModule : Set ( ModuleNameAsString, ConstructorName ), fromOtherModules : Set ( ModuleNameAsString, ConstructorName ) }
     -> { fromThisModule : Set ( ModuleNameAsString, ConstructorName ), fromOtherModules : Set ( ModuleNameAsString, ConstructorName ) }
 addElementToUniqueList lookupTable node name acc =
-    case ModuleNameLookupTable.moduleNameFor lookupTable node of
+    case ModuleNameLookupTable.fullModuleNameFor lookupTable node of
         Just realModuleName ->
             let
                 moduleName : ModuleNameAsString
@@ -1017,15 +1017,9 @@ addElementToUniqueList lookupTable node name acc =
                 key =
                     ( moduleName, name )
             in
-            if moduleName == "" then
-                { fromThisModule = Set.insert key acc.fromThisModule
-                , fromOtherModules = acc.fromOtherModules
-                }
-
-            else
-                { fromThisModule = acc.fromThisModule
-                , fromOtherModules = Set.insert key acc.fromOtherModules
-                }
+            { fromThisModule = acc.fromThisModule
+            , fromOtherModules = Set.insert key acc.fromOtherModules
+            }
 
         Nothing ->
             acc
