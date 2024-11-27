@@ -191,7 +191,7 @@ type alias ProjectContext =
     , wasUsedInLocationThatNeedsItself : Set ( ModuleNameAsString, ConstructorName )
     , wasUsedInComparisons : Set ( ModuleNameAsString, ConstructorName )
     , wasUsedInOtherModules : Set ( ModuleNameAsString, ConstructorName )
-    , fixesForRemovingConstructor : Dict ( ModuleNameAsString, ConstructorName ) (List Fix)
+    , fixesForRemovingConstructor : Dict ( ModuleNameAsString, ConstructorName ) (Dict ModuleNameAsString (List Fix))
     }
 
 
@@ -208,7 +208,7 @@ type alias ModuleContext =
     , constructorsToIgnore : List (Set ( ModuleName, ConstructorName ))
     , wasUsedInLocationThatNeedsItself : Set ( ModuleNameAsString, ConstructorName )
     , wasUsedInComparisons : Set ( ModuleNameAsString, ConstructorName )
-    , fixesForRemovingConstructor : Dict ConstructorName (List Fix)
+    , fixesForRemovingConstructor : Dict ConstructorName (Dict ModuleNameAsString (List Fix))
     , wasUsedInOtherModules : Set ( ModuleNameAsString, ConstructorName )
     , ignoredComparisonRanges : List Range
     }
@@ -386,7 +386,7 @@ foldProjectContexts newContext previousContext =
             (\key newFixes acc ->
                 case Dict.get key acc of
                     Just existingFixes ->
-                        Dict.insert key (List.foldl (::) existingFixes newFixes) acc
+                        Dict.insert key (Dict.union existingFixes newFixes) acc
 
                     Nothing ->
                         Dict.insert key newFixes acc
@@ -695,11 +695,20 @@ expressionVisitor node moduleContext =
                         else
                             "True"
 
-                    fixes : Dict ConstructorName (List Fix)
+                    fixes : Dict ConstructorName (Dict ModuleNameAsString (List Fix))
                     fixes =
                         List.foldl
                             (\( _, constructor ) dict ->
-                                updateToAdd constructor (Fix.replaceRangeBy (Node.range node) replacement) dict
+                                Dict.update
+                                    constructor
+                                    (\existingValues ->
+                                        updateToAdd
+                                            moduleContext.currentModuleName
+                                            (Fix.replaceRangeBy (Node.range node) replacement)
+                                            (Maybe.withDefault Dict.empty existingValues)
+                                            |> Just
+                                    )
+                                    dict
                             )
                             moduleContext.fixesForRemovingConstructor
                             fromThisModule
@@ -735,11 +744,20 @@ expressionVisitor node moduleContext =
                         else
                             "always " ++ replacementBoolean
 
-                    fixes : Dict ConstructorName (List Fix)
+                    fixes : Dict ConstructorName (Dict ModuleNameAsString (List Fix))
                     fixes =
                         List.foldl
                             (\( _, constructor ) dict ->
-                                updateToAdd constructor (Fix.replaceRangeBy (Node.range node) replacement) dict
+                                Dict.update
+                                    constructor
+                                    (\existingValues ->
+                                        updateToAdd
+                                            moduleContext.currentModuleName
+                                            (Fix.replaceRangeBy (Node.range node) replacement)
+                                            (Maybe.withDefault Dict.empty existingValues)
+                                            |> Just
+                                    )
+                                    dict
                             )
                             moduleContext.fixesForRemovingConstructor
                             fromThisModule
@@ -783,7 +801,7 @@ caseBranchEnterVisitor caseExpression ( casePattern, body ) moduleContext =
         constructors =
             constructorsInPattern moduleContext.lookupTable [ casePattern ] { fromThisModule = Set.empty, fromOtherModules = Set.empty }
 
-        fixes : Dict ConstructorName (List Fix)
+        fixes : Dict ConstructorName (Dict ModuleNameAsString (List Fix))
         fixes =
             Set.foldl
                 (\constructorName acc ->
@@ -795,7 +813,16 @@ caseBranchEnterVisitor caseExpression ( casePattern, body ) moduleContext =
                                 , end = (Node.range body).end
                                 }
                     in
-                    updateToAdd constructorName fix acc
+                    Dict.update
+                        constructorName
+                        (\existingValues ->
+                            updateToAdd
+                                moduleContext.currentModuleName
+                                fix
+                                (Maybe.withDefault Dict.empty existingValues)
+                                |> Just
+                        )
+                        acc
                 )
                 moduleContext.fixesForRemovingConstructor
                 constructors.fromThisModule
@@ -1118,7 +1145,7 @@ errorsForConstructors projectContext usedConstructors moduleName moduleKey const
                     { wasUsedInLocationThatNeedsItself = Set.member ( moduleName, constructorInformation.name ) projectContext.wasUsedInLocationThatNeedsItself
                     , wasUsedInComparisons = Set.member ( moduleName, constructorInformation.name ) projectContext.wasUsedInComparisons
                     , isUsedInOtherModules = Set.member ( moduleName, constructorInformation.name ) projectContext.wasUsedInOtherModules
-                    , fixesForRemovingConstructor = Dict.singleton moduleName (Dict.get ( moduleName, constructorInformation.name ) projectContext.fixesForRemovingConstructor |> Maybe.withDefault [])
+                    , fixesForRemovingConstructor = Dict.get ( moduleName, constructorInformation.name ) projectContext.fixesForRemovingConstructor |> Maybe.withDefault Dict.empty
                     , moduleKeys = projectContext.moduleKeys
                     }
                     constructorInformation
