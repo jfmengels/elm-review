@@ -190,7 +190,6 @@ type alias ProjectContext =
     , phantomVariables : Dict ModuleName (List ( CustomTypeName, Int ))
     , wasUsedInLocationThatNeedsItself : Set ( ModuleNameAsString, ConstructorName )
     , wasUsedInComparisons : Set ( ModuleNameAsString, ConstructorName )
-    , wasUsedInOtherModules : Set ( ModuleNameAsString, ConstructorName )
     , fixesForRemovingConstructor : Dict ( ModuleNameAsString, ConstructorName ) (Dict ModuleNameAsString (List Fix))
     }
 
@@ -209,7 +208,6 @@ type alias ModuleContext =
     , wasUsedInLocationThatNeedsItself : Set ( ModuleNameAsString, ConstructorName )
     , wasUsedInComparisons : Set ( ModuleNameAsString, ConstructorName )
     , fixesForRemovingConstructor : Dict ConstructorName (Dict ModuleNameAsString (List Fix))
-    , wasUsedInOtherModules : Set ( ModuleNameAsString, ConstructorName )
     , ignoredComparisonRanges : List Range
     }
 
@@ -229,7 +227,6 @@ initialProjectContext phantomTypes =
             phantomTypes
     , wasUsedInLocationThatNeedsItself = Set.empty
     , wasUsedInComparisons = Set.empty
-    , wasUsedInOtherModules = Set.empty
     , fixesForRemovingConstructor = Dict.empty
     }
 
@@ -255,7 +252,6 @@ fromProjectToModule =
             , constructorsToIgnore = []
             , wasUsedInLocationThatNeedsItself = Set.empty
             , wasUsedInComparisons = Set.empty
-            , wasUsedInOtherModules = Set.empty
             , fixesForRemovingConstructor = Dict.empty
             , ignoredComparisonRanges = []
             }
@@ -336,18 +332,6 @@ fromModuleToProject =
                             untouched
                     )
                     moduleContext.wasUsedInComparisons
-            , wasUsedInOtherModules =
-                -- TODO add test to make sure we don't fix something that is pattern matched in other modules
-                moduleContext.usedFunctionsOrValues
-                    |> Dict.remove ""
-                    |> Dict.foldl
-                        (\moduleName_ constructors acc ->
-                            Set.foldl
-                                (\constructor subAcc -> Set.insert ( moduleName_, constructor ) subAcc)
-                                acc
-                                constructors
-                        )
-                        moduleContext.wasUsedInOtherModules
             , fixesForRemovingConstructor =
                 mapDictKeys
                     (\constructorName ->
@@ -380,7 +364,6 @@ foldProjectContexts newContext previousContext =
     , phantomVariables = Dict.union newContext.phantomVariables previousContext.phantomVariables
     , wasUsedInLocationThatNeedsItself = Set.union newContext.wasUsedInLocationThatNeedsItself previousContext.wasUsedInLocationThatNeedsItself
     , wasUsedInComparisons = Set.union newContext.wasUsedInComparisons previousContext.wasUsedInComparisons
-    , wasUsedInOtherModules = Set.union newContext.wasUsedInOtherModules previousContext.wasUsedInOtherModules
     , fixesForRemovingConstructor =
         Dict.foldl
             (\key newFixes acc ->
@@ -685,7 +668,7 @@ expressionVisitor node moduleContext =
             if operator == "==" || operator == "/=" then
                 let
                     { fromThisModule, fromOtherModules } =
-                        findConstructors moduleContext.lookupTable moduleContext.currentModuleName [ left, right ] moduleContext.wasUsedInOtherModules
+                        findConstructors moduleContext.lookupTable moduleContext.currentModuleName [ left, right ] Set.empty
 
                     replacement : String
                     replacement =
@@ -716,7 +699,6 @@ expressionVisitor node moduleContext =
                 { moduleContext
                     | ignoredComparisonRanges = staticRanges [ node ] moduleContext.ignoredComparisonRanges
                     , fixesForRemovingConstructor = fixes
-                    , wasUsedInOtherModules = fromOtherModules
                 }
 
             else
@@ -726,7 +708,7 @@ expressionVisitor node moduleContext =
             if operator == "==" || operator == "/=" then
                 let
                     { fromThisModule, fromOtherModules } =
-                        findConstructors moduleContext.lookupTable moduleContext.currentModuleName arguments moduleContext.wasUsedInOtherModules
+                        findConstructors moduleContext.lookupTable moduleContext.currentModuleName arguments Set.empty
 
                     replacementBoolean : String
                     replacementBoolean =
@@ -765,7 +747,6 @@ expressionVisitor node moduleContext =
                 { moduleContext
                     | ignoredComparisonRanges = staticRanges [ node ] moduleContext.ignoredComparisonRanges
                     , fixesForRemovingConstructor = fixes
-                    , wasUsedInOtherModules = fromOtherModules
                 }
 
             else
@@ -834,8 +815,7 @@ caseBranchEnterVisitor caseExpression ( casePattern, body ) moduleContext =
                 (Set.map (\constructorName -> ( [], constructorName )) constructors.fromThisModule)
     in
     { moduleContext
-        | wasUsedInOtherModules = Set.union constructors.fromOtherModules moduleContext.wasUsedInOtherModules
-        , constructorsToIgnore = constructorsToIgnore :: moduleContext.constructorsToIgnore
+        | constructorsToIgnore = constructorsToIgnore :: moduleContext.constructorsToIgnore
         , fixesForRemovingConstructor = fixes
     }
 
@@ -1140,7 +1120,6 @@ errorsForConstructors projectContext usedConstructors moduleName moduleKey const
                     moduleKey
                     { wasUsedInLocationThatNeedsItself = Set.member ( moduleName, constructorInformation.name ) projectContext.wasUsedInLocationThatNeedsItself
                     , wasUsedInComparisons = Set.member ( moduleName, constructorInformation.name ) projectContext.wasUsedInComparisons
-                    , isUsedInOtherModules = Set.member ( moduleName, constructorInformation.name ) projectContext.wasUsedInOtherModules
                     , fixesForRemovingConstructor = Dict.get ( moduleName, constructorInformation.name ) projectContext.fixesForRemovingConstructor |> Maybe.withDefault Dict.empty
                     , moduleKeys = projectContext.moduleKeys
                     }
@@ -1178,7 +1157,6 @@ errorForModule :
     ->
         { wasUsedInLocationThatNeedsItself : Bool
         , wasUsedInComparisons : Bool
-        , isUsedInOtherModules : Bool
         , fixesForRemovingConstructor : Dict ModuleNameAsString (List Fix)
         , moduleKeys : Dict ModuleNameAsString Rule.ModuleKey
         }
