@@ -13,7 +13,6 @@ import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Exposing as Exposing
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Module as Module exposing (Module)
-import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern as Pattern exposing (Pattern)
 import Elm.Syntax.Range exposing (Range)
@@ -187,7 +186,7 @@ type alias ProjectContext =
     , moduleKeys : Dict ModuleNameAsString Rule.ModuleKey
     , declaredConstructors : Dict ModuleNameAsString ExposedConstructors
     , usedConstructors : Dict ModuleNameAsString (Set ConstructorName)
-    , phantomVariables : Dict ModuleName (List ( CustomTypeName, Int ))
+    , phantomVariables : Dict ModuleNameAsString (List ( CustomTypeName, Int ))
     , wasUsedInLocationThatNeedsItself : Set ( ModuleNameAsString, ConstructorName )
     , wasUsedInComparisons : Set ( ModuleNameAsString, ConstructorName )
     , fixesForRemovingConstructor : Dict ( ModuleNameAsString, ConstructorName ) (Dict ModuleNameAsString (List Fix))
@@ -203,7 +202,7 @@ type alias ModuleContext =
     , exposedConstructors : Dict ModuleNameAsString ExposedConstructors
     , declaredTypesWithConstructors : Dict CustomTypeName (Dict ConstructorName ConstructorInformation)
     , usedFunctionsOrValues : Dict ModuleNameAsString (Set ConstructorName)
-    , phantomVariables : Dict ModuleName (List ( CustomTypeName, Int ))
+    , phantomVariables : Dict ModuleNameAsString (List ( CustomTypeName, Int ))
     , constructorsToIgnore : List (Set ( ModuleNameAsString, ConstructorName ))
     , wasUsedInLocationThatNeedsItself : Set ( ModuleNameAsString, ConstructorName )
     , wasUsedInComparisons : Set ( ModuleNameAsString, ConstructorName )
@@ -221,7 +220,7 @@ initialProjectContext phantomTypes =
     , phantomVariables =
         List.foldl
             (\{ moduleName, typeName, index } dict ->
-                updateToAdd (String.split "." moduleName) ( typeName, index ) dict
+                updateToAdd moduleName ( typeName, index ) dict
             )
             Dict.empty
             phantomTypes
@@ -268,7 +267,7 @@ fromModuleToProject =
                 localPhantomTypes : List ( CustomTypeName, Int )
                 localPhantomTypes =
                     moduleContext.phantomVariables
-                        |> Dict.get []
+                        |> Dict.get (String.join "." moduleName)
                         |> Maybe.withDefault []
 
                 moduleNameAsString : ModuleNameAsString
@@ -302,7 +301,7 @@ fromModuleToProject =
                             }
                         )
             , usedConstructors = moduleContext.usedFunctionsOrValues
-            , phantomVariables = Dict.singleton moduleName localPhantomTypes
+            , phantomVariables = Dict.singleton (String.join "." moduleName) localPhantomTypes
             , wasUsedInLocationThatNeedsItself =
                 Set.map
                     (\(( moduleName_, constructorName ) as untouched) ->
@@ -484,10 +483,10 @@ register node context =
                 nonPhantomVariables =
                     collectGenericsFromTypeAnnotation arguments Set.empty
 
-                newPhantomVariables : Dict (List String) (List ( String, Int ))
+                newPhantomVariables : Dict ModuleNameAsString (List ( String, Int ))
                 newPhantomVariables =
                     Dict.update
-                        []
+                        context.currentModuleName
                         (\maybeSet ->
                             let
                                 previousPhantomVariables : List ( String, Int )
@@ -1233,7 +1232,7 @@ collectGenericsFromTypeAnnotation nodes acc =
                     collectGenericsFromTypeAnnotation restOfNodes acc
 
 
-collectTypesUsedAsPhantomVariables : ModuleContext -> Dict ModuleName (List ( CustomTypeName, Int )) -> List (Node TypeAnnotation) -> Dict ModuleNameAsString (Set ConstructorName) -> Dict ModuleNameAsString (Set ConstructorName)
+collectTypesUsedAsPhantomVariables : ModuleContext -> Dict ModuleNameAsString (List ( CustomTypeName, Int )) -> List (Node TypeAnnotation) -> Dict ModuleNameAsString (Set ConstructorName) -> Dict ModuleNameAsString (Set ConstructorName)
 collectTypesUsedAsPhantomVariables moduleContext phantomVariables nodes used =
     case nodes of
         [] ->
@@ -1246,8 +1245,8 @@ collectTypesUsedAsPhantomVariables moduleContext phantomVariables nodes used =
 
                 TypeAnnotation.Typed (Node.Node typeRange ( _, name )) params ->
                     case
-                        ModuleNameLookupTable.moduleNameAt moduleContext.lookupTable typeRange
-                            |> Maybe.andThen (\moduleNameOfPhantomContainer -> Dict.get moduleNameOfPhantomContainer phantomVariables)
+                        ModuleNameLookupTable.fullModuleNameAt moduleContext.lookupTable typeRange
+                            |> Maybe.andThen (\moduleNameOfPhantomContainer -> Dict.get (String.join "." moduleNameOfPhantomContainer) phantomVariables)
                     of
                         Just things ->
                             let
@@ -1261,7 +1260,7 @@ collectTypesUsedAsPhantomVariables moduleContext phantomVariables nodes used =
                                             else
                                                 case listAtIndex index params |> Maybe.map Node.value of
                                                     Just (TypeAnnotation.Typed (Node.Node subTypeRange ( _, typeName )) _) ->
-                                                        case ModuleNameLookupTable.moduleNameAt moduleContext.lookupTable subTypeRange of
+                                                        case ModuleNameLookupTable.fullModuleNameAt moduleContext.lookupTable subTypeRange of
                                                             Just moduleNameOfPhantomVariable ->
                                                                 updateToInsert (String.join "." moduleNameOfPhantomVariable) typeName acc
 
