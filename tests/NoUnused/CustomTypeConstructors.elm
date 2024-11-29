@@ -1011,12 +1011,7 @@ constructorsInPattern lookupTable nodes acc =
                     let
                         newAcc : { fromThisModule : Set ConstructorName, fromOtherModules : Set ( ModuleNameAsString, ConstructorName ) }
                         newAcc =
-                            case ModuleNameLookupTable.moduleNameFor lookupTable node of
-                                Just [] ->
-                                    { fromThisModule = Set.insert qualifiedNameRef.name acc.fromThisModule
-                                    , fromOtherModules = acc.fromOtherModules
-                                    }
-
+                            case ModuleNameLookupTable.fullModuleNameFor lookupTable node of
                                 Just realModuleName ->
                                     { fromThisModule = acc.fromThisModule
                                     , fromOtherModules = Set.insert ( String.join "." realModuleName, qualifiedNameRef.name ) acc.fromOtherModules
