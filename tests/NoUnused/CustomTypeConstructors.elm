@@ -808,7 +808,10 @@ caseBranchEnterVisitor caseExpression ( casePattern, body ) moduleContext =
                         acc
                 )
                 moduleContext.fixesForRemovingConstructor
-                (Set.map (\constructorName -> ( moduleContext.currentModuleName, constructorName )) constructors.fromThisModule)
+                (Set.union
+                    constructors.fromOtherModules
+                    (Set.map (\constructorName -> ( moduleContext.currentModuleName, constructorName )) constructors.fromThisModule)
+                )
 
         constructorsToIgnore : Set ( ModuleName, ConstructorName )
         constructorsToIgnore =
