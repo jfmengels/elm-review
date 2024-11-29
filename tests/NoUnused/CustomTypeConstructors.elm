@@ -204,7 +204,7 @@ type alias ModuleContext =
     , declaredTypesWithConstructors : Dict CustomTypeName (Dict ConstructorName ConstructorInformation)
     , usedFunctionsOrValues : Dict ModuleNameAsString (Set ConstructorName)
     , phantomVariables : Dict ModuleName (List ( CustomTypeName, Int ))
-    , constructorsToIgnore : List (Set ( ModuleName, ConstructorName ))
+    , constructorsToIgnore : List (Set ( ModuleNameAsString, ConstructorName ))
     , wasUsedInLocationThatNeedsItself : Set ( ModuleNameAsString, ConstructorName )
     , wasUsedInComparisons : Set ( ModuleNameAsString, ConstructorName )
     , fixesForRemovingConstructor : Dict ConstructorName (Dict ModuleNameAsString (List Fix))
@@ -657,9 +657,9 @@ expressionVisitor : Node Expression -> ModuleContext -> ModuleContext
 expressionVisitor node moduleContext =
     case Node.value node of
         Expression.FunctionOrValue _ name ->
-            case ModuleNameLookupTable.moduleNameFor moduleContext.lookupTable node of
+            case ModuleNameLookupTable.fullModuleNameFor moduleContext.lookupTable node of
                 Just moduleName ->
-                    registerUsedFunctionOrValue (Node.range node) moduleName name moduleContext
+                    registerUsedFunctionOrValue (Node.range node) (String.join "." moduleName) name moduleContext
 
                 Nothing ->
                     moduleContext
@@ -813,11 +813,11 @@ caseBranchEnterVisitor caseExpression ( casePattern, body ) moduleContext =
                     (Set.map (\constructorName -> ( moduleContext.currentModuleName, constructorName )) constructors.fromThisModule)
                 )
 
-        constructorsToIgnore : Set ( ModuleName, ConstructorName )
+        constructorsToIgnore : Set ( ModuleNameAsString, ConstructorName )
         constructorsToIgnore =
             Set.union
-                (Set.map (\( moduleName, constructorName ) -> ( String.split "." moduleName, constructorName )) constructors.fromOtherModules)
-                (Set.map (\constructorName -> ( [], constructorName )) constructors.fromThisModule)
+                (Set.map (\( moduleName, constructorName ) -> ( moduleName, constructorName )) constructors.fromOtherModules)
+                (Set.map (\constructorName -> ( moduleContext.currentModuleName, constructorName )) constructors.fromThisModule)
     in
     { moduleContext
         | constructorsToIgnore = constructorsToIgnore :: moduleContext.constructorsToIgnore
@@ -1041,7 +1041,7 @@ constructorsInPattern lookupTable nodes acc =
                     constructorsInPattern lookupTable restOfNodes acc
 
 
-registerUsedFunctionOrValue : Range -> ModuleName -> ConstructorName -> ModuleContext -> ModuleContext
+registerUsedFunctionOrValue : Range -> ModuleNameAsString -> ConstructorName -> ModuleContext -> ModuleContext
 registerUsedFunctionOrValue range moduleName name moduleContext =
     if not (String.Extra.isCapitalized name) then
         moduleContext
@@ -1050,15 +1050,15 @@ registerUsedFunctionOrValue range moduleName name moduleContext =
         { moduleContext
             | wasUsedInComparisons =
                 Set.insert
-                    ( String.join "." moduleName, name )
+                    ( moduleName, name )
                     moduleContext.wasUsedInComparisons
         }
 
     else if List.any (Set.member ( moduleName, name )) moduleContext.constructorsToIgnore then
-        { moduleContext | wasUsedInLocationThatNeedsItself = Set.insert ( String.join "." moduleName, name ) moduleContext.wasUsedInLocationThatNeedsItself }
+        { moduleContext | wasUsedInLocationThatNeedsItself = Set.insert ( moduleName, name ) moduleContext.wasUsedInLocationThatNeedsItself }
 
     else
-        { moduleContext | usedFunctionsOrValues = updateToInsert (String.join "." moduleName) name moduleContext.usedFunctionsOrValues }
+        { moduleContext | usedFunctionsOrValues = updateToInsert moduleName name moduleContext.usedFunctionsOrValues }
 
 
 
