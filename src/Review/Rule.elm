@@ -5842,44 +5842,34 @@ findFixHelp project fixablePredicate errors accErrors maybeModuleZipper =
                     findFixHelp project fixablePredicate restOfErrors (err :: accErrors) maybeModuleZipper
 
                 Just ( target, fixes ) ->
-                    case target of
-                        Review.Error.Module targetPath ->
-                            case applySingleModuleFix project maybeModuleZipper err targetPath fixes of
-                                Ok fixResult ->
-                                    FoundFixHelp (errors ++ accErrors) fixResult
+                    let
+                        appliedFixResult : Result (Error {}) { project : ValidProject, fixedFile : FixedFile, error : ReviewError }
+                        appliedFixResult =
+                            case target of
+                                Review.Error.Module targetPath ->
+                                    applySingleModuleFix project maybeModuleZipper err targetPath fixes
 
-                                Err nonAppliedError ->
-                                    findFixHelp project fixablePredicate restOfErrors (nonAppliedError :: accErrors) maybeModuleZipper
+                                Review.Error.ElmJson ->
+                                    applyElmJsonFix project err fixes
 
-                        Review.Error.ElmJson ->
-                            case applyElmJsonFix project err fixes of
-                                Ok fixResult ->
-                                    FoundFixHelp (errors ++ accErrors) fixResult
+                                Review.Error.Readme ->
+                                    applyReadmeFix project err fixes
 
-                                Err nonAppliedError ->
-                                    findFixHelp project fixablePredicate restOfErrors (nonAppliedError :: accErrors) maybeModuleZipper
+                                Review.Error.ExtraFile targetPath ->
+                                    applyExtraFileFix project err targetPath fixes
 
-                        Review.Error.Readme ->
-                            case applyReadmeFix project err fixes of
-                                Ok fixResult ->
-                                    FoundFixHelp (errors ++ accErrors) fixResult
+                                Review.Error.Global ->
+                                    Err err
 
-                                Err nonAppliedError ->
-                                    findFixHelp project fixablePredicate restOfErrors (nonAppliedError :: accErrors) maybeModuleZipper
+                                Review.Error.UserGlobal ->
+                                    Err err
+                    in
+                    case appliedFixResult of
+                        Ok fixResult ->
+                            FoundFixHelp (errors ++ accErrors) fixResult
 
-                        Review.Error.ExtraFile targetPath ->
-                            case applyExtraFileFix project err targetPath fixes of
-                                Ok fixResult ->
-                                    FoundFixHelp (errors ++ accErrors) fixResult
-
-                                Err nonAppliedError ->
-                                    findFixHelp project fixablePredicate restOfErrors (nonAppliedError :: accErrors) maybeModuleZipper
-
-                        Review.Error.Global ->
-                            findFixHelp project fixablePredicate restOfErrors (err :: accErrors) maybeModuleZipper
-
-                        Review.Error.UserGlobal ->
-                            findFixHelp project fixablePredicate restOfErrors (err :: accErrors) maybeModuleZipper
+                        Err nonAppliedError ->
+                            findFixHelp project fixablePredicate restOfErrors (nonAppliedError :: accErrors) maybeModuleZipper
 
 
 isFixable : ({ ruleName : String, filePath : String, message : String, details : List String, range : Range } -> Bool) -> InternalError -> Maybe (Dict String ( Review.Error.Target, List Fix ))
