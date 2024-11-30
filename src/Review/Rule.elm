@@ -5860,11 +5860,13 @@ findFixHelp project fixablePredicate errors accErrors maybeModuleZipper =
 
                                                 fixResultErr ->
                                                     fixResultErr
+
+                                appliedFixes : Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
+                                appliedFixes =
+                                    applyFix project maybeModuleZipper err firstFix
+                                        |> Result.andThen (\fixResult -> applyFixes restOfFixes fixResult)
                             in
-                            case
-                                applyFix project maybeModuleZipper err firstFix
-                                    |> Result.andThen (\fixResult -> applyFixes restOfFixes fixResult)
-                            of
+                            case appliedFixes of
                                 Ok fixResult ->
                                     FoundFixHelp (errors ++ accErrors) { project = fixResult.project, fixedFile = fixResult.fixedFile, error = errorToReviewError err }
 
