@@ -5912,7 +5912,7 @@ applySingleModuleFix project maybeModuleZipper ((Error headError) as err) target
                                     (\( newProject, newModuleZipper ) ->
                                         { project = newProject
                                         , fixedFile = FixedElmModule fixResult newModuleZipper
-                                        , error = errorToReviewError (Error headError)
+                                        , error = errorToReviewError err
                                         }
                                     )
                                 -- TODO Breaking change: This is a dummy value. We should report
