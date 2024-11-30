@@ -438,14 +438,33 @@ match the names of the modules in the test source codes to the ones in the
 expected errors list.""")
 
 
-missingFixes : String -> String
-missingFixes message =
+missingFixes : { moduleName : String, message : String, expectedFixedModules : List String } -> String
+missingFixes { moduleName, message, expectedFixedModules } =
+    let
+        target : String
+        target =
+            case List.reverse expectedFixedModules of
+                [] ->
+                    ""
+
+                single :: [] ->
+                    if single == moduleName then
+                        "itself"
+
+                    else
+                        wrapInQuotes single
+
+                last :: previous ->
+                    (previous |> List.reverse |> List.map wrapInQuotes |> String.join ", ")
+                        ++ " and "
+                        ++ wrapInQuotes last
+    in
     failureMessage "MISSING FIXES"
-        ("""I expected that the error with the following message
+        ("""I expected that the error for module `""" ++ moduleName ++ """` with the following message
 
   """ ++ wrapInQuotes message ++ """
 
-would provide some fixes, but I didn't find any.
+would provide some fixes for """ ++ target ++ """, but I didn't find any.
 
 Hint: Maybe you forgot to call a function like `Rule.errorWithFix` or maybe
 the list of provided fixes was empty.""")

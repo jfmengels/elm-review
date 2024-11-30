@@ -1065,20 +1065,62 @@ expected errors list.
 
 missingFixesTest : Test
 missingFixesTest =
-    test "missingFixes" <|
-        \() ->
-            FailureMessage.missingFixes "Some error"
-                |> expectMessageEqual """
+    describe "missingFixes"
+        [ test "single fix for itself" <|
+            \() ->
+                FailureMessage.missingFixes
+                    { moduleName = "A"
+                    , message = "Some error"
+                    , expectedFixedModules = [ "A" ]
+                    }
+                    |> expectMessageEqual """
 \u{001B}[31m\u{001B}[1mMISSING FIXES\u{001B}[22m\u{001B}[39m
 
-I expected that the error with the following message
+I expected that the error for module `A` with the following message
 
   `Some error`
 
-would provide some fixes, but I didn't find any.
+would provide some fixes for itself, but I didn't find any.
 
 Hint: Maybe you forgot to call a function like `Rule.errorWithFix` or maybe
 the list of provided fixes was empty."""
+        , test "single fix for another module" <|
+            \() ->
+                FailureMessage.missingFixes
+                    { moduleName = "A"
+                    , message = "Some error"
+                    , expectedFixedModules = [ "B" ]
+                    }
+                    |> expectMessageEqual """
+\u{001B}[31m\u{001B}[1mMISSING FIXES\u{001B}[22m\u{001B}[39m
+
+I expected that the error for module `A` with the following message
+
+  `Some error`
+
+would provide some fixes for `B`, but I didn't find any.
+
+Hint: Maybe you forgot to call a function like `Rule.errorWithFix` or maybe
+the list of provided fixes was empty."""
+        , test "multiple fixes" <|
+            \() ->
+                FailureMessage.missingFixes
+                    { moduleName = "A"
+                    , message = "Some error"
+                    , expectedFixedModules = [ "A", "B", "elm.json" ]
+                    }
+                    |> expectMessageEqual """
+\u{001B}[31m\u{001B}[1mMISSING FIXES\u{001B}[22m\u{001B}[39m
+
+I expected that the error for module `A` with the following message
+
+  `Some error`
+
+would provide some fixes for `A`, `B` and `elm.json`, but I didn't find any.
+
+Hint: Maybe you forgot to call a function like `Rule.errorWithFix` or maybe
+the list of provided fixes was empty."""
+        ]
 
 
 unexpectedFixesTest : Test

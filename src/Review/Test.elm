@@ -1634,7 +1634,7 @@ checkErrorsMatch project runResult expectedErrors expectedNumberOfErrors errors 
             [ always Expect.pass ]
 
         ( expected :: restOfExpectedErrors, error_ :: restOfErrors ) ->
-            checkErrorMatch project runResult.inspector expected error_
+            checkErrorMatch project runResult expected error_
                 :: checkErrorsMatch project runResult restOfExpectedErrors expectedNumberOfErrors restOfErrors
 
         ( _ :: _, [] ) ->
@@ -1652,15 +1652,15 @@ checkErrorsMatch project runResult expectedErrors expectedNumberOfErrors errors 
             ]
 
 
-checkErrorMatch : Project -> CodeInspector -> ExpectedError -> ReviewError -> (() -> Expectation)
-checkErrorMatch project codeInspector (ExpectedError expectedError) error_ =
+checkErrorMatch : Project -> SuccessfulRunResult -> ExpectedError -> ReviewError -> (() -> Expectation)
+checkErrorMatch project runResult (ExpectedError expectedError) error_ =
     Expect.all
         [ -- Error message
           \() ->
             Rule.errorMessage error_
                 |> Expect.equal expectedError.message
                 |> onFail (\() -> FailureMessage.messageMismatch expectedError.message error_)
-        , \() -> checkMessageAppearsUnder codeInspector error_ expectedError
+        , \() -> checkMessageAppearsUnder runResult.inspector error_ expectedError
 
         -- Error details
         , \() ->
@@ -1674,7 +1674,7 @@ checkErrorMatch project codeInspector (ExpectedError expectedError) error_ =
                         |> onFail (\() -> FailureMessage.unexpectedDetails expectedError.details error_)
 
         -- Error fixes
-        , \() -> checkFixesAreCorrect project error_ expectedError
+        , \() -> checkFixesAreCorrect project runResult.moduleName error_ expectedError
         ]
 
 
@@ -1727,19 +1727,31 @@ checkMessageAppearsUnder codeInspector error_ expectedError =
                     |> Expect.fail
 
 
-checkFixesAreCorrect : Project -> ReviewError -> ExpectedErrorDetails -> Expectation
-checkFixesAreCorrect (Review.Project.Internal.Project project) ((Error.ReviewError err) as error_) expectedError =
+checkFixesAreCorrect : Project -> String -> ReviewError -> ExpectedErrorDetails -> Expectation
+checkFixesAreCorrect (Review.Project.Internal.Project project) moduleName ((Error.ReviewError err) as error_) expectedError =
     case err.fixes of
         Error.NoFixes ->
             case expectedError.fixedFiles of
                 NoFixesExpected ->
                     Expect.pass
 
-                ComesFromWhenFixed _ ->
-                    Expect.fail (FailureMessage.missingFixes expectedError.message)
+                ComesFromWhenFixed expectedFixedModule ->
+                    Expect.fail
+                        (FailureMessage.missingFixes
+                            { moduleName = moduleName
+                            , message = expectedError.message
+                            , expectedFixedModules = [ expectedFixedModule ]
+                            }
+                        )
 
-                ComesFromShouldFixFiles _ ->
-                    Expect.fail (FailureMessage.missingFixes expectedError.message)
+                ComesFromShouldFixFiles expectedFixedModules ->
+                    Expect.fail
+                        (FailureMessage.missingFixes
+                            { moduleName = moduleName
+                            , message = expectedError.message
+                            , expectedFixedModules = Dict.keys expectedFixedModules
+                            }
+                        )
 
         Error.Available dict ->
             case expectedError.fixedFiles of
@@ -1751,6 +1763,7 @@ checkFixesAreCorrect (Review.Project.Internal.Project project) ((Error.ReviewErr
                 ComesFromWhenFixed fixedSource ->
                     checkFixesMatch
                         project
+                        moduleName
                         error_
                         (Dict.singleton err.filePath fixedSource)
                         (Dict.toList dict)
@@ -1758,6 +1771,7 @@ checkFixesAreCorrect (Review.Project.Internal.Project project) ((Error.ReviewErr
                 ComesFromShouldFixFiles fixedFiles ->
                     checkFixesMatch
                         project
+                        moduleName
                         error_
                         fixedFiles
                         (Dict.toList dict)
@@ -1766,16 +1780,19 @@ checkFixesAreCorrect (Review.Project.Internal.Project project) ((Error.ReviewErr
             Expect.fail <| FailureMessage.fixProblem_ fixProblem error_
 
 
-checkFixesMatch : ProjectInternals -> ReviewError -> Dict String String -> List ( String, ( Error.Target, List Fix ) ) -> Expectation
-checkFixesMatch project error_ expectedFixed fixes =
+checkFixesMatch : ProjectInternals -> String -> ReviewError -> Dict String String -> List ( String, ( Error.Target, List Fix ) ) -> Expectation
+checkFixesMatch project moduleName error_ expectedFixed fixes =
     case fixes of
         [] ->
             if Dict.isEmpty expectedFixed then
                 Expect.pass
 
             else
-                -- TODO MULTIFILE-FIXES Test failure message should not say it didn't find "any" fixes (unless expectedFixed was originally empty), but that it didn't find the remaining ones
-                FailureMessage.missingFixes (Rule.errorMessage error_)
+                FailureMessage.missingFixes
+                    { moduleName = moduleName
+                    , message = Rule.errorMessage error_
+                    , expectedFixedModules = Dict.keys expectedFixed
+                    }
                     |> Expect.fail
 
         ( filePath, ( target, fileFixes ) ) :: rest ->
@@ -1790,6 +1807,7 @@ checkFixesMatch project error_ expectedFixed fixes =
                                 Ok () ->
                                     checkFixesMatch
                                         project
+                                        moduleName
                                         error_
                                         (Dict.remove filePath expectedFixed)
                                         rest
