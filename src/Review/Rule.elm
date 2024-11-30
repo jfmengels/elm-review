@@ -5836,7 +5836,6 @@ findFixHelp project fixablePredicate errors accErrors maybeModuleZipper =
             FoundNoFixesHelp accErrors
 
         err :: restOfErrors ->
-            -- TODO MULTIFILE-FIXES Do not stop at the first fix
             case isFixable fixablePredicate err of
                 Nothing ->
                     findFixHelp project fixablePredicate restOfErrors (err :: accErrors) maybeModuleZipper
@@ -5846,8 +5845,26 @@ findFixHelp project fixablePredicate errors accErrors maybeModuleZipper =
                         [] ->
                             findFixHelp project fixablePredicate restOfErrors (err :: accErrors) maybeModuleZipper
 
-                        fix :: _ ->
-                            case applyFix project maybeModuleZipper err fix of
+                        firstFix :: restOfFixes ->
+                            let
+                                applyFixes : List ( Review.Error.Target, List InternalFix.Fix ) -> { project : ValidProject, fixedFile : FixedFile } -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
+                                applyFixes fixes acc =
+                                    case fixes of
+                                        [] ->
+                                            Ok acc
+
+                                        fix :: rest ->
+                                            case applyFix acc.project maybeModuleZipper err fix of
+                                                Ok fixResult ->
+                                                    applyFixes rest { project = fixResult.project, fixedFile = earlierFixedFile fixResult.fixedFile acc.fixedFile }
+
+                                                fixResultErr ->
+                                                    fixResultErr
+                            in
+                            case
+                                applyFix project maybeModuleZipper err firstFix
+                                    |> Result.andThen (\fixResult -> applyFixes restOfFixes fixResult)
+                            of
                                 Ok fixResult ->
                                     FoundFixHelp (errors ++ accErrors) { project = fixResult.project, fixedFile = fixResult.fixedFile, error = errorToReviewError err }
 
