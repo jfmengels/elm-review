@@ -5842,33 +5842,33 @@ findFixHelp project fixablePredicate errors accErrors maybeModuleZipper =
                     findFixHelp project fixablePredicate restOfErrors (err :: accErrors) maybeModuleZipper
 
                 Just fixDict ->
-                    let
-                        applyFixResult : ValidProject -> ( Review.Error.Target, List InternalFix.Fix ) -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
-                        applyFixResult project_ ( target, fixes ) =
-                            case target of
-                                Review.Error.Module targetPath ->
-                                    applySingleModuleFix project_ maybeModuleZipper err targetPath fixes
-
-                                Review.Error.ElmJson ->
-                                    applyElmJsonFix project_ err fixes
-
-                                Review.Error.Readme ->
-                                    applyReadmeFix project_ err fixes
-
-                                Review.Error.ExtraFile targetPath ->
-                                    applyExtraFileFix project_ err targetPath fixes
-
-                                Review.Error.Global ->
-                                    Err err
-
-                                Review.Error.UserGlobal ->
-                                    Err err
-                    in
                     case Dict.values fixDict of
                         [] ->
                             findFixHelp project fixablePredicate restOfErrors (err :: accErrors) maybeModuleZipper
 
                         fix :: _ ->
+                            let
+                                applyFixResult : ValidProject -> ( Review.Error.Target, List InternalFix.Fix ) -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
+                                applyFixResult project_ ( target, fixes ) =
+                                    case target of
+                                        Review.Error.Module targetPath ->
+                                            applySingleModuleFix project_ maybeModuleZipper err targetPath fixes
+
+                                        Review.Error.ElmJson ->
+                                            applyElmJsonFix project_ err fixes
+
+                                        Review.Error.Readme ->
+                                            applyReadmeFix project_ err fixes
+
+                                        Review.Error.ExtraFile targetPath ->
+                                            applyExtraFileFix project_ err targetPath fixes
+
+                                        Review.Error.Global ->
+                                            Err err
+
+                                        Review.Error.UserGlobal ->
+                                            Err err
+                            in
                             case applyFixResult project fix of
                                 Ok fixResult ->
                                     FoundFixHelp (errors ++ accErrors) { project = fixResult.project, fixedFile = fixResult.fixedFile, error = errorToReviewError err }
