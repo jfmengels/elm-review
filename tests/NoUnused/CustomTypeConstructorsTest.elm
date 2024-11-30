@@ -1130,6 +1130,75 @@ type Msg = Used
                             ]
                           )
                         ]
+        , test "should not confuse fixes for constructors with the same name across multiple files" <|
+            \() ->
+                [ """module A exposing (Msg(..))
+type Msg = Unused | Used
+a = Used
+""", """module B exposing (Msg(..))
+type Msg = Unused | Used
+a = Used
+""", """module C exposing (main)
+import A
+import B
+value1 = case foo of
+  A.Unused -> 1
+  A.Used -> 2
+value2 = case foo of
+  B.Unused -> 1
+  B.Used -> 2
+""" ]
+                    |> Review.Test.runOnModulesWithProjectData project (rule [])
+                    |> Review.Test.expectErrorsForModules
+                        [ ( "A"
+                          , [ Review.Test.error
+                                { message = "Type constructor `Unused` is not used."
+                                , details = [ defaultDetails ]
+                                , under = "Unused"
+                                }
+                                |> Review.Test.shouldFixFiles
+                                    [ ( "src/A.elm", """module A exposing (Msg(..))
+type Msg = Used
+a = Used
+""" )
+                                    , ( "src/C.elm", """module C exposing (main)
+import A
+import B
+value1 = case foo of
+  
+  A.Used -> 2
+value2 = case foo of
+  B.Unused -> 1
+  B.Used -> 2
+""" |> String.replace "$" "" )
+                                    ]
+                            ]
+                          )
+                        , ( "B"
+                          , [ Review.Test.error
+                                { message = "Type constructor `Unused` is not used."
+                                , details = [ defaultDetails ]
+                                , under = "Unused"
+                                }
+                                |> Review.Test.shouldFixFiles
+                                    [ ( "src/B.elm", """module B exposing (Msg(..))
+type Msg = Used
+a = Used
+""" )
+                                    , ( "src/C.elm", """module C exposing (main)
+import A
+import B
+value1 = case foo of
+  A.Unused -> 1
+  A.Used -> 2
+value2 = case foo of
+  $
+  B.Used -> 2
+""" |> String.replace "$" "" )
+                                    ]
+                            ]
+                          )
+                        ]
         , test "should not report type constructors in confusing situations" <|
             \() ->
                 [ """module A exposing (A(..))
