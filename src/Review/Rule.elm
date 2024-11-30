@@ -5845,12 +5845,11 @@ findFixHelp project fixablePredicate errors accErrors maybeModuleZipper =
                     case target of
                         Review.Error.Module targetPath ->
                             let
-                                result : Result FindFixHelpResult FindFixHelpResult
+                                result : Result (Error {}) FindFixHelpResult
                                 result =
                                     case ValidProject.getModuleByPath targetPath project of
                                         Nothing ->
-                                            findFixHelp project fixablePredicate restOfErrors (err :: accErrors) maybeModuleZipper
-                                                |> Ok
+                                            Err err
 
                                         Just file ->
                                             case
@@ -5871,8 +5870,7 @@ findFixHelp project fixablePredicate errors accErrors maybeModuleZipper =
                                                         )
                                             of
                                                 Err fixProblem ->
-                                                    findFixHelp project fixablePredicate restOfErrors (Error (Review.Error.markFixesAsProblem fixProblem headError) :: accErrors) maybeModuleZipper
-                                                        |> Ok
+                                                    Err (Error (Review.Error.markFixesAsProblem fixProblem headError))
 
                                                 Ok fixResult ->
                                                     FoundFixHelp (errors ++ accErrors) fixResult
@@ -5882,8 +5880,8 @@ findFixHelp project fixablePredicate errors accErrors maybeModuleZipper =
                                 Ok findFixHelpResult ->
                                     findFixHelpResult
 
-                                Err findFixHelpResult ->
-                                    findFixHelpResult
+                                Err nonAppliedError ->
+                                    findFixHelp project fixablePredicate restOfErrors (nonAppliedError :: accErrors) maybeModuleZipper
 
                         Review.Error.ElmJson ->
                             case ValidProject.elmJson project of
