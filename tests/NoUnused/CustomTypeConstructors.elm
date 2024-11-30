@@ -770,9 +770,9 @@ caseBranchEnterVisitor caseExpression ( casePattern, body ) moduleContext =
         previousLocation =
             findEndLocationOfPreviousElement (Node.value caseExpression).cases (Node.range casePattern) Nothing
 
-        constructors : { fromThisModule : Set ConstructorName, fromOtherModules : Set ( ModuleNameAsString, ConstructorName ) }
+        constructors : Set ( ModuleNameAsString, ConstructorName )
         constructors =
-            constructorsInPattern moduleContext.lookupTable [ casePattern ] { fromThisModule = Set.empty, fromOtherModules = Set.empty }
+            constructorsInPattern moduleContext.lookupTable [ casePattern ] Set.empty
 
         fixes : Dict ConstructorName (Dict ModuleNameAsString (List Fix))
         fixes =
@@ -798,19 +798,10 @@ caseBranchEnterVisitor caseExpression ( casePattern, body ) moduleContext =
                         acc
                 )
                 moduleContext.fixesForRemovingConstructor
-                (Set.union
-                    constructors.fromOtherModules
-                    (Set.map (\constructorName -> ( moduleContext.currentModuleName, constructorName )) constructors.fromThisModule)
-                )
-
-        constructorsToIgnore : Set ( ModuleNameAsString, ConstructorName )
-        constructorsToIgnore =
-            Set.union
-                (Set.map (\( moduleName, constructorName ) -> ( moduleName, constructorName )) constructors.fromOtherModules)
-                (Set.map (\constructorName -> ( moduleContext.currentModuleName, constructorName )) constructors.fromThisModule)
+                constructors
     in
     { moduleContext
-        | constructorsToIgnore = constructorsToIgnore :: moduleContext.constructorsToIgnore
+        | constructorsToIgnore = constructors :: moduleContext.constructorsToIgnore
         , fixesForRemovingConstructor = fixes
     }
 
@@ -989,7 +980,7 @@ addElementToUniqueList lookupTable node name acc =
             acc
 
 
-constructorsInPattern : ModuleNameLookupTable -> List (Node Pattern) -> { fromThisModule : Set ConstructorName, fromOtherModules : Set ( ModuleNameAsString, ConstructorName ) } -> { fromThisModule : Set ConstructorName, fromOtherModules : Set ( ModuleNameAsString, ConstructorName ) }
+constructorsInPattern : ModuleNameLookupTable -> List (Node Pattern) -> Set ( ModuleNameAsString, ConstructorName ) -> Set ( ModuleNameAsString, ConstructorName )
 constructorsInPattern lookupTable nodes acc =
     case nodes of
         [] ->
@@ -999,13 +990,11 @@ constructorsInPattern lookupTable nodes acc =
             case Node.value node of
                 Pattern.NamedPattern qualifiedNameRef patterns ->
                     let
-                        newAcc : { fromThisModule : Set ConstructorName, fromOtherModules : Set ( ModuleNameAsString, ConstructorName ) }
+                        newAcc : Set ( ModuleNameAsString, ConstructorName )
                         newAcc =
                             case ModuleNameLookupTable.fullModuleNameFor lookupTable node of
                                 Just realModuleName ->
-                                    { fromThisModule = acc.fromThisModule
-                                    , fromOtherModules = Set.insert ( String.join "." realModuleName, qualifiedNameRef.name ) acc.fromOtherModules
-                                    }
+                                    Set.insert ( String.join "." realModuleName, qualifiedNameRef.name ) acc
 
                                 Nothing ->
                                     acc
