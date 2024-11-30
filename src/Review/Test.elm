@@ -144,6 +144,7 @@ import Review.Project.Internal exposing (ProjectInternals)
 import Review.Project.ProjectModule as ProjectModule
 import Review.Rule as Rule exposing (ReviewError, Rule)
 import Review.Test.Dependencies exposing (projectWithElmCore)
+import Review.Test.ExpectationExtra exposing (onFail)
 import Review.Test.FailureMessage as FailureMessage
 import Set exposing (Set)
 import Unicode
@@ -1433,7 +1434,7 @@ checkIfLocationIsAmbiguousInSourceCode sourceCode =
         in
         hasOneElement occurrencesInSourceCode
             |> Expect.equal True
-            |> Expect.onFail (FailureMessage.locationIsAmbiguousInSourceCode sourceCode error_ under occurrencesInSourceCode)
+            |> onFail (\() -> FailureMessage.locationIsAmbiguousInSourceCode sourceCode error_ under occurrencesInSourceCode)
 
 
 
@@ -1658,7 +1659,7 @@ checkErrorMatch project codeInspector (ExpectedError expectedError) error_ =
           \() ->
             Rule.errorMessage error_
                 |> Expect.equal expectedError.message
-                |> Expect.onFail (FailureMessage.messageMismatch expectedError.message error_)
+                |> onFail (\() -> FailureMessage.messageMismatch expectedError.message error_)
         , \() -> checkMessageAppearsUnder codeInspector error_ expectedError
 
         -- Error details
@@ -1670,7 +1671,7 @@ checkErrorMatch project codeInspector (ExpectedError expectedError) error_ =
                 errorDetails ->
                     errorDetails
                         |> Expect.equal expectedError.details
-                        |> Expect.onFail (FailureMessage.unexpectedDetails expectedError.details error_)
+                        |> onFail (\() -> FailureMessage.unexpectedDetails expectedError.details error_)
 
         -- Error fixes
         , \() -> checkFixesAreCorrect project error_ expectedError
@@ -1702,7 +1703,7 @@ checkMessageAppearsUnder codeInspector error_ expectedError =
                             , \() ->
                                 codeAtLocation
                                     |> Expect.equal under
-                                    |> Expect.onFail (FailureMessage.underMismatch error_ { under = under, codeAtLocation = codeAtLocation })
+                                    |> onFail (\() -> FailureMessage.underMismatch error_ { under = under, codeAtLocation = codeAtLocation })
                             , \() ->
                                 codeInspector.checkIfLocationIsAmbiguous error_ under
                             ]
@@ -1713,11 +1714,11 @@ checkMessageAppearsUnder codeInspector error_ expectedError =
                             [ \() ->
                                 codeAtLocation
                                     |> Expect.equal under
-                                    |> Expect.onFail (FailureMessage.underMismatch error_ { under = under, codeAtLocation = codeAtLocation })
+                                    |> onFail (\() -> FailureMessage.underMismatch error_ { under = under, codeAtLocation = codeAtLocation })
                             , \() ->
                                 Rule.errorRange error_
                                     |> Expect.equal range
-                                    |> Expect.onFail (FailureMessage.wrongLocation error_ range under)
+                                    |> onFail (\() -> FailureMessage.wrongLocation error_ range under)
                             ]
                             ()
 

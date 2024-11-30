@@ -11,6 +11,7 @@ import Json.Encode as Encode
 import Review.Error exposing (ReviewError)
 import Review.Rule as Rule exposing (Error, Rule)
 import Review.Test
+import Review.Test.ExpectationExtra exposing (onFail)
 import Review.Test.FailureMessage as FailureMessage
 import Test exposing (Test, describe, test)
 import Test.Runner
@@ -117,7 +118,7 @@ expectMessageEqual expectedMessage =
                         (\line () ->
                             String.length line
                                 |> Expect.atMost 76
-                                |> Expect.onFail ("Message has line longer than 76 characters:\n\n" ++ line)
+                                |> onFail (\() -> "Message has line longer than 76 characters:\n\n" ++ line)
                         )
                 )
                 ()
@@ -1547,7 +1548,7 @@ expectFailureModifiedBy expectedFailureMessage actualResult =
                                 (\line () ->
                                     String.length line
                                         |> Expect.atMost 76
-                                        |> Expect.onFail ("Message has line longer than 76 characters:\n\n" ++ line)
+                                        |> onFail (\() -> "Message has line longer than 76 characters:\n\n" ++ line)
                                 )
                         )
                         ()
