@@ -1663,13 +1663,14 @@ checkErrorMatch project codeInspector (ExpectedError expectedError) error_ =
 
         -- Error details
         , \() ->
-            (List.isEmpty <| Rule.errorDetails error_)
-                |> Expect.equal False
-                |> Expect.onFail (FailureMessage.emptyDetails (Rule.errorMessage error_))
-        , \() ->
-            Rule.errorDetails error_
-                |> Expect.equal expectedError.details
-                |> Expect.onFail (FailureMessage.unexpectedDetails expectedError.details error_)
+            case Rule.errorDetails error_ of
+                [] ->
+                    Expect.fail (FailureMessage.emptyDetails (Rule.errorMessage error_))
+
+                errorDetails ->
+                    errorDetails
+                        |> Expect.equal expectedError.details
+                        |> Expect.onFail (FailureMessage.unexpectedDetails expectedError.details error_)
 
         -- Error fixes
         , \() -> checkFixesAreCorrect project error_ expectedError
