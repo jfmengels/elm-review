@@ -5844,38 +5844,7 @@ findFixHelp project fixablePredicate errors accErrors maybeModuleZipper =
                 Just ( target, fixes ) ->
                     case target of
                         Review.Error.Module targetPath ->
-                            let
-                                result : Result (Error {}) { project : ValidProject, fixedFile : FixedFile, error : ReviewError }
-                                result =
-                                    case ValidProject.getModuleByPath targetPath project of
-                                        Nothing ->
-                                            Err err
-
-                                        Just file ->
-                                            case
-                                                InternalFix.fixModule fixes (ProjectModule.source file)
-                                                    |> Result.andThen
-                                                        (\fixResult ->
-                                                            ValidProject.addParsedModule { path = targetPath, source = fixResult.source, ast = fixResult.ast } maybeModuleZipper project
-                                                                |> Maybe.map
-                                                                    (\( newProject, newModuleZipper ) ->
-                                                                        { project = newProject
-                                                                        , fixedFile = FixedElmModule fixResult newModuleZipper
-                                                                        , error = errorToReviewError (Error headError)
-                                                                        }
-                                                                    )
-                                                                -- TODO Breaking change: This is a dummy value. We should report
-                                                                -- an import cycle problem, or whatever else that might be the problem.
-                                                                |> Result.fromMaybe FixProblem.Unchanged
-                                                        )
-                                            of
-                                                Err fixProblem ->
-                                                    Err (Error (Review.Error.markFixesAsProblem fixProblem headError))
-
-                                                Ok fixResult ->
-                                                    Ok fixResult
-                            in
-                            case result of
+                            case applySingleModuleFix project maybeModuleZipper err targetPath fixes of
                                 Ok fixResult ->
                                     FoundFixHelp (errors ++ accErrors) fixResult
 
@@ -5966,6 +5935,37 @@ isFixable predicate err =
 
         Review.Error.FailedToApply _ ->
             Nothing
+
+
+applySingleModuleFix : ValidProject -> Maybe (Zipper (Graph.NodeContext FilePath ())) -> Error {} -> String -> List InternalFix.Fix -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile, error : ReviewError }
+applySingleModuleFix project maybeModuleZipper ((Error headError) as err) targetPath fixes =
+    case ValidProject.getModuleByPath targetPath project of
+        Nothing ->
+            Err err
+
+        Just file ->
+            case
+                InternalFix.fixModule fixes (ProjectModule.source file)
+                    |> Result.andThen
+                        (\fixResult ->
+                            ValidProject.addParsedModule { path = targetPath, source = fixResult.source, ast = fixResult.ast } maybeModuleZipper project
+                                |> Maybe.map
+                                    (\( newProject, newModuleZipper ) ->
+                                        { project = newProject
+                                        , fixedFile = FixedElmModule fixResult newModuleZipper
+                                        , error = errorToReviewError (Error headError)
+                                        }
+                                    )
+                                -- TODO Breaking change: This is a dummy value. We should report
+                                -- an import cycle problem, or whatever else that might be the problem.
+                                |> Result.fromMaybe FixProblem.Unchanged
+                        )
+            of
+                Err fixProblem ->
+                    Err (Error (Review.Error.markFixesAsProblem fixProblem headError))
+
+                Ok fixResult ->
+                    Ok fixResult
 
 
 visitModuleForProjectRule : AvailableData -> List (AvailableData -> RuleModuleVisitor) -> List RuleModuleVisitor
