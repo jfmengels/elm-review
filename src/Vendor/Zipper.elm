@@ -3,7 +3,7 @@ module Vendor.Zipper exposing
     , current
     , next
     , start
-    , focusl, focusr
+    , focusl, focusr, position
     )
 
 {-|
@@ -94,6 +94,11 @@ fromList =
 current : Zipper a -> a
 current (Zipper _ f _) =
     f
+
+
+position : Zipper a -> Int
+position (Zipper previous _ _) =
+    List.length previous
 
 
 
