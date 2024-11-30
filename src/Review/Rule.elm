@@ -5845,11 +5845,12 @@ findFixHelp project fixablePredicate errors accErrors maybeModuleZipper =
                     case target of
                         Review.Error.Module targetPath ->
                             let
-                                result : FindFixHelpResult
+                                result : Result FindFixHelpResult FindFixHelpResult
                                 result =
                                     case ValidProject.getModuleByPath targetPath project of
                                         Nothing ->
                                             findFixHelp project fixablePredicate restOfErrors (err :: accErrors) maybeModuleZipper
+                                                |> Ok
 
                                         Just file ->
                                             case
@@ -5871,11 +5872,18 @@ findFixHelp project fixablePredicate errors accErrors maybeModuleZipper =
                                             of
                                                 Err fixProblem ->
                                                     findFixHelp project fixablePredicate restOfErrors (Error (Review.Error.markFixesAsProblem fixProblem headError) :: accErrors) maybeModuleZipper
+                                                        |> Ok
 
                                                 Ok fixResult ->
                                                     FoundFixHelp (errors ++ accErrors) fixResult
+                                                        |> Ok
                             in
-                            result
+                            case result of
+                                Ok findFixHelpResult ->
+                                    findFixHelpResult
+
+                                Err findFixHelpResult ->
+                                    findFixHelpResult
 
                         Review.Error.ElmJson ->
                             case ValidProject.elmJson project of
