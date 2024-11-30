@@ -1659,7 +1659,7 @@ checkErrorMatch project codeInspector (ExpectedError expectedError) error_ =
             Rule.errorMessage error_
                 |> Expect.equal expectedError.message
                 |> Expect.onFail (FailureMessage.messageMismatch expectedError.message error_)
-        , checkMessageAppearsUnder codeInspector error_ expectedError
+        , \() -> checkMessageAppearsUnder codeInspector error_ expectedError
 
         -- Error details
         , \() ->
@@ -1677,10 +1677,10 @@ checkErrorMatch project codeInspector (ExpectedError expectedError) error_ =
         ]
 
 
-checkMessageAppearsUnder : CodeInspector -> ReviewError -> ExpectedErrorDetails -> (() -> Expectation)
+checkMessageAppearsUnder : CodeInspector -> ReviewError -> ExpectedErrorDetails -> Expectation
 checkMessageAppearsUnder codeInspector error_ expectedError =
     if Rule.errorTarget error_ == Error.UserGlobal then
-        \() -> Expect.pass
+        Expect.pass
 
     else
         case codeInspector.getCodeAtLocation (Rule.errorRange error_) of
@@ -1706,6 +1706,7 @@ checkMessageAppearsUnder codeInspector error_ expectedError =
                             , \() ->
                                 codeInspector.checkIfLocationIsAmbiguous error_ under
                             ]
+                            ()
 
                     UnderExactly under range ->
                         Expect.all
@@ -1718,11 +1719,11 @@ checkMessageAppearsUnder codeInspector error_ expectedError =
                                     |> Expect.equal range
                                     |> Expect.onFail (FailureMessage.wrongLocation error_ range under)
                             ]
+                            ()
 
             Nothing ->
-                \() ->
-                    FailureMessage.locationNotFound error_
-                        |> Expect.fail
+                FailureMessage.locationNotFound error_
+                    |> Expect.fail
 
 
 checkFixesAreCorrect : Project -> ReviewError -> ExpectedErrorDetails -> Expectation
