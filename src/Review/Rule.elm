@@ -5852,28 +5852,12 @@ findFixHelp project fixablePredicate errors accErrors maybeModuleZipper =
                                     findFixHelp project fixablePredicate restOfErrors (nonAppliedError :: accErrors) maybeModuleZipper
 
                         Review.Error.ElmJson ->
-                            case ValidProject.elmJson project of
-                                Nothing ->
-                                    findFixHelp project fixablePredicate restOfErrors (err :: accErrors) maybeModuleZipper
+                            case applyElmJsonFix project err fixes of
+                                Ok fixResult ->
+                                    FoundFixHelp (errors ++ accErrors) fixResult
 
-                                Just elmJson ->
-                                    case
-                                        InternalFix.fixElmJson fixes elmJson.raw
-                                            |> Result.map
-                                                (\fixResult ->
-                                                    ValidProject.addElmJson { path = elmJson.path, raw = fixResult.raw, project = fixResult.project } project
-                                                )
-                                    of
-                                        Err fixProblem ->
-                                            findFixHelp project fixablePredicate restOfErrors (Error (Review.Error.markFixesAsProblem fixProblem headError) :: accErrors) maybeModuleZipper
-
-                                        Ok newProject ->
-                                            FoundFixHelp
-                                                (errors ++ accErrors)
-                                                { project = newProject
-                                                , fixedFile = FixedElmJson
-                                                , error = errorToReviewError (Error headError)
-                                                }
+                                Err nonAppliedError ->
+                                    findFixHelp project fixablePredicate restOfErrors (nonAppliedError :: accErrors) maybeModuleZipper
 
                         Review.Error.Readme ->
                             case ValidProject.readme project of
@@ -5966,6 +5950,31 @@ applySingleModuleFix project maybeModuleZipper ((Error headError) as err) target
 
                 Ok fixResult ->
                     Ok fixResult
+
+
+applyElmJsonFix : ValidProject -> Error {} -> List InternalFix.Fix -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile, error : ReviewError }
+applyElmJsonFix project ((Error headError) as err) fixes =
+    case ValidProject.elmJson project of
+        Nothing ->
+            Err err
+
+        Just elmJson ->
+            case
+                InternalFix.fixElmJson fixes elmJson.raw
+                    |> Result.map
+                        (\fixResult ->
+                            ValidProject.addElmJson { path = elmJson.path, raw = fixResult.raw, project = fixResult.project } project
+                        )
+            of
+                Err fixProblem ->
+                    Err (Error (Review.Error.markFixesAsProblem fixProblem headError))
+
+                Ok newProject ->
+                    Ok
+                        { project = newProject
+                        , fixedFile = FixedElmJson
+                        , error = errorToReviewError (Error headError)
+                        }
 
 
 visitModuleForProjectRule : AvailableData -> List (AvailableData -> RuleModuleVisitor) -> List RuleModuleVisitor
