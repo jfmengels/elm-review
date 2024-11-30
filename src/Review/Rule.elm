@@ -5843,7 +5843,7 @@ findFixHelp project fixablePredicate errors accErrors maybeModuleZipper =
 
                 Just fixDict ->
                     let
-                        applyFixResult : ValidProject -> ( Review.Error.Target, List InternalFix.Fix ) -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile, error : ReviewError }
+                        applyFixResult : ValidProject -> ( Review.Error.Target, List InternalFix.Fix ) -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
                         applyFixResult project_ ( target, fixes ) =
                             case target of
                                 Review.Error.Module targetPath ->
@@ -5871,7 +5871,7 @@ findFixHelp project fixablePredicate errors accErrors maybeModuleZipper =
                         fix :: _ ->
                             case applyFixResult project fix of
                                 Ok fixResult ->
-                                    FoundFixHelp (errors ++ accErrors) fixResult
+                                    FoundFixHelp (errors ++ accErrors) { project = fixResult.project, fixedFile = fixResult.fixedFile, error = errorToReviewError err }
 
                                 Err nonAppliedError ->
                                     findFixHelp project fixablePredicate restOfErrors (nonAppliedError :: accErrors) maybeModuleZipper
@@ -5896,7 +5896,7 @@ isFixable predicate (Error err) =
             Nothing
 
 
-applySingleModuleFix : ValidProject -> Maybe (Zipper (Graph.NodeContext FilePath ())) -> Error {} -> String -> List InternalFix.Fix -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile, error : ReviewError }
+applySingleModuleFix : ValidProject -> Maybe (Zipper (Graph.NodeContext FilePath ())) -> Error {} -> String -> List InternalFix.Fix -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
 applySingleModuleFix project maybeModuleZipper ((Error headError) as err) targetPath fixes =
     case ValidProject.getModuleByPath targetPath project of
         Nothing ->
@@ -5912,7 +5912,6 @@ applySingleModuleFix project maybeModuleZipper ((Error headError) as err) target
                                     (\( newProject, newModuleZipper ) ->
                                         { project = newProject
                                         , fixedFile = FixedElmModule fixResult newModuleZipper
-                                        , error = errorToReviewError err
                                         }
                                     )
                                 -- TODO Breaking change: This is a dummy value. We should report
@@ -5927,7 +5926,7 @@ applySingleModuleFix project maybeModuleZipper ((Error headError) as err) target
                     Ok fixResult
 
 
-applyElmJsonFix : ValidProject -> Error {} -> List InternalFix.Fix -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile, error : ReviewError }
+applyElmJsonFix : ValidProject -> Error {} -> List InternalFix.Fix -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
 applyElmJsonFix project ((Error headError) as err) fixes =
     case ValidProject.elmJson project of
         Nothing ->
@@ -5948,11 +5947,10 @@ applyElmJsonFix project ((Error headError) as err) fixes =
                     Ok
                         { project = newProject
                         , fixedFile = FixedElmJson
-                        , error = errorToReviewError (Error headError)
                         }
 
 
-applyReadmeFix : ValidProject -> Error {} -> List InternalFix.Fix -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile, error : ReviewError }
+applyReadmeFix : ValidProject -> Error {} -> List InternalFix.Fix -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
 applyReadmeFix project ((Error headError) as err) fixes =
     case ValidProject.readme project of
         Nothing ->
@@ -5967,11 +5965,10 @@ applyReadmeFix project ((Error headError) as err) fixes =
                     Ok
                         { project = ValidProject.addReadme { path = readme.path, content = content } project
                         , fixedFile = FixedReadme
-                        , error = errorToReviewError (Error headError)
                         }
 
 
-applyExtraFileFix : ValidProject -> Error {} -> String -> List InternalFix.Fix -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile, error : ReviewError }
+applyExtraFileFix : ValidProject -> Error {} -> String -> List InternalFix.Fix -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
 applyExtraFileFix project ((Error headError) as err) targetPath fixes =
     case Dict.get targetPath (ValidProject.extraFilesWithoutKeys project) of
         Nothing ->
@@ -5986,7 +5983,6 @@ applyExtraFileFix project ((Error headError) as err) targetPath fixes =
                     Ok
                         { project = ValidProject.addExtraFile { path = targetPath, content = newFileContent } project
                         , fixedFile = FixedExtraFile
-                        , error = errorToReviewError (Error headError)
                         }
 
 
