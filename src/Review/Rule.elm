@@ -5847,24 +5847,10 @@ findFixHelp project fixablePredicate errors accErrors maybeModuleZipper =
 
                         firstFix :: restOfFixes ->
                             let
-                                applyFixes : List ( Review.Error.Target, List InternalFix.Fix ) -> { project : ValidProject, fixedFile : FixedFile } -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
-                                applyFixes fixes acc =
-                                    case fixes of
-                                        [] ->
-                                            Ok acc
-
-                                        fix :: rest ->
-                                            case applyFix acc.project maybeModuleZipper err fix of
-                                                Ok fixResult ->
-                                                    applyFixes rest { project = fixResult.project, fixedFile = earlierFixedFile fixResult.fixedFile acc.fixedFile }
-
-                                                fixResultErr ->
-                                                    fixResultErr
-
                                 appliedFixes : Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
                                 appliedFixes =
                                     applyFix project maybeModuleZipper err firstFix
-                                        |> Result.andThen (\fixResult -> applyFixes restOfFixes fixResult)
+                                        |> Result.andThen (\fixResult -> applyFixes maybeModuleZipper err restOfFixes fixResult)
                             in
                             case appliedFixes of
                                 Ok fixResult ->
@@ -5872,6 +5858,21 @@ findFixHelp project fixablePredicate errors accErrors maybeModuleZipper =
 
                                 Err nonAppliedError ->
                                     findFixHelp project fixablePredicate restOfErrors (nonAppliedError :: accErrors) maybeModuleZipper
+
+
+applyFixes : Maybe (Zipper (Graph.NodeContext FilePath ())) -> Error {} -> List ( Review.Error.Target, List InternalFix.Fix ) -> { project : ValidProject, fixedFile : FixedFile } -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
+applyFixes maybeModuleZipper err fixes acc =
+    case fixes of
+        [] ->
+            Ok acc
+
+        fix :: rest ->
+            case applyFix acc.project maybeModuleZipper err fix of
+                Ok fixResult ->
+                    applyFixes maybeModuleZipper err rest { project = fixResult.project, fixedFile = earlierFixedFile fixResult.fixedFile acc.fixedFile }
+
+                fixResultErr ->
+                    fixResultErr
 
 
 earlierFixedFile : FixedFile -> FixedFile -> FixedFile
