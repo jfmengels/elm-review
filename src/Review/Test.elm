@@ -1654,12 +1654,24 @@ checkErrorsMatch project runResult expectedErrors expectedNumberOfErrors errors 
 checkErrorMatch : Project -> CodeInspector -> ExpectedError -> ReviewError -> (() -> Expectation)
 checkErrorMatch project codeInspector (ExpectedError expectedError) error_ =
     Expect.all
-        [ \() ->
+        [ -- Error message
+          \() ->
             Rule.errorMessage error_
                 |> Expect.equal expectedError.message
                 |> Expect.onFail (FailureMessage.messageMismatch expectedError.message error_)
         , checkMessageAppearsUnder codeInspector error_ expectedError
-        , checkDetailsAreCorrect error_ expectedError.details
+
+        -- Error details
+        , \() ->
+            (List.isEmpty <| Rule.errorDetails error_)
+                |> Expect.equal False
+                |> Expect.onFail (FailureMessage.emptyDetails (Rule.errorMessage error_))
+        , \() ->
+            Rule.errorDetails error_
+                |> Expect.equal expectedError.details
+                |> Expect.onFail (FailureMessage.unexpectedDetails expectedError.details error_)
+
+        -- Error fixes
         , \() -> checkFixesAreCorrect project error_ expectedError
         ]
 
@@ -1710,20 +1722,6 @@ checkMessageAppearsUnder codeInspector error_ expectedError =
                 \() ->
                     FailureMessage.locationNotFound error_
                         |> Expect.fail
-
-
-checkDetailsAreCorrect : ReviewError -> List String -> (() -> Expectation)
-checkDetailsAreCorrect error_ expectedErrorDetails =
-    Expect.all
-        [ \() ->
-            (List.isEmpty <| Rule.errorDetails error_)
-                |> Expect.equal False
-                |> Expect.onFail (FailureMessage.emptyDetails (Rule.errorMessage error_))
-        , \() ->
-            Rule.errorDetails error_
-                |> Expect.equal expectedErrorDetails
-                |> Expect.onFail (FailureMessage.unexpectedDetails expectedErrorDetails error_)
-        ]
 
 
 checkFixesAreCorrect : Project -> ReviewError -> ExpectedErrorDetails -> Expectation
