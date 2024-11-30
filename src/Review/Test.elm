@@ -1660,7 +1660,7 @@ checkErrorMatch project codeInspector (ExpectedError expectedError) error_ =
                 |> Expect.onFail (FailureMessage.messageMismatch expectedError.message error_)
         , checkMessageAppearsUnder codeInspector error_ expectedError
         , checkDetailsAreCorrect error_ expectedError.details
-        , \() -> checkFixesAreCorrect project codeInspector error_ expectedError
+        , \() -> checkFixesAreCorrect project error_ expectedError
         ]
 
 
@@ -1726,8 +1726,8 @@ checkDetailsAreCorrect error_ expectedErrorDetails =
         ]
 
 
-checkFixesAreCorrect : Project -> CodeInspector -> ReviewError -> ExpectedErrorDetails -> Expectation
-checkFixesAreCorrect (Review.Project.Internal.Project project) codeInspector ((Error.ReviewError err) as error_) expectedError =
+checkFixesAreCorrect : Project -> ReviewError -> ExpectedErrorDetails -> Expectation
+checkFixesAreCorrect (Review.Project.Internal.Project project) ((Error.ReviewError err) as error_) expectedError =
     case err.fixes of
         Error.NoFixes ->
             case expectedError.fixedFiles of
