@@ -5845,7 +5845,7 @@ findFixHelp project fixablePredicate errors accErrors maybeModuleZipper =
                     case target of
                         Review.Error.Module targetPath ->
                             let
-                                result : Result (Error {}) FindFixHelpResult
+                                result : Result (Error {}) { project : ValidProject, fixedFile : FixedFile, error : ReviewError }
                                 result =
                                     case ValidProject.getModuleByPath targetPath project of
                                         Nothing ->
@@ -5873,12 +5873,11 @@ findFixHelp project fixablePredicate errors accErrors maybeModuleZipper =
                                                     Err (Error (Review.Error.markFixesAsProblem fixProblem headError))
 
                                                 Ok fixResult ->
-                                                    FoundFixHelp (errors ++ accErrors) fixResult
-                                                        |> Ok
+                                                    Ok fixResult
                             in
                             case result of
-                                Ok findFixHelpResult ->
-                                    findFixHelpResult
+                                Ok fixResult ->
+                                    FoundFixHelp (errors ++ accErrors) fixResult
 
                                 Err nonAppliedError ->
                                     findFixHelp project fixablePredicate restOfErrors (nonAppliedError :: accErrors) maybeModuleZipper
