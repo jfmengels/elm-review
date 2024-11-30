@@ -206,7 +206,7 @@ type alias ModuleContext =
     , constructorsToIgnore : List (Set ( ModuleNameAsString, ConstructorName ))
     , wasUsedInLocationThatNeedsItself : Set ( ModuleNameAsString, ConstructorName )
     , wasUsedInComparisons : Set ( ModuleNameAsString, ConstructorName )
-    , fixesForRemovingConstructor : Dict ConstructorName (Dict ModuleNameAsString (List Fix))
+    , fixesForRemovingConstructor : Dict ( ModuleNameAsString, ConstructorName ) (Dict ModuleNameAsString (List Fix))
     , ignoredComparisonRanges : List Range
     }
 
@@ -322,12 +322,7 @@ fromModuleToProject =
                             untouched
                     )
                     moduleContext.wasUsedInComparisons
-            , fixesForRemovingConstructor =
-                mapDictKeys
-                    (\constructorName ->
-                        ( moduleNameAsString, constructorName )
-                    )
-                    moduleContext.fixesForRemovingConstructor
+            , fixesForRemovingConstructor = moduleContext.fixesForRemovingConstructor
             }
         )
         |> Rule.withModuleKey
@@ -669,12 +664,12 @@ expressionVisitor node moduleContext =
                         else
                             "True"
 
-                    fixes : Dict ConstructorName (Dict ModuleNameAsString (List Fix))
+                    fixes : Dict ( ModuleNameAsString, ConstructorName ) (Dict ModuleNameAsString (List Fix))
                     fixes =
                         Set.foldl
-                            (\( moduleName, constructor ) dict ->
+                            (\(( moduleName, _ ) as key) dict ->
                                 Dict.update
-                                    constructor
+                                    key
                                     (\existingValues ->
                                         updateToAdd
                                             moduleName
@@ -718,15 +713,15 @@ expressionVisitor node moduleContext =
                         else
                             "always " ++ replacementBoolean
 
-                    fixes : Dict ConstructorName (Dict ModuleNameAsString (List Fix))
+                    fixes : Dict ( ModuleNameAsString, ConstructorName ) (Dict ModuleNameAsString (List Fix))
                     fixes =
                         Set.foldl
-                            (\( _, constructor ) dict ->
+                            (\(( moduleName, _ ) as key) dict ->
                                 Dict.update
-                                    constructor
+                                    key
                                     (\existingValues ->
                                         updateToAdd
-                                            moduleContext.currentModuleName
+                                            moduleName
                                             (Fix.replaceRangeBy (Node.range node) replacement)
                                             (Maybe.withDefault Dict.empty existingValues)
                                             |> Just
@@ -774,10 +769,10 @@ caseBranchEnterVisitor caseExpression ( casePattern, body ) moduleContext =
         constructors =
             constructorsInPattern moduleContext.lookupTable [ casePattern ] Set.empty
 
-        fixes : Dict ConstructorName (Dict ModuleNameAsString (List Fix))
+        fixes : Dict ( ModuleNameAsString, ConstructorName ) (Dict ModuleNameAsString (List Fix))
         fixes =
             Set.foldl
-                (\( moduleName, constructorName ) acc ->
+                (\(( moduleName, _ ) as key) acc ->
                     let
                         fix : Fix
                         fix =
@@ -787,10 +782,10 @@ caseBranchEnterVisitor caseExpression ( casePattern, body ) moduleContext =
                                 }
                     in
                     Dict.update
-                        constructorName
+                        key
                         (\existingValues ->
                             updateToAdd
-                                moduleContext.currentModuleName
+                                moduleName
                                 fix
                                 (Maybe.withDefault Dict.empty existingValues)
                                 |> Just
@@ -1312,11 +1307,3 @@ listAtIndex index list =
 
         ( n, _ :: rest ) ->
             listAtIndex (n - 1) rest
-
-
-mapDictKeys : (comparable -> comparable1) -> Dict comparable v -> Dict comparable1 v
-mapDictKeys keyMapper dict =
-    Dict.foldl
-        (\key value acc -> Dict.insert (keyMapper key) value acc)
-        Dict.empty
-        dict
