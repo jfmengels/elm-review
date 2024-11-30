@@ -60,6 +60,7 @@ type ErrorFixes
     = NoFixes
     | Available (Dict String ( Target, List Fix ))
     | FailedToApply FixProblem.FixProblem
+    | Unused FixProblem.FixProblem
 
 
 fixesFromMaybe : String -> Maybe (List Fix) -> ErrorFixes

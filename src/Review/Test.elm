@@ -1764,6 +1764,9 @@ checkFixesAreCorrect (Review.Project.Internal.Project project) ((Error.ReviewErr
         Error.FailedToApply fixProblem ->
             Expect.fail <| FailureMessage.fixProblem_ fixProblem error_
 
+        Error.Unused _ ->
+            Expect.pass
+
 
 checkFixesMatch : ProjectInternals -> ReviewError -> Dict String String -> List ( String, ( Error.Target, List Fix ) ) -> Expectation
 checkFixesMatch project error_ expectedFixed fixes =

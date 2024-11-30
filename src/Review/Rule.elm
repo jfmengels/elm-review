@@ -4430,6 +4430,9 @@ errorFixes (Review.Error.ReviewError err) =
         Review.Error.FailedToApply _ ->
             Nothing
 
+        Review.Error.Unused _ ->
+            Nothing
+
 
 {-| Get the reason why the fix for an error failed when its available automatic fix was attempted and deemed incorrect.
 
@@ -4456,6 +4459,9 @@ errorFixFailure (Review.Error.ReviewError err) =
 
                     FixProblem.HasCollisionsInFixRanges ->
                         Fix.HasCollisionsInFixRanges
+
+        Review.Error.Unused _ ->
+            Nothing
 
 
 {-| Get the file path of an [`Error`](#Error).
@@ -4780,6 +4786,9 @@ qualifyError params (Error err) acc =
                                 err.fixes
 
                             Review.Error.FailedToApply _ ->
+                                err.fixes
+
+                            Review.Error.Unused _ ->
                                 err.fixes
                 }
 
@@ -5939,6 +5948,9 @@ isFixable predicate (Error err) =
             Nothing
 
         Review.Error.FailedToApply _ ->
+            Nothing
+
+        Review.Error.Unused _ ->
             Nothing
 
 
