@@ -5837,39 +5837,44 @@ findFixHelp project fixablePredicate errors accErrors maybeModuleZipper =
 
         ((Error headError) as err) :: restOfErrors ->
             -- TODO MULTIFILE-FIXES Do not stop at the first fix
-            case isFixable fixablePredicate headError |> Maybe.andThen (Dict.values >> List.head) of
+            case isFixable fixablePredicate headError of
                 Nothing ->
                     findFixHelp project fixablePredicate restOfErrors (err :: accErrors) maybeModuleZipper
 
-                Just ( target, fixes ) ->
-                    let
-                        appliedFixResult : Result (Error {}) { project : ValidProject, fixedFile : FixedFile, error : ReviewError }
-                        appliedFixResult =
-                            case target of
-                                Review.Error.Module targetPath ->
-                                    applySingleModuleFix project maybeModuleZipper err targetPath fixes
+                Just fixDict ->
+                    case List.head (Dict.values fixDict) of
+                        Nothing ->
+                            findFixHelp project fixablePredicate restOfErrors (err :: accErrors) maybeModuleZipper
 
-                                Review.Error.ElmJson ->
-                                    applyElmJsonFix project err fixes
+                        Just ( target, fixes ) ->
+                            let
+                                appliedFixResult : Result (Error {}) { project : ValidProject, fixedFile : FixedFile, error : ReviewError }
+                                appliedFixResult =
+                                    case target of
+                                        Review.Error.Module targetPath ->
+                                            applySingleModuleFix project maybeModuleZipper err targetPath fixes
 
-                                Review.Error.Readme ->
-                                    applyReadmeFix project err fixes
+                                        Review.Error.ElmJson ->
+                                            applyElmJsonFix project err fixes
 
-                                Review.Error.ExtraFile targetPath ->
-                                    applyExtraFileFix project err targetPath fixes
+                                        Review.Error.Readme ->
+                                            applyReadmeFix project err fixes
 
-                                Review.Error.Global ->
-                                    Err err
+                                        Review.Error.ExtraFile targetPath ->
+                                            applyExtraFileFix project err targetPath fixes
 
-                                Review.Error.UserGlobal ->
-                                    Err err
-                    in
-                    case appliedFixResult of
-                        Ok fixResult ->
-                            FoundFixHelp (errors ++ accErrors) fixResult
+                                        Review.Error.Global ->
+                                            Err err
 
-                        Err nonAppliedError ->
-                            findFixHelp project fixablePredicate restOfErrors (nonAppliedError :: accErrors) maybeModuleZipper
+                                        Review.Error.UserGlobal ->
+                                            Err err
+                            in
+                            case appliedFixResult of
+                                Ok fixResult ->
+                                    FoundFixHelp (errors ++ accErrors) fixResult
+
+                                Err nonAppliedError ->
+                                    findFixHelp project fixablePredicate restOfErrors (nonAppliedError :: accErrors) maybeModuleZipper
 
 
 isFixable : ({ ruleName : String, filePath : String, message : String, details : List String, range : Range } -> Bool) -> InternalError -> Maybe (Dict String ( Review.Error.Target, List Fix ))
