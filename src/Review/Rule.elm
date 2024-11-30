@@ -5835,9 +5835,9 @@ findFixHelp project fixablePredicate errors accErrors maybeModuleZipper =
         [] ->
             FoundNoFixesHelp accErrors
 
-        ((Error headError) as err) :: restOfErrors ->
+        err :: restOfErrors ->
             -- TODO MULTIFILE-FIXES Do not stop at the first fix
-            case isFixable fixablePredicate headError of
+            case isFixable fixablePredicate err of
                 Nothing ->
                     findFixHelp project fixablePredicate restOfErrors (err :: accErrors) maybeModuleZipper
 
@@ -5877,8 +5877,8 @@ findFixHelp project fixablePredicate errors accErrors maybeModuleZipper =
                                     findFixHelp project fixablePredicate restOfErrors (nonAppliedError :: accErrors) maybeModuleZipper
 
 
-isFixable : ({ ruleName : String, filePath : String, message : String, details : List String, range : Range } -> Bool) -> InternalError -> Maybe (Dict String ( Review.Error.Target, List Fix ))
-isFixable predicate err =
+isFixable : ({ ruleName : String, filePath : String, message : String, details : List String, range : Range } -> Bool) -> Error {} -> Maybe (Dict String ( Review.Error.Target, List Fix ))
+isFixable predicate (Error err) =
     case err.fixes of
         Review.Error.Available fixes ->
             -- It's cheaper to check for fixes first and also quite likely to return Nothing
