@@ -5855,6 +5855,35 @@ findFixHelp project fixablePredicate errors accErrors maybeModuleZipper =
                                     findFixHelp project fixablePredicate restOfErrors (nonAppliedError :: accErrors) maybeModuleZipper
 
 
+earlierFixedFile : FixedFile -> FixedFile -> FixedFile
+earlierFixedFile a b =
+    case ( a, b ) of
+        ( FixedElmJson, _ ) ->
+            FixedElmJson
+
+        ( _, FixedElmJson ) ->
+            FixedElmJson
+
+        ( FixedReadme, _ ) ->
+            FixedReadme
+
+        ( _, FixedReadme ) ->
+            FixedReadme
+
+        ( FixedExtraFile, _ ) ->
+            FixedExtraFile
+
+        ( _, FixedExtraFile ) ->
+            FixedExtraFile
+
+        ( FixedElmModule _ zipperA, FixedElmModule _ zipperB ) ->
+            if Zipper.position zipperA <= Zipper.position zipperB then
+                a
+
+            else
+                b
+
+
 applyFix : ValidProject -> Maybe (Zipper (Graph.NodeContext FilePath ())) -> Error {} -> ( Review.Error.Target, List InternalFix.Fix ) -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
 applyFix project maybeModuleZipper err ( target, fixes ) =
     case target of
