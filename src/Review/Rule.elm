@@ -5868,22 +5868,12 @@ findFixHelp project fixablePredicate errors accErrors maybeModuleZipper =
                                     findFixHelp project fixablePredicate restOfErrors (nonAppliedError :: accErrors) maybeModuleZipper
 
                         Review.Error.ExtraFile targetPath ->
-                            case Dict.get targetPath (ValidProject.extraFilesWithoutKeys project) of
-                                Nothing ->
-                                    findFixHelp project fixablePredicate restOfErrors (err :: accErrors) maybeModuleZipper
+                            case applyExtraFileFix project err targetPath fixes of
+                                Ok fixResult ->
+                                    FoundFixHelp (errors ++ accErrors) fixResult
 
-                                Just content ->
-                                    case InternalFix.fixExtraFile fixes content of
-                                        Err fixProblem ->
-                                            findFixHelp project fixablePredicate restOfErrors (Error (Review.Error.markFixesAsProblem fixProblem headError) :: accErrors) maybeModuleZipper
-
-                                        Ok newFileContent ->
-                                            FoundFixHelp
-                                                (errors ++ accErrors)
-                                                { project = ValidProject.addExtraFile { path = targetPath, content = newFileContent } project
-                                                , fixedFile = FixedExtraFile
-                                                , error = errorToReviewError (Error headError)
-                                                }
+                                Err nonAppliedError ->
+                                    findFixHelp project fixablePredicate restOfErrors (nonAppliedError :: accErrors) maybeModuleZipper
 
                         Review.Error.Global ->
                             findFixHelp project fixablePredicate restOfErrors (err :: accErrors) maybeModuleZipper
@@ -5982,6 +5972,25 @@ applyReadmeFix project ((Error headError) as err) fixes =
                     Ok
                         { project = ValidProject.addReadme { path = readme.path, content = content } project
                         , fixedFile = FixedReadme
+                        , error = errorToReviewError (Error headError)
+                        }
+
+
+applyExtraFileFix : ValidProject -> Error {} -> String -> List InternalFix.Fix -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile, error : ReviewError }
+applyExtraFileFix project ((Error headError) as err) targetPath fixes =
+    case Dict.get targetPath (ValidProject.extraFilesWithoutKeys project) of
+        Nothing ->
+            Err err
+
+        Just content ->
+            case InternalFix.fixExtraFile fixes content of
+                Err fixProblem ->
+                    Err (Error (Review.Error.markFixesAsProblem fixProblem headError))
+
+                Ok newFileContent ->
+                    Ok
+                        { project = ValidProject.addExtraFile { path = targetPath, content = newFileContent } project
+                        , fixedFile = FixedExtraFile
                         , error = errorToReviewError (Error headError)
                         }
 
