@@ -5843,20 +5843,20 @@ findFixHelp project fixablePredicate errors accErrors maybeModuleZipper =
 
                 Just fixDict ->
                     let
-                        applyFixResult : ( Review.Error.Target, List InternalFix.Fix ) -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile, error : ReviewError }
-                        applyFixResult ( target, fixes ) =
+                        applyFixResult : ValidProject -> ( Review.Error.Target, List InternalFix.Fix ) -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile, error : ReviewError }
+                        applyFixResult project_ ( target, fixes ) =
                             case target of
                                 Review.Error.Module targetPath ->
-                                    applySingleModuleFix project maybeModuleZipper err targetPath fixes
+                                    applySingleModuleFix project_ maybeModuleZipper err targetPath fixes
 
                                 Review.Error.ElmJson ->
-                                    applyElmJsonFix project err fixes
+                                    applyElmJsonFix project_ err fixes
 
                                 Review.Error.Readme ->
-                                    applyReadmeFix project err fixes
+                                    applyReadmeFix project_ err fixes
 
                                 Review.Error.ExtraFile targetPath ->
-                                    applyExtraFileFix project err targetPath fixes
+                                    applyExtraFileFix project_ err targetPath fixes
 
                                 Review.Error.Global ->
                                     Err err
@@ -5869,7 +5869,7 @@ findFixHelp project fixablePredicate errors accErrors maybeModuleZipper =
                             findFixHelp project fixablePredicate restOfErrors (err :: accErrors) maybeModuleZipper
 
                         fix :: _ ->
-                            case applyFixResult fix of
+                            case applyFixResult project fix of
                                 Ok fixResult ->
                                     FoundFixHelp (errors ++ accErrors) fixResult
 
