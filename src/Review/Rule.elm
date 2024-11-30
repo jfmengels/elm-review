@@ -5860,22 +5860,12 @@ findFixHelp project fixablePredicate errors accErrors maybeModuleZipper =
                                     findFixHelp project fixablePredicate restOfErrors (nonAppliedError :: accErrors) maybeModuleZipper
 
                         Review.Error.Readme ->
-                            case ValidProject.readme project of
-                                Nothing ->
-                                    findFixHelp project fixablePredicate restOfErrors (err :: accErrors) maybeModuleZipper
+                            case applyReadmeFix project err fixes of
+                                Ok fixResult ->
+                                    FoundFixHelp (errors ++ accErrors) fixResult
 
-                                Just readme ->
-                                    case InternalFix.fixReadme fixes readme.content of
-                                        Err fixProblem ->
-                                            findFixHelp project fixablePredicate restOfErrors (Error (Review.Error.markFixesAsProblem fixProblem headError) :: accErrors) maybeModuleZipper
-
-                                        Ok content ->
-                                            FoundFixHelp
-                                                (errors ++ accErrors)
-                                                { project = ValidProject.addReadme { path = readme.path, content = content } project
-                                                , fixedFile = FixedReadme
-                                                , error = errorToReviewError (Error headError)
-                                                }
+                                Err nonAppliedError ->
+                                    findFixHelp project fixablePredicate restOfErrors (nonAppliedError :: accErrors) maybeModuleZipper
 
                         Review.Error.ExtraFile targetPath ->
                             case Dict.get targetPath (ValidProject.extraFilesWithoutKeys project) of
@@ -5973,6 +5963,25 @@ applyElmJsonFix project ((Error headError) as err) fixes =
                     Ok
                         { project = newProject
                         , fixedFile = FixedElmJson
+                        , error = errorToReviewError (Error headError)
+                        }
+
+
+applyReadmeFix : ValidProject -> Error {} -> List InternalFix.Fix -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile, error : ReviewError }
+applyReadmeFix project ((Error headError) as err) fixes =
+    case ValidProject.readme project of
+        Nothing ->
+            Err err
+
+        Just readme ->
+            case InternalFix.fixReadme fixes readme.content of
+                Err fixProblem ->
+                    Err (Error (Review.Error.markFixesAsProblem fixProblem headError))
+
+                Ok content ->
+                    Ok
+                        { project = ValidProject.addReadme { path = readme.path, content = content } project
+                        , fixedFile = FixedReadme
                         , error = errorToReviewError (Error headError)
                         }
 
