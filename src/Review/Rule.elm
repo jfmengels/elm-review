@@ -4346,31 +4346,31 @@ fixesForElmJson (ElmJsonKey elmJson) fixer =
 
 withFixesV2 : List FixesV2 -> Error scope -> Error scope
 withFixesV2 providedFixes error_ =
-    let
-        dict : Dict String ( Review.Error.Target, List Fix )
-        dict =
-            List.foldl
-                (\(FixesV2 { path, target, fixes }) acc ->
-                    if List.isEmpty fixes then
-                        acc
-
-                    else
-                        Dict.update path
-                            (\maybePreviousFixes ->
-                                case maybePreviousFixes of
-                                    Just ( _, previousFixes ) ->
-                                        Just ( target, fixes ++ previousFixes )
-
-                                    Nothing ->
-                                        Just ( target, fixes )
-                            )
-                            acc
-                )
-                Dict.empty
-                providedFixes
-    in
     mapInternalError
         (\err ->
+            let
+                dict : Dict String ( Review.Error.Target, List Fix )
+                dict =
+                    List.foldl
+                        (\(FixesV2 { path, target, fixes }) acc ->
+                            if List.isEmpty fixes then
+                                acc
+
+                            else
+                                Dict.update path
+                                    (\maybePreviousFixes ->
+                                        case maybePreviousFixes of
+                                            Just ( _, previousFixes ) ->
+                                                Just ( target, fixes ++ previousFixes )
+
+                                            Nothing ->
+                                                Just ( target, fixes )
+                                    )
+                                    acc
+                        )
+                        Dict.empty
+                        providedFixes
+            in
             if Dict.isEmpty dict then
                 { err | fixes = Review.Error.NoFixes }
 
