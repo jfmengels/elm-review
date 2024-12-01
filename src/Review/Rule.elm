@@ -4349,6 +4349,18 @@ withFixesV2 providedFixes error_ =
     mapInternalError
         (\err ->
             let
+                initialFixes : Dict String ( Review.Error.Target, List InternalFix.Fix )
+                initialFixes =
+                    case err.fixes of
+                        Review.Error.Available previousFixes ->
+                            previousFixes
+
+                        Review.Error.NoFixes ->
+                            Dict.empty
+
+                        Review.Error.FailedToApply _ ->
+                            Dict.empty
+
                 dict : Dict String ( Review.Error.Target, List Fix )
                 dict =
                     List.foldl
@@ -4368,7 +4380,7 @@ withFixesV2 providedFixes error_ =
                                     )
                                     acc
                         )
-                        Dict.empty
+                        initialFixes
                         providedFixes
             in
             if Dict.isEmpty dict then
