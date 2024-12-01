@@ -1756,7 +1756,6 @@ checkFixesAreCorrect (Review.Project.Internal.Project project) moduleName ((Erro
         Error.Available dict ->
             case expectedError.fixedFiles of
                 NoFixesExpected ->
-                    -- TODO MULTIFILE-FIXES Indicate for which file?
                     FailureMessage.unexpectedFixes (Rule.errorMessage error_)
                         |> Expect.fail
 
@@ -1813,8 +1812,12 @@ checkFixesMatch project moduleName error_ expectedFixed fixes =
                                         rest
 
                         Nothing ->
-                            -- TODO MULTIFILE-FIXES Test failure message should say it didn't find "any" fixes (unless expectedFixed was originally empty), but that it didn't find the remaining ones
-                            FailureMessage.unexpectedFixes (Rule.errorMessage error_)
+                            FailureMessage.unexpectedAdditionalFixes
+                                { moduleName = moduleName
+                                , message = Rule.errorMessage error_
+                                , nameOfFixedFile = filePath
+                                , fixedSource = targetInformation.source
+                                }
                                 |> Expect.fail
 
                 Nothing ->

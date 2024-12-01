@@ -2,7 +2,7 @@ module Review.Test.FailureMessage exposing
     ( parsingFailure, globalErrorInTest, messageMismatch, emptyDetails, unexpectedDetails, wrongLocation, didNotExpectErrors
     , underMismatch, expectedMoreErrors, tooManyErrors, locationNotFound, underMayNotBeEmpty, locationIsAmbiguousInSourceCode
     , needToUsedExpectErrorsForModules, missingSources, duplicateModuleName, unknownModulesInExpectedErrors
-    , missingFixes, unexpectedFixes, fixedCodeMismatch, fixProblem, fixProblem_, unchangedSourceAfterFix, invalidSourceAfterFix, hasCollisionsInFixRanges
+    , missingFixes, unexpectedFixes, unexpectedAdditionalFixes, fixedCodeMismatch, fixProblem, fixProblem_, unchangedSourceAfterFix, invalidSourceAfterFix, hasCollisionsInFixRanges
     , didNotExpectGlobalErrors, expectedMoreGlobalErrors, fixedCodeWhitespaceMismatch, messageMismatchForConfigurationError
     , messageMismatchForGlobalError, missingConfigurationError, tooManyGlobalErrors
     , unexpectedConfigurationError, unexpectedConfigurationErrorDetails, unexpectedGlobalErrorDetails
@@ -18,7 +18,7 @@ module Review.Test.FailureMessage exposing
 @docs parsingFailure, globalErrorInTest, messageMismatch, emptyDetails, unexpectedDetails, wrongLocation, didNotExpectErrors
 @docs underMismatch, expectedMoreErrors, tooManyErrors, locationNotFound, underMayNotBeEmpty, locationIsAmbiguousInSourceCode
 @docs needToUsedExpectErrorsForModules, missingSources, duplicateModuleName, unknownModulesInExpectedErrors
-@docs missingFixes, unexpectedFixes, fixedCodeMismatch, fixProblem, fixProblem_, unchangedSourceAfterFix, invalidSourceAfterFix, hasCollisionsInFixRanges
+@docs missingFixes, unexpectedFixes, unexpectedAdditionalFixes, fixedCodeMismatch, fixProblem, fixProblem_, unchangedSourceAfterFix, invalidSourceAfterFix, hasCollisionsInFixRanges
 @docs didNotExpectGlobalErrors, expectedMoreGlobalErrors, fixedCodeWhitespaceMismatch, messageMismatchForConfigurationError
 @docs messageMismatchForGlobalError, missingConfigurationError, tooManyGlobalErrors
 @docs unexpectedConfigurationError, unexpectedConfigurationErrorDetails, unexpectedGlobalErrorDetails
@@ -491,6 +491,23 @@ To fix this, you can call `Review.Test.whenFixed` on your error:
       , under = "<under>"
       }
       |> Review.Test.whenFixed "<source code>\"""")
+
+
+unexpectedAdditionalFixes : { moduleName : String, message : String, nameOfFixedFile : String, fixedSource : String } -> String
+unexpectedAdditionalFixes { moduleName, message, nameOfFixedFile, fixedSource } =
+    failureMessage "UNEXPECTED FIXES"
+        ("""I expected that the error for module `""" ++ moduleName ++ """` with the following message
+
+  """ ++ wrapInQuotes message ++ """
+
+would provide fixes, but I found an unexpected fix for """ ++ wrapInQuotes nameOfFixedFile ++ """.
+This is what it gets fixed to:
+
+  """ ++ formatSourceCode fixedSource ++ """
+
+If this fix was expected, update the test by using `Review.Test.whenFixed`
+or `Review.Test.shouldFixFiles`. If it isn't, then change the rule's
+implementation to not provide a fix for this situation.""")
 
 
 fixedCodeMismatch : SourceCode -> SourceCode -> ReviewError -> String

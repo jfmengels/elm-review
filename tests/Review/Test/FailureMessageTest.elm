@@ -47,6 +47,7 @@ all =
         , unknownModulesInExpectedErrorsTest
         , missingFixesTest
         , unexpectedFixesTest
+        , unexpectedAdditionalFixesTest
         , fixedCodeMismatchTest
         , unchangedSourceAfterFixTest
         , invalidSourceAfterFixTest
@@ -1150,6 +1151,39 @@ To fix this, you can call `Review.Test.whenFixed` on your error:
       }
       |> Review.Test.whenFixed "<source code>"
 """
+
+
+unexpectedAdditionalFixesTest : Test
+unexpectedAdditionalFixesTest =
+    describe "unexpectedAdditionalFixes"
+        [ test "unexpectedAdditionalFixesz" <|
+            \() ->
+                FailureMessage.unexpectedAdditionalFixes
+                    { moduleName = "A"
+                    , message = "Some error"
+                    , nameOfFixedFile = "src/A.elm"
+                    , fixedSource = """module A exposing (..)
+a = 1"""
+                    }
+                    |> expectMessageEqual """
+\u{001B}[31m\u{001B}[1mUNEXPECTED FIXES\u{001B}[22m\u{001B}[39m
+
+I expected that the error for module `A` with the following message
+
+  `Some error`
+
+would provide fixes, but I found an unexpected fix for `src/A.elm`.
+This is what it gets fixed to:
+
+  ```
+    module A exposing (..)
+    a = 1
+  ```
+
+If this fix was expected, update the test by using `Review.Test.whenFixed`
+or `Review.Test.shouldFixFiles`. If it isn't, then change the rule's
+implementation to not provide a fix for this situation."""
+        ]
 
 
 fixedCodeMismatchTest : Test
