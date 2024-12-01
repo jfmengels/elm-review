@@ -1,6 +1,6 @@
 module Review.Test exposing
     ( ReviewResult, run, runWithProjectData, runOnModules, runOnModulesWithProjectData
-    , ExpectedError, expectNoErrors, expectErrors, error, atExactly, whenFixed, expectErrorsForModules, expectErrorsForElmJson, expectErrorsForReadme, expectErrorsForExtraFile
+    , ExpectedError, expectNoErrors, expectErrors, error, atExactly, whenFixed, shouldFixFiles, expectErrorsForModules, expectErrorsForElmJson, expectErrorsForReadme, expectErrorsForExtraFile
     , expectGlobalErrors
     , expectConfigurationError
     , expectDataExtract
@@ -8,7 +8,6 @@ module Review.Test exposing
     , expect, ReviewExpectation
     , moduleErrors, globalErrors, elmJsonErrors, readmeErrors, extraFileErrors, dataExtract
     , expectGlobalAndLocalErrors, expectGlobalAndModuleErrors
-    , shouldFixFiles
     )
 
 {-| Module that helps you test your rules, using [`elm-test`](https://package.elm-lang.org/packages/elm-explorations/test/latest/).
@@ -108,7 +107,7 @@ for this module.
 
 # Making assertions
 
-@docs ExpectedError, expectNoErrors, expectErrors, error, atExactly, whenFixed, expectErrorsForModules, expectErrorsForElmJson, expectErrorsForReadme, expectErrorsForExtraFile
+@docs ExpectedError, expectNoErrors, expectErrors, error, atExactly, whenFixed, shouldFixFiles, expectErrorsForModules, expectErrorsForElmJson, expectErrorsForReadme, expectErrorsForExtraFile
 @docs expectGlobalErrors
 @docs expectConfigurationError
 @docs expectDataExtract
@@ -1321,9 +1320,9 @@ atExactly range (ExpectedError expectedError) =
 
 {-| Create an expectation that the error provides an automatic fix, meaning that it used
 functions like [`errorWithFix`](./Review-Rule#errorWithFix), and an expectation of what the source
-code should be after the error's fix have been applied.
+code should be after the error's fix has been applied.
 
-In the absence of `whenFixed`, the test will fail if the error provides a fix.
+In the absence of `whenFixed` or `shouldFixFiles`, the test will fail if the error provides a fix.
 In other words, you only need to use this function if the error provides a fix.
 
     tests : Test
@@ -1355,9 +1354,60 @@ whenFixed fixedSource (ExpectedError expectedError) =
     ExpectedError { expectedError | fixedFiles = ComesFromWhenFixed fixedSource }
 
 
+{-| Create an expectation that the error provides automatic fixes for one or several files, meaning that it used
+functions like [`withFixesV2`](./Review-Rule#withFixesV2), and an expectation of what the source
+code should be after the error's fix has been applied.
+
+In the absence of `whenFixed` or `shouldFixFiles`, the test will fail if the error provides a fix.
+In other words, you only need to use this function if the error provides a fix.
+
+The first element in the tuples is the file to be fixed, which can be either the module name or the file path.
+The second element in the tuples is the expected source code.
+
+    tests : Test
+    tests =
+        describe "The.Rule.You.Want.To.Test"
+            [ test "should report multiple Debug.log calls" <|
+                \() ->
+                    [ """module A exposing (main)
+    import Other exposing (Msg(..))
+    a = Used
+    main = case foo of
+      Unused -> 1
+      Used -> 2
+    """
+                    , """module Other exposing (Msg(..))
+    type Msg = Unused | Used
+    """
+                    ]
+                        |> Review.Test.runOnModules rule
+                        |> Review.Test.expectErrorsForModules
+                            [ ( "A"
+                              , [ Review.Test.error
+                                    { message = "Remove the use of `Debug` before shipping to production"
+                                    , details = [ "Details about the error" ]
+                                    , under = "Debug.log"
+                                    }
+                                    |> Review.Test.shouldFixFiles
+                                        [ ( "A", """module A exposing (main)
+    import Other exposing (Msg(..))
+    a = Used
+    main = case foo of
+      $
+      Used -> 2
+    """ )
+                                        , ( "src/Other.elm", """module Other exposing (Msg(..))
+    type Msg = Used
+    """ )
+                                        ]
+                                ]
+                              )
+                            ]
+            ]
+
+-}
 shouldFixFiles : List ( String, String ) -> ExpectedError -> ExpectedError
 shouldFixFiles fixedFiles (ExpectedError expectedError) =
-    -- TODO MULTIFILE-FIXES Add documentation
     ExpectedError { expectedError | fixedFiles = ComesFromShouldFixFiles (Dict.fromList fixedFiles) }
 
 
