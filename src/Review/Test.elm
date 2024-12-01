@@ -1796,10 +1796,10 @@ checkFixesMatch project moduleName error_ expectedFixed fixes =
                     |> Expect.fail
 
         ( filePath, ( target, fileFixes ) ) :: rest ->
-            case Dict.get filePath expectedFixed of
-                Just expectedFixedSource ->
-                    case getTargetFileFromProject target project of
-                        Just { source } ->
+            case getTargetFileFromProject target project of
+                Just { source } ->
+                    case Dict.get filePath expectedFixed of
+                        Just expectedFixedSource ->
                             case fixOneError target fileFixes source expectedFixedSource error_ of
                                 Err failureMessage ->
                                     Expect.fail failureMessage
@@ -1813,13 +1813,13 @@ checkFixesMatch project moduleName error_ expectedFixed fixes =
                                         rest
 
                         Nothing ->
-                            -- TODO MULTIFILE-FIXES Report an error?
-                            Expect.fail <| FailureMessage.hasCollisionsInFixRanges error_
+                            -- TODO MULTIFILE-FIXES Test failure message should say it didn't find "any" fixes (unless expectedFixed was originally empty), but that it didn't find the remaining ones
+                            FailureMessage.unexpectedFixes (Rule.errorMessage error_)
+                                |> Expect.fail
 
                 Nothing ->
-                    -- TODO MULTIFILE-FIXES Test failure message should say it didn't find "any" fixes (unless expectedFixed was originally empty), but that it didn't find the remaining ones
-                    FailureMessage.unexpectedFixes (Rule.errorMessage error_)
-                        |> Expect.fail
+                    -- TODO MULTIFILE-FIXES Report an error?
+                    Expect.fail <| FailureMessage.hasCollisionsInFixRanges error_
 
 
 fixOneError : Error.Target -> List Fix -> String -> String -> ReviewError -> Result String ()
