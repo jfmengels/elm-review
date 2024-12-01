@@ -1799,7 +1799,7 @@ checkFixesMatch project moduleName error_ expectedFixed fixes =
             case Dict.get filePath expectedFixed of
                 Just expectedFixedSource ->
                     case getTargetFileFromProject target project of
-                        Just source ->
+                        Just { source } ->
                             case fixOneError target fileFixes source expectedFixedSource error_ of
                                 Err failureMessage ->
                                     Expect.fail failureMessage
@@ -1839,21 +1839,22 @@ fixOneError target fileFixes source expectedFixedSource error_ =
             Err <| FailureMessage.fixProblem fixProblem error_
 
 
-getTargetFileFromProject : Error.Target -> ProjectInternals -> Maybe String
+getTargetFileFromProject : Error.Target -> ProjectInternals -> Maybe { source : String }
 getTargetFileFromProject target project =
     case target of
         Error.Module filePath ->
             Dict.get filePath project.modules
-                |> Maybe.map ProjectModule.source
+                |> Maybe.map (\module_ -> { source = ProjectModule.source module_ })
 
         Error.ElmJson ->
-            Maybe.map (\( { raw }, _ ) -> raw) project.elmJson
+            Maybe.map (\( { raw }, _ ) -> { source = raw }) project.elmJson
 
         Error.Readme ->
-            Maybe.map (\( { content }, _ ) -> content) project.readme
+            Maybe.map (\( { content }, _ ) -> { source = content }) project.readme
 
         Error.ExtraFile filePath ->
             Dict.get filePath project.extraFiles
+                |> Maybe.map (\content -> { source = content })
 
         Error.Global ->
             Nothing
