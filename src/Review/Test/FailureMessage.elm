@@ -8,6 +8,7 @@ module Review.Test.FailureMessage exposing
     , unexpectedConfigurationError, unexpectedConfigurationErrorDetails, unexpectedGlobalErrorDetails
     , unexpectedExtract, missingExtract, invalidJsonForExpectedDataExtract, extractMismatch, specifiedMultipleExtracts
     , resultsAreDifferentWhenFilesAreIgnored
+    , fixForUnknownFile
     )
 
 {-| Failure messages for the `Review.Test` module.
@@ -24,6 +25,7 @@ module Review.Test.FailureMessage exposing
 @docs unexpectedConfigurationError, unexpectedConfigurationErrorDetails, unexpectedGlobalErrorDetails
 @docs unexpectedExtract, missingExtract, invalidJsonForExpectedDataExtract, extractMismatch, specifiedMultipleExtracts
 @docs resultsAreDifferentWhenFilesAreIgnored
+@docs fixForUnknownFile
 
 -}
 
@@ -806,6 +808,16 @@ When I ignore these files:
 """ ++ files ++ """
 
 then """ ++ String.trim difference)
+
+
+fixForUnknownFile : String -> String
+fixForUnknownFile filePath =
+    failureMessage "FOUND FIX FOR UNKNOWN FILE"
+        ("The rule triggered a fix for " ++ wrapInQuotes filePath ++ """ which I surprisingly don't know at all.
+
+This situation should in theory not happen, but here you are reading this.
+Could you kindly open an issue at https://github.com/jfmengels/elm-review
+and explain how you got to see this error? Thank you!""")
 
 
 summarizeErrors : List ReviewError -> String

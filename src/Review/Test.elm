@@ -1821,8 +1821,8 @@ checkFixesMatch project moduleName error_ expectedFixed fixes =
                                 |> Expect.fail
 
                 Nothing ->
-                    -- TODO MULTIFILE-FIXES Report an error?
-                    Expect.fail <| FailureMessage.hasCollisionsInFixRanges error_
+                    FailureMessage.fixForUnknownFile filePath
+                        |> Expect.fail
 
 
 getExpectedFixedCodeThroughFilePathOrModuleName : String -> Maybe String -> Dict String String -> Maybe { key : String, expectedFixedSource : String }
