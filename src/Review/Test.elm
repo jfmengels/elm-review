@@ -815,6 +815,7 @@ location is incorrect.
 -}
 expectErrorsForModules : List ( String, List ExpectedError ) -> ReviewResult -> Expectation
 expectErrorsForModules expectedErrorsList reviewResult =
+    -- TODO MULTIFILE-FIXES Should we add support for getting through the file path?
     expectGlobalAndModuleErrors
         { global = []
         , modules = expectedErrorsList
