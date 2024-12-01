@@ -1839,22 +1839,27 @@ fixOneError target fileFixes source expectedFixedSource error_ =
             Err <| FailureMessage.fixProblem fixProblem error_
 
 
-getTargetFileFromProject : Error.Target -> ProjectInternals -> Maybe { source : String }
+getTargetFileFromProject : Error.Target -> ProjectInternals -> Maybe { source : String, moduleName : Maybe String }
 getTargetFileFromProject target project =
     case target of
         Error.Module filePath ->
             Dict.get filePath project.modules
-                |> Maybe.map (\module_ -> { source = ProjectModule.source module_ })
+                |> Maybe.map
+                    (\module_ ->
+                        { source = ProjectModule.source module_
+                        , moduleName = Just (String.join "." (ProjectModule.moduleName module_))
+                        }
+                    )
 
         Error.ElmJson ->
-            Maybe.map (\( { raw }, _ ) -> { source = raw }) project.elmJson
+            Maybe.map (\( { raw }, _ ) -> { source = raw, moduleName = Nothing }) project.elmJson
 
         Error.Readme ->
-            Maybe.map (\( { content }, _ ) -> { source = content }) project.readme
+            Maybe.map (\( { content }, _ ) -> { source = content, moduleName = Nothing }) project.readme
 
         Error.ExtraFile filePath ->
             Dict.get filePath project.extraFiles
-                |> Maybe.map (\content -> { source = content })
+                |> Maybe.map (\content -> { source = content, moduleName = Nothing })
 
         Error.Global ->
             Nothing
