@@ -718,7 +718,7 @@ expectNoGlobalErrors foundGlobalErrors =
 expectNoModuleErrors : List SuccessfulRunResult -> Expectation
 expectNoModuleErrors runResults =
     Expect.all
-        (List.map (expectNoErrorForModuleRunResult >> always) runResults)
+        (List.map (\runResult -> \() -> expectNoErrorForModuleRunResult runResult) runResults)
         ()
 
 
@@ -1847,10 +1847,10 @@ getTargetFileFromProject target project =
                 |> Maybe.map ProjectModule.source
 
         Error.ElmJson ->
-            Maybe.map (Tuple.first >> .raw) project.elmJson
+            Maybe.map (\( { raw }, _ ) -> raw) project.elmJson
 
         Error.Readme ->
-            Maybe.map (Tuple.first >> .content) project.readme
+            Maybe.map (\( { content }, _ ) -> content) project.readme
 
         Error.ExtraFile filePath ->
             Dict.get filePath project.extraFiles
@@ -1863,9 +1863,10 @@ getTargetFileFromProject target project =
 
 
 removeWhitespace : String -> String
-removeWhitespace =
-    String.replace " " ""
-        >> String.replace "\n" ""
+removeWhitespace str =
+    str
+        |> String.replace " " ""
+        |> String.replace "\n" ""
 
 
 {-| Assert that the rule will report a configuration error.

@@ -522,7 +522,7 @@ following message:
 
   """ ++ wrapInQuotes (Rule.errorMessage error) ++ """
 
-The problem is related to """ ++ (Ansi.bold >> Ansi.yellow) "WHITESPACE!" ++ """
+The problem is related to """ ++ Ansi.yellow (Ansi.bold "WHITESPACE!") ++ """
 I expected the following result after the fixes have been applied:
 
   """ ++ expected ++ """
@@ -831,7 +831,7 @@ hasFixes error =
 
 failureMessage : String -> String -> String
 failureMessage title content =
-    (Ansi.bold >> Ansi.red) title ++ "\n\n" ++ content
+    Ansi.red (Ansi.bold title) ++ "\n\n" ++ content
 
 
 formatSourceCode : String -> String
