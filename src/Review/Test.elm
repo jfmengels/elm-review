@@ -1797,10 +1797,10 @@ checkFixesMatch project moduleName error_ expectedFixed fixes =
 
         ( filePath, ( target, fileFixes ) ) :: rest ->
             case getTargetFileFromProject target project of
-                Just { source } ->
-                    case Dict.get filePath expectedFixed of
-                        Just expectedFixedSource ->
-                            case fixOneError target fileFixes source expectedFixedSource error_ of
+                Just targetInformation ->
+                    case getExpectedFixedCodeThroughFilePathOrModuleName filePath targetInformation.moduleName expectedFixed of
+                        Just { key, expectedFixedSource } ->
+                            case fixOneError target fileFixes targetInformation.source expectedFixedSource error_ of
                                 Err failureMessage ->
                                     Expect.fail failureMessage
 
@@ -1809,7 +1809,7 @@ checkFixesMatch project moduleName error_ expectedFixed fixes =
                                         project
                                         moduleName
                                         error_
-                                        (Dict.remove filePath expectedFixed)
+                                        (Dict.remove key expectedFixed)
                                         rest
 
                         Nothing ->
@@ -1820,6 +1820,26 @@ checkFixesMatch project moduleName error_ expectedFixed fixes =
                 Nothing ->
                     -- TODO MULTIFILE-FIXES Report an error?
                     Expect.fail <| FailureMessage.hasCollisionsInFixRanges error_
+
+
+getExpectedFixedCodeThroughFilePathOrModuleName : String -> Maybe String -> Dict String String -> Maybe { key : String, expectedFixedSource : String }
+getExpectedFixedCodeThroughFilePathOrModuleName filePath moduleName expectedFixed =
+    case Dict.get filePath expectedFixed of
+        Just expectedFixedSource ->
+            Just { key = filePath, expectedFixedSource = expectedFixedSource }
+
+        Nothing ->
+            moduleName
+                |> Maybe.andThen
+                    (\fixTargetModuleName ->
+                        Dict.get fixTargetModuleName expectedFixed
+                            |> Maybe.map
+                                (\expectedFixedSource ->
+                                    { key = fixTargetModuleName
+                                    , expectedFixedSource = expectedFixedSource
+                                    }
+                                )
+                    )
 
 
 fixOneError : Error.Target -> List Fix -> String -> String -> ReviewError -> Result String ()
