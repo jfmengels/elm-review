@@ -24,7 +24,7 @@ module Review.Rule exposing
     , ReadmeKey, errorForReadme, errorForReadmeWithFix
     , ExtraFileKey, errorForExtraFile, errorForExtraFileWithFix
     , globalError, configurationError
-    , ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFilePath, errorTarget, errorFixes, errorFixFailure
+    , ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFilePath, errorTarget, errorFixes, errorFixesV2, errorFixFailure
     , ignoreErrorsForDirectories, ignoreErrorsForFiles, filterErrorsForFiles
     , withDataExtractor, preventExtract
     , reviewV3, reviewV2, review, ProjectData, ruleName, ruleProvidesFixes, ruleKnowsAboutIgnoredFiles, ruleRequestedFiles, withRuleId, getConfigurationError
@@ -254,7 +254,7 @@ first, as they are in practice a simpler version of project rules.
 @docs ReadmeKey, errorForReadme, errorForReadmeWithFix
 @docs ExtraFileKey, errorForExtraFile, errorForExtraFileWithFix
 @docs globalError, configurationError
-@docs ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFilePath, errorTarget, errorFixes, errorFixFailure
+@docs ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFilePath, errorTarget, errorFixes, errorFixesV2, errorFixFailure
 
 
 ## Configuring exceptions
@@ -4435,6 +4435,24 @@ errorFixes (Review.Error.ReviewError err) =
         Review.Error.Available fixes ->
             Dict.get err.filePath fixes
                 |> Maybe.map Tuple.second
+
+        Review.Error.NoFixes ->
+            Nothing
+
+        Review.Error.FailedToApply _ ->
+            Nothing
+
+
+{-| Get the automatic [`fixes`](./Review-Fix#Fix) of an [`Error`](#Error), if it
+defined any.
+-- TODO MULTIFILE-FIXES Update documentation
+-}
+errorFixesV2 : Review.Error.ReviewError -> Maybe (Dict String (List Fix))
+errorFixesV2 (Review.Error.ReviewError err) =
+    case err.fixes of
+        Review.Error.Available fixes ->
+            Dict.map (\_ ( _, fixList ) -> fixList) fixes
+                |> Just
 
         Review.Error.NoFixes ->
             Nothing
