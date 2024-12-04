@@ -402,7 +402,7 @@ type alias ModuleRuleSchemaData moduleContext =
     , letDeclarationVisitorOnExit : Maybe (Node Expression.LetBlock -> Node Expression.LetDeclaration -> moduleContext -> ( List (Error {}), moduleContext ))
     , caseBranchVisitorOnEnter : Maybe (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> moduleContext -> ( List (Error {}), moduleContext ))
     , caseBranchVisitorOnExit : Maybe (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> moduleContext -> ( List (Error {}), moduleContext ))
-    , finalEvaluationFn : Maybe (moduleContext -> List (Error {}))
+    , finalEvaluationFn : Maybe (moduleContext -> ( List (Error {}), moduleContext ))
     , providesFixes : Bool
 
     -- Project visitors
@@ -3652,14 +3652,23 @@ for [`withImportVisitor`](#withImportVisitor), but using [`withFinalModuleEvalua
 withFinalModuleEvaluation : (moduleContext -> List (Error {})) -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
 withFinalModuleEvaluation visitor (ModuleRuleSchema schema) =
     let
-        combinedVisitor : moduleContext -> List (Error {})
+        combinedVisitor : moduleContext -> ( List (Error {}), moduleContext )
         combinedVisitor =
             case schema.finalEvaluationFn of
                 Nothing ->
-                    visitor
+                    \context -> ( visitor context, context )
 
                 Just previousVisitor ->
-                    \context -> List.append (visitor context) (previousVisitor context)
+                    \context ->
+                        let
+                            ( errorsAfterFirstVisit, contextAfterFirstVisit ) =
+                                previousVisitor context
+
+                            errorsAfterSecondVisit : List (Error {})
+                            errorsAfterSecondVisit =
+                                visitor contextAfterFirstVisit
+                        in
+                        ( List.append errorsAfterSecondVisit errorsAfterFirstVisit, contextAfterFirstVisit )
     in
     ModuleRuleSchema { schema | finalEvaluationFn = Just combinedVisitor }
 
@@ -6923,7 +6932,7 @@ createFinalModuleEvaluationVisitor :
     { ruleName : String, exceptions : Exceptions, filePath : String }
     -> (( List (Error {}), context ) -> RuleModuleVisitor)
     -> ( List (Error {}), context )
-    -> Maybe (context -> List (Error {}))
+    -> Maybe (context -> ( List (Error {}), context ))
     -> Maybe (() -> RuleModuleVisitor)
 createFinalModuleEvaluationVisitor params raise errorsAndContext maybeVisitor =
     case maybeVisitor of
@@ -6940,8 +6949,11 @@ createFinalModuleEvaluationVisitor params raise errorsAndContext maybeVisitor =
                         -- Destructuring earlier would mean we would reference older values of `errorsAndContext`.
                         ( errors, context ) =
                             errorsAndContext
+
+                        ( newErrors, newContext ) =
+                            visitor context
                     in
-                    raise ( qualifyErrors params (visitor context) errors, context )
+                    raise ( qualifyErrors params newErrors errors, newContext )
                 )
 
 
