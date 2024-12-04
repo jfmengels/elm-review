@@ -4433,8 +4433,12 @@ errorFixes : ReviewError -> Maybe (List Fix)
 errorFixes (Review.Error.ReviewError err) =
     case err.fixes of
         Review.Error.Available fixes ->
-            Dict.get err.filePath fixes
-                |> Maybe.map Tuple.second
+            if Dict.size fixes == 1 then
+                Dict.get err.filePath fixes
+                    |> Maybe.map Tuple.second
+
+            else
+                Nothing
 
         Review.Error.NoFixes ->
             Nothing
