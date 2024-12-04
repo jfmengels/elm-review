@@ -1106,7 +1106,7 @@ errorInformation { wasUsedInLocationThatNeedsItself, wasUsedInComparisons } name
 
 defaultDetails : String
 defaultDetails =
-    "This type constructor is never used. It might be handled everywhere it might appear, but there is no location where this value actually gets created."
+    "This type constructor is never used. It might be handled everywhere it appears, but there is no location where this value actually gets created."
 
 
 errorForModule :
