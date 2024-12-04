@@ -12,7 +12,7 @@ module Review.Rule exposing
     , withCaseBranchEnterVisitor, withCaseBranchExitVisitor
     , withLetDeclarationEnterVisitor, withLetDeclarationExitVisitor
     , providesFixesForModuleRule
-    , withFinalModuleEvaluation
+    , withFinalModuleEvaluation, withFinalModuleEvaluation2
     , withElmJsonModuleVisitor, withReadmeModuleVisitor, withDirectDependenciesModuleVisitor, withDependenciesModuleVisitor
     , withExtraFilesModuleVisitor
     , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitor, withModuleContext, withModuleContextUsingContextCreator, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDirectDependenciesProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withExtraFilesProjectVisitor, withContextFromImportedModules
@@ -211,7 +211,7 @@ Evaluating/visiting a node means two things:
 @docs withCaseBranchEnterVisitor, withCaseBranchExitVisitor
 @docs withLetDeclarationEnterVisitor, withLetDeclarationExitVisitor
 @docs providesFixesForModuleRule
-@docs withFinalModuleEvaluation
+@docs withFinalModuleEvaluation, withFinalModuleEvaluation2
 
 
 ## Builder functions to analyze the project's data
@@ -3669,6 +3669,29 @@ withFinalModuleEvaluation visitor (ModuleRuleSchema schema) =
                                 visitor contextAfterFirstVisit
                         in
                         ( List.append errorsAfterSecondVisit errorsAfterFirstVisit, contextAfterFirstVisit )
+    in
+    ModuleRuleSchema { schema | finalEvaluationFn = Just combinedVisitor }
+
+
+withFinalModuleEvaluation2 : (moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
+withFinalModuleEvaluation2 visitor (ModuleRuleSchema schema) =
+    let
+        combinedVisitor : moduleContext -> ( List (Error {}), moduleContext )
+        combinedVisitor =
+            case schema.finalEvaluationFn of
+                Nothing ->
+                    visitor
+
+                Just previousVisitor ->
+                    \context ->
+                        let
+                            ( errorsAfterFirstVisit, contextAfterFirstVisit ) =
+                                previousVisitor context
+
+                            ( errorsAfterSecondVisit, contextAfterSecondVisit ) =
+                                visitor contextAfterFirstVisit
+                        in
+                        ( List.append errorsAfterFirstVisit errorsAfterSecondVisit, contextAfterSecondVisit )
     in
     ModuleRuleSchema { schema | finalEvaluationFn = Just combinedVisitor }
 
