@@ -149,6 +149,7 @@ moduleVisitor schema =
         |> Rule.withExpressionEnterVisitor (\node context -> ( [], expressionVisitor node context ))
         |> Rule.withCaseBranchEnterVisitor (\caseBlock casePattern context -> ( [], caseBranchEnterVisitor caseBlock casePattern context ))
         |> Rule.withCaseBranchExitVisitor (\caseBlock casePattern context -> ( [], caseBranchExitVisitor caseBlock casePattern context ))
+        |> Rule.withFinalModuleEvaluation2 finalModuleEvaluation
 
 
 
@@ -260,20 +261,16 @@ fromProjectToModule =
 fromModuleToProject : Rule.ContextCreator ModuleContext ProjectContext
 fromModuleToProject =
     Rule.initContextCreator
-        (\moduleKey moduleName moduleContext ->
+        (\moduleKey moduleContext ->
             let
                 localPhantomTypes : List ( CustomTypeName, Int )
                 localPhantomTypes =
                     moduleContext.phantomVariables
-                        |> Dict.get (String.join "." moduleName)
+                        |> Dict.get moduleContext.currentModuleName
                         |> Maybe.withDefault []
-
-                moduleNameAsString : ModuleNameAsString
-                moduleNameAsString =
-                    String.join "." moduleName
             in
             { exposedModules = Set.empty
-            , moduleKeys = Dict.singleton moduleNameAsString moduleKey
+            , moduleKeys = Dict.singleton moduleContext.currentModuleName moduleKey
             , declaredConstructors =
                 if moduleContext.isExposed then
                     if moduleContext.exposesEverything then
@@ -281,7 +278,7 @@ fromModuleToProject =
 
                     else
                         Dict.singleton
-                            moduleNameAsString
+                            moduleContext.currentModuleName
                             (ExposedConstructors
                                 { moduleKey = moduleKey
                                 , customTypes =
@@ -292,39 +289,20 @@ fromModuleToProject =
 
                 else
                     Dict.singleton
-                        moduleNameAsString
+                        moduleContext.currentModuleName
                         (ExposedConstructors
                             { moduleKey = moduleKey
                             , customTypes = moduleContext.declaredTypesWithConstructors
                             }
                         )
             , usedConstructors = moduleContext.usedFunctionsOrValues
-            , phantomVariables = Dict.singleton (String.join "." moduleName) localPhantomTypes
-            , wasUsedInLocationThatNeedsItself =
-                Set.map
-                    (\(( moduleName_, constructorName ) as untouched) ->
-                        if moduleName_ == "" then
-                            ( moduleNameAsString, constructorName )
-
-                        else
-                            untouched
-                    )
-                    moduleContext.wasUsedInLocationThatNeedsItself
-            , wasUsedInComparisons =
-                Set.map
-                    (\(( moduleName_, constructorName ) as untouched) ->
-                        if moduleName_ == "" then
-                            ( moduleNameAsString, constructorName )
-
-                        else
-                            untouched
-                    )
-                    moduleContext.wasUsedInComparisons
+            , phantomVariables = Dict.singleton moduleContext.currentModuleName localPhantomTypes
+            , wasUsedInLocationThatNeedsItself = moduleContext.wasUsedInLocationThatNeedsItself
+            , wasUsedInComparisons = moduleContext.wasUsedInComparisons
             , fixesForRemovingConstructor = moduleContext.fixesForRemovingConstructor
             }
         )
         |> Rule.withModuleKey
-        |> Rule.withModuleName
 
 
 foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext
@@ -520,7 +498,7 @@ declarationVisitor : Node Declaration -> ModuleContext -> ModuleContext
 declarationVisitor node context =
     case Node.value node of
         Declaration.CustomTypeDeclaration { name, constructors } ->
-            if isPhantomCustomType context.lookupTable (Node.value name) constructors then
+            if (context.isExposed && context.exposesEverything) || isPhantomCustomType context.lookupTable (Node.value name) constructors then
                 context
 
             else
@@ -802,6 +780,81 @@ caseBranchEnterVisitor caseExpression ( casePattern, body ) moduleContext =
 caseBranchExitVisitor : Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> ModuleContext -> ModuleContext
 caseBranchExitVisitor _ _ moduleContext =
     { moduleContext | constructorsToIgnore = List.drop 1 moduleContext.constructorsToIgnore }
+
+
+finalModuleEvaluation : ModuleContext -> ( List (Rule.Error {}), ModuleContext )
+finalModuleEvaluation moduleContext =
+    case Dict.get moduleContext.currentModuleName moduleContext.usedFunctionsOrValues of
+        Nothing ->
+            ( [], moduleContext )
+
+        Just used ->
+            let
+                ( errors, typesToKeepForProjectContext, newFixesForRemovingConstructor ) =
+                    Dict.foldl
+                        (reportNonExposedConstructor moduleContext used)
+                        ( [], Dict.empty, moduleContext.fixesForRemovingConstructor )
+                        moduleContext.declaredTypesWithConstructors
+            in
+            ( errors
+            , { moduleContext
+                | declaredTypesWithConstructors = typesToKeepForProjectContext
+                , fixesForRemovingConstructor = newFixesForRemovingConstructor
+              }
+            )
+
+
+reportNonExposedConstructor :
+    ModuleContext
+    -> Set ConstructorName
+    -> CustomTypeName
+    -> Dict ConstructorName ConstructorInformation
+    ->
+        ( List (Error {})
+        , Dict CustomTypeName (Dict ConstructorName ConstructorInformation)
+        , Dict ( ModuleNameAsString, ConstructorName ) (Dict ModuleNameAsString (List Fix))
+        )
+    ->
+        ( List (Error {})
+        , Dict CustomTypeName (Dict ConstructorName ConstructorInformation)
+        , Dict ( ModuleNameAsString, ConstructorName ) (Dict ModuleNameAsString (List Fix))
+        )
+reportNonExposedConstructor moduleContext used typeName constructors ( errors, customTypes, fixesForRemovingConstructor ) =
+    let
+        unusedConstructors : Dict ConstructorName ConstructorInformation
+        unusedConstructors =
+            Dict.filter (\_ { name } -> not <| Set.member name used) constructors
+    in
+    if moduleContext.exposesEverything || Set.member typeName moduleContext.exposedCustomTypesWithConstructors then
+        ( errors
+        , if Dict.isEmpty unusedConstructors then
+            customTypes
+
+          else
+            Dict.insert typeName unusedConstructors customTypes
+        , fixesForRemovingConstructor
+        )
+
+    else
+        ( Dict.foldl
+            (\_ constructor errs ->
+                if Set.member constructor.name used then
+                    errs
+
+                else
+                    errorForCurrentModule
+                        { wasUsedInLocationThatNeedsItself = Set.member ( moduleContext.currentModuleName, constructor.name ) moduleContext.wasUsedInLocationThatNeedsItself
+                        , wasUsedInComparisons = Set.member ( moduleContext.currentModuleName, constructor.name ) moduleContext.wasUsedInComparisons
+                        , fixesForRemovingConstructor = Dict.get ( moduleContext.currentModuleName, constructor.name ) moduleContext.fixesForRemovingConstructor |> Maybe.andThen (Dict.get moduleContext.currentModuleName) |> Maybe.withDefault []
+                        }
+                        constructor
+                        :: errs
+            )
+            errors
+            constructors
+        , customTypes
+        , Dict.foldl (\constructorName _ fixes -> Dict.remove ( moduleContext.currentModuleName, constructorName ) fixes) fixesForRemovingConstructor unusedConstructors
+        )
 
 
 findEndLocationOfPreviousElement : List ( Node a, Node b ) -> Range -> Maybe Elm.Syntax.Range.Location -> Maybe Elm.Syntax.Range.Location
@@ -1089,7 +1142,7 @@ errorsForConstructors projectContext usedConstructors moduleName moduleKey const
 -- ERROR
 
 
-errorInformation : { wasUsedInLocationThatNeedsItself : Bool, wasUsedInComparisons : Bool } -> String -> { message : String, details : List String }
+errorInformation : { a | wasUsedInLocationThatNeedsItself : Bool, wasUsedInComparisons : Bool } -> String -> { message : String, details : List String }
 errorInformation { wasUsedInLocationThatNeedsItself, wasUsedInComparisons } name =
     { message = "Type constructor `" ++ name ++ "` is not used."
     , details =
@@ -1141,14 +1194,29 @@ errorForModule moduleKey params constructorInformation =
     in
     Rule.errorForModule
         moduleKey
-        (errorInformation
-            { wasUsedInLocationThatNeedsItself = params.wasUsedInLocationThatNeedsItself
-            , wasUsedInComparisons = params.wasUsedInComparisons
-            }
-            constructorInformation.name
-        )
+        (errorInformation params constructorInformation.name)
         constructorInformation.rangeToReport
         |> Rule.withFixesV2 fixes
+
+
+errorForCurrentModule :
+    { wasUsedInLocationThatNeedsItself : Bool
+    , wasUsedInComparisons : Bool
+    , fixesForRemovingConstructor : List Fix
+    }
+    -> ConstructorInformation
+    -> Error {}
+errorForCurrentModule params constructorInformation =
+    Rule.errorWithFix
+        (errorInformation params constructorInformation.name)
+        constructorInformation.rangeToReport
+        (case constructorInformation.rangeToRemove of
+            Just rangeToRemove ->
+                Fix.removeRange rangeToRemove :: params.fixesForRemovingConstructor
+
+            Nothing ->
+                []
+        )
 
 
 
