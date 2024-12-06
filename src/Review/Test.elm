@@ -134,6 +134,7 @@ import Elm.Syntax.Range exposing (Range)
 import Expect exposing (Expectation)
 import Json.Decode as Decode
 import Json.Encode as Encode
+import Regex exposing (Regex)
 import Review.Error as Error
 import Review.FileParser as FileParser
 import Review.Fix as Fix exposing (Fix)
@@ -1900,17 +1901,37 @@ fixOneError : Error.Target -> List Fix -> String -> String -> ReviewError -> Res
 fixOneError target fileFixes source expectedFixedSource error_ =
     case Fix.fix target fileFixes source of
         Fix.Successful fixedSource ->
-            if fixedSource == expectedFixedSource then
+            let
+                trimmedFixed : String
+                trimmedFixed =
+                    trimRightOnEveryLine fixedSource
+
+                expectedFixed : String
+                expectedFixed =
+                    trimRightOnEveryLine expectedFixedSource
+            in
+            if trimmedFixed == expectedFixed then
                 Ok ()
 
-            else if removeWhitespace fixedSource == removeWhitespace expectedFixedSource then
-                Err <| FailureMessage.fixedCodeWhitespaceMismatch fixedSource expectedFixedSource error_
+            else if removeWhitespace trimmedFixed == removeWhitespace expectedFixed then
+                Err <| FailureMessage.fixedCodeWhitespaceMismatch trimmedFixed expectedFixed error_
 
             else
-                Err <| FailureMessage.fixedCodeMismatch fixedSource expectedFixedSource error_
+                Err <| FailureMessage.fixedCodeMismatch trimmedFixed expectedFixed error_
 
         Fix.Errored fixProblem ->
             Err <| FailureMessage.fixProblem fixProblem error_
+
+
+trimRightOnEveryLine : String -> String
+trimRightOnEveryLine source =
+    Regex.replace whitespaceBeforeNewLine (always "") source
+
+
+whitespaceBeforeNewLine : Regex
+whitespaceBeforeNewLine =
+    Regex.fromStringWith { caseInsensitive = False, multiline = True } "\\s+$"
+        |> Maybe.withDefault Regex.never
 
 
 getTargetFileFromProject : Error.Target -> ProjectInternals -> Maybe { source : String, moduleName : Maybe String }
