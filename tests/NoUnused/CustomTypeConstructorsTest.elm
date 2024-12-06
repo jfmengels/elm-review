@@ -215,13 +215,13 @@ a = case () of
                             }
                             |> Review.Test.atExactly { start = { row = 3, column = 19 }, end = { row = 3, column = 25 } }
                             |> Review.Test.whenFixed
-                                ("""
+                                """
 module MyModule exposing (a)
 type Foo = Used
 a = case () of
-       $
+
         Used -> Used
-""" |> String.replace "$" " ")
+"""
                         ]
         , test "should report type constructors that are only used inside pattern matches that require themselves (reversed order of patterns)" <|
             \() ->
@@ -266,13 +266,13 @@ a = case () of
                             }
                             |> Review.Test.atExactly { start = { row = 3, column = 19 }, end = { row = 3, column = 25 } }
                             |> Review.Test.whenFixed
-                                ("""
+                                """
 module MyModule exposing (a)
 type Foo = Used
 a = case () of
-       $
+
         Used -> Used
-""" |> String.replace "$" " ")
+"""
                         ]
         , test "should properly remove the ignored constructors once the pattern has been left" <|
             \() ->
