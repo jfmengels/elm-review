@@ -199,7 +199,6 @@ type alias ModuleContext =
     , exposedCustomTypesWithConstructors : Set CustomTypeName
     , isExposed : Bool
     , exposesEverything : Bool
-    , exposedConstructors : Dict ModuleNameAsString ExposedConstructors
     , declaredTypesWithConstructors : Dict CustomTypeName (Dict ConstructorName ConstructorInformation)
     , usedFunctionsOrValues : Dict ModuleNameAsString (Set ConstructorName)
     , phantomVariables : Dict ModuleNameAsString (List ( CustomTypeName, Int ))
@@ -243,7 +242,6 @@ fromProjectToModule =
             , currentModuleName = moduleNameAsString
             , exposedCustomTypesWithConstructors = Set.empty
             , isExposed = Set.member moduleNameAsString projectContext.exposedModules
-            , exposedConstructors = projectContext.declaredConstructors
             , exposesEverything = False
             , declaredTypesWithConstructors = Dict.empty
             , usedFunctionsOrValues = Dict.empty
