@@ -4827,25 +4827,7 @@ qualifyError params (Error err) acc =
                 { err
                     | filePath = params.filePath
                     , target = Target.setCurrentFilePathOnTargetIfNeeded params.filePath err.target
-                    , fixes =
-                        case err.fixes of
-                            ErrorFixes.Available dict ->
-                                if Dict.isEmpty dict then
-                                    ErrorFixes.NoFixes
-
-                                else
-                                    case Dict.get "" dict of
-                                        Just ( target, fixes ) ->
-                                            dict
-                                                |> Dict.remove ""
-                                                |> Dict.insert params.filePath ( Target.setCurrentFilePathOnTargetIfNeeded params.filePath target, fixes )
-                                                |> ErrorFixes.Available
-
-                                        Nothing ->
-                                            err.fixes
-
-                            ErrorFixes.NoFixes ->
-                                err.fixes
+                    , fixes = ErrorFixes.qualify params.filePath err.fixes
                 }
 
             else

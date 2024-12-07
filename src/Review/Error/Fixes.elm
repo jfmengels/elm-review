@@ -1,4 +1,4 @@
-module Review.Error.Fixes exposing (ErrorFixes(..), FileFix, add, from)
+module Review.Error.Fixes exposing (ErrorFixes(..), FileFix, add, from, qualify)
 
 import Dict exposing (Dict)
 import Review.Error.Target as Target exposing (Target(..))
@@ -64,3 +64,25 @@ add providedFixes previousFixes =
 
     else
         Available dict
+
+
+qualify : String -> ErrorFixes -> ErrorFixes
+qualify filePath baseFixes =
+    case baseFixes of
+        Available dict ->
+            if Dict.isEmpty dict then
+                NoFixes
+
+            else
+                case Dict.get "" dict of
+                    Just ( target, fixes ) ->
+                        dict
+                            |> Dict.remove ""
+                            |> Dict.insert filePath ( Target.setCurrentFilePathOnTargetIfNeeded filePath target, fixes )
+                            |> Available
+
+                    Nothing ->
+                        baseFixes
+
+        NoFixes ->
+            baseFixes
