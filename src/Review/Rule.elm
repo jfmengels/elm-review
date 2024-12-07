@@ -4462,7 +4462,7 @@ errorFixes (Review.Error.ReviewError err) =
 
         Nothing ->
             case ErrorFixes.toList err.fixes of
-                [ ( target, ( _, fixes ) ) ] ->
+                [ ( target, fixes ) ] ->
                     if FileTarget.filePath target == err.filePath then
                         Just fixes
 
@@ -4489,7 +4489,7 @@ errorFixesV2 (Review.Error.ReviewError err) =
 
             else
                 ErrorFixes.toList err.fixes
-                    |> List.map (\( target, ( _, fixList ) ) -> ( FileTarget.filePath target, fixList ))
+                    |> List.map (\( target, fixList ) -> ( FileTarget.filePath target, fixList ))
                     |> Dict.fromList
                     |> Just
 
@@ -5895,7 +5895,7 @@ findFixHelp project fixablePredicate errors accErrors maybeModuleZipper =
                                     findFixHelp project fixablePredicate restOfErrors (nonAppliedError :: accErrors) maybeModuleZipper
 
 
-applyFixes : Maybe (Zipper (Graph.NodeContext FilePath ())) -> Error {} -> List ErrorFixes.FileFix -> { project : ValidProject, fixedFile : FixedFile } -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
+applyFixes : Maybe (Zipper (Graph.NodeContext FilePath ())) -> Error {} -> List ( FileTarget, List Fix ) -> { project : ValidProject, fixedFile : FixedFile } -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
 applyFixes maybeModuleZipper err fixes acc =
     case fixes of
         [] ->
@@ -5939,7 +5939,7 @@ earlierFixedFile a b =
                 b
 
 
-applyFix : ValidProject -> Maybe (Zipper (Graph.NodeContext FilePath ())) -> Error {} -> ErrorFixes.FileFix -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
+applyFix : ValidProject -> Maybe (Zipper (Graph.NodeContext FilePath ())) -> Error {} -> ( FileTarget, List Fix ) -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
 applyFix project maybeModuleZipper err ( target, fixes ) =
     case target of
         FileTarget.Module targetPath ->
@@ -5955,7 +5955,7 @@ applyFix project maybeModuleZipper err ( target, fixes ) =
             applyExtraFileFix project err targetPath fixes
 
 
-isFixable : ({ ruleName : String, filePath : String, message : String, details : List String, range : Range } -> Bool) -> Error {} -> Maybe (List ErrorFixes.FileFix)
+isFixable : ({ ruleName : String, filePath : String, message : String, details : List String, range : Range } -> Bool) -> Error {} -> Maybe (List ( FileTarget, List Fix ))
 isFixable predicate (Error err) =
     case err.fixProblem of
         Just _ ->
@@ -5966,7 +5966,6 @@ isFixable predicate (Error err) =
             -- so we do the fixes check first.
             if predicate { ruleName = err.ruleName, filePath = err.filePath, message = err.message, details = err.details, range = err.range } then
                 ErrorFixes.toList err.fixes
-                    |> List.map Tuple.second
                     |> Just
 
             else

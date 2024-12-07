@@ -1796,7 +1796,7 @@ checkFixesHaveNoProblem ((Error.ReviewError err) as error_) =
 checkFixesAreCorrect : Project -> String -> ReviewError -> ExpectedErrorDetails -> Expectation
 checkFixesAreCorrect (Review.Project.Internal.Project project) moduleName ((Error.ReviewError err) as error_) expectedError =
     let
-        dict : List ( FileTarget, ErrorFixes.FileFix )
+        dict : List ( FileTarget, List Fix )
         dict =
             ErrorFixes.toList err.fixes
     in
@@ -1846,7 +1846,7 @@ checkFixesAreCorrect (Review.Project.Internal.Project project) moduleName ((Erro
                     dict
 
 
-checkFixesMatch : ProjectInternals -> String -> ReviewError -> Dict String String -> List ( FileTarget, ErrorFixes.FileFix ) -> Expectation
+checkFixesMatch : ProjectInternals -> String -> ReviewError -> Dict String String -> List ( FileTarget, List Fix ) -> Expectation
 checkFixesMatch project moduleName error_ expectedFixed fixes =
     case fixes of
         [] ->
@@ -1861,7 +1861,7 @@ checkFixesMatch project moduleName error_ expectedFixed fixes =
                     }
                     |> Expect.fail
 
-        ( filePath, ( target, fileFixes ) ) :: rest ->
+        ( target, fileFixes ) :: rest ->
             case getTargetFileFromProject target project of
                 Just targetInformation ->
                     case getExpectedFixedCodeThroughFilePathOrModuleName (FileTarget.filePath target) targetInformation.moduleName expectedFixed of
@@ -1882,13 +1882,13 @@ checkFixesMatch project moduleName error_ expectedFixed fixes =
                             FailureMessage.unexpectedAdditionalFixes
                                 { moduleName = moduleName
                                 , message = Rule.errorMessage error_
-                                , nameOfFixedFile = FileTarget.filePath filePath
+                                , nameOfFixedFile = FileTarget.filePath target
                                 , fixedSource = targetInformation.source
                                 }
                                 |> Expect.fail
 
                 Nothing ->
-                    FailureMessage.fixForUnknownFile (FileTarget.filePath filePath)
+                    FailureMessage.fixForUnknownFile (FileTarget.filePath target)
                         |> Expect.fail
 
 
