@@ -329,7 +329,7 @@ import Review.Cache.Module as ModuleCache
 import Review.Cache.ProjectFile as ProjectFileCache
 import Review.ElmProjectEncoder
 import Review.Error exposing (InternalError)
-import Review.Error.Fixes as ErrorFixes
+import Review.Error.Fixes as ErrorFixes exposing (ErrorFixes)
 import Review.Error.Target as Target exposing (Target)
 import Review.Exceptions as Exceptions exposing (Exceptions)
 import Review.FilePath exposing (FilePath)
@@ -4411,43 +4411,13 @@ withFixesV2 : List FixesV2 -> Error scope -> Error scope
 withFixesV2 providedFixes error_ =
     mapInternalError
         (\err ->
-            let
-                initialFixes : Dict String ( Target, List InternalFix.Fix )
-                initialFixes =
-                    case err.fixes of
-                        ErrorFixes.Available previousFixes ->
-                            previousFixes
-
-                        ErrorFixes.NoFixes ->
-                            Dict.empty
-
-                dict : Dict String ErrorFixes.FileFix
-                dict =
+            { err
+                | fixes =
                     List.foldl
-                        (\(FixesV2 { path, target, fixes }) acc ->
-                            if List.isEmpty fixes then
-                                acc
-
-                            else
-                                Dict.update path
-                                    (\maybePreviousFixes ->
-                                        case maybePreviousFixes of
-                                            Just ( _, previousFixes ) ->
-                                                Just ( target, fixes ++ previousFixes )
-
-                                            Nothing ->
-                                                Just ( target, fixes )
-                                    )
-                                    acc
-                        )
-                        initialFixes
-                        providedFixes
-            in
-            if Dict.isEmpty dict then
-                { err | fixes = ErrorFixes.NoFixes }
-
-            else
-                { err | fixes = ErrorFixes.Available dict }
+                        (List.singleton >> ErrorFixes.add)
+                        err.fixes
+                        (List.map (\(FixesV2 fixes) -> fixes) providedFixes)
+            }
         )
         error_
 
