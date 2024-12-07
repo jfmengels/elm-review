@@ -1,6 +1,10 @@
 module Review.Error.Target exposing
     ( Target(..)
+    , elmJson
+    , extraFile
     , filePath
+    , module_
+    , readme
     , setCurrentFilePathOnTargetIfNeeded
     )
 
@@ -12,6 +16,26 @@ type Target
     | ExtraFile String
     | Global
     | UserGlobal
+
+
+module_ : String -> Target
+module_ =
+    Module
+
+
+elmJson : Target
+elmJson =
+    ElmJson
+
+
+readme : Target
+readme =
+    Readme
+
+
+extraFile : String -> Target
+extraFile =
+    ExtraFile
 
 
 setCurrentFilePathOnTargetIfNeeded : String -> Target -> Target

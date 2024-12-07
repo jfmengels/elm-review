@@ -31,7 +31,7 @@ insert ((Review.Error.ReviewError { filePath, target }) as error) (FixedErrors f
                 filePath
                 (\errors -> Just (error :: Maybe.withDefault [] errors))
                 fixedErrors.errors
-        , shouldAbort = fixedErrors.shouldAbort || target == Target.ElmJson
+        , shouldAbort = fixedErrors.shouldAbort || target == Target.elmJson
         }
 
 

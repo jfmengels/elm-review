@@ -9,7 +9,7 @@ module Review.Error exposing
 
 import Elm.Syntax.Range exposing (Range)
 import Review.Error.Fixes as ErrorFixes exposing (ErrorFixes)
-import Review.Error.Target exposing (Target(..))
+import Review.Error.Target as Target exposing (Target(..))
 import Review.Fix.FixProblem exposing (FixProblem)
 
 
@@ -45,7 +45,7 @@ error { message, details } range =
         , range = range
         , fixes = ErrorFixes.none
         , fixProblem = Nothing
-        , target = Module ""
+        , target = Target.module_ ""
         , preventsExtract = False
         }
 

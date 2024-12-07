@@ -3895,7 +3895,7 @@ error { message, details } range =
         , range = range
         , fixes = ErrorFixes.none
         , fixProblem = Nothing
-        , target = Target.Module ""
+        , target = Target.module_ ""
         , preventsExtract = False
         }
 
@@ -3959,7 +3959,7 @@ errorForModule (ModuleKey path) { message, details } range =
         , filePath = path
         , fixes = ErrorFixes.none
         , fixProblem = Nothing
-        , target = Target.Module path
+        , target = Target.module_ path
         , preventsExtract = False
         }
 
@@ -4024,7 +4024,7 @@ errorForElmJson (ElmJsonKey { path, raw }) getErrorInfo =
         , filePath = path
         , fixes = ErrorFixes.none
         , fixProblem = Nothing
-        , target = Target.ElmJson
+        , target = Target.elmJson
         , preventsExtract = False
         }
 
@@ -4068,7 +4068,7 @@ errorForElmJsonWithFix (ElmJsonKey elmJson) getErrorInfo getFix =
                                 |> Review.ElmProjectEncoder.encode
                                 |> Encode.encode 4
                     in
-                    ErrorFixes.from Target.ElmJson
+                    ErrorFixes.from Target.elmJson
                         [ Fix.replaceRangeBy
                             { start = { row = 1, column = 1 }, end = { row = 100000000, column = 1 } }
                             (encoded ++ "\n")
@@ -4077,7 +4077,7 @@ errorForElmJsonWithFix (ElmJsonKey elmJson) getErrorInfo getFix =
                 Nothing ->
                     ErrorFixes.none
         , fixProblem = Nothing
-        , target = Target.ElmJson
+        , target = Target.elmJson
         , preventsExtract = False
         }
 
@@ -4112,7 +4112,7 @@ errorForReadme (ReadmeKey { path }) { message, details } range =
         , range = range
         , fixes = ErrorFixes.none
         , fixProblem = Nothing
-        , target = Target.Readme
+        , target = Target.readme
         , preventsExtract = False
         }
 
@@ -4170,7 +4170,7 @@ errorForExtraFile (ExtraFileKey { path }) { message, details } range =
         , range = range
         , fixes = ErrorFixes.none
         , fixProblem = Nothing
-        , target = Target.ExtraFile path
+        , target = Target.extraFile path
         , preventsExtract = False
         }
 
@@ -4267,7 +4267,7 @@ parsingError path =
         , range = Range.emptyRange
         , fixes = ErrorFixes.none
         , fixProblem = Nothing
-        , target = Target.Module path
+        , target = Target.module_ path
         , preventsExtract = False
         }
 
@@ -4344,7 +4344,7 @@ fixesForModule : ModuleKey -> List Fix -> FixesV2
 fixesForModule (ModuleKey path) fixes =
     FixesV2
         { path = path
-        , target = Target.Module path
+        , target = Target.module_ path
         , fixes = fixes
         }
 
@@ -4355,7 +4355,7 @@ fixesForExtraFile : ExtraFileKey -> List Fix -> FixesV2
 fixesForExtraFile (ExtraFileKey { path }) fixes =
     FixesV2
         { path = path
-        , target = Target.ExtraFile path
+        , target = Target.extraFile path
         , fixes = fixes
         }
 
@@ -4366,7 +4366,7 @@ fixesForReadme : ReadmeKey -> List Fix -> FixesV2
 fixesForReadme (ReadmeKey { path }) fixes =
     FixesV2
         { path = path
-        , target = Target.Readme
+        , target = Target.readme
         , fixes = fixes
         }
 
@@ -4400,7 +4400,7 @@ fixesForElmJson (ElmJsonKey elmJson) fixer =
     in
     FixesV2
         { path = elmJson.path
-        , target = Target.ElmJson
+        , target = Target.elmJson
         , fixes = fixes
         }
 
