@@ -4064,12 +4064,15 @@ errorForElmJsonWithFix (ElmJsonKey elmJson) getErrorInfo getFix =
                                 |> Review.ElmProjectEncoder.encode
                                 |> Encode.encode 4
                     in
-                    [ Fix.replaceRangeBy
-                        { start = { row = 1, column = 1 }, end = { row = 100000000, column = 1 } }
-                        (encoded ++ "\n")
-                    ]
-                        |> Just
-                        |> ErrorFixes.fixesFromMaybe elmJson.path
+                    ErrorFixes.Available
+                        (Dict.singleton elmJson.path
+                            ( Target.ElmJson
+                            , [ Fix.replaceRangeBy
+                                    { start = { row = 1, column = 1 }, end = { row = 100000000, column = 1 } }
+                                    (encoded ++ "\n")
+                              ]
+                            )
+                        )
 
                 Nothing ->
                     ErrorFixes.NoFixes
