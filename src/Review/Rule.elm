@@ -4418,7 +4418,7 @@ withFixesV2 providedFixes error_ =
                         ErrorFixes.FailedToApply _ ->
                             Dict.empty
 
-                dict : Dict String ( Target, List Fix )
+                dict : Dict String ErrorFixes.FileFix
                 dict =
                     List.foldl
                         (\(FixesV2 { path, target, fixes }) acc ->
@@ -6014,7 +6014,7 @@ applyFix project maybeModuleZipper err ( target, fixes ) =
             Err err
 
 
-isFixable : ({ ruleName : String, filePath : String, message : String, details : List String, range : Range } -> Bool) -> Error {} -> Maybe (Dict String ( Target, List Fix ))
+isFixable : ({ ruleName : String, filePath : String, message : String, details : List String, range : Range } -> Bool) -> Error {} -> Maybe (Dict String ErrorFixes.FileFix)
 isFixable predicate (Error err) =
     case err.fixes of
         ErrorFixes.Available fixes ->

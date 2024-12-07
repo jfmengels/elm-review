@@ -1833,7 +1833,7 @@ checkFixesAreCorrect (Review.Project.Internal.Project project) moduleName ((Erro
             Expect.fail <| FailureMessage.fixProblem_ fixProblem error_
 
 
-checkFixesMatch : ProjectInternals -> String -> ReviewError -> Dict String String -> List ( String, ( Target, List Fix ) ) -> Expectation
+checkFixesMatch : ProjectInternals -> String -> ReviewError -> Dict String String -> List ( String, ErrorFixes.FileFix ) -> Expectation
 checkFixesMatch project moduleName error_ expectedFixed fixes =
     case fixes of
         [] ->
