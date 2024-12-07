@@ -2,6 +2,7 @@ module Review.Fix.FixedErrors exposing (FixedErrors, count, empty, insert, shoul
 
 import Dict exposing (Dict)
 import Review.Error exposing (ReviewError)
+import Review.Error.Target as Target
 
 
 type FixedErrors
@@ -30,7 +31,7 @@ insert ((Review.Error.ReviewError { filePath, target }) as error) (FixedErrors f
                 filePath
                 (\errors -> Just (error :: Maybe.withDefault [] errors))
                 fixedErrors.errors
-        , shouldAbort = fixedErrors.shouldAbort || target == Review.Error.ElmJson
+        , shouldAbort = fixedErrors.shouldAbort || target == Target.ElmJson
         }
 
 

@@ -136,6 +136,7 @@ import Json.Decode as Decode
 import Json.Encode as Encode
 import Regex exposing (Regex)
 import Review.Error as Error
+import Review.Error.Target as Target exposing (Target)
 import Review.FileParser as FileParser
 import Review.Fix as Fix exposing (Fix)
 import Review.Options as ReviewOptions
@@ -456,7 +457,7 @@ runOnModulesWithProjectDataHelp project rule sources =
                             { errors, extracts } =
                                 Rule.reviewV3 (ReviewOptions.withDataExtraction True ReviewOptions.defaults) [ rule ] projectWithModules
                         in
-                        case ListExtra.find (\err -> Rule.errorTarget err == Error.Global) errors of
+                        case ListExtra.find (\err -> Rule.errorTarget err == Target.Global) errors of
                             Just globalError_ ->
                                 FailedRun <| FailureMessage.globalErrorInTest globalError_
 
@@ -478,7 +479,7 @@ runOnModulesWithProjectDataHelp project rule sources =
                                     foundGlobalErrors : List GlobalError
                                     foundGlobalErrors =
                                         errors
-                                            |> List.filter (\error_ -> Rule.errorTarget error_ == Error.UserGlobal)
+                                            |> List.filter (\error_ -> Rule.errorTarget error_ == Target.UserGlobal)
                                             |> List.map (\error_ -> { message = Rule.errorMessage error_, details = Rule.errorDetails error_ })
                                 in
                                 SuccessfulRun
@@ -1732,7 +1733,7 @@ checkErrorMatch project runResult (ExpectedError expectedError) error_ =
 
 checkMessageAppearsUnder : CodeInspector -> ReviewError -> ExpectedErrorDetails -> Expectation
 checkMessageAppearsUnder codeInspector error_ expectedError =
-    if Rule.errorTarget error_ == Error.UserGlobal then
+    if Rule.errorTarget error_ == Target.UserGlobal then
         Expect.pass
 
     else
@@ -1831,7 +1832,7 @@ checkFixesAreCorrect (Review.Project.Internal.Project project) moduleName ((Erro
             Expect.fail <| FailureMessage.fixProblem_ fixProblem error_
 
 
-checkFixesMatch : ProjectInternals -> String -> ReviewError -> Dict String String -> List ( String, ( Error.Target, List Fix ) ) -> Expectation
+checkFixesMatch : ProjectInternals -> String -> ReviewError -> Dict String String -> List ( String, ( Target, List Fix ) ) -> Expectation
 checkFixesMatch project moduleName error_ expectedFixed fixes =
     case fixes of
         [] ->
@@ -1897,7 +1898,7 @@ getExpectedFixedCodeThroughFilePathOrModuleName filePath moduleName expectedFixe
                     )
 
 
-fixOneError : Error.Target -> List Fix -> String -> String -> ReviewError -> Result String ()
+fixOneError : Target -> List Fix -> String -> String -> ReviewError -> Result String ()
 fixOneError target fileFixes source expectedFixedSource error_ =
     case Fix.fix target fileFixes source of
         Fix.Successful fixedSource ->
@@ -1934,10 +1935,10 @@ whitespaceBeforeNewLine =
         |> Maybe.withDefault Regex.never
 
 
-getTargetFileFromProject : Error.Target -> ProjectInternals -> Maybe { source : String, moduleName : Maybe String }
+getTargetFileFromProject : Target -> ProjectInternals -> Maybe { source : String, moduleName : Maybe String }
 getTargetFileFromProject target project =
     case target of
-        Error.Module filePath ->
+        Target.Module filePath ->
             Dict.get filePath project.modules
                 |> Maybe.map
                     (\module_ ->
@@ -1946,20 +1947,20 @@ getTargetFileFromProject target project =
                         }
                     )
 
-        Error.ElmJson ->
+        Target.ElmJson ->
             Maybe.map (\( { raw }, _ ) -> { source = raw, moduleName = Nothing }) project.elmJson
 
-        Error.Readme ->
+        Target.Readme ->
             Maybe.map (\( { content }, _ ) -> { source = content, moduleName = Nothing }) project.readme
 
-        Error.ExtraFile filePath ->
+        Target.ExtraFile filePath ->
             Dict.get filePath project.extraFiles
                 |> Maybe.map (\content -> { source = content, moduleName = Nothing })
 
-        Error.Global ->
+        Target.Global ->
             Nothing
 
-        Error.UserGlobal ->
+        Target.UserGlobal ->
             Nothing
 
 

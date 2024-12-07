@@ -1,7 +1,7 @@
 module Review.Fix.FixTest exposing (all)
 
 import Expect
-import Review.Error as Error
+import Review.Error.Target as Target
 import Review.Fix as Fix exposing (Fix)
 import Test exposing (Test, describe, test)
 
@@ -26,7 +26,7 @@ a = Debug.log "foo" 1
                             }
                         ]
                 in
-                Fix.fix (Error.Module "A.elm") fixes source
+                Fix.fix (Target.Module "A.elm") fixes source
                     |> Expect.equal (Fix.Successful """module A exposing (a)
 a =  1
 """)
@@ -48,7 +48,7 @@ some_var = 1
                             "someVar"
                         ]
                 in
-                Fix.fix (Error.Module "A.elm") fixes source
+                Fix.fix (Target.Module "A.elm") fixes source
                     |> Expect.equal (Fix.Successful """module A exposing (a)
 someVar = 1
 """)
@@ -68,7 +68,7 @@ a = 1
                             """Debug.log "foo" """
                         ]
                 in
-                Fix.fix (Error.Module "A.elm") fixes source
+                Fix.fix (Target.Module "A.elm") fixes source
                     |> Expect.equal (Fix.Successful """module A exposing (a)
 a = Debug.log "foo" 1
 """)
@@ -95,12 +95,12 @@ a = 1
                 in
                 Expect.all
                     [ \() ->
-                        Fix.fix (Error.Module "A.elm") fixes source
+                        Fix.fix (Target.Module "A.elm") fixes source
                             |> Expect.equal (Fix.Successful """module A exposing (a)
 someVar = Debug.log "foo" 1
 """)
                     , \() ->
-                        Fix.fix (Error.Module "A.elm") (List.reverse fixes) source
+                        Fix.fix (Target.Module "A.elm") (List.reverse fixes) source
                             |> Expect.equal (Fix.Successful """module A exposing (a)
 someVar = Debug.log "foo" 1
 """)
@@ -126,7 +126,7 @@ a = 1
                             }
                         ]
                 in
-                Fix.fix (Error.Module "A.elm") fixes source
+                Fix.fix (Target.Module "A.elm") fixes source
                     |> Expect.equal (Fix.Successful """module A exposing (someCode)
 someCode = 2
 
@@ -150,7 +150,7 @@ some_var = 1
                             "someVar =\n  1"
                         ]
                 in
-                Fix.fix (Error.Module "A.elm") fixes source
+                Fix.fix (Target.Module "A.elm") fixes source
                     |> Expect.equal (Fix.Successful """module A exposing (a)
 someVar =
   1
@@ -174,7 +174,7 @@ some_var =
                             "someVar = 1"
                         ]
                 in
-                Fix.fix (Error.Module "A.elm") fixes source
+                Fix.fix (Target.Module "A.elm") fixes source
                     |> Expect.equal (Fix.Successful """module A exposing (a)
 someVar = 1
 """)
@@ -197,7 +197,7 @@ some_var =
                             "foo =\n  2"
                         ]
                 in
-                Fix.fix (Error.Module "A.elm") fixes source
+                Fix.fix (Target.Module "A.elm") fixes source
                     |> Expect.equal (Fix.Successful """module A exposing (a)
 foo =
   2
@@ -221,7 +221,7 @@ a = 1
                             "b =\n  2\n"
                         ]
                 in
-                Fix.fix (Error.Module "A.elm") fixes source
+                Fix.fix (Target.Module "A.elm") fixes source
                     |> Expect.equal (Fix.Successful """module A exposing (someCode)
 someCode = 2
 
@@ -246,7 +246,7 @@ a = 1
                     fixes =
                         [ Fix.insertAt { row = 4, column = 1 } "" ]
                 in
-                Fix.fix (Error.Module "A.elm") fixes source
+                Fix.fix (Target.Module "A.elm") fixes source
                     |> Expect.equal (Fix.Errored Fix.Unchanged)
         , test "should fail if the source code is unparsable after fixes" <|
             \() ->
@@ -261,7 +261,7 @@ someCode = 2
                     fixes =
                         [ Fix.removeRange { start = { row = 1, column = 1 }, end = { row = 1, column = 4 } } ]
                 in
-                Fix.fix (Error.Module "A.elm") fixes source
+                Fix.fix (Target.Module "A.elm") fixes source
                     |> Expect.equal (Fix.Errored <| Fix.SourceCodeIsNotValid """ule A exposing (someCode)
 someCode = 2
 """)
@@ -282,10 +282,10 @@ someCode = 2
                 in
                 Expect.all
                     [ \() ->
-                        Fix.fix (Error.Module "A.elm") fixes source
+                        Fix.fix (Target.Module "A.elm") fixes source
                             |> Expect.equal (Fix.Errored Fix.HasCollisionsInFixRanges)
                     , \() ->
-                        Fix.fix (Error.Module "A.elm") (List.reverse fixes) source
+                        Fix.fix (Target.Module "A.elm") (List.reverse fixes) source
                             |> Expect.equal (Fix.Errored Fix.HasCollisionsInFixRanges)
                     ]
                     ()
@@ -306,10 +306,10 @@ someCode = 2
                 in
                 Expect.all
                     [ \() ->
-                        Fix.fix (Error.Module "A.elm") fixes source
+                        Fix.fix (Target.Module "A.elm") fixes source
                             |> Expect.equal (Fix.Errored Fix.HasCollisionsInFixRanges)
                     , \() ->
-                        Fix.fix (Error.Module "A.elm") (List.reverse fixes) source
+                        Fix.fix (Target.Module "A.elm") (List.reverse fixes) source
                             |> Expect.equal (Fix.Errored Fix.HasCollisionsInFixRanges)
                     ]
                     ()
@@ -327,7 +327,7 @@ My description
                         fixes =
                             [ Fix.removeRange { start = { row = 1, column = 1 }, end = { row = 1, column = 4 } } ]
                     in
-                    Fix.fix (Error.Module "A.elm") fixes source
+                    Fix.fix (Target.Module "A.elm") fixes source
                         |> Expect.equal (Fix.Errored <| Fix.SourceCodeIsNotValid """y project
 My description
 """)

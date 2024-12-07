@@ -10,7 +10,8 @@ import Json.Decode as Decode
 import Json.Encode as Encode
 import NoUnused.Dependencies
 import NoUnused.Variables
-import Review.Error exposing (ReviewError(..), Target(..))
+import Review.Error exposing (ReviewError(..))
+import Review.Error.Target as Target
 import Review.Fix.Internal exposing (Fix(..))
 import Review.Options
 import Review.Project as Project exposing (Project)
@@ -88,7 +89,7 @@ a = 1
                                             , preventsExtract = False
                                             , range = { end = { column = 2, row = 4 }, start = { column = 1, row = 4 } }
                                             , ruleName = "NoUnused.Variables"
-                                            , target = Module "A.elm"
+                                            , target = Target.Module "A.elm"
                                             }
                                         , ReviewError
                                             { message = "Top-level variable `b` is not used"
@@ -98,7 +99,7 @@ a = 1
                                             , preventsExtract = False
                                             , range = { end = { column = 2, row = 4 }, start = { column = 1, row = 4 } }
                                             , ruleName = "NoUnused.Variables"
-                                            , target = Module "A.elm"
+                                            , target = Target.Module "A.elm"
                                             }
                                         ]
                                       )
@@ -158,7 +159,7 @@ d = 1
                                             , preventsExtract = False
                                             , range = { end = { column = 2, row = 4 }, start = { column = 1, row = 4 } }
                                             , ruleName = "NoUnused.Variables"
-                                            , target = Module "A.elm"
+                                            , target = Target.Module "A.elm"
                                             }
                                         , ReviewError
                                             { message = "Top-level variable `b` is not used"
@@ -168,7 +169,7 @@ d = 1
                                             , preventsExtract = False
                                             , range = { end = { column = 2, row = 4 }, start = { column = 1, row = 4 } }
                                             , ruleName = "NoUnused.Variables"
-                                            , target = Module "A.elm"
+                                            , target = Target.Module "A.elm"
                                             }
                                         ]
                                       )
@@ -238,7 +239,7 @@ a = 1
                                             , preventsExtract = False
                                             , range = { end = { column = 51, row = 9 }, start = { column = 35, row = 9 } }
                                             , ruleName = "NoUnused.Dependencies"
-                                            , target = ElmJson
+                                            , target = Target.ElmJson
                                             }
                                         ]
                                       )
@@ -314,7 +315,7 @@ a = 1
                                             , preventsExtract = False
                                             , range = { end = { column = 51, row = 9 }, start = { column = 35, row = 9 } }
                                             , ruleName = "NoUnused.Dependencies"
-                                            , target = ElmJson
+                                            , target = Target.ElmJson
                                             }
                                         ]
                                       )
@@ -366,7 +367,7 @@ a = 1
                                             , preventsExtract = False
                                             , range = { end = { column = 68, row = 1 }, start = { column = 8, row = 1 } }
                                             , ruleName = "Docs.UpToDateReadmeLinks"
-                                            , target = Readme
+                                            , target = Target.Readme
                                             }
                                         ]
                                       )
@@ -382,19 +383,19 @@ a = 1
 
 fixForFile : Fix -> Review.Error.ErrorFixes
 fixForFile fix =
-    Dict.singleton "A.elm" ( Module "A.elm", [ fix ] )
+    Dict.singleton "A.elm" ( Target.Module "A.elm", [ fix ] )
         |> Review.Error.Available
 
 
 fixForElmJson : Fix -> Review.Error.ErrorFixes
 fixForElmJson fix =
-    Dict.singleton "elm.json" ( ElmJson, [ fix ] )
+    Dict.singleton "elm.json" ( Target.ElmJson, [ fix ] )
         |> Review.Error.Available
 
 
 fixForReadme : Fix -> Review.Error.ErrorFixes
 fixForReadme fix =
-    Dict.singleton "README.md" ( Readme, [ fix ] )
+    Dict.singleton "README.md" ( Target.Readme, [ fix ] )
         |> Review.Error.Available
 
 

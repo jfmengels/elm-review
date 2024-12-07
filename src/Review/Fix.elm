@@ -135,7 +135,7 @@ import Elm.Parser
 import Elm.Project
 import Elm.Syntax.Range exposing (Range)
 import Json.Decode as Decode
-import Review.Error as Error
+import Review.Error.Target as Target exposing (Target)
 import Review.Fix.Internal as Internal
 
 
@@ -197,37 +197,37 @@ type Problem
 
 {-| Apply the changes on the source code.
 -}
-fix : Error.Target -> List Fix -> String -> FixResult
+fix : Target -> List Fix -> String -> FixResult
 fix target fixes sourceCode =
     case target of
-        Error.Module _ ->
+        Target.Module _ ->
             tryToApplyFix
                 fixes
                 sourceCode
                 (\resultAfterFix -> (Elm.Parser.parse resultAfterFix |> Result.toMaybe) /= Nothing)
 
-        Error.Readme ->
+        Target.Readme ->
             tryToApplyFix
                 fixes
                 sourceCode
                 (always True)
 
-        Error.ExtraFile _ ->
+        Target.ExtraFile _ ->
             tryToApplyFix
                 fixes
                 sourceCode
                 (always True)
 
-        Error.ElmJson ->
+        Target.ElmJson ->
             tryToApplyFix
                 fixes
                 sourceCode
                 (\resultAfterFix -> (Decode.decodeString Elm.Project.decoder resultAfterFix |> Result.toMaybe) /= Nothing)
 
-        Error.Global ->
+        Target.Global ->
             Errored Unchanged
 
-        Error.UserGlobal ->
+        Target.UserGlobal ->
             Errored Unchanged
 
 
