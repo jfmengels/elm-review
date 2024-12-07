@@ -1,61 +1,38 @@
 module Review.Error.FileTarget exposing
-    ( Target(..)
+    ( FileTarget(..)
     , filePath
     , setCurrentFilePathOnTargetIfNeeded
     )
 
 
-type Target
+type FileTarget
     = Module String
     | ElmJson
     | Readme
     | ExtraFile String
-    | Global
-    | UserGlobal
 
 
-setCurrentFilePathOnTargetIfNeeded : String -> Target -> Target
+setCurrentFilePathOnTargetIfNeeded : String -> FileTarget -> FileTarget
 setCurrentFilePathOnTargetIfNeeded path target =
     case target of
         Module "" ->
             Module path
 
-        ExtraFile _ ->
-            target
-
-        Module _ ->
-            target
-
-        ElmJson ->
-            target
-
-        Readme ->
-            target
-
-        Global ->
-            target
-
-        UserGlobal ->
+        _ ->
             target
 
 
-filePath : Target -> Maybe String
+filePath : FileTarget -> String
 filePath target =
     case target of
         Module path ->
-            Just path
+            path
 
         ElmJson ->
-            Just "elm.json"
+            "elm.json"
 
         Readme ->
-            Just "README.md"
+            "README.md"
 
         ExtraFile path ->
-            Just path
-
-        Global ->
-            Nothing
-
-        UserGlobal ->
-            Nothing
+            path

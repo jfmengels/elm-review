@@ -135,6 +135,7 @@ import Elm.Parser
 import Elm.Project
 import Elm.Syntax.Range exposing (Range)
 import Json.Decode as Decode
+import Review.Error.FileTarget as FileTarget
 import Review.Error.Target as Target exposing (Target)
 import Review.Fix.Internal as Internal
 
@@ -200,25 +201,25 @@ type Problem
 fix : Target -> List Fix -> String -> FixResult
 fix target fixes sourceCode =
     case target of
-        Target.Module _ ->
+        Target.FileTarget (FileTarget.Module _) ->
             tryToApplyFix
                 fixes
                 sourceCode
                 (\resultAfterFix -> (Elm.Parser.parse resultAfterFix |> Result.toMaybe) /= Nothing)
 
-        Target.Readme ->
+        Target.FileTarget FileTarget.Readme ->
             tryToApplyFix
                 fixes
                 sourceCode
                 (always True)
 
-        Target.ExtraFile _ ->
+        Target.FileTarget (FileTarget.ExtraFile _) ->
             tryToApplyFix
                 fixes
                 sourceCode
                 (always True)
 
-        Target.ElmJson ->
+        Target.FileTarget FileTarget.ElmJson ->
             tryToApplyFix
                 fixes
                 sourceCode

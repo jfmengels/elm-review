@@ -329,6 +329,7 @@ import Review.Cache.Module as ModuleCache
 import Review.Cache.ProjectFile as ProjectFileCache
 import Review.ElmProjectEncoder
 import Review.Error exposing (InternalError)
+import Review.Error.FileTarget as FileTarget
 import Review.Error.Fixes as ErrorFixes exposing (ErrorFixes)
 import Review.Error.Target as Target exposing (Target)
 import Review.Exceptions as Exceptions exposing (Exceptions)
@@ -4307,16 +4308,16 @@ withFixes fixes error_ =
 
             else
                 case err.target of
-                    Target.Module _ ->
+                    Target.FileTarget (FileTarget.Module _) ->
                         { err | fixes = ErrorFixes.from err.target fixes }
 
-                    Target.Readme ->
+                    Target.FileTarget FileTarget.Readme ->
                         { err | fixes = ErrorFixes.from err.target fixes }
 
-                    Target.ExtraFile _ ->
+                    Target.FileTarget (FileTarget.ExtraFile _) ->
                         { err | fixes = ErrorFixes.from err.target fixes }
 
-                    Target.ElmJson ->
+                    Target.FileTarget FileTarget.ElmJson ->
                         err
 
                     Target.Global ->
@@ -5946,16 +5947,16 @@ earlierFixedFile a b =
 applyFix : ValidProject -> Maybe (Zipper (Graph.NodeContext FilePath ())) -> Error {} -> ( Target, List InternalFix.Fix ) -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
 applyFix project maybeModuleZipper err ( target, fixes ) =
     case target of
-        Target.Module targetPath ->
+        Target.FileTarget (FileTarget.Module targetPath) ->
             applySingleModuleFix project maybeModuleZipper err targetPath fixes
 
-        Target.ElmJson ->
+        Target.FileTarget FileTarget.ElmJson ->
             applyElmJsonFix project err fixes
 
-        Target.Readme ->
+        Target.FileTarget FileTarget.Readme ->
             applyReadmeFix project err fixes
 
-        Target.ExtraFile targetPath ->
+        Target.FileTarget (FileTarget.ExtraFile targetPath) ->
             applyExtraFileFix project err targetPath fixes
 
         Target.Global ->

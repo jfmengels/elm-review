@@ -2,6 +2,7 @@ module Review.Fix.FixedErrors exposing (FixedErrors, count, empty, insert, shoul
 
 import Dict exposing (Dict)
 import Review.Error exposing (ReviewError)
+import Review.Error.FileTarget as FileTarget
 import Review.Error.Target as Target
 
 

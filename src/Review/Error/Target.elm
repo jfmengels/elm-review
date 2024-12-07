@@ -8,53 +8,41 @@ module Review.Error.Target exposing
     , setCurrentFilePathOnTargetIfNeeded
     )
 
+import Review.Error.FileTarget as FileTarget exposing (FileTarget)
+
 
 type Target
-    = Module String
-    | ElmJson
-    | Readme
-    | ExtraFile String
+    = FileTarget FileTarget
     | Global
     | UserGlobal
 
 
 module_ : String -> Target
 module_ =
-    Module
+    FileTarget.Module >> FileTarget
 
 
 elmJson : Target
 elmJson =
-    ElmJson
+    FileTarget FileTarget.ElmJson
 
 
 readme : Target
 readme =
-    Readme
+    FileTarget FileTarget.Readme
 
 
 extraFile : String -> Target
 extraFile =
-    ExtraFile
+    FileTarget.ExtraFile >> FileTarget
 
 
 setCurrentFilePathOnTargetIfNeeded : String -> Target -> Target
 setCurrentFilePathOnTargetIfNeeded path target =
     case target of
-        Module "" ->
-            Module path
-
-        ExtraFile _ ->
-            target
-
-        Module _ ->
-            target
-
-        ElmJson ->
-            target
-
-        Readme ->
-            target
+        FileTarget fileTarget ->
+            FileTarget.setCurrentFilePathOnTargetIfNeeded path fileTarget
+                |> FileTarget
 
         Global ->
             target
@@ -66,17 +54,8 @@ setCurrentFilePathOnTargetIfNeeded path target =
 filePath : Target -> Maybe String
 filePath target =
     case target of
-        Module path ->
-            Just path
-
-        ElmJson ->
-            Just "elm.json"
-
-        Readme ->
-            Just "README.md"
-
-        ExtraFile path ->
-            Just path
+        FileTarget fileTarget ->
+            Just (FileTarget.filePath fileTarget)
 
         Global ->
             Nothing

@@ -91,7 +91,7 @@ a = 1
                                             , preventsExtract = False
                                             , range = { end = { column = 2, row = 4 }, start = { column = 1, row = 4 } }
                                             , ruleName = "NoUnused.Variables"
-                                            , target = Target.Module "A.elm"
+                                            , target = Target.module_ "A.elm"
                                             }
                                         , ReviewError
                                             { message = "Top-level variable `b` is not used"
@@ -102,7 +102,7 @@ a = 1
                                             , preventsExtract = False
                                             , range = { end = { column = 2, row = 4 }, start = { column = 1, row = 4 } }
                                             , ruleName = "NoUnused.Variables"
-                                            , target = Target.Module "A.elm"
+                                            , target = Target.module_ "A.elm"
                                             }
                                         ]
                                       )
@@ -163,7 +163,7 @@ d = 1
                                             , preventsExtract = False
                                             , range = { end = { column = 2, row = 4 }, start = { column = 1, row = 4 } }
                                             , ruleName = "NoUnused.Variables"
-                                            , target = Target.Module "A.elm"
+                                            , target = Target.module_ "A.elm"
                                             }
                                         , ReviewError
                                             { message = "Top-level variable `b` is not used"
@@ -174,7 +174,7 @@ d = 1
                                             , preventsExtract = False
                                             , range = { end = { column = 2, row = 4 }, start = { column = 1, row = 4 } }
                                             , ruleName = "NoUnused.Variables"
-                                            , target = Target.Module "A.elm"
+                                            , target = Target.module_ "A.elm"
                                             }
                                         ]
                                       )
@@ -245,7 +245,7 @@ a = 1
                                             , preventsExtract = False
                                             , range = { end = { column = 51, row = 9 }, start = { column = 35, row = 9 } }
                                             , ruleName = "NoUnused.Dependencies"
-                                            , target = Target.ElmJson
+                                            , target = Target.elmJson
                                             }
                                         ]
                                       )
@@ -322,7 +322,7 @@ a = 1
                                             , preventsExtract = False
                                             , range = { end = { column = 51, row = 9 }, start = { column = 35, row = 9 } }
                                             , ruleName = "NoUnused.Dependencies"
-                                            , target = Target.ElmJson
+                                            , target = Target.elmJson
                                             }
                                         ]
                                       )
@@ -375,7 +375,7 @@ a = 1
                                             , preventsExtract = False
                                             , range = { end = { column = 68, row = 1 }, start = { column = 8, row = 1 } }
                                             , ruleName = "Docs.UpToDateReadmeLinks"
-                                            , target = Target.Readme
+                                            , target = Target.readme
                                             }
                                         ]
                                       )
@@ -391,17 +391,17 @@ a = 1
 
 fixForFile : Fix -> ErrorFixes
 fixForFile fix =
-    ErrorFixes.from (Target.Module "A.elm") [ fix ]
+    ErrorFixes.from (Target.module_ "A.elm") [ fix ]
 
 
 fixForElmJson : Fix -> ErrorFixes
 fixForElmJson fix =
-    ErrorFixes.from Target.ElmJson [ fix ]
+    ErrorFixes.from Target.elmJson [ fix ]
 
 
 fixForReadme : Fix -> ErrorFixes
 fixForReadme fix =
-    ErrorFixes.from Target.Readme [ fix ]
+    ErrorFixes.from Target.readme [ fix ]
 
 
 runWithOptions :

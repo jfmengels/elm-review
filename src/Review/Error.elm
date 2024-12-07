@@ -8,6 +8,7 @@ module Review.Error exposing
     )
 
 import Elm.Syntax.Range exposing (Range)
+import Review.Error.FileTarget as FileTarget
 import Review.Error.Fixes as ErrorFixes exposing (ErrorFixes)
 import Review.Error.Target as Target exposing (Target(..))
 import Review.Fix.FixProblem exposing (FixProblem)

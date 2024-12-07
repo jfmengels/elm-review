@@ -136,6 +136,7 @@ import Json.Decode as Decode
 import Json.Encode as Encode
 import Regex exposing (Regex)
 import Review.Error as Error
+import Review.Error.FileTarget as FileTarget
 import Review.Error.Fixes as ErrorFixes exposing (ErrorFixes(..))
 import Review.Error.Target as Target exposing (Target)
 import Review.FileParser as FileParser
@@ -1951,7 +1952,7 @@ whitespaceBeforeNewLine =
 getTargetFileFromProject : Target -> ProjectInternals -> Maybe { source : String, moduleName : Maybe String }
 getTargetFileFromProject target project =
     case target of
-        Target.Module filePath ->
+        Target.FileTarget (FileTarget.Module filePath) ->
             Dict.get filePath project.modules
                 |> Maybe.map
                     (\module_ ->
@@ -1960,13 +1961,13 @@ getTargetFileFromProject target project =
                         }
                     )
 
-        Target.ElmJson ->
+        Target.FileTarget FileTarget.ElmJson ->
             Maybe.map (\( { raw }, _ ) -> { source = raw, moduleName = Nothing }) project.elmJson
 
-        Target.Readme ->
+        Target.FileTarget FileTarget.Readme ->
             Maybe.map (\( { content }, _ ) -> { source = content, moduleName = Nothing }) project.readme
 
-        Target.ExtraFile filePath ->
+        Target.FileTarget (FileTarget.ExtraFile filePath) ->
             Dict.get filePath project.extraFiles
                 |> Maybe.map (\content -> { source = content, moduleName = Nothing })
 
