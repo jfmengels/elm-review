@@ -7,7 +7,7 @@ import Review.Fix exposing (Fix)
 
 type ErrorFixes
     = NoFixes
-    | Available (Dict String FileFix)
+    | ErrorFixes (Dict String FileFix)
 
 
 type alias FileFix =
@@ -19,7 +19,7 @@ from target edits =
     case Target.filePath target of
         Just filePath ->
             Dict.singleton filePath ( target, edits )
-                |> Available
+                |> ErrorFixes
 
         Nothing ->
             NoFixes
@@ -31,7 +31,7 @@ add providedFixes previousFixes =
         initialFixes : Dict String ( Target, List Fix )
         initialFixes =
             case previousFixes of
-                Available previousFixes_ ->
+                ErrorFixes previousFixes_ ->
                     previousFixes_
 
                 NoFixes ->
@@ -63,13 +63,13 @@ add providedFixes previousFixes =
         NoFixes
 
     else
-        Available dict
+        ErrorFixes dict
 
 
 qualify : String -> ErrorFixes -> ErrorFixes
 qualify filePath baseFixes =
     case baseFixes of
-        Available dict ->
+        ErrorFixes dict ->
             if Dict.isEmpty dict then
                 NoFixes
 
@@ -79,7 +79,7 @@ qualify filePath baseFixes =
                         dict
                             |> Dict.remove ""
                             |> Dict.insert filePath ( Target.setCurrentFilePathOnTargetIfNeeded filePath target, fixes )
-                            |> Available
+                            |> ErrorFixes
 
                     Nothing ->
                         baseFixes

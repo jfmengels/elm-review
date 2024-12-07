@@ -4467,7 +4467,7 @@ errorFixes (Review.Error.ReviewError err) =
 
         Nothing ->
             case err.fixes of
-                ErrorFixes.Available fixes ->
+                ErrorFixes.ErrorFixes fixes ->
                     if Dict.size fixes == 1 then
                         Dict.get err.filePath fixes
                             |> Maybe.map Tuple.second
@@ -4491,7 +4491,7 @@ errorFixesV2 (Review.Error.ReviewError err) =
 
         Nothing ->
             case err.fixes of
-                ErrorFixes.Available fixes ->
+                ErrorFixes.ErrorFixes fixes ->
                     if Dict.isEmpty fixes then
                         Nothing
 
@@ -5978,7 +5978,7 @@ isFixable predicate (Error err) =
 
         Nothing ->
             case err.fixes of
-                ErrorFixes.Available fixes ->
+                ErrorFixes.ErrorFixes fixes ->
                     -- It's cheaper to check for fixes first and also quite likely to return Nothing
                     -- so we do the fixes check first.
                     if predicate { ruleName = err.ruleName, filePath = err.filePath, message = err.message, details = err.details, range = err.range } then

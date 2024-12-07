@@ -1818,7 +1818,7 @@ checkFixesAreCorrect (Review.Project.Internal.Project project) moduleName ((Erro
                             }
                         )
 
-        ErrorFixes.Available dict ->
+        ErrorFixes.ErrorFixes dict ->
             case expectedError.fixedFiles of
                 NoFixesExpected ->
                     FailureMessage.unexpectedFixes (Rule.errorMessage error_)
