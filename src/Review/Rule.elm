@@ -301,6 +301,10 @@ find the tools to extract data below.
 
 @docs Required, Forbidden
 
+-- TODO MULTIFILE-FIXES Update documentation
+
+@docs FixesV2, fixesForElmJson, fixesForExtraFile, fixesForModule, fixesForReadme, withFixesV2
+
 -}
 
 import Dict exposing (Dict)
@@ -4309,6 +4313,8 @@ withFixes fixes error_ =
         error_
 
 
+{-| TODO MULTIFILE-FIXES Update documentation
+-}
 type FixesV2
     = FixesV2
         { path : String
@@ -4317,6 +4323,8 @@ type FixesV2
         }
 
 
+{-| TODO MULTIFILE-FIXES Update documentation
+-}
 fixesForModule : ModuleKey -> List Fix -> FixesV2
 fixesForModule (ModuleKey path) fixes =
     FixesV2
@@ -4326,6 +4334,8 @@ fixesForModule (ModuleKey path) fixes =
         }
 
 
+{-| TODO MULTIFILE-FIXES Update documentation
+-}
 fixesForExtraFile : ExtraFileKey -> List Fix -> FixesV2
 fixesForExtraFile (ExtraFileKey { path }) fixes =
     FixesV2
@@ -4335,6 +4345,8 @@ fixesForExtraFile (ExtraFileKey { path }) fixes =
         }
 
 
+{-| TODO MULTIFILE-FIXES Update documentation
+-}
 fixesForReadme : ReadmeKey -> List Fix -> FixesV2
 fixesForReadme (ReadmeKey { path }) fixes =
     FixesV2
@@ -4344,6 +4356,8 @@ fixesForReadme (ReadmeKey { path }) fixes =
         }
 
 
+{-| TODO MULTIFILE-FIXES Update documentation
+-}
 fixesForElmJson :
     ElmJsonKey
     -> (Elm.Project.Project -> Maybe Elm.Project.Project)
@@ -4376,6 +4390,8 @@ fixesForElmJson (ElmJsonKey elmJson) fixer =
         }
 
 
+{-| TODO MULTIFILE-FIXES Update documentation
+-}
 withFixesV2 : List FixesV2 -> Error scope -> Error scope
 withFixesV2 providedFixes error_ =
     mapInternalError
