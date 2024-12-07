@@ -8,5 +8,9 @@ import Review.Fix.FixProblem exposing (FixProblem)
 
 type ErrorFixes
     = NoFixes
-    | Available (Dict String ( Target, List Fix ))
+    | Available (Dict String CompleteFix)
     | FailedToApply FixProblem
+
+
+type alias CompleteFix =
+    ( Target, List Fix )
