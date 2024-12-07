@@ -136,6 +136,7 @@ import Json.Decode as Decode
 import Json.Encode as Encode
 import Regex exposing (Regex)
 import Review.Error as Error
+import Review.Error.Fixes as ErrorFixes
 import Review.Error.Target as Target exposing (Target)
 import Review.FileParser as FileParser
 import Review.Fix as Fix exposing (Fix)
@@ -1783,7 +1784,7 @@ checkMessageAppearsUnder codeInspector error_ expectedError =
 checkFixesAreCorrect : Project -> String -> ReviewError -> ExpectedErrorDetails -> Expectation
 checkFixesAreCorrect (Review.Project.Internal.Project project) moduleName ((Error.ReviewError err) as error_) expectedError =
     case err.fixes of
-        Error.NoFixes ->
+        ErrorFixes.NoFixes ->
             case expectedError.fixedFiles of
                 NoFixesExpected ->
                     Expect.pass
@@ -1806,7 +1807,7 @@ checkFixesAreCorrect (Review.Project.Internal.Project project) moduleName ((Erro
                             }
                         )
 
-        Error.Available dict ->
+        ErrorFixes.Available dict ->
             case expectedError.fixedFiles of
                 NoFixesExpected ->
                     FailureMessage.unexpectedFixes (Rule.errorMessage error_)
@@ -1828,7 +1829,7 @@ checkFixesAreCorrect (Review.Project.Internal.Project project) moduleName ((Erro
                         fixedFiles
                         (Dict.toList dict)
 
-        Error.FailedToApply fixProblem ->
+        ErrorFixes.FailedToApply fixProblem ->
             Expect.fail <| FailureMessage.fixProblem_ fixProblem error_
 
 

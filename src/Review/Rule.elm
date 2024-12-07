@@ -329,6 +329,7 @@ import Review.Cache.Module as ModuleCache
 import Review.Cache.ProjectFile as ProjectFileCache
 import Review.ElmProjectEncoder
 import Review.Error exposing (InternalError)
+import Review.Error.Fixes as ErrorFixes
 import Review.Error.Target as Target exposing (Target)
 import Review.Exceptions as Exceptions exposing (Exceptions)
 import Review.FilePath exposing (FilePath)
@@ -671,7 +672,7 @@ collectConfigurationErrors rules =
                             , message = message
                             , details = details
                             , range = Range.emptyRange
-                            , fixes = Review.Error.NoFixes
+                            , fixes = ErrorFixes.NoFixes
                             , target = Target.Global
                             , preventsExtract = False
                             }
@@ -3891,7 +3892,7 @@ error { message, details } range =
         , filePath = ""
         , details = details
         , range = range
-        , fixes = Review.Error.NoFixes
+        , fixes = ErrorFixes.NoFixes
         , target = Target.Module ""
         , preventsExtract = False
         }
@@ -3954,7 +3955,7 @@ errorForModule (ModuleKey path) { message, details } range =
         , details = details
         , range = range
         , filePath = path
-        , fixes = Review.Error.NoFixes
+        , fixes = ErrorFixes.NoFixes
         , target = Target.Module path
         , preventsExtract = False
         }
@@ -4018,7 +4019,7 @@ errorForElmJson (ElmJsonKey { path, raw }) getErrorInfo =
         , details = errorInfo.details
         , range = errorInfo.range
         , filePath = path
-        , fixes = Review.Error.NoFixes
+        , fixes = ErrorFixes.NoFixes
         , target = Target.ElmJson
         , preventsExtract = False
         }
@@ -4069,7 +4070,7 @@ errorForElmJsonWithFix (ElmJsonKey elmJson) getErrorInfo getFix =
                     ]
                 )
                 (getFix elmJson.project)
-                |> Review.Error.fixesFromMaybe elmJson.path
+                |> ErrorFixes.fixesFromMaybe elmJson.path
         , target = Target.ElmJson
         , preventsExtract = False
         }
@@ -4103,7 +4104,7 @@ errorForReadme (ReadmeKey { path }) { message, details } range =
         , filePath = path
         , details = details
         , range = range
-        , fixes = Review.Error.NoFixes
+        , fixes = ErrorFixes.NoFixes
         , target = Target.Readme
         , preventsExtract = False
         }
@@ -4160,7 +4161,7 @@ errorForExtraFile (ExtraFileKey { path }) { message, details } range =
         , filePath = path
         , details = details
         , range = range
-        , fixes = Review.Error.NoFixes
+        , fixes = ErrorFixes.NoFixes
         , target = Target.ExtraFile path
         , preventsExtract = False
         }
@@ -4193,7 +4194,7 @@ elmReviewGlobalError { message, details } =
         , message = message
         , details = details
         , range = Range.emptyRange
-        , fixes = Review.Error.NoFixes
+        , fixes = ErrorFixes.NoFixes
         , target = Target.Global
         , preventsExtract = False
         }
@@ -4236,7 +4237,7 @@ globalError { message, details } =
         , message = message
         , details = details
         , range = Range.emptyRange
-        , fixes = Review.Error.NoFixes
+        , fixes = ErrorFixes.NoFixes
         , target = Target.UserGlobal
         , preventsExtract = False
         }
@@ -4254,7 +4255,7 @@ parsingError path =
             , "Hint: Try running `elm make`. The compiler should give you better hints on how to resolve the problem."
             ]
         , range = Range.emptyRange
-        , fixes = Review.Error.NoFixes
+        , fixes = ErrorFixes.NoFixes
         , target = Target.Module path
         , preventsExtract = False
         }
@@ -4291,18 +4292,18 @@ withFixes fixes error_ =
     mapInternalError
         (\err ->
             if List.isEmpty fixes then
-                { err | fixes = Review.Error.NoFixes }
+                { err | fixes = ErrorFixes.NoFixes }
 
             else
                 case err.target of
                     Target.Module filePath ->
-                        { err | fixes = Review.Error.Available (Dict.singleton filePath ( err.target, fixes )) }
+                        { err | fixes = ErrorFixes.Available (Dict.singleton filePath ( err.target, fixes )) }
 
                     Target.Readme ->
-                        { err | fixes = Review.Error.Available (Dict.singleton "README.md" ( err.target, fixes )) }
+                        { err | fixes = ErrorFixes.Available (Dict.singleton "README.md" ( err.target, fixes )) }
 
                     Target.ExtraFile filePath ->
-                        { err | fixes = Review.Error.Available (Dict.singleton filePath ( err.target, fixes )) }
+                        { err | fixes = ErrorFixes.Available (Dict.singleton filePath ( err.target, fixes )) }
 
                     Target.ElmJson ->
                         err
@@ -4403,13 +4404,13 @@ withFixesV2 providedFixes error_ =
                 initialFixes : Dict String ( Target, List InternalFix.Fix )
                 initialFixes =
                     case err.fixes of
-                        Review.Error.Available previousFixes ->
+                        ErrorFixes.Available previousFixes ->
                             previousFixes
 
-                        Review.Error.NoFixes ->
+                        ErrorFixes.NoFixes ->
                             Dict.empty
 
-                        Review.Error.FailedToApply _ ->
+                        ErrorFixes.FailedToApply _ ->
                             Dict.empty
 
                 dict : Dict String ( Target, List Fix )
@@ -4435,10 +4436,10 @@ withFixesV2 providedFixes error_ =
                         providedFixes
             in
             if Dict.isEmpty dict then
-                { err | fixes = Review.Error.NoFixes }
+                { err | fixes = ErrorFixes.NoFixes }
 
             else
-                { err | fixes = Review.Error.Available dict }
+                { err | fixes = ErrorFixes.Available dict }
         )
         error_
 
@@ -4483,7 +4484,7 @@ defined any.
 errorFixes : ReviewError -> Maybe (List Fix)
 errorFixes (Review.Error.ReviewError err) =
     case err.fixes of
-        Review.Error.Available fixes ->
+        ErrorFixes.Available fixes ->
             if Dict.size fixes == 1 then
                 Dict.get err.filePath fixes
                     |> Maybe.map Tuple.second
@@ -4491,10 +4492,10 @@ errorFixes (Review.Error.ReviewError err) =
             else
                 Nothing
 
-        Review.Error.NoFixes ->
+        ErrorFixes.NoFixes ->
             Nothing
 
-        Review.Error.FailedToApply _ ->
+        ErrorFixes.FailedToApply _ ->
             Nothing
 
 
@@ -4505,14 +4506,14 @@ defined any.
 errorFixesV2 : Review.Error.ReviewError -> Maybe (Dict String (List Fix))
 errorFixesV2 (Review.Error.ReviewError err) =
     case err.fixes of
-        Review.Error.Available fixes ->
+        ErrorFixes.Available fixes ->
             Dict.map (\_ ( _, fixList ) -> fixList) fixes
                 |> Just
 
-        Review.Error.NoFixes ->
+        ErrorFixes.NoFixes ->
             Nothing
 
-        Review.Error.FailedToApply _ ->
+        ErrorFixes.FailedToApply _ ->
             Nothing
 
 
@@ -4524,13 +4525,13 @@ Note that if the review process was not run in fix mode previously, then this wi
 errorFixFailure : ReviewError -> Maybe Fix.Problem
 errorFixFailure (Review.Error.ReviewError err) =
     case err.fixes of
-        Review.Error.Available _ ->
+        ErrorFixes.Available _ ->
             Nothing
 
-        Review.Error.NoFixes ->
+        ErrorFixes.NoFixes ->
             Nothing
 
-        Review.Error.FailedToApply problem ->
+        ErrorFixes.FailedToApply problem ->
             Just <|
                 case problem of
                     FixProblem.Unchanged ->
@@ -4846,9 +4847,9 @@ qualifyError params (Error err) acc =
                     , target = Target.setCurrentFilePathOnTargetIfNeeded params.filePath err.target
                     , fixes =
                         case err.fixes of
-                            Review.Error.Available dict ->
+                            ErrorFixes.Available dict ->
                                 if Dict.isEmpty dict then
-                                    Review.Error.NoFixes
+                                    ErrorFixes.NoFixes
 
                                 else
                                     case Dict.get "" dict of
@@ -4856,15 +4857,15 @@ qualifyError params (Error err) acc =
                                             dict
                                                 |> Dict.remove ""
                                                 |> Dict.insert params.filePath ( Target.setCurrentFilePathOnTargetIfNeeded params.filePath target, fixes )
-                                                |> Review.Error.Available
+                                                |> ErrorFixes.Available
 
                                         Nothing ->
                                             err.fixes
 
-                            Review.Error.NoFixes ->
+                            ErrorFixes.NoFixes ->
                                 err.fixes
 
-                            Review.Error.FailedToApply _ ->
+                            ErrorFixes.FailedToApply _ ->
                                 err.fixes
                 }
 
@@ -6011,7 +6012,7 @@ applyFix project maybeModuleZipper err ( target, fixes ) =
 isFixable : ({ ruleName : String, filePath : String, message : String, details : List String, range : Range } -> Bool) -> Error {} -> Maybe (Dict String ( Target, List Fix ))
 isFixable predicate (Error err) =
     case err.fixes of
-        Review.Error.Available fixes ->
+        ErrorFixes.Available fixes ->
             -- It's cheaper to check for fixes first and also quite likely to return Nothing
             -- so we do the fixes check first.
             if predicate { ruleName = err.ruleName, filePath = err.filePath, message = err.message, details = err.details, range = err.range } then
@@ -6020,10 +6021,10 @@ isFixable predicate (Error err) =
             else
                 Nothing
 
-        Review.Error.NoFixes ->
+        ErrorFixes.NoFixes ->
             Nothing
 
-        Review.Error.FailedToApply _ ->
+        ErrorFixes.FailedToApply _ ->
             Nothing
 
 

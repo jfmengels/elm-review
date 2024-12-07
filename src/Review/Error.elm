@@ -1,10 +1,16 @@
-module Review.Error exposing (ErrorFixes(..), InternalError, ReviewError(..), doesPreventExtract, error, fixesFromMaybe, markFixesAsProblem, preventExtract)
+module Review.Error exposing
+    ( InternalError
+    , ReviewError(..)
+    , doesPreventExtract
+    , error
+    , markFixesAsProblem
+    , preventExtract
+    )
 
-import Dict exposing (Dict)
 import Elm.Syntax.Range exposing (Range)
+import Review.Error.Fixes as ErrorFixes exposing (ErrorFixes)
 import Review.Error.Target exposing (Target(..))
-import Review.Fix.FixProblem as FixProblem
-import Review.Fix.Internal exposing (Fix)
+import Review.Fix.FixProblem exposing (FixProblem)
 
 
 type ReviewError
@@ -23,25 +29,9 @@ type alias InternalError =
     }
 
 
-type ErrorFixes
-    = NoFixes
-    | Available (Dict String ( Target, List Fix ))
-    | FailedToApply FixProblem.FixProblem
-
-
-fixesFromMaybe : String -> Maybe (List Fix) -> ErrorFixes
-fixesFromMaybe elmJsonPath maybeFixes =
-    case maybeFixes of
-        Just fixes ->
-            Available (Dict.singleton elmJsonPath ( ElmJson, fixes ))
-
-        Nothing ->
-            NoFixes
-
-
-markFixesAsProblem : FixProblem.FixProblem -> InternalError -> InternalError
+markFixesAsProblem : FixProblem -> InternalError -> InternalError
 markFixesAsProblem fixProblem error_ =
-    { error_ | fixes = FailedToApply fixProblem }
+    { error_ | fixes = ErrorFixes.FailedToApply fixProblem }
 
 
 error : { message : String, details : List String } -> Range -> ReviewError
@@ -52,7 +42,7 @@ error { message, details } range =
         , filePath = ""
         , details = details
         , range = range
-        , fixes = NoFixes
+        , fixes = ErrorFixes.NoFixes
         , target = Module ""
         , preventsExtract = False
         }

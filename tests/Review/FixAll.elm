@@ -11,6 +11,7 @@ import Json.Encode as Encode
 import NoUnused.Dependencies
 import NoUnused.Variables
 import Review.Error exposing (ReviewError(..))
+import Review.Error.Fixes as ErrorFixes exposing (ErrorFixes)
 import Review.Error.Target as Target
 import Review.Fix.Internal exposing (Fix(..))
 import Review.Options
@@ -381,22 +382,22 @@ a = 1
         ]
 
 
-fixForFile : Fix -> Review.Error.ErrorFixes
+fixForFile : Fix -> ErrorFixes
 fixForFile fix =
     Dict.singleton "A.elm" ( Target.Module "A.elm", [ fix ] )
-        |> Review.Error.Available
+        |> ErrorFixes.Available
 
 
-fixForElmJson : Fix -> Review.Error.ErrorFixes
+fixForElmJson : Fix -> ErrorFixes
 fixForElmJson fix =
     Dict.singleton "elm.json" ( Target.ElmJson, [ fix ] )
-        |> Review.Error.Available
+        |> ErrorFixes.Available
 
 
-fixForReadme : Fix -> Review.Error.ErrorFixes
+fixForReadme : Fix -> ErrorFixes
 fixForReadme fix =
     Dict.singleton "README.md" ( Target.Readme, [ fix ] )
-        |> Review.Error.Available
+        |> ErrorFixes.Available
 
 
 runWithOptions :
