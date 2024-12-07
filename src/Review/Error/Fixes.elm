@@ -6,7 +6,7 @@ module Review.Error.Fixes exposing
     , isEmpty
     , none
     , qualify
-    , toDict
+    , toList
     )
 
 import Dict exposing (Dict)
@@ -73,9 +73,9 @@ qualify filePath (ErrorFixes dict) =
         |> ErrorFixes
 
 
-toDict : ErrorFixes -> Dict String FileFix
-toDict (ErrorFixes dict) =
-    SimpleAssocList.toDict dict
+toList : ErrorFixes -> List ( String, FileFix )
+toList (ErrorFixes dict) =
+    SimpleAssocList.toList dict
 
 
 isEmpty : ErrorFixes -> Bool

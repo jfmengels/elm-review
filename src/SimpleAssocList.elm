@@ -1,4 +1,4 @@
-module SimpleAssocList exposing (SimpleAssocList, empty, get, insert, isEmpty, mapKeyAndValue, singleton, toDict, upsert)
+module SimpleAssocList exposing (SimpleAssocList, empty, get, insert, isEmpty, mapKeyAndValue, singleton, toDict, toList, upsert)
 
 import Dict exposing (Dict)
 
@@ -74,6 +74,11 @@ remove targetKey list =
 toDict : SimpleAssocList comparable value -> Dict comparable value
 toDict (SimpleAssocList list) =
     Dict.fromList list
+
+
+toList : SimpleAssocList key value -> List ( key, value )
+toList (SimpleAssocList list) =
+    list
 
 
 isEmpty : SimpleAssocList key value -> Bool

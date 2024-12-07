@@ -4467,17 +4467,16 @@ errorFixes (Review.Error.ReviewError err) =
             Nothing
 
         Nothing ->
-            let
-                fixes : Dict String ErrorFixes.FileFix
-                fixes =
-                    ErrorFixes.toDict err.fixes
-            in
-            if Dict.size fixes == 1 then
-                Dict.get err.filePath fixes
-                    |> Maybe.map Tuple.second
+            case ErrorFixes.toList err.fixes of
+                [ ( path, ( _, fixes ) ) ] ->
+                    if path == err.filePath then
+                        Just fixes
 
-            else
-                Nothing
+                    else
+                        Nothing
+
+                _ ->
+                    Nothing
 
 
 {-| Get the automatic [`fixes`](./Review-Fix#Fix) of an [`Error`](#Error), if it
@@ -4495,7 +4494,9 @@ errorFixesV2 (Review.Error.ReviewError err) =
                 Nothing
 
             else
-                Dict.map (\_ ( _, fixList ) -> fixList) (ErrorFixes.toDict err.fixes)
+                ErrorFixes.toList err.fixes
+                    |> List.map (\( key, ( _, fixList ) ) -> ( key, fixList ))
+                    |> Dict.fromList
                     |> Just
 
 
@@ -5884,7 +5885,7 @@ findFixHelp project fixablePredicate errors accErrors maybeModuleZipper =
                     findFixHelp project fixablePredicate restOfErrors (err :: accErrors) maybeModuleZipper
 
                 Just fixDict ->
-                    case Dict.values fixDict of
+                    case fixDict of
                         [] ->
                             findFixHelp project fixablePredicate restOfErrors (err :: accErrors) maybeModuleZipper
 
@@ -5966,7 +5967,7 @@ applyFix project maybeModuleZipper err ( target, fixes ) =
             Err err
 
 
-isFixable : ({ ruleName : String, filePath : String, message : String, details : List String, range : Range } -> Bool) -> Error {} -> Maybe (Dict String ErrorFixes.FileFix)
+isFixable : ({ ruleName : String, filePath : String, message : String, details : List String, range : Range } -> Bool) -> Error {} -> Maybe (List ErrorFixes.FileFix)
 isFixable predicate (Error err) =
     case err.fixProblem of
         Just _ ->
@@ -5976,7 +5977,8 @@ isFixable predicate (Error err) =
             -- It's cheaper to check for fixes first and also quite likely to return Nothing
             -- so we do the fixes check first.
             if predicate { ruleName = err.ruleName, filePath = err.filePath, message = err.message, details = err.details, range = err.range } then
-                ErrorFixes.toDict err.fixes
+                ErrorFixes.toList err.fixes
+                    |> List.map Tuple.second
                     |> Just
 
             else

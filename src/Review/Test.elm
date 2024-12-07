@@ -1796,11 +1796,11 @@ checkFixesHaveNoProblem ((Error.ReviewError err) as error_) =
 checkFixesAreCorrect : Project -> String -> ReviewError -> ExpectedErrorDetails -> Expectation
 checkFixesAreCorrect (Review.Project.Internal.Project project) moduleName ((Error.ReviewError err) as error_) expectedError =
     let
-        dict : Dict String ErrorFixes.FileFix
+        dict : List ( String, ErrorFixes.FileFix )
         dict =
-            ErrorFixes.toDict err.fixes
+            ErrorFixes.toList err.fixes
     in
-    if Dict.isEmpty dict then
+    if List.isEmpty dict then
         case expectedError.fixedFiles of
             NoFixesExpected ->
                 Expect.pass
@@ -1835,7 +1835,7 @@ checkFixesAreCorrect (Review.Project.Internal.Project project) moduleName ((Erro
                     moduleName
                     error_
                     (Dict.singleton err.filePath fixedSource)
-                    (Dict.toList dict)
+                    dict
 
             ComesFromShouldFixFiles fixedFiles ->
                 checkFixesMatch
@@ -1843,7 +1843,7 @@ checkFixesAreCorrect (Review.Project.Internal.Project project) moduleName ((Erro
                     moduleName
                     error_
                     fixedFiles
-                    (Dict.toList dict)
+                    dict
 
 
 checkFixesMatch : ProjectInternals -> String -> ReviewError -> Dict String String -> List ( String, ErrorFixes.FileFix ) -> Expectation
