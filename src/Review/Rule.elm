@@ -4064,15 +4064,11 @@ errorForElmJsonWithFix (ElmJsonKey elmJson) getErrorInfo getFix =
                                 |> Review.ElmProjectEncoder.encode
                                 |> Encode.encode 4
                     in
-                    ErrorFixes.Available
-                        (Dict.singleton elmJson.path
-                            ( Target.ElmJson
-                            , [ Fix.replaceRangeBy
-                                    { start = { row = 1, column = 1 }, end = { row = 100000000, column = 1 } }
-                                    (encoded ++ "\n")
-                              ]
-                            )
-                        )
+                    ErrorFixes.from Target.ElmJson
+                        [ Fix.replaceRangeBy
+                            { start = { row = 1, column = 1 }, end = { row = 100000000, column = 1 } }
+                            (encoded ++ "\n")
+                        ]
 
                 Nothing ->
                     ErrorFixes.NoFixes
@@ -4301,14 +4297,14 @@ withFixes fixes error_ =
 
             else
                 case err.target of
-                    Target.Module filePath ->
-                        { err | fixes = ErrorFixes.Available (Dict.singleton filePath ( err.target, fixes )) }
+                    Target.Module _ ->
+                        { err | fixes = ErrorFixes.from err.target fixes }
 
                     Target.Readme ->
-                        { err | fixes = ErrorFixes.Available (Dict.singleton "README.md" ( err.target, fixes )) }
+                        { err | fixes = ErrorFixes.from err.target fixes }
 
-                    Target.ExtraFile filePath ->
-                        { err | fixes = ErrorFixes.Available (Dict.singleton filePath ( err.target, fixes )) }
+                    Target.ExtraFile _ ->
+                        { err | fixes = ErrorFixes.from err.target fixes }
 
                     Target.ElmJson ->
                         err

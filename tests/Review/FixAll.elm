@@ -384,20 +384,17 @@ a = 1
 
 fixForFile : Fix -> ErrorFixes
 fixForFile fix =
-    Dict.singleton "A.elm" ( Target.Module "A.elm", [ fix ] )
-        |> ErrorFixes.Available
+    ErrorFixes.from (Target.Module "A.elm") [ fix ]
 
 
 fixForElmJson : Fix -> ErrorFixes
 fixForElmJson fix =
-    Dict.singleton "elm.json" ( Target.ElmJson, [ fix ] )
-        |> ErrorFixes.Available
+    ErrorFixes.from Target.ElmJson [ fix ]
 
 
 fixForReadme : Fix -> ErrorFixes
 fixForReadme fix =
-    Dict.singleton "README.md" ( Target.Readme, [ fix ] )
-        |> ErrorFixes.Available
+    ErrorFixes.from Target.Readme [ fix ]
 
 
 runWithOptions :
