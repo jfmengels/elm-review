@@ -329,7 +329,7 @@ import Review.Cache.Module as ModuleCache
 import Review.Cache.ProjectFile as ProjectFileCache
 import Review.ElmProjectEncoder
 import Review.Error exposing (InternalError)
-import Review.Error.FileTarget as FileTarget
+import Review.Error.FileTarget as FileTarget exposing (FileTarget)
 import Review.Error.Fixes as ErrorFixes exposing (ErrorFixes)
 import Review.Error.Target as Target exposing (Target)
 import Review.Exceptions as Exceptions exposing (Exceptions)
@@ -4334,7 +4334,7 @@ withFixes fixes error_ =
 type FixesV2
     = FixesV2
         { path : String
-        , target : Target
+        , target : FileTarget
         , fixes : List Fix
         }
 
@@ -4345,7 +4345,7 @@ fixesForModule : ModuleKey -> List Fix -> FixesV2
 fixesForModule (ModuleKey path) fixes =
     FixesV2
         { path = path
-        , target = Target.module_ path
+        , target = FileTarget.Module path
         , fixes = fixes
         }
 
@@ -4356,7 +4356,7 @@ fixesForExtraFile : ExtraFileKey -> List Fix -> FixesV2
 fixesForExtraFile (ExtraFileKey { path }) fixes =
     FixesV2
         { path = path
-        , target = Target.extraFile path
+        , target = FileTarget.ExtraFile path
         , fixes = fixes
         }
 
@@ -4367,7 +4367,7 @@ fixesForReadme : ReadmeKey -> List Fix -> FixesV2
 fixesForReadme (ReadmeKey { path }) fixes =
     FixesV2
         { path = path
-        , target = Target.readme
+        , target = FileTarget.Readme
         , fixes = fixes
         }
 
@@ -4401,7 +4401,7 @@ fixesForElmJson (ElmJsonKey elmJson) fixer =
     in
     FixesV2
         { path = elmJson.path
-        , target = Target.elmJson
+        , target = FileTarget.ElmJson
         , fixes = fixes
         }
 

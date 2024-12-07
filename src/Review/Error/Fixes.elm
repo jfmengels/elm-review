@@ -10,6 +10,7 @@ module Review.Error.Fixes exposing
     )
 
 import Dict exposing (Dict)
+import Review.Error.FileTarget exposing (FileTarget)
 import Review.Error.Target as Target exposing (Target(..))
 import Review.Fix exposing (Fix)
 import SimpleAssocList exposing (SimpleAssocList)
@@ -39,7 +40,7 @@ from target edits =
             ErrorFixes SimpleAssocList.empty
 
 
-add : List { path : String, target : Target, fixes : List Fix } -> ErrorFixes -> ErrorFixes
+add : List { path : String, target : FileTarget, fixes : List Fix } -> ErrorFixes -> ErrorFixes
 add providedFixes (ErrorFixes initialFixes) =
     List.foldl
         (\{ path, target, fixes } acc ->
@@ -51,10 +52,10 @@ add providedFixes (ErrorFixes initialFixes) =
                     (\maybePreviousFixes ->
                         case maybePreviousFixes of
                             Just ( _, previousFixes_ ) ->
-                                ( target, fixes ++ previousFixes_ )
+                                ( FileTarget target, fixes ++ previousFixes_ )
 
                             Nothing ->
-                                ( target, fixes )
+                                ( FileTarget target, fixes )
                     )
                     acc
         )
