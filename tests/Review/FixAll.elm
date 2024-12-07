@@ -11,6 +11,7 @@ import Json.Encode as Encode
 import NoUnused.Dependencies
 import NoUnused.Variables
 import Review.Error exposing (ReviewError(..))
+import Review.Error.FileTarget as FileTarget
 import Review.Error.Fixes as ErrorFixes exposing (ErrorFixes)
 import Review.Error.Target as Target
 import Review.Fix.Internal exposing (Fix(..))
@@ -391,17 +392,17 @@ a = 1
 
 fixForFile : Fix -> ErrorFixes
 fixForFile fix =
-    ErrorFixes.from (Target.module_ "A.elm") [ fix ]
+    ErrorFixes.from (FileTarget.Module "A.elm") [ fix ]
 
 
 fixForElmJson : Fix -> ErrorFixes
 fixForElmJson fix =
-    ErrorFixes.from Target.elmJson [ fix ]
+    ErrorFixes.from FileTarget.ElmJson [ fix ]
 
 
 fixForReadme : Fix -> ErrorFixes
 fixForReadme fix =
-    ErrorFixes.from Target.readme [ fix ]
+    ErrorFixes.from FileTarget.Readme [ fix ]
 
 
 runWithOptions :

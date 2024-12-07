@@ -4069,7 +4069,7 @@ errorForElmJsonWithFix (ElmJsonKey elmJson) getErrorInfo getFix =
                                 |> Review.ElmProjectEncoder.encode
                                 |> Encode.encode 4
                     in
-                    ErrorFixes.from Target.elmJson
+                    ErrorFixes.from FileTarget.ElmJson
                         [ Fix.replaceRangeBy
                             { start = { row = 1, column = 1 }, end = { row = 100000000, column = 1 } }
                             (encoded ++ "\n")
@@ -4308,17 +4308,11 @@ withFixes fixes error_ =
 
             else
                 case err.target of
-                    Target.FileTarget (FileTarget.Module _) ->
-                        { err | fixes = ErrorFixes.from err.target fixes }
-
-                    Target.FileTarget FileTarget.Readme ->
-                        { err | fixes = ErrorFixes.from err.target fixes }
-
-                    Target.FileTarget (FileTarget.ExtraFile _) ->
-                        { err | fixes = ErrorFixes.from err.target fixes }
-
                     Target.FileTarget FileTarget.ElmJson ->
                         err
+
+                    Target.FileTarget fileTarget ->
+                        { err | fixes = ErrorFixes.from fileTarget fixes }
 
                     Target.Global ->
                         err
@@ -4468,8 +4462,8 @@ errorFixes (Review.Error.ReviewError err) =
 
         Nothing ->
             case ErrorFixes.toList err.fixes of
-                [ ( path, ( _, fixes ) ) ] ->
-                    if path == err.filePath then
+                [ ( target, ( _, fixes ) ) ] ->
+                    if FileTarget.filePath target == err.filePath then
                         Just fixes
 
                     else
@@ -4495,7 +4489,7 @@ errorFixesV2 (Review.Error.ReviewError err) =
 
             else
                 ErrorFixes.toList err.fixes
-                    |> List.map (\( key, ( _, fixList ) ) -> ( key, fixList ))
+                    |> List.map (\( target, ( _, fixList ) ) -> ( FileTarget.filePath target, fixList ))
                     |> Dict.fromList
                     |> Just
 
@@ -5901,7 +5895,7 @@ findFixHelp project fixablePredicate errors accErrors maybeModuleZipper =
                                     findFixHelp project fixablePredicate restOfErrors (nonAppliedError :: accErrors) maybeModuleZipper
 
 
-applyFixes : Maybe (Zipper (Graph.NodeContext FilePath ())) -> Error {} -> List ( Target, List InternalFix.Fix ) -> { project : ValidProject, fixedFile : FixedFile } -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
+applyFixes : Maybe (Zipper (Graph.NodeContext FilePath ())) -> Error {} -> List ErrorFixes.FileFix -> { project : ValidProject, fixedFile : FixedFile } -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
 applyFixes maybeModuleZipper err fixes acc =
     case fixes of
         [] ->
@@ -5945,26 +5939,20 @@ earlierFixedFile a b =
                 b
 
 
-applyFix : ValidProject -> Maybe (Zipper (Graph.NodeContext FilePath ())) -> Error {} -> ( Target, List InternalFix.Fix ) -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
+applyFix : ValidProject -> Maybe (Zipper (Graph.NodeContext FilePath ())) -> Error {} -> ErrorFixes.FileFix -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
 applyFix project maybeModuleZipper err ( target, fixes ) =
     case target of
-        Target.FileTarget (FileTarget.Module targetPath) ->
+        FileTarget.Module targetPath ->
             applySingleModuleFix project maybeModuleZipper err targetPath fixes
 
-        Target.FileTarget FileTarget.ElmJson ->
+        FileTarget.ElmJson ->
             applyElmJsonFix project err fixes
 
-        Target.FileTarget FileTarget.Readme ->
+        FileTarget.Readme ->
             applyReadmeFix project err fixes
 
-        Target.FileTarget (FileTarget.ExtraFile targetPath) ->
+        FileTarget.ExtraFile targetPath ->
             applyExtraFileFix project err targetPath fixes
-
-        Target.Global ->
-            Err err
-
-        Target.UserGlobal ->
-            Err err
 
 
 isFixable : ({ ruleName : String, filePath : String, message : String, details : List String, range : Range } -> Bool) -> Error {} -> Maybe (List ErrorFixes.FileFix)

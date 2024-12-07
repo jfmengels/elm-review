@@ -9,19 +9,17 @@ module Review.Error.Fixes exposing
     , toList
     )
 
-import Dict exposing (Dict)
-import Review.Error.FileTarget exposing (FileTarget)
-import Review.Error.Target as Target exposing (Target(..))
+import Review.Error.FileTarget as FileTarget exposing (FileTarget)
 import Review.Fix exposing (Fix)
 import SimpleAssocList exposing (SimpleAssocList)
 
 
 type ErrorFixes
-    = ErrorFixes (SimpleAssocList String FileFix)
+    = ErrorFixes (SimpleAssocList FileTarget FileFix)
 
 
 type alias FileFix =
-    ( Target, List Fix )
+    ( FileTarget, List Fix )
 
 
 none : ErrorFixes
@@ -29,15 +27,10 @@ none =
     ErrorFixes SimpleAssocList.empty
 
 
-from : Target -> List Fix -> ErrorFixes
+from : FileTarget -> List Fix -> ErrorFixes
 from target edits =
-    case Target.filePath target of
-        Just filePath ->
-            SimpleAssocList.singleton filePath ( target, edits )
-                |> ErrorFixes
-
-        Nothing ->
-            ErrorFixes SimpleAssocList.empty
+    SimpleAssocList.singleton target ( target, edits )
+        |> ErrorFixes
 
 
 add : List { path : String, target : FileTarget, fixes : List Fix } -> ErrorFixes -> ErrorFixes
@@ -48,14 +41,14 @@ add providedFixes (ErrorFixes initialFixes) =
                 acc
 
             else
-                SimpleAssocList.upsert path
+                SimpleAssocList.upsert target
                     (\maybePreviousFixes ->
                         case maybePreviousFixes of
                             Just ( _, previousFixes_ ) ->
-                                ( FileTarget target, fixes ++ previousFixes_ )
+                                ( target, fixes ++ previousFixes_ )
 
                             Nothing ->
-                                ( FileTarget target, fixes )
+                                ( target, fixes )
                     )
                     acc
         )
@@ -66,15 +59,15 @@ add providedFixes (ErrorFixes initialFixes) =
 
 qualify : String -> ErrorFixes -> ErrorFixes
 qualify filePath (ErrorFixes dict) =
-    SimpleAssocList.mapKeyAndValue ""
+    SimpleAssocList.mapKeyAndValue (FileTarget.Module "")
         (\( target, fixes ) ->
-            ( filePath, ( Target.setCurrentFilePathOnTargetIfNeeded filePath target, fixes ) )
+            ( FileTarget.setCurrentFilePathOnTargetIfNeeded filePath target, ( FileTarget.setCurrentFilePathOnTargetIfNeeded filePath target, fixes ) )
         )
         dict
         |> ErrorFixes
 
 
-toList : ErrorFixes -> List ( String, FileFix )
+toList : ErrorFixes -> List ( FileTarget, FileFix )
 toList (ErrorFixes dict) =
     SimpleAssocList.toList dict
 

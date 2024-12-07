@@ -136,7 +136,7 @@ import Json.Decode as Decode
 import Json.Encode as Encode
 import Regex exposing (Regex)
 import Review.Error as Error
-import Review.Error.FileTarget as FileTarget
+import Review.Error.FileTarget as FileTarget exposing (FileTarget)
 import Review.Error.Fixes as ErrorFixes exposing (ErrorFixes(..))
 import Review.Error.Target as Target exposing (Target)
 import Review.FileParser as FileParser
@@ -1796,7 +1796,7 @@ checkFixesHaveNoProblem ((Error.ReviewError err) as error_) =
 checkFixesAreCorrect : Project -> String -> ReviewError -> ExpectedErrorDetails -> Expectation
 checkFixesAreCorrect (Review.Project.Internal.Project project) moduleName ((Error.ReviewError err) as error_) expectedError =
     let
-        dict : List ( String, ErrorFixes.FileFix )
+        dict : List ( FileTarget, ErrorFixes.FileFix )
         dict =
             ErrorFixes.toList err.fixes
     in
@@ -1846,7 +1846,7 @@ checkFixesAreCorrect (Review.Project.Internal.Project project) moduleName ((Erro
                     dict
 
 
-checkFixesMatch : ProjectInternals -> String -> ReviewError -> Dict String String -> List ( String, ErrorFixes.FileFix ) -> Expectation
+checkFixesMatch : ProjectInternals -> String -> ReviewError -> Dict String String -> List ( FileTarget, ErrorFixes.FileFix ) -> Expectation
 checkFixesMatch project moduleName error_ expectedFixed fixes =
     case fixes of
         [] ->
@@ -1864,7 +1864,7 @@ checkFixesMatch project moduleName error_ expectedFixed fixes =
         ( filePath, ( target, fileFixes ) ) :: rest ->
             case getTargetFileFromProject target project of
                 Just targetInformation ->
-                    case getExpectedFixedCodeThroughFilePathOrModuleName filePath targetInformation.moduleName expectedFixed of
+                    case getExpectedFixedCodeThroughFilePathOrModuleName (FileTarget.filePath target) targetInformation.moduleName expectedFixed of
                         Just { key, expectedFixedSource } ->
                             case fixOneError target fileFixes targetInformation.source expectedFixedSource error_ of
                                 Err failureMessage ->
@@ -1882,13 +1882,13 @@ checkFixesMatch project moduleName error_ expectedFixed fixes =
                             FailureMessage.unexpectedAdditionalFixes
                                 { moduleName = moduleName
                                 , message = Rule.errorMessage error_
-                                , nameOfFixedFile = filePath
+                                , nameOfFixedFile = FileTarget.filePath filePath
                                 , fixedSource = targetInformation.source
                                 }
                                 |> Expect.fail
 
                 Nothing ->
-                    FailureMessage.fixForUnknownFile filePath
+                    FailureMessage.fixForUnknownFile (FileTarget.filePath filePath)
                         |> Expect.fail
 
 
@@ -1912,7 +1912,7 @@ getExpectedFixedCodeThroughFilePathOrModuleName filePath moduleName expectedFixe
                     )
 
 
-fixOneError : Target -> List Fix -> String -> String -> ReviewError -> Result String ()
+fixOneError : FileTarget -> List Fix -> String -> String -> ReviewError -> Result String ()
 fixOneError target fileFixes source expectedFixedSource error_ =
     case Fix.fix target fileFixes source of
         Fix.Successful fixedSource ->
@@ -1949,10 +1949,10 @@ whitespaceBeforeNewLine =
         |> Maybe.withDefault Regex.never
 
 
-getTargetFileFromProject : Target -> ProjectInternals -> Maybe { source : String, moduleName : Maybe String }
+getTargetFileFromProject : FileTarget -> ProjectInternals -> Maybe { source : String, moduleName : Maybe String }
 getTargetFileFromProject target project =
     case target of
-        Target.FileTarget (FileTarget.Module filePath) ->
+        FileTarget.Module filePath ->
             Dict.get filePath project.modules
                 |> Maybe.map
                     (\module_ ->
@@ -1961,21 +1961,15 @@ getTargetFileFromProject target project =
                         }
                     )
 
-        Target.FileTarget FileTarget.ElmJson ->
+        FileTarget.ElmJson ->
             Maybe.map (\( { raw }, _ ) -> { source = raw, moduleName = Nothing }) project.elmJson
 
-        Target.FileTarget FileTarget.Readme ->
+        FileTarget.Readme ->
             Maybe.map (\( { content }, _ ) -> { source = content, moduleName = Nothing }) project.readme
 
-        Target.FileTarget (FileTarget.ExtraFile filePath) ->
+        FileTarget.ExtraFile filePath ->
             Dict.get filePath project.extraFiles
                 |> Maybe.map (\content -> { source = content, moduleName = Nothing })
-
-        Target.Global ->
-            Nothing
-
-        Target.UserGlobal ->
-            Nothing
 
 
 removeWhitespace : String -> String
