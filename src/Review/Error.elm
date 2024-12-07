@@ -24,6 +24,7 @@ type alias InternalError =
     , details : List String
     , range : Range
     , fixes : ErrorFixes
+    , fixProblem : Maybe FixProblem
     , target : Target
     , preventsExtract : Bool
     }
@@ -31,7 +32,7 @@ type alias InternalError =
 
 markFixesAsProblem : FixProblem -> InternalError -> InternalError
 markFixesAsProblem fixProblem error_ =
-    { error_ | fixes = ErrorFixes.FailedToApply fixProblem }
+    { error_ | fixProblem = Just fixProblem }
 
 
 error : { message : String, details : List String } -> Range -> ReviewError
@@ -43,6 +44,7 @@ error { message, details } range =
         , details = details
         , range = range
         , fixes = ErrorFixes.NoFixes
+        , fixProblem = Nothing
         , target = Module ""
         , preventsExtract = False
         }

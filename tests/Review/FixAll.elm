@@ -87,6 +87,7 @@ a = 1
                                             , details = [ "You should either use this value somewhere, or remove it at the location I pointed at." ]
                                             , filePath = "A.elm"
                                             , fixes = fixForFile (Removal { end = { column = 1, row = 5 }, start = { column = 1, row = 4 } })
+                                            , fixProblem = Nothing
                                             , preventsExtract = False
                                             , range = { end = { column = 2, row = 4 }, start = { column = 1, row = 4 } }
                                             , ruleName = "NoUnused.Variables"
@@ -97,6 +98,7 @@ a = 1
                                             , details = [ "You should either use this value somewhere, or remove it at the location I pointed at." ]
                                             , filePath = "A.elm"
                                             , fixes = fixForFile (Removal { end = { column = 1, row = 5 }, start = { column = 1, row = 4 } })
+                                            , fixProblem = Nothing
                                             , preventsExtract = False
                                             , range = { end = { column = 2, row = 4 }, start = { column = 1, row = 4 } }
                                             , ruleName = "NoUnused.Variables"
@@ -157,6 +159,7 @@ d = 1
                                             , details = [ "You should either use this value somewhere, or remove it at the location I pointed at." ]
                                             , filePath = "A.elm"
                                             , fixes = fixForFile (Removal { end = { column = 1, row = 5 }, start = { column = 1, row = 4 } })
+                                            , fixProblem = Nothing
                                             , preventsExtract = False
                                             , range = { end = { column = 2, row = 4 }, start = { column = 1, row = 4 } }
                                             , ruleName = "NoUnused.Variables"
@@ -167,6 +170,7 @@ d = 1
                                             , details = [ "You should either use this value somewhere, or remove it at the location I pointed at." ]
                                             , filePath = "A.elm"
                                             , fixes = fixForFile (Removal { end = { column = 1, row = 5 }, start = { column = 1, row = 4 } })
+                                            , fixProblem = Nothing
                                             , preventsExtract = False
                                             , range = { end = { column = 2, row = 4 }, start = { column = 1, row = 4 } }
                                             , ruleName = "NoUnused.Variables"
@@ -237,6 +241,7 @@ a = 1
     }
 }
 """)
+                                            , fixProblem = Nothing
                                             , preventsExtract = False
                                             , range = { end = { column = 51, row = 9 }, start = { column = 35, row = 9 } }
                                             , ruleName = "NoUnused.Dependencies"
@@ -313,6 +318,7 @@ a = 1
     }
 }
 """)
+                                            , fixProblem = Nothing
                                             , preventsExtract = False
                                             , range = { end = { column = 51, row = 9 }, start = { column = 35, row = 9 } }
                                             , ruleName = "NoUnused.Dependencies"
@@ -365,6 +371,7 @@ a = 1
                                             , details = [ "I suggest to run elm-review --fix to get the correct link." ]
                                             , filePath = "README.md"
                                             , fixes = fixForReadme (Replacement { end = { column = 68, row = 1 }, start = { column = 8, row = 1 } } "https://package.elm-lang.org/packages/author/package/1.0.0/A/")
+                                            , fixProblem = Nothing
                                             , preventsExtract = False
                                             , range = { end = { column = 68, row = 1 }, start = { column = 8, row = 1 } }
                                             , ruleName = "Docs.UpToDateReadmeLinks"

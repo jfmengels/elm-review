@@ -673,6 +673,7 @@ collectConfigurationErrors rules =
                             , details = details
                             , range = Range.emptyRange
                             , fixes = ErrorFixes.NoFixes
+                            , fixProblem = Nothing
                             , target = Target.Global
                             , preventsExtract = False
                             }
@@ -3893,6 +3894,7 @@ error { message, details } range =
         , details = details
         , range = range
         , fixes = ErrorFixes.NoFixes
+        , fixProblem = Nothing
         , target = Target.Module ""
         , preventsExtract = False
         }
@@ -3956,6 +3958,7 @@ errorForModule (ModuleKey path) { message, details } range =
         , range = range
         , filePath = path
         , fixes = ErrorFixes.NoFixes
+        , fixProblem = Nothing
         , target = Target.Module path
         , preventsExtract = False
         }
@@ -4020,6 +4023,7 @@ errorForElmJson (ElmJsonKey { path, raw }) getErrorInfo =
         , range = errorInfo.range
         , filePath = path
         , fixes = ErrorFixes.NoFixes
+        , fixProblem = Nothing
         , target = Target.ElmJson
         , preventsExtract = False
         }
@@ -4072,6 +4076,7 @@ errorForElmJsonWithFix (ElmJsonKey elmJson) getErrorInfo getFix =
 
                 Nothing ->
                     ErrorFixes.NoFixes
+        , fixProblem = Nothing
         , target = Target.ElmJson
         , preventsExtract = False
         }
@@ -4106,6 +4111,7 @@ errorForReadme (ReadmeKey { path }) { message, details } range =
         , details = details
         , range = range
         , fixes = ErrorFixes.NoFixes
+        , fixProblem = Nothing
         , target = Target.Readme
         , preventsExtract = False
         }
@@ -4163,6 +4169,7 @@ errorForExtraFile (ExtraFileKey { path }) { message, details } range =
         , details = details
         , range = range
         , fixes = ErrorFixes.NoFixes
+        , fixProblem = Nothing
         , target = Target.ExtraFile path
         , preventsExtract = False
         }
@@ -4196,6 +4203,7 @@ elmReviewGlobalError { message, details } =
         , details = details
         , range = Range.emptyRange
         , fixes = ErrorFixes.NoFixes
+        , fixProblem = Nothing
         , target = Target.Global
         , preventsExtract = False
         }
@@ -4239,6 +4247,7 @@ globalError { message, details } =
         , details = details
         , range = Range.emptyRange
         , fixes = ErrorFixes.NoFixes
+        , fixProblem = Nothing
         , target = Target.UserGlobal
         , preventsExtract = False
         }
@@ -4257,6 +4266,7 @@ parsingError path =
             ]
         , range = Range.emptyRange
         , fixes = ErrorFixes.NoFixes
+        , fixProblem = Nothing
         , target = Target.Module path
         , preventsExtract = False
         }
@@ -4411,9 +4421,6 @@ withFixesV2 providedFixes error_ =
                         ErrorFixes.NoFixes ->
                             Dict.empty
 
-                        ErrorFixes.FailedToApply _ ->
-                            Dict.empty
-
                 dict : Dict String ErrorFixes.FileFix
                 dict =
                     List.foldl
@@ -4484,20 +4491,22 @@ defined any.
 -}
 errorFixes : ReviewError -> Maybe (List Fix)
 errorFixes (Review.Error.ReviewError err) =
-    case err.fixes of
-        ErrorFixes.Available fixes ->
-            if Dict.size fixes == 1 then
-                Dict.get err.filePath fixes
-                    |> Maybe.map Tuple.second
-
-            else
-                Nothing
-
-        ErrorFixes.NoFixes ->
+    case err.fixProblem of
+        Just _ ->
             Nothing
 
-        ErrorFixes.FailedToApply _ ->
-            Nothing
+        Nothing ->
+            case err.fixes of
+                ErrorFixes.Available fixes ->
+                    if Dict.size fixes == 1 then
+                        Dict.get err.filePath fixes
+                            |> Maybe.map Tuple.second
+
+                    else
+                        Nothing
+
+                ErrorFixes.NoFixes ->
+                    Nothing
 
 
 {-| Get the automatic [`fixes`](./Review-Fix#Fix) of an [`Error`](#Error), if it
@@ -4506,16 +4515,18 @@ defined any.
 -}
 errorFixesV2 : Review.Error.ReviewError -> Maybe (Dict String (List Fix))
 errorFixesV2 (Review.Error.ReviewError err) =
-    case err.fixes of
-        ErrorFixes.Available fixes ->
-            Dict.map (\_ ( _, fixList ) -> fixList) fixes
-                |> Just
-
-        ErrorFixes.NoFixes ->
+    case err.fixProblem of
+        Just _ ->
             Nothing
 
-        ErrorFixes.FailedToApply _ ->
-            Nothing
+        Nothing ->
+            case err.fixes of
+                ErrorFixes.Available fixes ->
+                    Dict.map (\_ ( _, fixList ) -> fixList) fixes
+                        |> Just
+
+                ErrorFixes.NoFixes ->
+                    Nothing
 
 
 {-| Get the reason why the fix for an error failed when its available automatic fix was attempted and deemed incorrect.
@@ -4525,24 +4536,20 @@ Note that if the review process was not run in fix mode previously, then this wi
 -}
 errorFixFailure : ReviewError -> Maybe Fix.Problem
 errorFixFailure (Review.Error.ReviewError err) =
-    case err.fixes of
-        ErrorFixes.Available _ ->
+    case err.fixProblem of
+        Just fixProblem ->
+            case fixProblem of
+                FixProblem.Unchanged ->
+                    Just Fix.Unchanged
+
+                FixProblem.SourceCodeIsNotValid string ->
+                    Just (Fix.SourceCodeIsNotValid string)
+
+                FixProblem.HasCollisionsInFixRanges ->
+                    Just Fix.HasCollisionsInFixRanges
+
+        Nothing ->
             Nothing
-
-        ErrorFixes.NoFixes ->
-            Nothing
-
-        ErrorFixes.FailedToApply problem ->
-            Just <|
-                case problem of
-                    FixProblem.Unchanged ->
-                        Fix.Unchanged
-
-                    FixProblem.SourceCodeIsNotValid string ->
-                        Fix.SourceCodeIsNotValid string
-
-                    FixProblem.HasCollisionsInFixRanges ->
-                        Fix.HasCollisionsInFixRanges
 
 
 {-| Get the file path of an [`Error`](#Error).
@@ -4864,9 +4871,6 @@ qualifyError params (Error err) acc =
                                             err.fixes
 
                             ErrorFixes.NoFixes ->
-                                err.fixes
-
-                            ErrorFixes.FailedToApply _ ->
                                 err.fixes
                 }
 
@@ -6012,21 +6016,23 @@ applyFix project maybeModuleZipper err ( target, fixes ) =
 
 isFixable : ({ ruleName : String, filePath : String, message : String, details : List String, range : Range } -> Bool) -> Error {} -> Maybe (Dict String ErrorFixes.FileFix)
 isFixable predicate (Error err) =
-    case err.fixes of
-        ErrorFixes.Available fixes ->
-            -- It's cheaper to check for fixes first and also quite likely to return Nothing
-            -- so we do the fixes check first.
-            if predicate { ruleName = err.ruleName, filePath = err.filePath, message = err.message, details = err.details, range = err.range } then
-                Just fixes
-
-            else
-                Nothing
-
-        ErrorFixes.NoFixes ->
+    case err.fixProblem of
+        Just _ ->
             Nothing
 
-        ErrorFixes.FailedToApply _ ->
-            Nothing
+        Nothing ->
+            case err.fixes of
+                ErrorFixes.Available fixes ->
+                    -- It's cheaper to check for fixes first and also quite likely to return Nothing
+                    -- so we do the fixes check first.
+                    if predicate { ruleName = err.ruleName, filePath = err.filePath, message = err.message, details = err.details, range = err.range } then
+                        Just fixes
+
+                    else
+                        Nothing
+
+                ErrorFixes.NoFixes ->
+                    Nothing
 
 
 applySingleModuleFix : ValidProject -> Maybe (Zipper (Graph.NodeContext FilePath ())) -> Error {} -> String -> List InternalFix.Fix -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }

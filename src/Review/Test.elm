@@ -1728,6 +1728,7 @@ checkErrorMatch project runResult (ExpectedError expectedError) error_ =
                         |> onFail (\() -> FailureMessage.unexpectedDetails expectedError.details error_)
 
         -- Error fixes
+        , \() -> checkFixesHaveNoProblem error_
         , \() -> checkFixesAreCorrect project runResult.moduleName error_ expectedError
         ]
 
@@ -1781,6 +1782,16 @@ checkMessageAppearsUnder codeInspector error_ expectedError =
                     |> Expect.fail
 
 
+checkFixesHaveNoProblem : ReviewError -> Expectation
+checkFixesHaveNoProblem ((Error.ReviewError err) as error_) =
+    case err.fixProblem of
+        Just fixProblem ->
+            Expect.fail <| FailureMessage.fixProblem_ fixProblem error_
+
+        Nothing ->
+            Expect.pass
+
+
 checkFixesAreCorrect : Project -> String -> ReviewError -> ExpectedErrorDetails -> Expectation
 checkFixesAreCorrect (Review.Project.Internal.Project project) moduleName ((Error.ReviewError err) as error_) expectedError =
     case err.fixes of
@@ -1828,9 +1839,6 @@ checkFixesAreCorrect (Review.Project.Internal.Project project) moduleName ((Erro
                         error_
                         fixedFiles
                         (Dict.toList dict)
-
-        ErrorFixes.FailedToApply fixProblem ->
-            Expect.fail <| FailureMessage.fixProblem_ fixProblem error_
 
 
 checkFixesMatch : ProjectInternals -> String -> ReviewError -> Dict String String -> List ( String, ErrorFixes.FileFix ) -> Expectation
