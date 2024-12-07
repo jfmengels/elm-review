@@ -27,12 +27,7 @@ insert range =
 
 modify : Range -> (v -> v) -> RangeDict v -> RangeDict v
 modify range mapper dict =
-    let
-        key : String
-        key =
-            rangeAsString range
-    in
-    case Dict.get key dict of
+    case Dict.get (rangeAsString range) dict of
         Just value ->
             Dict.insert (rangeAsString range) (mapper value) dict
 
