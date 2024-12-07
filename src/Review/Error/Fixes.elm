@@ -28,10 +28,10 @@ from target edits =
         |> ErrorFixes
 
 
-add : List { path : String, target : FileTarget, fixes : List Fix } -> ErrorFixes -> ErrorFixes
+add : List { target : FileTarget, fixes : List Fix } -> ErrorFixes -> ErrorFixes
 add providedFixes (ErrorFixes initialFixes) =
     List.foldl
-        (\{ path, target, fixes } acc ->
+        (\{ target, fixes } acc ->
             if List.isEmpty fixes then
                 acc
 

@@ -4327,8 +4327,7 @@ withFixes fixes error_ =
 -}
 type FixesV2
     = FixesV2
-        { path : String
-        , target : FileTarget
+        { target : FileTarget
         , fixes : List Fix
         }
 
@@ -4338,8 +4337,7 @@ type FixesV2
 fixesForModule : ModuleKey -> List Fix -> FixesV2
 fixesForModule (ModuleKey path) fixes =
     FixesV2
-        { path = path
-        , target = FileTarget.Module path
+        { target = FileTarget.Module path
         , fixes = fixes
         }
 
@@ -4349,8 +4347,7 @@ fixesForModule (ModuleKey path) fixes =
 fixesForExtraFile : ExtraFileKey -> List Fix -> FixesV2
 fixesForExtraFile (ExtraFileKey { path }) fixes =
     FixesV2
-        { path = path
-        , target = FileTarget.ExtraFile path
+        { target = FileTarget.ExtraFile path
         , fixes = fixes
         }
 
@@ -4360,8 +4357,7 @@ fixesForExtraFile (ExtraFileKey { path }) fixes =
 fixesForReadme : ReadmeKey -> List Fix -> FixesV2
 fixesForReadme (ReadmeKey { path }) fixes =
     FixesV2
-        { path = path
-        , target = FileTarget.Readme
+        { target = FileTarget.Readme
         , fixes = fixes
         }
 
@@ -4394,8 +4390,7 @@ fixesForElmJson (ElmJsonKey elmJson) fixer =
                     []
     in
     FixesV2
-        { path = elmJson.path
-        , target = FileTarget.ElmJson
+        { target = FileTarget.ElmJson
         , fixes = fixes
         }
 
