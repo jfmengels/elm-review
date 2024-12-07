@@ -1,4 +1,11 @@
-module Review.Error.Fixes exposing (ErrorFixes(..), FileFix, add, from, qualify)
+module Review.Error.Fixes exposing
+    ( ErrorFixes(..)
+    , FileFix
+    , add
+    , from
+    , none
+    , qualify
+    )
 
 import Dict exposing (Dict)
 import Review.Error.Target as Target exposing (Target(..))
@@ -12,6 +19,11 @@ type ErrorFixes
 
 type alias FileFix =
     ( Target, List Fix )
+
+
+none : ErrorFixes
+none =
+    NoFixes
 
 
 from : Target -> List Fix -> ErrorFixes

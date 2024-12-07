@@ -672,7 +672,7 @@ collectConfigurationErrors rules =
                             , message = message
                             , details = details
                             , range = Range.emptyRange
-                            , fixes = ErrorFixes.NoFixes
+                            , fixes = ErrorFixes.none
                             , fixProblem = Nothing
                             , target = Target.Global
                             , preventsExtract = False
@@ -3893,7 +3893,7 @@ error { message, details } range =
         , filePath = ""
         , details = details
         , range = range
-        , fixes = ErrorFixes.NoFixes
+        , fixes = ErrorFixes.none
         , fixProblem = Nothing
         , target = Target.Module ""
         , preventsExtract = False
@@ -3957,7 +3957,7 @@ errorForModule (ModuleKey path) { message, details } range =
         , details = details
         , range = range
         , filePath = path
-        , fixes = ErrorFixes.NoFixes
+        , fixes = ErrorFixes.none
         , fixProblem = Nothing
         , target = Target.Module path
         , preventsExtract = False
@@ -4022,7 +4022,7 @@ errorForElmJson (ElmJsonKey { path, raw }) getErrorInfo =
         , details = errorInfo.details
         , range = errorInfo.range
         , filePath = path
-        , fixes = ErrorFixes.NoFixes
+        , fixes = ErrorFixes.none
         , fixProblem = Nothing
         , target = Target.ElmJson
         , preventsExtract = False
@@ -4075,7 +4075,7 @@ errorForElmJsonWithFix (ElmJsonKey elmJson) getErrorInfo getFix =
                         ]
 
                 Nothing ->
-                    ErrorFixes.NoFixes
+                    ErrorFixes.none
         , fixProblem = Nothing
         , target = Target.ElmJson
         , preventsExtract = False
@@ -4110,7 +4110,7 @@ errorForReadme (ReadmeKey { path }) { message, details } range =
         , filePath = path
         , details = details
         , range = range
-        , fixes = ErrorFixes.NoFixes
+        , fixes = ErrorFixes.none
         , fixProblem = Nothing
         , target = Target.Readme
         , preventsExtract = False
@@ -4168,7 +4168,7 @@ errorForExtraFile (ExtraFileKey { path }) { message, details } range =
         , filePath = path
         , details = details
         , range = range
-        , fixes = ErrorFixes.NoFixes
+        , fixes = ErrorFixes.none
         , fixProblem = Nothing
         , target = Target.ExtraFile path
         , preventsExtract = False
@@ -4202,7 +4202,7 @@ elmReviewGlobalError { message, details } =
         , message = message
         , details = details
         , range = Range.emptyRange
-        , fixes = ErrorFixes.NoFixes
+        , fixes = ErrorFixes.none
         , fixProblem = Nothing
         , target = Target.Global
         , preventsExtract = False
@@ -4246,7 +4246,7 @@ globalError { message, details } =
         , message = message
         , details = details
         , range = Range.emptyRange
-        , fixes = ErrorFixes.NoFixes
+        , fixes = ErrorFixes.none
         , fixProblem = Nothing
         , target = Target.UserGlobal
         , preventsExtract = False
@@ -4265,7 +4265,7 @@ parsingError path =
             , "Hint: Try running `elm make`. The compiler should give you better hints on how to resolve the problem."
             ]
         , range = Range.emptyRange
-        , fixes = ErrorFixes.NoFixes
+        , fixes = ErrorFixes.none
         , fixProblem = Nothing
         , target = Target.Module path
         , preventsExtract = False
@@ -4303,7 +4303,7 @@ withFixes fixes error_ =
     mapInternalError
         (\err ->
             if List.isEmpty fixes then
-                { err | fixes = ErrorFixes.NoFixes }
+                { err | fixes = ErrorFixes.none }
 
             else
                 case err.target of
