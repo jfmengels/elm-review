@@ -1,4 +1,8 @@
-module Review.Error.Target exposing (..)
+module Review.Error.Target exposing
+    ( Target(..)
+    , filePath
+    , setCurrentFilePathOnTargetIfNeeded
+    )
 
 
 type Target
@@ -33,3 +37,25 @@ setCurrentFilePathOnTargetIfNeeded path target =
 
         UserGlobal ->
             target
+
+
+filePath : Target -> Maybe String
+filePath target =
+    case target of
+        Module path ->
+            Just path
+
+        ElmJson ->
+            Just "elm.json"
+
+        Readme ->
+            Just "README.md"
+
+        ExtraFile path ->
+            Just path
+
+        Global ->
+            Nothing
+
+        UserGlobal ->
+            Nothing
