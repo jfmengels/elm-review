@@ -109,7 +109,7 @@ all =
 
 unusedTests : String -> Project -> Test
 unusedTests typeOfProject project =
-    describe ("Unused variables for " ++ typeOfProject)
+    describe ("Unused constructors for " ++ typeOfProject)
         [ test "should not report non-exposed variables" <|
             \() ->
                 """
