@@ -4490,16 +4490,11 @@ errorFixesV2 (Review.Error.ReviewError err) =
             Nothing
 
         Nothing ->
-            let
-                fixes : Dict String ErrorFixes.FileFix
-                fixes =
-                    ErrorFixes.toDict err.fixes
-            in
-            if Dict.isEmpty fixes then
+            if ErrorFixes.isEmpty err.fixes then
                 Nothing
 
             else
-                Dict.map (\_ ( _, fixList ) -> fixList) fixes
+                Dict.map (\_ ( _, fixList ) -> fixList) (ErrorFixes.toDict err.fixes)
                     |> Just
 
 

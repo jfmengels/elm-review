@@ -3,6 +3,7 @@ module Review.Error.Fixes exposing
     , FileFix
     , add
     , from
+    , isEmpty
     , none
     , qualify
     , toDict
@@ -75,3 +76,8 @@ qualify filePath (ErrorFixes dict) =
 toDict : ErrorFixes -> Dict String FileFix
 toDict (ErrorFixes dict) =
     SimpleAssocList.toDict dict
+
+
+isEmpty : ErrorFixes -> Bool
+isEmpty (ErrorFixes dict) =
+    SimpleAssocList.isEmpty dict
