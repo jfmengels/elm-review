@@ -4473,8 +4473,9 @@ errorFixes (Review.Error.ReviewError err) =
 {-| Get the automatic [`fixes`](./Review-Fix#Fix) of an [`Error`](#Error), if it
 defined any.
 -- TODO MULTIFILE-FIXES Update documentation
+-- TODO MULTIFILE-FIXES Expose something less likely to change
 -}
-errorFixesV2 : Review.Error.ReviewError -> Maybe (Dict String (List Fix))
+errorFixesV2 : Review.Error.ReviewError -> Maybe (Dict String ErrorFixes.FixKind)
 errorFixesV2 (Review.Error.ReviewError err) =
     case err.fixProblem of
         Just _ ->
@@ -4486,7 +4487,7 @@ errorFixesV2 (Review.Error.ReviewError err) =
 
             else
                 ErrorFixes.toList err.fixes
-                    |> List.map (\( target, ErrorFixes.Edit fixList ) -> ( FileTarget.filePath target, fixList ))
+                    |> List.map (\( target, fixList ) -> ( FileTarget.filePath target, fixList ))
                     |> Dict.fromList
                     |> Just
 
