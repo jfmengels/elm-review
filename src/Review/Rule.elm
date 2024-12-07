@@ -4055,8 +4055,8 @@ errorForElmJsonWithFix (ElmJsonKey elmJson) getErrorInfo getFix =
         , range = errorInfo.range
         , filePath = elmJson.path
         , fixes =
-            Maybe.map
-                (\updatedProject ->
+            case getFix elmJson.project of
+                Just updatedProject ->
                     let
                         encoded : String
                         encoded =
@@ -4068,9 +4068,11 @@ errorForElmJsonWithFix (ElmJsonKey elmJson) getErrorInfo getFix =
                         { start = { row = 1, column = 1 }, end = { row = 100000000, column = 1 } }
                         (encoded ++ "\n")
                     ]
-                )
-                (getFix elmJson.project)
-                |> ErrorFixes.fixesFromMaybe elmJson.path
+                        |> Just
+                        |> ErrorFixes.fixesFromMaybe elmJson.path
+
+                Nothing ->
+                    ErrorFixes.NoFixes
         , target = Target.ElmJson
         , preventsExtract = False
         }
