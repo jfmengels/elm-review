@@ -11,10 +11,10 @@ type Target
 
 
 setCurrentFilePathOnTargetIfNeeded : String -> Target -> Target
-setCurrentFilePathOnTargetIfNeeded filePath target =
+setCurrentFilePathOnTargetIfNeeded path target =
     case target of
         Module "" ->
-            Module filePath
+            Module path
 
         ExtraFile _ ->
             target
