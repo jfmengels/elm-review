@@ -1,4 +1,4 @@
-module SimpleAssocList exposing (SimpleAssocList, empty, get, insert, isEmpty, mapKeyAndValue, singleton, toDict, toList, upsert)
+module SimpleAssocList exposing (SimpleAssocList, empty, get, insert, isEmpty, mapKeyAndValue, singleton, toDict, toList, update)
 
 import Dict exposing (Dict)
 
@@ -22,14 +22,24 @@ insert key value (SimpleAssocList list) =
     SimpleAssocList (( key, value ) :: remove key list)
 
 
-upsert : key -> (Maybe value -> value) -> SimpleAssocList key value -> SimpleAssocList key value
-upsert key fn (SimpleAssocList list) =
+update : key -> (Maybe value -> Maybe value) -> SimpleAssocList key value -> SimpleAssocList key value
+update key fn (SimpleAssocList list) =
     case getHelp key list of
         Nothing ->
-            SimpleAssocList (( key, fn Nothing ) :: list)
+            case fn Nothing of
+                Nothing ->
+                    SimpleAssocList list
 
-        value ->
-            SimpleAssocList (( key, fn value ) :: remove key list)
+                Just value ->
+                    SimpleAssocList (( key, value ) :: list)
+
+        previousValue ->
+            case fn previousValue of
+                Nothing ->
+                    SimpleAssocList (remove key list)
+
+                Just value ->
+                    SimpleAssocList (( key, value ) :: remove key list)
 
 
 mapKeyAndValue : key -> (value -> ( key, value )) -> SimpleAssocList key value -> SimpleAssocList key value

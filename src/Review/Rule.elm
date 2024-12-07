@@ -330,7 +330,7 @@ import Review.Cache.ProjectFile as ProjectFileCache
 import Review.ElmProjectEncoder
 import Review.Error exposing (InternalError)
 import Review.Error.FileTarget as FileTarget exposing (FileTarget)
-import Review.Error.Fixes as ErrorFixes exposing (ErrorFixes)
+import Review.Error.Fixes as ErrorFixes exposing (ErrorFixes, FixKind)
 import Review.Error.Target as Target exposing (Target)
 import Review.Exceptions as Exceptions exposing (Exceptions)
 import Review.FilePath exposing (FilePath)
@@ -4328,7 +4328,7 @@ withFixes fixes error_ =
 type FixesV2
     = FixesV2
         { target : FileTarget
-        , fixes : List Fix
+        , fixes : FixKind
         }
 
 
@@ -4338,7 +4338,7 @@ fixesForModule : ModuleKey -> List Fix -> FixesV2
 fixesForModule (ModuleKey path) fixes =
     FixesV2
         { target = FileTarget.Module path
-        , fixes = fixes
+        , fixes = ErrorFixes.Edit fixes
         }
 
 
@@ -4348,7 +4348,7 @@ fixesForExtraFile : ExtraFileKey -> List Fix -> FixesV2
 fixesForExtraFile (ExtraFileKey { path }) fixes =
     FixesV2
         { target = FileTarget.ExtraFile path
-        , fixes = fixes
+        , fixes = ErrorFixes.Edit fixes
         }
 
 
@@ -4358,7 +4358,7 @@ fixesForReadme : ReadmeKey -> List Fix -> FixesV2
 fixesForReadme (ReadmeKey { path }) fixes =
     FixesV2
         { target = FileTarget.Readme
-        , fixes = fixes
+        , fixes = ErrorFixes.Edit fixes
         }
 
 
@@ -4391,7 +4391,7 @@ fixesForElmJson (ElmJsonKey elmJson) fixer =
     in
     FixesV2
         { target = FileTarget.ElmJson
-        , fixes = fixes
+        , fixes = ErrorFixes.Edit fixes
         }
 
 
@@ -4459,7 +4459,9 @@ errorFixes (Review.Error.ReviewError err) =
             case ErrorFixes.toList err.fixes of
                 [ ( target, fixes ) ] ->
                     if FileTarget.filePath target == err.filePath then
-                        Just fixes
+                        case fixes of
+                            ErrorFixes.Edit edits ->
+                                Just edits
 
                     else
                         Nothing
@@ -4484,7 +4486,7 @@ errorFixesV2 (Review.Error.ReviewError err) =
 
             else
                 ErrorFixes.toList err.fixes
-                    |> List.map (\( target, fixList ) -> ( FileTarget.filePath target, fixList ))
+                    |> List.map (\( target, ErrorFixes.Edit fixList ) -> ( FileTarget.filePath target, fixList ))
                     |> Dict.fromList
                     |> Just
 
@@ -5961,6 +5963,7 @@ isFixable predicate (Error err) =
             -- so we do the fixes check first.
             if predicate { ruleName = err.ruleName, filePath = err.filePath, message = err.message, details = err.details, range = err.range } then
                 ErrorFixes.toList err.fixes
+                    |> List.map (\( target, ErrorFixes.Edit edits ) -> ( target, edits ))
                     |> Just
 
             else

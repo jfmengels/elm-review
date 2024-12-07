@@ -1796,7 +1796,7 @@ checkFixesHaveNoProblem ((Error.ReviewError err) as error_) =
 checkFixesAreCorrect : Project -> String -> ReviewError -> ExpectedErrorDetails -> Expectation
 checkFixesAreCorrect (Review.Project.Internal.Project project) moduleName ((Error.ReviewError err) as error_) expectedError =
     let
-        errorFixes : List ( FileTarget, List Fix )
+        errorFixes : List ( FileTarget, ErrorFixes.FixKind )
         errorFixes =
             ErrorFixes.toList err.fixes
     in
@@ -1846,7 +1846,7 @@ checkFixesAreCorrect (Review.Project.Internal.Project project) moduleName ((Erro
                     errorFixes
 
 
-checkFixesMatch : ProjectInternals -> String -> ReviewError -> Dict String String -> List ( FileTarget, List Fix ) -> Expectation
+checkFixesMatch : ProjectInternals -> String -> ReviewError -> Dict String String -> List ( FileTarget, ErrorFixes.FixKind ) -> Expectation
 checkFixesMatch project moduleName error_ expectedFixed fixes =
     case fixes of
         [] ->
@@ -1861,7 +1861,7 @@ checkFixesMatch project moduleName error_ expectedFixed fixes =
                     }
                     |> Expect.fail
 
-        ( target, fileFixes ) :: rest ->
+        ( target, ErrorFixes.Edit fileFixes ) :: rest ->
             case getTargetFileFromProject target project of
                 Just targetInformation ->
                     case getExpectedFixedCodeThroughFilePathOrModuleName (FileTarget.filePath target) targetInformation.moduleName expectedFixed of

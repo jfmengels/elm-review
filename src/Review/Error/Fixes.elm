@@ -1,5 +1,6 @@
 module Review.Error.Fixes exposing
     ( ErrorFixes(..)
+    , FixKind(..)
     , add
     , from
     , isEmpty
@@ -14,7 +15,11 @@ import SimpleAssocList exposing (SimpleAssocList)
 
 
 type ErrorFixes
-    = ErrorFixes (SimpleAssocList FileTarget (List Fix))
+    = ErrorFixes (SimpleAssocList FileTarget FixKind)
+
+
+type FixKind
+    = Edit (List Fix)
 
 
 none : ErrorFixes
@@ -24,28 +29,29 @@ none =
 
 from : FileTarget -> List Fix -> ErrorFixes
 from target edits =
-    SimpleAssocList.singleton target edits
+    SimpleAssocList.singleton target (Edit edits)
         |> ErrorFixes
 
 
-add : List { target : FileTarget, fixes : List Fix } -> ErrorFixes -> ErrorFixes
+add : List { target : FileTarget, fixes : FixKind } -> ErrorFixes -> ErrorFixes
 add providedFixes (ErrorFixes initialFixes) =
     List.foldl
         (\{ target, fixes } acc ->
-            if List.isEmpty fixes then
+            SimpleAssocList.update target
+                (\maybePreviousFixes ->
+                    case fixes of
+                        Edit [] ->
+                            maybePreviousFixes
+
+                        Edit newFixes ->
+                            case maybePreviousFixes of
+                                Just (Edit previousFixes_) ->
+                                    Just (Edit (newFixes ++ previousFixes_))
+
+                                Nothing ->
+                                    Just fixes
+                )
                 acc
-
-            else
-                SimpleAssocList.upsert target
-                    (\maybePreviousFixes ->
-                        case maybePreviousFixes of
-                            Just previousFixes_ ->
-                                fixes ++ previousFixes_
-
-                            Nothing ->
-                                fixes
-                    )
-                    acc
         )
         initialFixes
         providedFixes
@@ -62,7 +68,7 @@ qualify filePath (ErrorFixes dict) =
         |> ErrorFixes
 
 
-toList : ErrorFixes -> List ( FileTarget, List Fix )
+toList : ErrorFixes -> List ( FileTarget, FixKind )
 toList (ErrorFixes dict) =
     SimpleAssocList.toList dict
 
