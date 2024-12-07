@@ -5,6 +5,7 @@ module Review.Error.Fixes exposing
     , from
     , none
     , qualify
+    , toDict
     )
 
 import Dict exposing (Dict)
@@ -13,8 +14,7 @@ import Review.Fix exposing (Fix)
 
 
 type ErrorFixes
-    = NoFixes
-    | ErrorFixes (Dict String FileFix)
+    = ErrorFixes (Dict String FileFix)
 
 
 type alias FileFix =
@@ -23,7 +23,7 @@ type alias FileFix =
 
 none : ErrorFixes
 none =
-    NoFixes
+    ErrorFixes Dict.empty
 
 
 from : Target -> List Fix -> ErrorFixes
@@ -34,67 +34,46 @@ from target edits =
                 |> ErrorFixes
 
         Nothing ->
-            NoFixes
+            ErrorFixes Dict.empty
 
 
 add : List { path : String, target : Target, fixes : List Fix } -> ErrorFixes -> ErrorFixes
-add providedFixes previousFixes =
-    let
-        initialFixes : Dict String ( Target, List Fix )
-        initialFixes =
-            case previousFixes of
-                ErrorFixes previousFixes_ ->
-                    previousFixes_
+add providedFixes (ErrorFixes initialFixes) =
+    List.foldl
+        (\{ path, target, fixes } acc ->
+            if List.isEmpty fixes then
+                acc
 
-                NoFixes ->
-                    Dict.empty
+            else
+                Dict.update path
+                    (\maybePreviousFixes ->
+                        case maybePreviousFixes of
+                            Just ( _, previousFixes_ ) ->
+                                Just ( target, fixes ++ previousFixes_ )
 
-        dict : Dict String FileFix
-        dict =
-            List.foldl
-                (\{ path, target, fixes } acc ->
-                    if List.isEmpty fixes then
-                        acc
-
-                    else
-                        Dict.update path
-                            (\maybePreviousFixes ->
-                                case maybePreviousFixes of
-                                    Just ( _, previousFixes_ ) ->
-                                        Just ( target, fixes ++ previousFixes_ )
-
-                                    Nothing ->
-                                        Just ( target, fixes )
-                            )
-                            acc
-                )
-                initialFixes
-                providedFixes
-    in
-    if Dict.isEmpty dict then
-        NoFixes
-
-    else
-        ErrorFixes dict
+                            Nothing ->
+                                Just ( target, fixes )
+                    )
+                    acc
+        )
+        initialFixes
+        providedFixes
+        |> ErrorFixes
 
 
 qualify : String -> ErrorFixes -> ErrorFixes
-qualify filePath baseFixes =
-    case baseFixes of
-        ErrorFixes dict ->
-            if Dict.isEmpty dict then
-                NoFixes
+qualify filePath ((ErrorFixes dict) as untouched) =
+    case Dict.get "" dict of
+        Just ( target, fixes ) ->
+            dict
+                |> Dict.remove ""
+                |> Dict.insert filePath ( Target.setCurrentFilePathOnTargetIfNeeded filePath target, fixes )
+                |> ErrorFixes
 
-            else
-                case Dict.get "" dict of
-                    Just ( target, fixes ) ->
-                        dict
-                            |> Dict.remove ""
-                            |> Dict.insert filePath ( Target.setCurrentFilePathOnTargetIfNeeded filePath target, fixes )
-                            |> ErrorFixes
+        Nothing ->
+            untouched
 
-                    Nothing ->
-                        baseFixes
 
-        NoFixes ->
-            baseFixes
+toDict : ErrorFixes -> Dict String FileFix
+toDict (ErrorFixes dict) =
+    dict

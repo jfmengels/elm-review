@@ -4466,17 +4466,17 @@ errorFixes (Review.Error.ReviewError err) =
             Nothing
 
         Nothing ->
-            case err.fixes of
-                ErrorFixes.ErrorFixes fixes ->
-                    if Dict.size fixes == 1 then
-                        Dict.get err.filePath fixes
-                            |> Maybe.map Tuple.second
+            let
+                fixes : Dict String ErrorFixes.FileFix
+                fixes =
+                    ErrorFixes.toDict err.fixes
+            in
+            if Dict.size fixes == 1 then
+                Dict.get err.filePath fixes
+                    |> Maybe.map Tuple.second
 
-                    else
-                        Nothing
-
-                ErrorFixes.NoFixes ->
-                    Nothing
+            else
+                Nothing
 
 
 {-| Get the automatic [`fixes`](./Review-Fix#Fix) of an [`Error`](#Error), if it
@@ -4490,17 +4490,17 @@ errorFixesV2 (Review.Error.ReviewError err) =
             Nothing
 
         Nothing ->
-            case err.fixes of
-                ErrorFixes.ErrorFixes fixes ->
-                    if Dict.isEmpty fixes then
-                        Nothing
+            let
+                fixes : Dict String ErrorFixes.FileFix
+                fixes =
+                    ErrorFixes.toDict err.fixes
+            in
+            if Dict.isEmpty fixes then
+                Nothing
 
-                    else
-                        Dict.map (\_ ( _, fixList ) -> fixList) fixes
-                            |> Just
-
-                ErrorFixes.NoFixes ->
-                    Nothing
+            else
+                Dict.map (\_ ( _, fixList ) -> fixList) fixes
+                    |> Just
 
 
 {-| Get the reason why the fix for an error failed when its available automatic fix was attempted and deemed incorrect.
@@ -5977,18 +5977,14 @@ isFixable predicate (Error err) =
             Nothing
 
         Nothing ->
-            case err.fixes of
-                ErrorFixes.ErrorFixes fixes ->
-                    -- It's cheaper to check for fixes first and also quite likely to return Nothing
-                    -- so we do the fixes check first.
-                    if predicate { ruleName = err.ruleName, filePath = err.filePath, message = err.message, details = err.details, range = err.range } then
-                        Just fixes
+            -- It's cheaper to check for fixes first and also quite likely to return Nothing
+            -- so we do the fixes check first.
+            if predicate { ruleName = err.ruleName, filePath = err.filePath, message = err.message, details = err.details, range = err.range } then
+                ErrorFixes.toDict err.fixes
+                    |> Just
 
-                    else
-                        Nothing
-
-                ErrorFixes.NoFixes ->
-                    Nothing
+            else
+                Nothing
 
 
 applySingleModuleFix : ValidProject -> Maybe (Zipper (Graph.NodeContext FilePath ())) -> Error {} -> String -> List InternalFix.Fix -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }

@@ -136,7 +136,7 @@ import Json.Decode as Decode
 import Json.Encode as Encode
 import Regex exposing (Regex)
 import Review.Error as Error
-import Review.Error.Fixes as ErrorFixes
+import Review.Error.Fixes as ErrorFixes exposing (ErrorFixes(..))
 import Review.Error.Target as Target exposing (Target)
 import Review.FileParser as FileParser
 import Review.Fix as Fix exposing (Fix)
@@ -1794,51 +1794,55 @@ checkFixesHaveNoProblem ((Error.ReviewError err) as error_) =
 
 checkFixesAreCorrect : Project -> String -> ReviewError -> ExpectedErrorDetails -> Expectation
 checkFixesAreCorrect (Review.Project.Internal.Project project) moduleName ((Error.ReviewError err) as error_) expectedError =
-    case err.fixes of
-        ErrorFixes.NoFixes ->
-            case expectedError.fixedFiles of
-                NoFixesExpected ->
-                    Expect.pass
+    let
+        dict : Dict String ErrorFixes.FileFix
+        dict =
+            ErrorFixes.toDict err.fixes
+    in
+    if Dict.isEmpty dict then
+        case expectedError.fixedFiles of
+            NoFixesExpected ->
+                Expect.pass
 
-                ComesFromWhenFixed expectedFixedModule ->
-                    Expect.fail
-                        (FailureMessage.missingFixes
-                            { moduleName = moduleName
-                            , message = expectedError.message
-                            , expectedFixedModules = [ expectedFixedModule ]
-                            }
-                        )
+            ComesFromWhenFixed expectedFixedModule ->
+                Expect.fail
+                    (FailureMessage.missingFixes
+                        { moduleName = moduleName
+                        , message = expectedError.message
+                        , expectedFixedModules = [ expectedFixedModule ]
+                        }
+                    )
 
-                ComesFromShouldFixFiles expectedFixedModules ->
-                    Expect.fail
-                        (FailureMessage.missingFixes
-                            { moduleName = moduleName
-                            , message = expectedError.message
-                            , expectedFixedModules = Dict.keys expectedFixedModules
-                            }
-                        )
+            ComesFromShouldFixFiles expectedFixedModules ->
+                Expect.fail
+                    (FailureMessage.missingFixes
+                        { moduleName = moduleName
+                        , message = expectedError.message
+                        , expectedFixedModules = Dict.keys expectedFixedModules
+                        }
+                    )
 
-        ErrorFixes.ErrorFixes dict ->
-            case expectedError.fixedFiles of
-                NoFixesExpected ->
-                    FailureMessage.unexpectedFixes (Rule.errorMessage error_)
-                        |> Expect.fail
+    else
+        case expectedError.fixedFiles of
+            NoFixesExpected ->
+                FailureMessage.unexpectedFixes (Rule.errorMessage error_)
+                    |> Expect.fail
 
-                ComesFromWhenFixed fixedSource ->
-                    checkFixesMatch
-                        project
-                        moduleName
-                        error_
-                        (Dict.singleton err.filePath fixedSource)
-                        (Dict.toList dict)
+            ComesFromWhenFixed fixedSource ->
+                checkFixesMatch
+                    project
+                    moduleName
+                    error_
+                    (Dict.singleton err.filePath fixedSource)
+                    (Dict.toList dict)
 
-                ComesFromShouldFixFiles fixedFiles ->
-                    checkFixesMatch
-                        project
-                        moduleName
-                        error_
-                        fixedFiles
-                        (Dict.toList dict)
+            ComesFromShouldFixFiles fixedFiles ->
+                checkFixesMatch
+                    project
+                    moduleName
+                    error_
+                    fixedFiles
+                    (Dict.toList dict)
 
 
 checkFixesMatch : ProjectInternals -> String -> ReviewError -> Dict String String -> List ( String, ErrorFixes.FileFix ) -> Expectation
