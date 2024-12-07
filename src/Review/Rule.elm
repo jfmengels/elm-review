@@ -4492,8 +4492,12 @@ errorFixesV2 (Review.Error.ReviewError err) =
         Nothing ->
             case err.fixes of
                 ErrorFixes.Available fixes ->
-                    Dict.map (\_ ( _, fixList ) -> fixList) fixes
-                        |> Just
+                    if Dict.isEmpty fixes then
+                        Nothing
+
+                    else
+                        Dict.map (\_ ( _, fixList ) -> fixList) fixes
+                            |> Just
 
                 ErrorFixes.NoFixes ->
                     Nothing
