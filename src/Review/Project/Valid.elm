@@ -22,6 +22,7 @@ module Review.Project.Valid exposing
     , projectCache
     , readme
     , readmeHash
+    , removeExtraFile
     , toRegularProject
     , updateProjectCache
     )
@@ -532,10 +533,7 @@ addReadme readme_ (ValidProject project) =
     ValidProject { project | readme = Just ( readme_, ContentHash.hash readme_.content ) }
 
 
-{-| Add the content of the `README.md` file to the project, making it
-available for rules to access using
-[`Review.Rule.withReadmeModuleVisitor`](./Review-Rule#withReadmeModuleVisitor) and
-[`Review.Rule.withReadmeProjectVisitor`](./Review-Rule#withReadmeProjectVisitor).
+{-| Add an extra file to the project.
 -}
 addExtraFile : { path : String, content : String } -> ValidProject -> ValidProject
 addExtraFile file (ValidProject project) =
@@ -547,6 +545,23 @@ addExtraFile file (ValidProject project) =
     ValidProject
         { project
             | extraFiles = Dict.insert file.path file.content project.extraFiles
+            , extraFilesContentHashes = extraFilesContentHashes
+            , extraFilesContentHash = ContentHash.combine extraFilesContentHashes
+        }
+
+
+{-| Remove an extra file from the project.
+-}
+removeExtraFile : String -> ValidProject -> ValidProject
+removeExtraFile path (ValidProject project) =
+    let
+        extraFilesContentHashes : Dict String ContentHash
+        extraFilesContentHashes =
+            Dict.remove path project.extraFilesContentHashes
+    in
+    ValidProject
+        { project
+            | extraFiles = Dict.remove path project.extraFiles
             , extraFilesContentHashes = extraFilesContentHashes
             , extraFilesContentHash = ContentHash.combine extraFilesContentHashes
         }
