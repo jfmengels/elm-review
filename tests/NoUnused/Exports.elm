@@ -755,6 +755,7 @@ unusedModuleError moduleName { moduleKey, moduleNameLocation } =
         , details = [ "This module is never used. You may want to remove it to keep your project clean, and maybe detect some unused code in your project." ]
         }
         moduleNameLocation
+        |> Rule.withFixesV2 [ Rule.removeModule moduleKey ]
 
 
 errorsForModule :
