@@ -29,7 +29,7 @@ module Review.Rule exposing
     , withDataExtractor, preventExtract
     , reviewV3, reviewV2, review, ProjectData, ruleName, ruleProvidesFixes, ruleKnowsAboutIgnoredFiles, ruleRequestedFiles, withRuleId, getConfigurationError
     , Required, Forbidden
-    , FixesV2, fixesForElmJson, fixesForExtraFile, fixesForModule, fixesForReadme, withFixesV2
+    , FixesV2, fixesForElmJson, fixesForExtraFile, fixesForModule, removeModule, fixesForReadme, withFixesV2
     )
 
 {-| This module contains functions that are used for writing rules.
@@ -303,7 +303,7 @@ find the tools to extract data below.
 
 -- TODO MULTIFILE-FIXES Update documentation
 
-@docs FixesV2, fixesForElmJson, fixesForExtraFile, fixesForModule, fixesForReadme, withFixesV2
+@docs FixesV2, fixesForElmJson, fixesForExtraFile, fixesForModule, removeModule, removeExtraFile, fixesForReadme, withFixesV2
 
 -}
 
@@ -4338,9 +4338,23 @@ fixesForModule (ModuleKey path) fixes =
 
 {-| TODO MULTIFILE-FIXES Update documentation
 -}
+removeModule : ModuleKey -> FixesV2
+removeModule (ModuleKey path) =
+    FixesV2 (FileTarget.Module path) ErrorFixes.Remove
+
+
+{-| TODO MULTIFILE-FIXES Update documentation
+-}
 fixesForExtraFile : ExtraFileKey -> List Fix -> FixesV2
 fixesForExtraFile (ExtraFileKey { path }) fixes =
     FixesV2 (FileTarget.ExtraFile path) (ErrorFixes.Edit fixes)
+
+
+{-| TODO MULTIFILE-FIXES Update documentation
+-}
+removeExtraFile : ExtraFileKey -> FixesV2
+removeExtraFile (ExtraFileKey { path }) =
+    FixesV2 (FileTarget.ExtraFile path) ErrorFixes.Remove
 
 
 {-| TODO MULTIFILE-FIXES Update documentation
