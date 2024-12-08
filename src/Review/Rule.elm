@@ -4069,7 +4069,7 @@ errorForElmJsonWithFix (ElmJsonKey elmJson) getErrorInfo getFix =
                                 |> Review.ElmProjectEncoder.encode
                                 |> Encode.encode 4
                     in
-                    ErrorFixes.from FileTarget.ElmJson
+                    ErrorFixes.edit FileTarget.ElmJson
                         [ Fix.replaceRangeBy
                             { start = { row = 1, column = 1 }, end = { row = 100000000, column = 1 } }
                             (encoded ++ "\n")
@@ -4312,7 +4312,7 @@ withFixes fixes error_ =
                         err
 
                     Target.FileTarget fileTarget ->
-                        { err | fixes = ErrorFixes.from fileTarget fixes }
+                        { err | fixes = ErrorFixes.edit fileTarget fixes }
 
                     Target.Global ->
                         err

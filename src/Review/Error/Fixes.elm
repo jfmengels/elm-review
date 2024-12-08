@@ -2,7 +2,7 @@ module Review.Error.Fixes exposing
     ( ErrorFixes(..)
     , FixKind(..)
     , add
-    , from
+    , edit
     , isEmpty
     , none
     , qualify
@@ -27,8 +27,8 @@ none =
     ErrorFixes SimpleAssocList.empty
 
 
-from : FileTarget -> List Fix -> ErrorFixes
-from target edits =
+edit : FileTarget -> List Fix -> ErrorFixes
+edit target edits =
     SimpleAssocList.singleton target (Edit edits)
         |> ErrorFixes
 

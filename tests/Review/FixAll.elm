@@ -392,17 +392,17 @@ a = 1
 
 fixForFile : Fix -> ErrorFixes
 fixForFile fix =
-    ErrorFixes.from (FileTarget.Module "A.elm") [ fix ]
+    ErrorFixes.edit (FileTarget.Module "A.elm") [ fix ]
 
 
 fixForElmJson : Fix -> ErrorFixes
 fixForElmJson fix =
-    ErrorFixes.from FileTarget.ElmJson [ fix ]
+    ErrorFixes.edit FileTarget.ElmJson [ fix ]
 
 
 fixForReadme : Fix -> ErrorFixes
 fixForReadme fix =
-    ErrorFixes.from FileTarget.Readme [ fix ]
+    ErrorFixes.edit FileTarget.Readme [ fix ]
 
 
 runWithOptions :
