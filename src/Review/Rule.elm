@@ -5818,7 +5818,7 @@ findFix reviewOptions project updateErrors errors fixedErrors maybeModuleZipper 
             FoundNoFixes (updateErrors errors)
 
         Just fixablePredicate ->
-            case findFixHelp project fixablePredicate errors [] maybeModuleZipper of
+            case findFixHelp project reviewOptions.supportFileRemoval fixablePredicate errors [] maybeModuleZipper of
                 FoundNoFixesHelp errorsWithFailedFixes ->
                     FoundNoFixes (updateErrors errorsWithFailedFixes)
 
@@ -5849,25 +5849,26 @@ type FindFixHelpResult
 
 findFixHelp :
     ValidProject
+    -> Bool
     -> ({ ruleName : String, filePath : String, message : String, details : List String, range : Range } -> Bool)
     -> List (Error {})
     -> List (Error {})
     -> Maybe (Zipper (Graph.NodeContext FilePath ()))
     -> FindFixHelpResult
-findFixHelp project fixablePredicate errors accErrors maybeModuleZipper =
+findFixHelp project supportsFileDeletion fixablePredicate errors accErrors maybeModuleZipper =
     case errors of
         [] ->
             FoundNoFixesHelp accErrors
 
         err :: restOfErrors ->
-            case isFixable fixablePredicate err of
+            case isFixable supportsFileDeletion fixablePredicate err of
                 Nothing ->
-                    findFixHelp project fixablePredicate restOfErrors (err :: accErrors) maybeModuleZipper
+                    findFixHelp project supportsFileDeletion fixablePredicate restOfErrors (err :: accErrors) maybeModuleZipper
 
                 Just fixDict ->
                     case fixDict of
                         [] ->
-                            findFixHelp project fixablePredicate restOfErrors (err :: accErrors) maybeModuleZipper
+                            findFixHelp project supportsFileDeletion fixablePredicate restOfErrors (err :: accErrors) maybeModuleZipper
 
                         firstFix :: restOfFixes ->
                             case
@@ -5878,7 +5879,7 @@ findFixHelp project fixablePredicate errors accErrors maybeModuleZipper =
                                     FoundFixHelp (errors ++ accErrors) { project = fixResult.project, fixedFile = fixResult.fixedFile, error = errorToReviewError err }
 
                                 Err nonAppliedError ->
-                                    findFixHelp project fixablePredicate restOfErrors (nonAppliedError :: accErrors) maybeModuleZipper
+                                    findFixHelp project supportsFileDeletion fixablePredicate restOfErrors (nonAppliedError :: accErrors) maybeModuleZipper
 
 
 applyFixes : Maybe (Zipper (Graph.NodeContext FilePath ())) -> Error {} -> List ( FileTarget, List Fix ) -> { project : ValidProject, fixedFile : FixedFile } -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
@@ -5941,8 +5942,8 @@ applyFix project maybeModuleZipper err ( target, fixes ) =
             applyExtraFileFix project err targetPath fixes
 
 
-isFixable : ({ ruleName : String, filePath : String, message : String, details : List String, range : Range } -> Bool) -> Error {} -> Maybe (List ( FileTarget, List Fix ))
-isFixable predicate (Error err) =
+isFixable : Bool -> ({ ruleName : String, filePath : String, message : String, details : List String, range : Range } -> Bool) -> Error {} -> Maybe (List ( FileTarget, List Fix ))
+isFixable supportsFileDeletion predicate (Error err) =
     case err.fixProblem of
         Just _ ->
             Nothing
@@ -5951,21 +5952,44 @@ isFixable predicate (Error err) =
             -- It's cheaper to check for fixes first and also quite likely to return Nothing
             -- so we do the fixes check first.
             if predicate { ruleName = err.ruleName, filePath = err.filePath, message = err.message, details = err.details, range = err.range } then
-                -- TODO MULTIFILE-FIXES Abort entire fix if deletion is not supported
-                ErrorFixes.toList err.fixes
-                    |> List.filterMap
-                        (\( target, fix ) ->
-                            case fix of
-                                ErrorFixes.Edit edits ->
-                                    Just ( target, edits )
+                let
+                    list : List ( FileTarget, FixKind )
+                    list =
+                        ErrorFixes.toList err.fixes
+                in
+                if not supportsFileDeletion && fixTriesToDeleteFiles list then
+                    Nothing
 
-                                ErrorFixes.Remove ->
-                                    Nothing
-                        )
-                    |> Just
+                else
+                    -- TODO MULTIFILE-FIXES Support deleting files
+                    list
+                        |> List.filterMap
+                            (\( target, fix ) ->
+                                case fix of
+                                    ErrorFixes.Edit edits ->
+                                        Just ( target, edits )
+
+                                    ErrorFixes.Remove ->
+                                        Nothing
+                            )
+                        |> Just
 
             else
                 Nothing
+
+
+fixTriesToDeleteFiles : List ( a, FixKind ) -> Bool
+fixTriesToDeleteFiles list =
+    List.any
+        (\( _, fix ) ->
+            case fix of
+                ErrorFixes.Edit _ ->
+                    False
+
+                ErrorFixes.Remove ->
+                    True
+        )
+        list
 
 
 applySingleModuleFix : ValidProject -> Maybe (Zipper (Graph.NodeContext FilePath ())) -> Error {} -> String -> List InternalFix.Fix -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
