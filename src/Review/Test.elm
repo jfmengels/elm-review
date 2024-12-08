@@ -1891,6 +1891,22 @@ checkFixesMatch project moduleName error_ expectedFixed fixes =
                     FailureMessage.fixForUnknownFile (FileTarget.filePath target)
                         |> Expect.fail
 
+        ( target, ErrorFixes.Remove ) :: rest ->
+            case getTargetFileFromProject target project of
+                Just targetInformation ->
+                    -- TODO MULTIFILE-FIXES Validate that file was expected to be deleted.
+                    checkFixesMatch
+                        project
+                        moduleName
+                        error_
+                        expectedFixed
+                        rest
+
+                Nothing ->
+                    -- TODO MULTIFILE-FIXES Specify it's a deletion fix
+                    FailureMessage.fixForUnknownFile (FileTarget.filePath target)
+                        |> Expect.fail
+
 
 getExpectedFixedCodeThroughFilePathOrModuleName : String -> Maybe String -> Dict String String -> Maybe { key : String, expectedFixedSource : String }
 getExpectedFixedCodeThroughFilePathOrModuleName filePath moduleName expectedFixed =

@@ -4448,6 +4448,9 @@ errorFixes (Review.Error.ReviewError err) =
                             ErrorFixes.Edit edits ->
                                 Just edits
 
+                            ErrorFixes.Remove ->
+                                Nothing
+
                     else
                         Nothing
 
@@ -5948,8 +5951,17 @@ isFixable predicate (Error err) =
             -- It's cheaper to check for fixes first and also quite likely to return Nothing
             -- so we do the fixes check first.
             if predicate { ruleName = err.ruleName, filePath = err.filePath, message = err.message, details = err.details, range = err.range } then
+                -- TODO MULTIFILE-FIXES Abort entire fix if deletion is not supported
                 ErrorFixes.toList err.fixes
-                    |> List.map (\( target, ErrorFixes.Edit edits ) -> ( target, edits ))
+                    |> List.filterMap
+                        (\( target, fix ) ->
+                            case fix of
+                                ErrorFixes.Edit edits ->
+                                    Just ( target, edits )
+
+                                ErrorFixes.Remove ->
+                                    Nothing
+                        )
                     |> Just
 
             else

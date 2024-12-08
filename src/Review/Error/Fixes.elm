@@ -20,6 +20,7 @@ type ErrorFixes
 
 type FixKind
     = Edit (List Fix)
+    | Remove
 
 
 none : ErrorFixes
@@ -40,11 +41,17 @@ add providedFixes (ErrorFixes initialFixes) =
             SimpleAssocList.update target
                 (\maybePreviousFixes ->
                     case fixes of
+                        Remove ->
+                            Just fixes
+
                         Edit [] ->
                             maybePreviousFixes
 
                         Edit newFixes ->
                             case maybePreviousFixes of
+                                Just Remove ->
+                                    maybePreviousFixes
+
                                 Just (Edit previousFixes_) ->
                                     Just (Edit (newFixes ++ previousFixes_))
 
