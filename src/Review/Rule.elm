@@ -5954,8 +5954,7 @@ applyFix project maybeModuleZipper err ( target, fixes ) =
             applyEditFix project maybeModuleZipper err target edits
 
         ErrorFixes.Remove ->
-            -- TODO MULTIFILE-FIXES Support deleting files
-            Err err
+            applyFileDeletionFix project err target
 
 
 applyEditFix : ValidProject -> Maybe (Zipper (Graph.NodeContext FilePath ())) -> Error {} -> FileTarget -> List Fix -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
@@ -5972,6 +5971,29 @@ applyEditFix project maybeModuleZipper err target fixes =
 
         FileTarget.ExtraFile targetPath ->
             applyExtraFileFix project err targetPath fixes
+
+
+applyFileDeletionFix : ValidProject -> Error {} -> FileTarget -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
+applyFileDeletionFix project (Error err) target =
+    case target of
+        FileTarget.Module targetPath ->
+            case ValidProject.removeModule targetPath project of
+                Just newProject ->
+                    Ok { project = newProject, fixedFile = RemovedElmModule }
+
+                Nothing ->
+                    Err (Error (Review.Error.markFixesAsProblem FixProblem.Unchanged err))
+
+        FileTarget.ExtraFile targetPath ->
+            Ok { project = ValidProject.removeExtraFile targetPath project, fixedFile = FixedExtraFile }
+
+        FileTarget.ElmJson ->
+            -- Not supported
+            Ok { project = project, fixedFile = FixedElmJson }
+
+        FileTarget.Readme ->
+            -- Not supported
+            Ok { project = project, fixedFile = FixedReadme }
 
 
 isFixable : Bool -> ({ ruleName : String, filePath : String, message : String, details : List String, range : Range } -> Bool) -> Error {} -> Maybe (List ( FileTarget, FixKind ))
