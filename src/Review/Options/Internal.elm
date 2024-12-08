@@ -16,6 +16,7 @@ type alias ReviewOptionsData =
     , fixMode : FixMode
     , suppressions : Dict ( String, String ) Int
     , ignoreFix : { ruleName : String, filePath : String, message : String, details : List String, range : Range } -> Bool
+    , supportFileRemoval : Bool
     }
 
 

@@ -5,6 +5,7 @@ module Review.Options exposing
     , withFixes
     , FixMode, fixedDisabled, fixesEnabledWithLimit, fixesEnabledWithoutLimits
     , withIgnoredFixes
+    , withFileRemovalFixes
     )
 
 {-| Configure how `elm-review` runs.
@@ -19,6 +20,7 @@ process like the CLI.
 @docs withFixes
 @docs FixMode, fixedDisabled, fixesEnabledWithLimit, fixesEnabledWithoutLimits
 @docs withIgnoredFixes
+@docs withFileDeletionFixes
 
 -}
 
@@ -48,6 +50,7 @@ defaults =
         , fixMode = Internal.Disabled
         , suppressions = Dict.empty
         , ignoreFix = always False
+        , supportFileRemoval = False
         }
 
 
@@ -120,3 +123,13 @@ fixedDisabled =
 withSuppressedErrors : Dict ( String, String ) Int -> ReviewOptions -> ReviewOptions
 withSuppressedErrors suppressions (ReviewOptionsInternal reviewOptions) =
     ReviewOptionsInternal { reviewOptions | suppressions = suppressions }
+
+
+{-| Indicate whether fixes can delete files. This is `False` by default.
+
+When set to `False`, fixes that try to delete files will be entirely ignored.
+
+-}
+withFileRemovalFixes : Bool -> ReviewOptions -> ReviewOptions
+withFileRemovalFixes supportFileRemoval (ReviewOptionsInternal reviewOptions) =
+    ReviewOptionsInternal { reviewOptions | supportFileRemoval = supportFileRemoval }
