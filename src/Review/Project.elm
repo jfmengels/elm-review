@@ -12,7 +12,7 @@ module Review.Project exposing
     , addDependency
     , removeDependency, removeDependencies
     , directDependencies, dependencies
-    , diff
+    , Diff(..), diffV2, diff
     )
 
 {-| Represents the contents of the project to be analyzed. This information will
@@ -66,7 +66,7 @@ that rules can then visit.
 
 # Diffing
 
-@docs diff
+@docs Diff, diffV2, diff
 
 -}
 
@@ -516,6 +516,32 @@ diff projects =
         |> diffElmFiles projects_
 
 
+{-| Get the files that have been modified between two versions of a Project.
+
+Includes removed files but added files are ignored.
+
+-}
+diffV2 : { before : Project, after : Project } -> List { path : String, diff : Diff }
+diffV2 projects =
+    let
+        projects_ : { before : ProjectInternals, after : ProjectInternals }
+        projects_ =
+            { before = unwrap projects.before, after = unwrap projects.after }
+    in
+    []
+        |> diffElmJson2 projects_
+        |> diffReadme2 projects_
+        |> diffExtraFiles2 projects_
+        |> diffElmFiles2 projects_
+
+
+{-| TODO MULTIFILE-FIXES documentation
+-}
+type Diff
+    = Edited { before : String, after : String }
+    | Removed
+
+
 diffElmJson : { before : ProjectInternals, after : ProjectInternals } -> List { path : String, before : String, after : String } -> List { path : String, before : String, after : String }
 diffElmJson { before, after } list =
     case before.elmJson of
@@ -535,6 +561,25 @@ diffElmJson { before, after } list =
                         { path = elmJsonAfter.path, before = elmJsonBefore.raw, after = elmJsonAfter.raw } :: list
 
 
+diffElmJson2 : { before : ProjectInternals, after : ProjectInternals } -> List { path : String, diff : Diff } -> List { path : String, diff : Diff }
+diffElmJson2 { before, after } list =
+    case before.elmJson of
+        Nothing ->
+            list
+
+        Just ( elmJsonBefore, beforeHash ) ->
+            case after.elmJson of
+                Nothing ->
+                    list
+
+                Just ( elmJsonAfter, afterHash ) ->
+                    if beforeHash == afterHash then
+                        list
+
+                    else
+                        { path = elmJsonAfter.path, diff = Edited { before = elmJsonBefore.raw, after = elmJsonAfter.raw } } :: list
+
+
 diffReadme : { before : ProjectInternals, after : ProjectInternals } -> List { path : String, before : String, after : String } -> List { path : String, before : String, after : String }
 diffReadme { before, after } list =
     case before.readme of
@@ -552,6 +597,25 @@ diffReadme { before, after } list =
 
                     else
                         { path = readmeAfter.path, before = readmeBefore.content, after = readmeAfter.content } :: list
+
+
+diffReadme2 : { before : ProjectInternals, after : ProjectInternals } -> List { path : String, diff : Diff } -> List { path : String, diff : Diff }
+diffReadme2 { before, after } list =
+    case before.readme of
+        Nothing ->
+            list
+
+        Just ( readmeBefore, beforeHash ) ->
+            case after.readme of
+                Nothing ->
+                    list
+
+                Just ( readmeAfter, afterHash ) ->
+                    if beforeHash == afterHash then
+                        list
+
+                    else
+                        { path = readmeAfter.path, diff = Edited { before = readmeBefore.content, after = readmeAfter.content } } :: list
 
 
 diffExtraFiles : { before : ProjectInternals, after : ProjectInternals } -> List { path : String, before : String, after : String } -> List { path : String, before : String, after : String }
@@ -580,6 +644,34 @@ diffExtraFiles { before, after } list =
             list
 
 
+diffExtraFiles2 : { before : ProjectInternals, after : ProjectInternals } -> List { path : String, diff : Diff } -> List { path : String, diff : Diff }
+diffExtraFiles2 { before, after } list =
+    if before.extraFilesContentHashes == after.extraFilesContentHashes then
+        list
+
+    else
+        Dict.merge
+            (\path _ acc ->
+                { path = path, diff = Removed } :: acc
+            )
+            (\path beforeHash afterHash acc ->
+                if beforeHash /= afterHash then
+                    case Maybe.map2 Tuple.pair (Dict.get path before.extraFiles) (Dict.get path after.extraFiles) of
+                        Nothing ->
+                            acc
+
+                        Just ( beforeSource, afterSource ) ->
+                            { path = path, diff = Edited { before = beforeSource, after = afterSource } } :: acc
+
+                else
+                    acc
+            )
+            (\_ _ acc -> acc)
+            before.extraFilesContentHashes
+            after.extraFilesContentHashes
+            list
+
+
 diffElmFiles : { before : ProjectInternals, after : ProjectInternals } -> List { path : String, before : String, after : String } -> List { path : String, before : String, after : String }
 diffElmFiles { before, after } list =
     Dict.merge
@@ -587,6 +679,28 @@ diffElmFiles { before, after } list =
         (\path beforeModule afterModule acc ->
             if ProjectModule.contentHash beforeModule /= ProjectModule.contentHash afterModule then
                 { path = path, before = ProjectModule.source beforeModule, after = ProjectModule.source afterModule } :: acc
+
+            else
+                acc
+        )
+        (\_ _ acc -> acc)
+        before.modules
+        after.modules
+        list
+
+
+diffElmFiles2 : { before : ProjectInternals, after : ProjectInternals } -> List { path : String, diff : Diff } -> List { path : String, diff : Diff }
+diffElmFiles2 { before, after } list =
+    Dict.merge
+        (\path _ acc ->
+            { path = path, diff = Removed } :: acc
+        )
+        (\path beforeModule afterModule acc ->
+            if ProjectModule.contentHash beforeModule /= ProjectModule.contentHash afterModule then
+                { path = path
+                , diff = Edited { before = ProjectModule.source beforeModule, after = ProjectModule.source afterModule }
+                }
+                    :: acc
 
             else
                 acc
