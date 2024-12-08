@@ -23,6 +23,7 @@ module Review.Project.Valid exposing
     , readme
     , readmeHash
     , removeExtraFile
+    , removeModule
     , toRegularProject
     , updateProjectCache
     )
@@ -488,6 +489,43 @@ addParsedModule { path, source, ast } maybeModuleZipper (ValidProject project) =
             -- We don't support adding new files at the moment.
             -- TODO Support creating a new file (only in known source-directories?)
             Nothing
+
+
+{-| Add an already parsed module to the project. This module will then be analyzed by the rules.
+-}
+removeModule :
+    FilePath
+    -> ValidProject
+    -> Maybe ValidProject
+removeModule path (ValidProject project) =
+    if Dict.member path project.modulesByPath then
+        let
+            modulesByPath : Dict FilePath OpaqueProjectModule
+            modulesByPath =
+                Dict.remove path project.modulesByPath
+        in
+        let
+            graph : Graph FilePath ()
+            graph =
+                buildModuleGraph modulesByPath
+        in
+        case Graph.checkAcyclic graph |> Result.map Graph.topologicalSort of
+            Err _ ->
+                -- TODO Breaking change: Add a new kind of FixProblem about introducing import cycles
+                Nothing
+
+            Ok sortedModules ->
+                if List.isEmpty sortedModules then
+                    -- TODO MULTIFILE-FIXES Improve handling of removing the last module?
+                    Nothing
+
+                else
+                    ValidProject { project | modulesByPath = modulesByPath, moduleGraph = graph, sortedModules = sortedModules }
+                        |> Just
+
+    else
+        -- File should always exist.
+        Nothing
 
 
 importedModulesSet : Elm.Syntax.File.File -> Set ModuleName -> Set ModuleName
