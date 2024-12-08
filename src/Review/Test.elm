@@ -457,7 +457,13 @@ runOnModulesWithProjectDataHelp project rule sources =
                     Nothing ->
                         let
                             { errors, extracts } =
-                                Rule.reviewV3 (ReviewOptions.withDataExtraction True ReviewOptions.defaults) [ rule ] projectWithModules
+                                Rule.reviewV3
+                                    (ReviewOptions.defaults
+                                        |> ReviewOptions.withDataExtraction True
+                                        |> ReviewOptions.withFileRemovalFixes True
+                                    )
+                                    [ rule ]
+                                    projectWithModules
                         in
                         case ListExtra.find (\err -> Rule.errorTarget err == Target.Global) errors of
                             Just globalError_ ->
