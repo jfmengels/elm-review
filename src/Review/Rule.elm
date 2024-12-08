@@ -5540,6 +5540,16 @@ findFixInComputeModuleResults ({ reviewOptions, module_, project, moduleZipper, 
                                                     , fixedErrors = fixedErrors
                                                     }
 
+                                RemovedElmModule ->
+                                    ContinueWithNextStep
+                                        { project = project
+                                        , ruleProjectVisitors = newRule :: (rest ++ rulesSoFar)
+
+                                        -- TODO MULTIFILE-FIXES Move to a more optimal starting position than at the very beginning.
+                                        , nextStep = ModuleVisitStep Nothing
+                                        , fixedErrors = fixedErrors
+                                        }
+
                                 FixedElmJson ->
                                     ContinueWithNextStep
                                         { project = fixResult.project
@@ -5759,6 +5769,7 @@ getFolderFromTraversal traversalAndFolder =
 
 type FixedFile
     = FixedElmModule { source : String, ast : File } (Zipper (Graph.NodeContext FilePath ()))
+    | RemovedElmModule
     | FixedElmJson
     | FixedReadme
     | FixedExtraFile
@@ -5801,6 +5812,10 @@ standardFindFix reviewOptions project fixedErrors updateErrors errors =
 
                                 FixedElmModule _ zipper ->
                                     Modules zipper
+
+                                RemovedElmModule ->
+                                    -- TODO MULTIFILE-FIXES Move to a more optimal starting position.
+                                    ExtraFiles
                             )
             in
             FoundFixStandard { newProject = fixResult.project, newRule = newRule, newFixedErrors = newFixedErrors, step = step }
@@ -5917,6 +5932,12 @@ earlierFixedFile a b =
 
         ( _, FixedExtraFile ) ->
             FixedExtraFile
+
+        ( RemovedElmModule, _ ) ->
+            RemovedElmModule
+
+        ( _, RemovedElmModule ) ->
+            RemovedElmModule
 
         ( FixedElmModule _ zipperA, FixedElmModule _ zipperB ) ->
             if Zipper.position zipperA <= Zipper.position zipperB then
