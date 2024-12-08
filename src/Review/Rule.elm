@@ -5882,7 +5882,7 @@ findFixHelp project supportsFileDeletion fixablePredicate errors accErrors maybe
                                     findFixHelp project supportsFileDeletion fixablePredicate restOfErrors (nonAppliedError :: accErrors) maybeModuleZipper
 
 
-applyFixes : Maybe (Zipper (Graph.NodeContext FilePath ())) -> Error {} -> List ( FileTarget, List Fix ) -> { project : ValidProject, fixedFile : FixedFile } -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
+applyFixes : Maybe (Zipper (Graph.NodeContext FilePath ())) -> Error {} -> List ( FileTarget, FixKind ) -> { project : ValidProject, fixedFile : FixedFile } -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
 applyFixes maybeModuleZipper err fixes acc =
     case fixes of
         [] ->
@@ -5926,8 +5926,19 @@ earlierFixedFile a b =
                 b
 
 
-applyFix : ValidProject -> Maybe (Zipper (Graph.NodeContext FilePath ())) -> Error {} -> ( FileTarget, List Fix ) -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
+applyFix : ValidProject -> Maybe (Zipper (Graph.NodeContext FilePath ())) -> Error {} -> ( FileTarget, FixKind ) -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
 applyFix project maybeModuleZipper err ( target, fixes ) =
+    case fixes of
+        ErrorFixes.Edit edits ->
+            applyEditFix project maybeModuleZipper err target edits
+
+        ErrorFixes.Remove ->
+            -- TODO MULTIFILE-FIXES Support deleting files
+            Err err
+
+
+applyEditFix : ValidProject -> Maybe (Zipper (Graph.NodeContext FilePath ())) -> Error {} -> FileTarget -> List Fix -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
+applyEditFix project maybeModuleZipper err target fixes =
     case target of
         FileTarget.Module targetPath ->
             applySingleModuleFix project maybeModuleZipper err targetPath fixes
@@ -5942,7 +5953,7 @@ applyFix project maybeModuleZipper err ( target, fixes ) =
             applyExtraFileFix project err targetPath fixes
 
 
-isFixable : Bool -> ({ ruleName : String, filePath : String, message : String, details : List String, range : Range } -> Bool) -> Error {} -> Maybe (List ( FileTarget, List Fix ))
+isFixable : Bool -> ({ ruleName : String, filePath : String, message : String, details : List String, range : Range } -> Bool) -> Error {} -> Maybe (List ( FileTarget, FixKind ))
 isFixable supportsFileDeletion predicate (Error err) =
     case err.fixProblem of
         Just _ ->
@@ -5961,18 +5972,7 @@ isFixable supportsFileDeletion predicate (Error err) =
                     Nothing
 
                 else
-                    -- TODO MULTIFILE-FIXES Support deleting files
-                    list
-                        |> List.filterMap
-                            (\( target, fix ) ->
-                                case fix of
-                                    ErrorFixes.Edit edits ->
-                                        Just ( target, edits )
-
-                                    ErrorFixes.Remove ->
-                                        Nothing
-                            )
-                        |> Just
+                    Just list
 
             else
                 Nothing
