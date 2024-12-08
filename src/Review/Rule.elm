@@ -4326,40 +4326,28 @@ withFixes fixes error_ =
 {-| TODO MULTIFILE-FIXES Update documentation
 -}
 type FixesV2
-    = FixesV2
-        { target : FileTarget
-        , fixes : FixKind
-        }
+    = FixesV2 FileTarget FixKind
 
 
 {-| TODO MULTIFILE-FIXES Update documentation
 -}
 fixesForModule : ModuleKey -> List Fix -> FixesV2
 fixesForModule (ModuleKey path) fixes =
-    FixesV2
-        { target = FileTarget.Module path
-        , fixes = ErrorFixes.Edit fixes
-        }
+    FixesV2 (FileTarget.Module path) (ErrorFixes.Edit fixes)
 
 
 {-| TODO MULTIFILE-FIXES Update documentation
 -}
 fixesForExtraFile : ExtraFileKey -> List Fix -> FixesV2
 fixesForExtraFile (ExtraFileKey { path }) fixes =
-    FixesV2
-        { target = FileTarget.ExtraFile path
-        , fixes = ErrorFixes.Edit fixes
-        }
+    FixesV2 (FileTarget.ExtraFile path) (ErrorFixes.Edit fixes)
 
 
 {-| TODO MULTIFILE-FIXES Update documentation
 -}
 fixesForReadme : ReadmeKey -> List Fix -> FixesV2
 fixesForReadme (ReadmeKey { path }) fixes =
-    FixesV2
-        { target = FileTarget.Readme
-        , fixes = ErrorFixes.Edit fixes
-        }
+    FixesV2 FileTarget.Readme (ErrorFixes.Edit fixes)
 
 
 {-| TODO MULTIFILE-FIXES Update documentation
@@ -4389,10 +4377,7 @@ fixesForElmJson (ElmJsonKey elmJson) fixer =
                 Nothing ->
                     []
     in
-    FixesV2
-        { target = FileTarget.ElmJson
-        , fixes = ErrorFixes.Edit fixes
-        }
+    FixesV2 FileTarget.ElmJson (ErrorFixes.Edit fixes)
 
 
 {-| TODO MULTIFILE-FIXES Update documentation
@@ -4406,7 +4391,7 @@ withFixesV2 providedFixes error_ =
                     List.foldl
                         (List.singleton >> ErrorFixes.add)
                         err.fixes
-                        (List.map (\(FixesV2 fixes) -> fixes) providedFixes)
+                        (List.map (\(FixesV2 target fixes) -> ( target, fixes )) providedFixes)
             }
         )
         error_

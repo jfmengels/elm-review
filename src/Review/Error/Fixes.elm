@@ -33,10 +33,10 @@ from target edits =
         |> ErrorFixes
 
 
-add : List { target : FileTarget, fixes : FixKind } -> ErrorFixes -> ErrorFixes
+add : List ( FileTarget, FixKind ) -> ErrorFixes -> ErrorFixes
 add providedFixes (ErrorFixes initialFixes) =
     List.foldl
-        (\{ target, fixes } acc ->
+        (\( target, fixes ) acc ->
             SimpleAssocList.update target
                 (\maybePreviousFixes ->
                     case fixes of
