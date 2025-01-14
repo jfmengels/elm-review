@@ -1,5 +1,5 @@
 module Review.Error.Fixes exposing
-    ( ErrorFixes(..)
+    ( ErrorFixes
     , FixKind(..)
     , add
     , edit
