@@ -2,6 +2,7 @@ module ReportGlobalErrorWithFixesInAllFilesTest exposing (all)
 
 import ReportGlobalErrorWithFixesInAllFiles exposing (rule)
 import Review.Test
+import Review.Test.FailureMessageHelper exposing (expectFailure)
 import Test exposing (Test, describe, test)
 
 
@@ -22,7 +23,12 @@ b = 1
                         [ { message = "Oh no"
                           , details = [ "I'll fix all modules now" ]
                           }
-
-                        -- TODO MULTIFILE-FIXES Should fail because there are no expected fixes
                         ]
+                    |> expectFailure """TEST SOURCE CODE PARSING ERROR
+
+I could not parse the test source code, because it was not valid Elm code.
+
+Hint: Maybe you forgot to add the module definition at the top, like:
+
+  `module A exposing (..)`"""
         ]
