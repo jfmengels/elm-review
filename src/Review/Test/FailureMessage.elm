@@ -56,7 +56,7 @@ didNotExpectErrors moduleName errors =
 """ ++ listErrorMessagesAndPositions errors)
 
 
-didNotExpectGlobalErrors : List { a | message : String } -> String
+didNotExpectGlobalErrors : List String -> String
 didNotExpectGlobalErrors errors =
     failureMessage "DID NOT EXPECT GLOBAL ERRORS"
         ("""I expected no global errors but found:
@@ -64,10 +64,10 @@ didNotExpectGlobalErrors errors =
 """ ++ listErrorMessages errors)
 
 
-listErrorMessages : List { a | message : String } -> String
+listErrorMessages : List String -> String
 listErrorMessages errors =
     errors
-        |> List.map (\error -> "  - " ++ wrapInQuotes error.message)
+        |> List.map (\errorMessage -> "  - " ++ wrapInQuotes errorMessage)
         |> String.join "\n"
 
 
@@ -126,16 +126,16 @@ but I found the following error message:
   """ ++ wrapInQuotes (Rule.errorMessage error))
 
 
-messageMismatchForGlobalError : { a | message : String } -> { b | message : String } -> String
-messageMismatchForGlobalError expectedError error =
+messageMismatchForGlobalError : { expected : String, actual : String } -> String
+messageMismatchForGlobalError { expected, actual } =
     failureMessage "UNEXPECTED GLOBAL ERROR MESSAGE"
         ("""I was looking for the global error with the following message:
 
-  """ ++ wrapInQuotes expectedError.message ++ """
+  """ ++ wrapInQuotes expected ++ """
 
 but I found the following error message:
 
-  """ ++ wrapInQuotes error.message)
+  """ ++ wrapInQuotes actual)
 
 
 messageMismatchForConfigurationError : { a | message : String } -> { b | message : String } -> String
@@ -318,7 +318,7 @@ tooManyErrors moduleName extraErrors =
         )
 
 
-tooManyGlobalErrors : List { a | message : String } -> String
+tooManyGlobalErrors : List String -> String
 tooManyGlobalErrors extraErrors =
     let
         numberOfErrors : Int

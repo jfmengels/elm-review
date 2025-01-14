@@ -168,7 +168,7 @@ type ReviewResult
 
 
 type alias SuccessfulRunData =
-    { foundGlobalErrors : List GlobalError
+    { foundGlobalErrors : List ReviewError
     , runResults : List SuccessfulRunResult
     , extract : ExtractResult
     , allErrors : List ReviewError
@@ -484,11 +484,10 @@ runOnModulesWithProjectDataHelp project rule sources =
                                             , extraFileRunResult errors projectWithModules
                                             ]
 
-                                    foundGlobalErrors : List GlobalError
+                                    foundGlobalErrors : List ReviewError
                                     foundGlobalErrors =
                                         errors
                                             |> List.filter (\error_ -> Rule.errorTarget error_ == Target.UserGlobal)
-                                            |> List.map (\error_ -> { message = Rule.errorMessage error_, details = Rule.errorDetails error_ })
                                 in
                                 SuccessfulRun
                                     { foundGlobalErrors = foundGlobalErrors
@@ -715,13 +714,16 @@ expectNoErrors reviewResult =
         reviewResult
 
 
-expectNoGlobalErrors : List GlobalError -> Expectation
+expectNoGlobalErrors : List ReviewError -> Expectation
 expectNoGlobalErrors foundGlobalErrors =
     if List.isEmpty foundGlobalErrors then
         Expect.pass
 
     else
-        Expect.fail <| FailureMessage.didNotExpectGlobalErrors foundGlobalErrors
+        foundGlobalErrors
+            |> List.map Rule.errorMessage
+            |> FailureMessage.didNotExpectGlobalErrors
+            |> Expect.fail
 
 
 expectNoModuleErrors : List SuccessfulRunResult -> Expectation
@@ -1619,11 +1621,11 @@ checkAllErrorsMatch project runResult unorderedExpectedErrors =
         ()
 
 
-checkGlobalErrorsMatch : Int -> { expected : List GlobalError, actual : List GlobalError, needSecondPass : List GlobalError } -> Expectation
+checkGlobalErrorsMatch : Int -> { expected : List GlobalError, actual : List ReviewError, needSecondPass : List GlobalError } -> Expectation
 checkGlobalErrorsMatch originalNumberOfExpectedErrors params =
     case params.expected of
         head :: rest ->
-            case findAndRemove head params.actual of
+            case findAndRemove (\error_ -> Rule.errorMessage error_ == head.message && Rule.errorDetails error_ == head.details) params.actual of
                 Just newActual ->
                     if List.isEmpty head.details then
                         Expect.fail (FailureMessage.emptyDetails head.message)
@@ -1642,7 +1644,7 @@ checkGlobalErrorsMatch originalNumberOfExpectedErrors params =
                             failBecauseExpectedErrorCouldNotBeFound notFoundError ( firstActual, restOfActual )
 
                         Nothing ->
-                            Expect.fail <| FailureMessage.tooManyGlobalErrors params.actual
+                            Expect.fail <| FailureMessage.tooManyGlobalErrors (List.map Rule.errorMessage params.actual)
 
                 [] ->
                     if List.isEmpty params.needSecondPass then
@@ -1654,36 +1656,44 @@ checkGlobalErrorsMatch originalNumberOfExpectedErrors params =
                         Expect.fail <| FailureMessage.expectedMoreGlobalErrors originalNumberOfExpectedErrors (List.map .message params.needSecondPass)
 
 
-findAndRemove : a -> List a -> Maybe (List a)
-findAndRemove element list =
-    findAndRemoveHelp element [] list
+findAndRemove : (a -> Bool) -> List a -> Maybe (List a)
+findAndRemove fn list =
+    findAndRemoveHelp fn [] list
 
 
-findAndRemoveHelp : a -> List a -> List a -> Maybe (List a)
-findAndRemoveHelp element previous list =
+findAndRemoveHelp : (a -> Bool) -> List a -> List a -> Maybe (List a)
+findAndRemoveHelp fn previous list =
     case list of
         [] ->
             Nothing
 
         head :: rest ->
-            if element == head then
+            if fn head then
                 Just (List.reverse previous ++ rest)
 
             else
-                findAndRemoveHelp element (head :: previous) rest
+                findAndRemoveHelp fn (head :: previous) rest
 
 
-failBecauseExpectedErrorCouldNotBeFound : GlobalError -> ( GlobalError, List GlobalError ) -> Expectation
+failBecauseExpectedErrorCouldNotBeFound : GlobalError -> ( ReviewError, List ReviewError ) -> Expectation
 failBecauseExpectedErrorCouldNotBeFound expectedError ( firstActual, restOfActual ) =
-    case ListExtra.find (\e -> e.message == expectedError.message) (firstActual :: restOfActual) of
+    case ListExtra.find (\e -> Rule.errorMessage e == expectedError.message) (firstActual :: restOfActual) of
         Just actualErrorWithTheSameMessage ->
-            Expect.fail <| FailureMessage.unexpectedGlobalErrorDetails expectedError.details actualErrorWithTheSameMessage
+            FailureMessage.unexpectedGlobalErrorDetails expectedError.details
+                { message = Rule.errorMessage actualErrorWithTheSameMessage
+                , details = Rule.errorDetails actualErrorWithTheSameMessage
+                }
+                |> Expect.fail
 
         Nothing ->
-            Expect.fail <| FailureMessage.messageMismatchForGlobalError expectedError firstActual
+            FailureMessage.messageMismatchForGlobalError
+                { expected = expectedError.message
+                , actual = Rule.errorMessage firstActual
+                }
+                |> Expect.fail
 
 
-checkAllGlobalErrorsMatch : Int -> { expected : List GlobalError, actual : List GlobalError } -> Expectation
+checkAllGlobalErrorsMatch : Int -> { expected : List GlobalError, actual : List ReviewError } -> Expectation
 checkAllGlobalErrorsMatch expectedErrorToString params =
     checkGlobalErrorsMatch expectedErrorToString { expected = params.expected, actual = params.actual, needSecondPass = [] }
 

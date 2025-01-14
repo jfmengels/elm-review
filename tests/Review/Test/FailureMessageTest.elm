@@ -851,13 +851,9 @@ tooManyGlobalErrorsTest =
     describe "tooManyGlobalErrors"
         [ test "with one extra error" <|
             \() ->
-                let
-                    extraErrors : List { message : String }
-                    extraErrors =
-                        [ { message = "Remove the use of `Debug` before shipping to production" }
-                        ]
-                in
-                FailureMessage.tooManyGlobalErrors extraErrors
+                [ "Remove the use of `Debug` before shipping to production"
+                ]
+                    |> FailureMessage.tooManyGlobalErrors
                     |> expectMessageEqual """
 \u{001B}[31m\u{001B}[1mRULE REPORTED MORE GLOBAL ERRORS THAN EXPECTED\u{001B}[22m\u{001B}[39m
 
@@ -867,14 +863,10 @@ I found 1 global error too many:
 """
         , test "with multiple extra errors" <|
             \() ->
-                let
-                    extraErrors : List { message : String }
-                    extraErrors =
-                        [ { message = "Remove the use of `Debug` before shipping to production" }
-                        , { message = "Remove the use of `Debug` before shipping to production" }
-                        ]
-                in
-                FailureMessage.tooManyGlobalErrors extraErrors
+                [ "Remove the use of `Debug` before shipping to production"
+                , "Remove the use of `Debug` before shipping to production"
+                ]
+                    |> FailureMessage.tooManyGlobalErrors
                     |> expectMessageEqual """
 \u{001B}[31m\u{001B}[1mRULE REPORTED MORE GLOBAL ERRORS THAN EXPECTED\u{001B}[22m\u{001B}[39m
 
