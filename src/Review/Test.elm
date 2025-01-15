@@ -1633,7 +1633,7 @@ checkGlobalErrorsMatch originalNumberOfExpectedErrors params =
     case params.expected of
         head :: rest ->
             case findAndRemove (\error_ -> Rule.errorMessage error_ == head.message && Rule.errorDetails error_ == head.details) params.actual of
-                Just newActual ->
+                Just ( matchedError, newActual ) ->
                     if List.isEmpty head.details then
                         Expect.fail (FailureMessage.emptyDetails head.message)
 
@@ -1663,12 +1663,12 @@ checkGlobalErrorsMatch originalNumberOfExpectedErrors params =
                         Expect.fail <| FailureMessage.expectedMoreGlobalErrors originalNumberOfExpectedErrors (List.map .message params.needSecondPass)
 
 
-findAndRemove : (a -> Bool) -> List a -> Maybe (List a)
+findAndRemove : (a -> Bool) -> List a -> Maybe ( a, List a )
 findAndRemove fn list =
     findAndRemoveHelp fn [] list
 
 
-findAndRemoveHelp : (a -> Bool) -> List a -> List a -> Maybe (List a)
+findAndRemoveHelp : (a -> Bool) -> List a -> List a -> Maybe ( a, List a )
 findAndRemoveHelp fn previous list =
     case list of
         [] ->
@@ -1676,7 +1676,7 @@ findAndRemoveHelp fn previous list =
 
         head :: rest ->
             if fn head then
-                Just (List.reverse previous ++ rest)
+                Just ( head, List.reverse previous ++ rest )
 
             else
                 findAndRemoveHelp fn (head :: previous) rest
