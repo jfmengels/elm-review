@@ -1701,8 +1701,8 @@ failBecauseExpectedErrorCouldNotBeFound expectedError ( firstActual, restOfActua
 
 
 checkAllGlobalErrorsMatch : Int -> { expected : List GlobalError, actual : List ReviewError } -> Expectation
-checkAllGlobalErrorsMatch expectedErrorToString params =
-    checkGlobalErrorsMatch expectedErrorToString { expected = params.expected, actual = params.actual, needSecondPass = [] }
+checkAllGlobalErrorsMatch originalNumberOfExpectedErrors params =
+    checkGlobalErrorsMatch originalNumberOfExpectedErrors { expected = params.expected, actual = params.actual, needSecondPass = [] }
 
 
 checkErrorsMatch : Project -> SuccessfulRunResult -> List ExpectedError -> Int -> List ReviewError -> List (() -> Expectation)
