@@ -184,6 +184,7 @@ type ReRun
 type alias GlobalError =
     { message : String
     , details : List String
+    , fixes : List { path : String, source : String }
     }
 
 
@@ -863,7 +864,10 @@ expectGlobalAndLocalErrors { global, local } reviewResult =
                         expectNoGlobalErrors foundGlobalErrors
 
                     else
-                        checkAllGlobalErrorsMatch (List.length global) { expected = global, actual = foundGlobalErrors }
+                        checkAllGlobalErrorsMatch (List.length global)
+                            { expected = List.map (\{ message, details } -> { message = message, details = details, fixes = [] }) global
+                            , actual = foundGlobalErrors
+                            }
                 , \() ->
                     if List.isEmpty local then
                         expectNoModuleErrors runResults
@@ -909,7 +913,10 @@ expectGlobalAndModuleErrors { global, modules } reviewResult =
                         expectNoGlobalErrors foundGlobalErrors
 
                     else
-                        checkAllGlobalErrorsMatch (List.length global) { expected = global, actual = foundGlobalErrors }
+                        checkAllGlobalErrorsMatch (List.length global)
+                            { expected = List.map (\{ message, details } -> { message = message, details = details, fixes = [] }) global
+                            , actual = foundGlobalErrors
+                            }
                 , \() -> expectErrorsForModulesHelp project modules runResults
                 , \() -> expectNoDataExtract extract
                 , \() -> checkResultsAreTheSameWhenIgnoringFiles allErrors reRun
@@ -2138,7 +2145,7 @@ Check out the functions below to create these, and then pass them to [`Review.Te
 -}
 type ReviewExpectation
     = FileErrorExpectation String (List ExpectedError)
-    | GlobalErrorExpectation (List { message : String, details : List String })
+    | GlobalErrorExpectation (List GlobalError)
     | DataExtractExpectation String
 
 
@@ -2149,7 +2156,7 @@ type CompiledDataExtract
 
 
 type alias CompiledExpectations =
-    { globals : List { message : String, details : List String }
+    { globals : List GlobalError
     , modules : List ( String, List ExpectedError )
     , dataExtract : CompiledDataExtract
     }
@@ -2297,6 +2304,53 @@ a different number of errors than expected are reported, or if the message or de
 -}
 globalErrors : List { message : String, details : List String } -> ReviewExpectation
 globalErrors expected =
+    List.map (\{ message, details } -> { message = message, details = details, fixes = [] }) expected
+        |> GlobalErrorExpectation
+
+
+{-| Assert that the rule reported some [global errors](./Review-Rule#globalError), by specifying which ones. To be used along with [`Review.Test.expect`](#expect).
+
+THis is the same as [`globalErrors`](#globalErrors) with the difference that you can specify which the automatic fixes triggered by the global error.
+
+If you expect only global errors, then you may want to use [`expectGlobalErrors`](#expectGlobalErrors) which is simpler.
+
+Assert which errors are reported using records with the expected message and details. The test will fail if
+a different number of errors than expected are reported, or if the message or details is incorrect.
+
+    import Review.Test
+    import Test exposing (Test, test)
+    import The.Rule.You.Want.To.Test exposing (rule)
+
+    someTest : Test
+    someTest =
+        test "should report a global error when the specified module could not be found" <|
+            \() ->
+                """
+    module ModuleA exposing (a)
+    import ModuleB
+    a = 1"""
+                    |> Review.Test.run (rule "ModuleB")
+                    |> Review.Test.expect
+                        [ Review.Test.globalErrorsWithFixes
+                            [ { message = "Could not find module ModuleB"
+                              , details =
+                                    [ "You mentioned the module ModuleB in the configuration of this rule, but it could not be found."
+                                    , "This likely means you misconfigured the rule or the configuration has become out of date with recent changes in your project."
+                                    ]
+                              , fixes =
+                                    [ { path = "src/ModuleA.elm"
+                                      , source = """
+    module ModuleA exposing (a)
+    a = 1"""
+                                      }
+                                    ]
+                              }
+                            ]
+                        ]
+
+-}
+globalErrorsWithFixes : List { message : String, details : List String, fixes : List { path : String, source : String } } -> ReviewExpectation
+globalErrorsWithFixes expected =
     GlobalErrorExpectation expected
 
 
