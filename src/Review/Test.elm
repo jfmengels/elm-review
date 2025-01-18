@@ -1913,8 +1913,8 @@ checkFixesMatch project moduleName error_ expectedFixed fixes =
             case getTargetFileFromProject target project of
                 Just targetInformation ->
                     case getExpectedFixedCodeThroughFilePathOrModuleName (FileTarget.filePath target) targetInformation.moduleName expectedFixed of
-                        Just { key, expectedFixedSource } ->
-                            case fixOneError target fileFixes targetInformation.source expectedFixedSource error_ of
+                        Just ( key, Edited expectedFix ) ->
+                            case fixOneError target fileFixes targetInformation.source expectedFix error_ of
                                 Err failureMessage ->
                                     Expect.fail failureMessage
 
@@ -1956,25 +1956,18 @@ checkFixesMatch project moduleName error_ expectedFixed fixes =
                         |> Expect.fail
 
 
-getExpectedFixedCodeThroughFilePathOrModuleName : String -> Maybe String -> Dict String ExpectedFix -> Maybe { key : String, expectedFixedSource : String }
+getExpectedFixedCodeThroughFilePathOrModuleName : String -> Maybe String -> Dict String ExpectedFix -> Maybe ( String, ExpectedFix )
 getExpectedFixedCodeThroughFilePathOrModuleName filePath moduleName expectedFixed =
     case Dict.get filePath expectedFixed of
-        Just (Edited expectedFixedSource) ->
-            Just { key = filePath, expectedFixedSource = expectedFixedSource }
+        Just expectedFix ->
+            Just ( filePath, expectedFix )
 
         Nothing ->
             moduleName
                 |> Maybe.andThen
                     (\fixTargetModuleName ->
                         Dict.get fixTargetModuleName expectedFixed
-                            |> Maybe.map
-                                (\expectedFix ->
-                                    case expectedFix of
-                                        Edited expectedFixedSource ->
-                                            { key = fixTargetModuleName
-                                            , expectedFixedSource = expectedFixedSource
-                                            }
-                                )
+                            |> Maybe.map (Tuple.pair fixTargetModuleName)
                     )
 
 
