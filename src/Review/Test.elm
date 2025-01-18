@@ -1,6 +1,8 @@
 module Review.Test exposing
     ( ReviewResult, run, runWithProjectData, runOnModules, runOnModulesWithProjectData
-    , ExpectedError, expectNoErrors, expectErrors, error, atExactly, whenFixed, shouldFixFiles, expectErrorsForModules, expectErrorsForElmJson, expectErrorsForReadme, expectErrorsForExtraFile
+    , ExpectedError, expectNoErrors, expectErrors, error, atExactly, whenFixed, shouldFixFiles
+    , ExpectedFix, shouldFixFilesWithIO, edited
+    , expectErrorsForModules, expectErrorsForElmJson, expectErrorsForReadme, expectErrorsForExtraFile
     , expectGlobalErrors
     , expectConfigurationError
     , expectDataExtract
@@ -107,7 +109,9 @@ for this module.
 
 # Making assertions
 
-@docs ExpectedError, expectNoErrors, expectErrors, error, atExactly, whenFixed, shouldFixFiles, expectErrorsForModules, expectErrorsForElmJson, expectErrorsForReadme, expectErrorsForExtraFile
+@docs ExpectedError, expectNoErrors, expectErrors, error, atExactly, whenFixed, shouldFixFiles
+@docs ExpectedFix, shouldFixFilesWithIO, edited
+@docs expectErrorsForModules, expectErrorsForElmJson, expectErrorsForReadme, expectErrorsForExtraFile
 @docs expectGlobalErrors
 @docs expectConfigurationError
 @docs expectDataExtract
@@ -1426,13 +1430,30 @@ The second element in the tuples is the expected source code.
             ]
 
 -}
-shouldFixFiles : List ( String, ExpectedFix ) -> ExpectedError -> ExpectedError
+shouldFixFiles : List ( String, String ) -> ExpectedError -> ExpectedError
 shouldFixFiles expectedFixes (ExpectedError expectedError) =
-    ExpectedError { expectedError | expectedFixes = ComesFromShouldFixFiles (Dict.fromList expectedFixes) }
+    ExpectedError
+        { expectedError
+            | expectedFixes =
+                expectedFixes
+                    |> List.map (\( path, expectedSource ) -> ( path, Edited expectedSource ))
+                    |> Dict.fromList
+                    |> ComesFromShouldFixFiles
+        }
 
 
 type ExpectedFix
-    = EditedTo String
+    = Edited String
+
+
+shouldFixFilesWithIO : List ( String, ExpectedFix ) -> ExpectedError -> ExpectedError
+shouldFixFilesWithIO expectedFixes (ExpectedError expectedError) =
+    ExpectedError { expectedError | expectedFixes = ComesFromShouldFixFiles (Dict.fromList expectedFixes) }
+
+
+edited : String -> ExpectedFix
+edited =
+    Edited
 
 
 formatUnder : Under -> String
@@ -1861,7 +1882,7 @@ checkFixesAreCorrect (Review.Project.Internal.Project project) moduleName ((Erro
                     project
                     moduleName
                     error_
-                    (Dict.singleton err.filePath fixedSource)
+                    (Dict.singleton err.filePath (Edited fixedSource))
                     errorFixes
 
             ComesFromShouldFixFiles expectedFixes ->
@@ -1873,7 +1894,7 @@ checkFixesAreCorrect (Review.Project.Internal.Project project) moduleName ((Erro
                     errorFixes
 
 
-checkFixesMatch : ProjectInternals -> String -> ReviewError -> Dict String String -> List ( FileTarget, ErrorFixes.FixKind ) -> Expectation
+checkFixesMatch : ProjectInternals -> String -> ReviewError -> Dict String ExpectedFix -> List ( FileTarget, ErrorFixes.FixKind ) -> Expectation
 checkFixesMatch project moduleName error_ expectedFixed fixes =
     case fixes of
         [] ->
@@ -1935,10 +1956,10 @@ checkFixesMatch project moduleName error_ expectedFixed fixes =
                         |> Expect.fail
 
 
-getExpectedFixedCodeThroughFilePathOrModuleName : String -> Maybe String -> Dict String String -> Maybe { key : String, expectedFixedSource : String }
+getExpectedFixedCodeThroughFilePathOrModuleName : String -> Maybe String -> Dict String ExpectedFix -> Maybe { key : String, expectedFixedSource : String }
 getExpectedFixedCodeThroughFilePathOrModuleName filePath moduleName expectedFixed =
     case Dict.get filePath expectedFixed of
-        Just expectedFixedSource ->
+        Just (Edited expectedFixedSource) ->
             Just { key = filePath, expectedFixedSource = expectedFixedSource }
 
         Nothing ->
@@ -1947,10 +1968,12 @@ getExpectedFixedCodeThroughFilePathOrModuleName filePath moduleName expectedFixe
                     (\fixTargetModuleName ->
                         Dict.get fixTargetModuleName expectedFixed
                             |> Maybe.map
-                                (\expectedFixedSource ->
-                                    { key = fixTargetModuleName
-                                    , expectedFixedSource = expectedFixedSource
-                                    }
+                                (\expectedFix ->
+                                    case expectedFix of
+                                        Edited expectedFixedSource ->
+                                            { key = fixTargetModuleName
+                                            , expectedFixedSource = expectedFixedSource
+                                            }
                                 )
                     )
 
