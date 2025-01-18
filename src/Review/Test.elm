@@ -871,7 +871,9 @@ expectGlobalAndLocalErrors { global, local } reviewResult =
                         expectNoGlobalErrors foundGlobalErrors
 
                     else
-                        checkAllGlobalErrorsMatch (List.length global)
+                        checkAllGlobalErrorsMatch
+                            project
+                            (List.length global)
                             { expected = List.map (\{ message, details } -> { message = message, details = details, fixes = Dict.empty }) global
                             , actual = foundGlobalErrors
                             }
@@ -920,7 +922,9 @@ expectGlobalAndModuleErrors { global, modules } reviewResult =
                         expectNoGlobalErrors foundGlobalErrors
 
                     else
-                        checkAllGlobalErrorsMatch (List.length global)
+                        checkAllGlobalErrorsMatch
+                            project
+                            (List.length global)
                             { expected = List.map (\{ message, details } -> { message = message, details = details, fixes = Dict.empty }) global
                             , actual = foundGlobalErrors
                             }
@@ -1662,20 +1666,25 @@ checkAllErrorsMatch project runResult unorderedExpectedErrors =
         ()
 
 
-checkGlobalErrorsMatch : Int -> { expected : List GlobalError, actual : List ReviewError, needSecondPass : List GlobalError } -> Expectation
-checkGlobalErrorsMatch originalNumberOfExpectedErrors params =
+checkGlobalErrorsMatch : ProjectInternals -> Int -> { expected : List GlobalError, actual : List ReviewError, needSecondPass : List GlobalError } -> Expectation
+checkGlobalErrorsMatch project originalNumberOfExpectedErrors params =
     case params.expected of
         head :: rest ->
             case findAndRemove (\error_ -> Rule.errorMessage error_ == head.message && Rule.errorDetails error_ == head.details) params.actual of
-                Just ( matchedError, newActual ) ->
+                Just ( (Error.ReviewError { fixes }) as matchedError, newActual ) ->
                     if List.isEmpty head.details then
                         Expect.fail (FailureMessage.emptyDetails head.message)
 
                     else
-                        checkGlobalErrorsMatch originalNumberOfExpectedErrors { expected = rest, actual = newActual, needSecondPass = params.needSecondPass }
+                        case checkGlobalErrorFixesMatch project matchedError head.fixes (ErrorFixes.toList fixes) of
+                            Err failure ->
+                                Expect.fail failure
+
+                            Ok () ->
+                                checkGlobalErrorsMatch project originalNumberOfExpectedErrors { expected = rest, actual = newActual, needSecondPass = params.needSecondPass }
 
                 Nothing ->
-                    checkGlobalErrorsMatch originalNumberOfExpectedErrors { expected = rest, actual = params.actual, needSecondPass = head :: params.needSecondPass }
+                    checkGlobalErrorsMatch project originalNumberOfExpectedErrors { expected = rest, actual = params.actual, needSecondPass = head :: params.needSecondPass }
 
         [] ->
             case params.actual of
@@ -1734,9 +1743,9 @@ failBecauseExpectedErrorCouldNotBeFound expectedError ( firstActual, restOfActua
                 |> Expect.fail
 
 
-checkAllGlobalErrorsMatch : Int -> { expected : List GlobalError, actual : List ReviewError } -> Expectation
-checkAllGlobalErrorsMatch originalNumberOfExpectedErrors params =
-    checkGlobalErrorsMatch originalNumberOfExpectedErrors { expected = params.expected, actual = params.actual, needSecondPass = [] }
+checkAllGlobalErrorsMatch : ProjectInternals -> Int -> { expected : List GlobalError, actual : List ReviewError } -> Expectation
+checkAllGlobalErrorsMatch project originalNumberOfExpectedErrors params =
+    checkGlobalErrorsMatch project originalNumberOfExpectedErrors { expected = params.expected, actual = params.actual, needSecondPass = [] }
 
 
 checkErrorsMatch : ProjectInternals -> SuccessfulRunResult -> List ExpectedError -> Int -> List ReviewError -> List (() -> Expectation)
@@ -1982,6 +1991,82 @@ checkFixesMatch project moduleName error_ expectedFixed fixes =
                     -- TODO MULTIFILE-FIXES Specify it's a deletion fix
                     FailureMessage.fixForUnknownFile (FileTarget.filePath target)
                         |> Expect.fail
+
+
+checkGlobalErrorFixesMatch : ProjectInternals -> ReviewError -> Dict String ExpectedFix -> List ( FileTarget, ErrorFixes.FixKind ) -> Result String ()
+checkGlobalErrorFixesMatch project error_ expectedFixed fixes =
+    case fixes of
+        [] ->
+            if Dict.isEmpty expectedFixed then
+                Ok ()
+
+            else
+                FailureMessage.missingFixesForGlobalError
+                    { message = Rule.errorMessage error_
+                    , expectedFixedModules = Dict.keys expectedFixed
+                    }
+                    |> Err
+
+        ( target, ErrorFixes.Edit fileFixes ) :: rest ->
+            case getTargetFileFromProject target project of
+                Just targetInformation ->
+                    case getExpectedFixedCodeThroughFilePathOrModuleName (FileTarget.filePath target) targetInformation.moduleName expectedFixed of
+                        Just ( key, Edited expectedFix ) ->
+                            case fixOneError target fileFixes targetInformation.source expectedFix error_ of
+                                Err failureMessage ->
+                                    Err failureMessage
+
+                                Ok () ->
+                                    checkGlobalErrorFixesMatch
+                                        project
+                                        error_
+                                        (Dict.remove key expectedFixed)
+                                        rest
+
+                        Just ( key, Removed ) ->
+                            -- TODO MULTIFILE-FIXES Improve error message
+                            -- TODO Show the actual file content?
+                            Err ("In the tests, the file " ++ key ++ " is supposed to be removed, but I can see it being edited to: ...")
+
+                        Nothing ->
+                            FailureMessage.unexpectedAdditionalFixesForGlobalError
+                                { message = Rule.errorMessage error_
+                                , nameOfFixedFile = FileTarget.filePath target
+                                , fixedSource = targetInformation.source
+                                }
+                                |> Err
+
+                Nothing ->
+                    FailureMessage.fixForUnknownFile (FileTarget.filePath target)
+                        |> Err
+
+        ( target, ErrorFixes.Remove ) :: rest ->
+            case getTargetFileFromProject target project of
+                Just targetInformation ->
+                    case getExpectedFixedCodeThroughFilePathOrModuleName (FileTarget.filePath target) targetInformation.moduleName expectedFixed of
+                        Just ( key, Removed ) ->
+                            checkGlobalErrorFixesMatch
+                                project
+                                error_
+                                (Dict.remove key expectedFixed)
+                                rest
+
+                        Just ( key, Edited _ ) ->
+                            -- TODO MULTIFILE-FIXES Validate that file was expected to be deleted.
+                            Err ("In the tests, the file " ++ key ++ " is supposed to be edited, but I can see it being removed.")
+
+                        Nothing ->
+                            FailureMessage.unexpectedAdditionalFixesForGlobalError
+                                { message = Rule.errorMessage error_
+                                , nameOfFixedFile = FileTarget.filePath target
+                                , fixedSource = targetInformation.source
+                                }
+                                |> Err
+
+                Nothing ->
+                    -- TODO MULTIFILE-FIXES Specify it's a deletion fix
+                    FailureMessage.fixForUnknownFile (FileTarget.filePath target)
+                        |> Err
 
 
 getExpectedFixedCodeThroughFilePathOrModuleName : String -> Maybe String -> Dict String ExpectedFix -> Maybe ( String, ExpectedFix )
@@ -2273,7 +2358,7 @@ expect expectations reviewResult =
                         expectNoGlobalErrors foundGlobalErrors
 
                     else
-                        checkAllGlobalErrorsMatch (List.length expected.globals) { expected = expected.globals, actual = foundGlobalErrors }
+                        checkAllGlobalErrorsMatch project (List.length expected.globals) { expected = expected.globals, actual = foundGlobalErrors }
                 , \() -> expectErrorsForModulesHelp project expected.modules runResults
                 , \() ->
                     case expected.dataExtract of

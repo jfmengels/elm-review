@@ -24,11 +24,25 @@ b = 1
                           , details = [ "I'll fix all modules now" ]
                           }
                         ]
-                    |> expectFailure """TEST SOURCE CODE PARSING ERROR
+                    |> expectFailure """UNEXPECTED FIXES
 
-I could not parse the test source code, because it was not valid Elm code.
+I expected that the global error with the following message
 
-Hint: Maybe you forgot to add the module definition at the top, like:
+  `Oh no`
 
-  `module A exposing (..)`"""
+would provide fixes, but I found an unexpected fix for `src/A.elm`.
+This is what it gets fixed to:
+
+  ```
+
+    module A exposing (..)
+    a = 1
+
+  ```
+
+If this fix was expected, update the test by using `Review.Test.whenFixed`
+or `Review.Test.shouldFixFiles`. If it isn't, then change the rule's
+implementation to not provide a fix for this situation."""
+
+        -- TODO MULTIFILE-FIXES This is not recommending the correct functions.
         ]
