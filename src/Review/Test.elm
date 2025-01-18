@@ -188,7 +188,7 @@ type ReRun
 type alias GlobalError =
     { message : String
     , details : List String
-    , fixes : List { path : String, source : String }
+    , fixes : Dict String ExpectedFix
     }
 
 
@@ -869,7 +869,7 @@ expectGlobalAndLocalErrors { global, local } reviewResult =
 
                     else
                         checkAllGlobalErrorsMatch (List.length global)
-                            { expected = List.map (\{ message, details } -> { message = message, details = details, fixes = [] }) global
+                            { expected = List.map (\{ message, details } -> { message = message, details = details, fixes = Dict.empty }) global
                             , actual = foundGlobalErrors
                             }
                 , \() ->
@@ -918,7 +918,7 @@ expectGlobalAndModuleErrors { global, modules } reviewResult =
 
                     else
                         checkAllGlobalErrorsMatch (List.length global)
-                            { expected = List.map (\{ message, details } -> { message = message, details = details, fixes = [] }) global
+                            { expected = List.map (\{ message, details } -> { message = message, details = details, fixes = Dict.empty }) global
                             , actual = foundGlobalErrors
                             }
                 , \() -> expectErrorsForModulesHelp project modules runResults
@@ -2349,7 +2349,7 @@ a different number of errors than expected are reported, or if the message or de
 -}
 globalErrors : List { message : String, details : List String } -> ReviewExpectation
 globalErrors expected =
-    List.map (\{ message, details } -> { message = message, details = details, fixes = [] }) expected
+    List.map (\{ message, details } -> { message = message, details = details, fixes = Dict.empty }) expected
         |> GlobalErrorExpectation
 
 
@@ -2394,9 +2394,10 @@ a different number of errors than expected are reported, or if the message or de
                         ]
 
 -}
-globalErrorsWithFixes : List { message : String, details : List String, fixes : List { path : String, source : String } } -> ReviewExpectation
+globalErrorsWithFixes : List { message : String, details : List String, fixes : List ( String, ExpectedFix ) } -> ReviewExpectation
 globalErrorsWithFixes expected =
-    GlobalErrorExpectation expected
+    List.map (\{ message, details, fixes } -> { message = message, details = details, fixes = Dict.fromList fixes }) expected
+        |> GlobalErrorExpectation
 
 
 {-| Assert that the rule reported some errors for modules, by specifying which ones. To be used along with [`Review.Test.expect`](#expect).
