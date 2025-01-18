@@ -217,14 +217,14 @@ type alias ExpectedErrorDetails =
     { message : String
     , details : List String
     , under : Under
-    , fixedFiles : ExpectedFixSource
+    , expectedFixes : ExpectedFixes
     }
 
 
-type ExpectedFixSource
+type ExpectedFixes
     = NoFixesExpected
     | ComesFromWhenFixed String
-    | ComesFromShouldFixFiles (Dict String String)
+    | ComesFromShouldFixFiles (Dict String ExpectedFix)
 
 
 type Under
@@ -1293,7 +1293,7 @@ error input =
         { message = input.message
         , details = input.details
         , under = Under input.under
-        , fixedFiles = NoFixesExpected
+        , expectedFixes = NoFixesExpected
         }
 
 
@@ -1371,7 +1371,7 @@ In other words, you only need to use this function if the error provides a fix.
 -}
 whenFixed : String -> ExpectedError -> ExpectedError
 whenFixed fixedSource (ExpectedError expectedError) =
-    ExpectedError { expectedError | fixedFiles = ComesFromWhenFixed fixedSource }
+    ExpectedError { expectedError | expectedFixes = ComesFromWhenFixed fixedSource }
 
 
 {-| Create an expectation that the error provides automatic fixes for one or several files, meaning that it used
@@ -1426,9 +1426,13 @@ The second element in the tuples is the expected source code.
             ]
 
 -}
-shouldFixFiles : List ( String, String ) -> ExpectedError -> ExpectedError
-shouldFixFiles fixedFiles (ExpectedError expectedError) =
-    ExpectedError { expectedError | fixedFiles = ComesFromShouldFixFiles (Dict.fromList fixedFiles) }
+shouldFixFiles : List ( String, ExpectedFix ) -> ExpectedError -> ExpectedError
+shouldFixFiles expectedFixes (ExpectedError expectedError) =
+    ExpectedError { expectedError | expectedFixes = ComesFromShouldFixFiles (Dict.fromList expectedFixes) }
+
+
+type ExpectedFix
+    = EditedTo String
 
 
 formatUnder : Under -> String
@@ -1824,7 +1828,7 @@ checkFixesAreCorrect (Review.Project.Internal.Project project) moduleName ((Erro
             ErrorFixes.toList err.fixes
     in
     if List.isEmpty errorFixes then
-        case expectedError.fixedFiles of
+        case expectedError.expectedFixes of
             NoFixesExpected ->
                 Expect.pass
 
@@ -1847,7 +1851,7 @@ checkFixesAreCorrect (Review.Project.Internal.Project project) moduleName ((Erro
                     )
 
     else
-        case expectedError.fixedFiles of
+        case expectedError.expectedFixes of
             NoFixesExpected ->
                 FailureMessage.unexpectedFixes (Rule.errorMessage error_)
                     |> Expect.fail
@@ -1860,12 +1864,12 @@ checkFixesAreCorrect (Review.Project.Internal.Project project) moduleName ((Erro
                     (Dict.singleton err.filePath fixedSource)
                     errorFixes
 
-            ComesFromShouldFixFiles fixedFiles ->
+            ComesFromShouldFixFiles expectedFixes ->
                 checkFixesMatch
                     project
                     moduleName
                     error_
-                    fixedFiles
+                    expectedFixes
                     errorFixes
 
 
