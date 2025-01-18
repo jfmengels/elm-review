@@ -1,7 +1,7 @@
 module Review.Test exposing
     ( ReviewResult, run, runWithProjectData, runOnModules, runOnModulesWithProjectData
     , ExpectedError, expectNoErrors, expectErrors, error, atExactly, whenFixed, shouldFixFiles
-    , ExpectedFix, shouldFixFilesWithIO, edited
+    , ExpectedFix, shouldFixFilesWithIO, edited, removed
     , expectErrorsForModules, expectErrorsForElmJson, expectErrorsForReadme, expectErrorsForExtraFile
     , expectGlobalErrors
     , expectConfigurationError
@@ -110,7 +110,7 @@ for this module.
 # Making assertions
 
 @docs ExpectedError, expectNoErrors, expectErrors, error, atExactly, whenFixed, shouldFixFiles
-@docs ExpectedFix, shouldFixFilesWithIO, edited
+@docs ExpectedFix, shouldFixFilesWithIO, edited, removed
 @docs expectErrorsForModules, expectErrorsForElmJson, expectErrorsForReadme, expectErrorsForExtraFile
 @docs expectGlobalErrors
 @docs expectConfigurationError
@@ -1444,6 +1444,7 @@ shouldFixFiles expectedFixes (ExpectedError expectedError) =
 
 type ExpectedFix
     = Edited String
+    | Removed
 
 
 shouldFixFilesWithIO : List ( String, ExpectedFix ) -> ExpectedError -> ExpectedError
@@ -1454,6 +1455,11 @@ shouldFixFilesWithIO expectedFixes (ExpectedError expectedError) =
 edited : String -> ExpectedFix
 edited =
     Edited
+
+
+removed : ExpectedFix
+removed =
+    Removed
 
 
 formatUnder : Under -> String
@@ -1926,6 +1932,11 @@ checkFixesMatch project moduleName error_ expectedFixed fixes =
                                         (Dict.remove key expectedFixed)
                                         rest
 
+                        Just ( key, Removed ) ->
+                            -- TODO MULTIFILE-FIXES Improve error message
+                            -- TODO Show the actual file content?
+                            Expect.fail ("In the tests, the file " ++ key ++ " is supposed to be removed, but I can see it being edited to: ...")
+
                         Nothing ->
                             FailureMessage.unexpectedAdditionalFixes
                                 { moduleName = moduleName
@@ -1942,13 +1953,27 @@ checkFixesMatch project moduleName error_ expectedFixed fixes =
         ( target, ErrorFixes.Remove ) :: rest ->
             case getTargetFileFromProject target project of
                 Just targetInformation ->
-                    -- TODO MULTIFILE-FIXES Validate that file was expected to be deleted.
-                    checkFixesMatch
-                        project
-                        moduleName
-                        error_
-                        expectedFixed
-                        rest
+                    case getExpectedFixedCodeThroughFilePathOrModuleName (FileTarget.filePath target) targetInformation.moduleName expectedFixed of
+                        Just ( key, Removed ) ->
+                            checkFixesMatch
+                                project
+                                moduleName
+                                error_
+                                (Dict.remove key expectedFixed)
+                                rest
+
+                        Just ( key, Edited _ ) ->
+                            -- TODO MULTIFILE-FIXES Validate that file was expected to be deleted.
+                            Expect.fail ("In the tests, the file " ++ key ++ " is supposed to be edited, but I can see it being removed.")
+
+                        Nothing ->
+                            FailureMessage.unexpectedAdditionalFixes
+                                { moduleName = moduleName
+                                , message = Rule.errorMessage error_
+                                , nameOfFixedFile = FileTarget.filePath target
+                                , fixedSource = targetInformation.source
+                                }
+                                |> Expect.fail
 
                 Nothing ->
                     -- TODO MULTIFILE-FIXES Specify it's a deletion fix
