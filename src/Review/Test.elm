@@ -176,7 +176,7 @@ type alias SuccessfulRunData =
     , runResults : List SuccessfulRunResult
     , extract : ExtractResult
     , allErrors : List ReviewError
-    , project : Project
+    , project : ProjectInternals
     }
 
 
@@ -493,13 +493,16 @@ runOnModulesWithProjectDataHelp project rule sources =
                                     foundGlobalErrors =
                                         errors
                                             |> List.filter (\error_ -> Rule.errorTarget error_ == Target.UserGlobal)
+
+                                    (Review.Project.Internal.Project unwrappedProject) =
+                                        projectWithModules
                                 in
                                 SuccessfulRun
                                     { foundGlobalErrors = foundGlobalErrors
                                     , runResults = fileErrors
                                     , extract = extract
                                     , allErrors = errors
-                                    , project = projectWithModules
+                                    , project = unwrappedProject
                                     }
                                     (AttemptReRun rule projectWithModules)
 
@@ -1058,7 +1061,7 @@ maybeCons mapper maybe list =
             list
 
 
-expectErrorsForModulesHelp : Project -> List ( String, List ExpectedError ) -> List SuccessfulRunResult -> Expectation
+expectErrorsForModulesHelp : ProjectInternals -> List ( String, List ExpectedError ) -> List SuccessfulRunResult -> Expectation
 expectErrorsForModulesHelp project expectedErrorsList runResults =
     let
         unknownModules : List String
@@ -1079,7 +1082,7 @@ expectErrorsForModulesHelp project expectedErrorsList runResults =
                 ()
 
 
-expectErrorsForModuleFiles : Project -> List ( String, List ExpectedError ) -> List SuccessfulRunResult -> List (() -> Expectation)
+expectErrorsForModuleFiles : ProjectInternals -> List ( String, List ExpectedError ) -> List SuccessfulRunResult -> List (() -> Expectation)
 expectErrorsForModuleFiles project expectedErrorsList runResults =
     List.map
         (\runResult () ->
@@ -1642,7 +1645,7 @@ matchingConfidenceLevel codeInspector expectedErrorDetails reviewError =
                     3
 
 
-checkAllErrorsMatch : Project -> SuccessfulRunResult -> List ExpectedError -> Expectation
+checkAllErrorsMatch : ProjectInternals -> SuccessfulRunResult -> List ExpectedError -> Expectation
 checkAllErrorsMatch project runResult unorderedExpectedErrors =
     let
         ( expectedErrors, reviewErrors ) =
@@ -1736,7 +1739,7 @@ checkAllGlobalErrorsMatch originalNumberOfExpectedErrors params =
     checkGlobalErrorsMatch originalNumberOfExpectedErrors { expected = params.expected, actual = params.actual, needSecondPass = [] }
 
 
-checkErrorsMatch : Project -> SuccessfulRunResult -> List ExpectedError -> Int -> List ReviewError -> List (() -> Expectation)
+checkErrorsMatch : ProjectInternals -> SuccessfulRunResult -> List ExpectedError -> Int -> List ReviewError -> List (() -> Expectation)
 checkErrorsMatch project runResult expectedErrors expectedNumberOfErrors errors =
     case ( expectedErrors, errors ) of
         ( [], [] ) ->
@@ -1761,7 +1764,7 @@ checkErrorsMatch project runResult expectedErrors expectedNumberOfErrors errors 
             ]
 
 
-checkErrorMatch : Project -> SuccessfulRunResult -> ExpectedError -> ReviewError -> (() -> Expectation)
+checkErrorMatch : ProjectInternals -> SuccessfulRunResult -> ExpectedError -> ReviewError -> (() -> Expectation)
 checkErrorMatch project runResult (ExpectedError expectedError) error_ =
     Expect.all
         [ -- Error message
@@ -1847,8 +1850,8 @@ checkFixesHaveNoProblem ((Error.ReviewError err) as error_) =
             Expect.pass
 
 
-checkFixesAreCorrect : Project -> String -> ReviewError -> ExpectedErrorDetails -> Expectation
-checkFixesAreCorrect (Review.Project.Internal.Project project) moduleName ((Error.ReviewError err) as error_) expectedError =
+checkFixesAreCorrect : ProjectInternals -> String -> ReviewError -> ExpectedErrorDetails -> Expectation
+checkFixesAreCorrect project moduleName ((Error.ReviewError err) as error_) expectedError =
     let
         errorFixes : List ( FileTarget, ErrorFixes.FixKind )
         errorFixes =
