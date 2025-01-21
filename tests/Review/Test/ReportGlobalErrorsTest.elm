@@ -1,4 +1,4 @@
-module ReportGlobalErrorsTest exposing (all)
+module Review.Test.ReportGlobalErrorsTest exposing (all)
 
 import Review.Fix as Fix
 import Review.Rule as Rule exposing (Error, FixesV2, ModuleKey, Rule)

@@ -36,7 +36,6 @@ import Review.Rule as Rule exposing (Rule)
 import Review.FilePattern as FilePattern
 import NoUnused.CustomTypeConstructorArgs
 import Simplify
-import ReportGlobalErrorWithFixesInAllFiles
 
 config : List Rule
 config =
@@ -78,7 +77,6 @@ config =
             , "src/Review/Logger.elm"
             ]
     , NoForbiddenWords.rule [ "REPLACEME" ]
-    , ReportGlobalErrorWithFixesInAllFiles.rule
     ]
         |> List.map (Rule.ignoreErrorsForDirectories [ "src/Vendor/", "tests/Vendor/" ])
         |> List.map (Rule.ignoreErrorsForFiles [ "tests/NoUnused/Patterns/NameVisitor.elm" ])
