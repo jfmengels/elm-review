@@ -8,7 +8,7 @@ module Review.Test exposing
     , expectDataExtract
     , ignoredFilesImpactResults
     , expect, ReviewExpectation
-    , moduleErrors, globalErrors, elmJsonErrors, readmeErrors, extraFileErrors, dataExtract
+    , moduleErrors, globalErrors, globalErrorsWithFixes, elmJsonErrors, readmeErrors, extraFileErrors, dataExtract
     , expectGlobalAndLocalErrors, expectGlobalAndModuleErrors
     )
 
@@ -121,7 +121,7 @@ for this module.
 ## Composite assertions
 
 @docs expect, ReviewExpectation
-@docs moduleErrors, globalErrors, elmJsonErrors, readmeErrors, extraFileErrors, dataExtract
+@docs moduleErrors, globalErrors, globalErrorsWithFixes, elmJsonErrors, readmeErrors, extraFileErrors, dataExtract
 
 
 # Deprecated
@@ -2407,6 +2407,7 @@ compileExpectations expectations =
 {-| Assert that the rule reported some [global errors](./Review-Rule#globalError), by specifying which ones. To be used along with [`Review.Test.expect`](#expect).
 
 If you expect only global errors, then you may want to use [`expectGlobalErrors`](#expectGlobalErrors) which is simpler.
+If you need to specify fixes for the global error, you will want to use [`globalErrorsWithFixes`](#globalErrorsWithFixes).
 
 Assert which errors are reported using records with the expected message and details. The test will fail if
 a different number of errors than expected are reported, or if the message or details is incorrect.
@@ -2443,7 +2444,7 @@ globalErrors expected =
 
 {-| Assert that the rule reported some [global errors](./Review-Rule#globalError), by specifying which ones. To be used along with [`Review.Test.expect`](#expect).
 
-THis is the same as [`globalErrors`](#globalErrors) with the difference that you can specify which the automatic fixes triggered by the global error.
+This is the same as [`globalErrors`](#globalErrors) with the difference that you can specify the results of the automatic fixes provided by the global error.
 
 If you expect only global errors, then you may want to use [`expectGlobalErrors`](#expectGlobalErrors) which is simpler.
 
@@ -2471,8 +2472,8 @@ a different number of errors than expected are reported, or if the message or de
                                     , "This likely means you misconfigured the rule or the configuration has become out of date with recent changes in your project."
                                     ]
                               , fixes =
-                                    [ { path = "src/ModuleA.elm"
-                                      , source = """
+                                    [ ( "src/ModuleA.elm"
+                                      , Review.Test.edited """
     module ModuleA exposing (a)
     a = 1"""
                                       }
