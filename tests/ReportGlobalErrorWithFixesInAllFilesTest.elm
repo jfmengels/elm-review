@@ -19,6 +19,30 @@ module B exposing (..)
 b = 1
 """ ]
                     |> Review.Test.runOnModules rule
+                    |> Review.Test.expect
+                        [ Review.Test.globalErrorsWithFixes
+                            [ { message = "Oh no"
+                              , details = [ "I'll fix all modules now" ]
+                              , fixes =
+                                    [ ( "A", Review.Test.edited """-- Hi
+module A exposing (..)
+a = 1
+""" )
+                                    , ( "B", Review.Test.edited """-- Hi
+module B exposing (..)
+b = 1
+""" )
+                                    ]
+                              }
+                            ]
+                        ]
+        , test "test should fail if fix is not provided" <|
+            \_ ->
+                """
+module A exposing (..)
+a = 1
+"""
+                    |> Review.Test.run rule
                     |> Review.Test.expectGlobalErrors
                         [ { message = "Oh no"
                           , details = [ "I'll fix all modules now" ]
