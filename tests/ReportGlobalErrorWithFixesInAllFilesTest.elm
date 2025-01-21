@@ -75,11 +75,11 @@ a = 1
                         ]
                     |> expectFailure """UNEXPECTED FIXES
 
-I expected that the global error with the following message
+I found the global error with the following message
 
   `Oh no`
 
-would provide fixes, but I found an unexpected fix for `src/A.elm`.
+but it provided an unexpected fix for `src/A.elm`.
 This is what it gets fixed to:
 
   ```
@@ -89,9 +89,7 @@ This is what it gets fixed to:
 
   ```
 
-If this fix was expected, update the test by using `Review.Test.whenFixed`
-or `Review.Test.shouldFixFiles`. If it isn't, then change the rule's
-implementation to not provide a fix for this situation."""
-
-        -- TODO MULTIFILE-FIXES This is not recommending the correct functions.
+If this fix was expected, update the test by using
+`expectGlobalErrorsWithFixes` or `globalErrorsWithFixes`. If it isn't, then
+change the rule's implementation to not provide a fix for this situation."""
         ]

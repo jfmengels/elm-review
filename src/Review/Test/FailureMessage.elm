@@ -544,18 +544,18 @@ implementation to not provide a fix for this situation.""")
 unexpectedAdditionalFixesForGlobalError : { message : String, nameOfFixedFile : String, fixedSource : String } -> String
 unexpectedAdditionalFixesForGlobalError { message, nameOfFixedFile, fixedSource } =
     failureMessage "UNEXPECTED FIXES"
-        ("""I expected that the global error with the following message
+        ("""I found the global error with the following message
 
   """ ++ wrapInQuotes message ++ """
 
-would provide fixes, but I found an unexpected fix for """ ++ wrapInQuotes nameOfFixedFile ++ """.
+but it provided an unexpected fix for """ ++ wrapInQuotes nameOfFixedFile ++ """.
 This is what it gets fixed to:
 
   """ ++ formatSourceCode fixedSource ++ """
 
-If this fix was expected, update the test by using `Review.Test.whenFixed`
-or `Review.Test.shouldFixFiles`. If it isn't, then change the rule's
-implementation to not provide a fix for this situation.""")
+If this fix was expected, update the test by using
+`expectGlobalErrorsWithFixes` or `globalErrorsWithFixes`. If it isn't, then
+change the rule's implementation to not provide a fix for this situation.""")
 
 
 fixedCodeMismatch : SourceCode -> SourceCode -> ReviewError -> String
