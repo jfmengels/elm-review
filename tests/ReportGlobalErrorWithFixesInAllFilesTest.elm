@@ -36,6 +36,31 @@ b = 1
                               }
                             ]
                         ]
+        , test "should report a global introducing a change in all files (using expectGlobalErrorsWithFixes)" <|
+            \_ ->
+                [ """
+module A exposing (..)
+a = 1
+""", """
+module B exposing (..)
+b = 1
+""" ]
+                    |> Review.Test.runOnModules rule
+                    |> Review.Test.expectGlobalErrorsWithFixes
+                        [ { message = "Oh no"
+                          , details = [ "I'll fix all modules now" ]
+                          , fixes =
+                                [ ( "A", Review.Test.edited """-- Hi
+module A exposing (..)
+a = 1
+""" )
+                                , ( "B", Review.Test.edited """-- Hi
+module B exposing (..)
+b = 1
+""" )
+                                ]
+                          }
+                        ]
         , test "test should fail if fix is not provided" <|
             \_ ->
                 """

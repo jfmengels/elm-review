@@ -3,7 +3,7 @@ module Review.Test exposing
     , ExpectedError, expectNoErrors, expectErrors, error, atExactly, whenFixed, shouldFixFiles
     , ExpectedFix, shouldFixFilesWithIO, edited, removed
     , expectErrorsForModules, expectErrorsForElmJson, expectErrorsForReadme, expectErrorsForExtraFile
-    , expectGlobalErrors
+    , expectGlobalErrors, expectGlobalErrorsWithFixes
     , expectConfigurationError
     , expectDataExtract
     , ignoredFilesImpactResults
@@ -110,7 +110,7 @@ for this module.
 @docs ExpectedError, expectNoErrors, expectErrors, error, atExactly, whenFixed, shouldFixFiles
 @docs ExpectedFix, shouldFixFilesWithIO, edited, removed
 @docs expectErrorsForModules, expectErrorsForElmJson, expectErrorsForReadme, expectErrorsForExtraFile
-@docs expectGlobalErrors
+@docs expectGlobalErrors, expectGlobalErrorsWithFixes
 @docs expectConfigurationError
 @docs expectDataExtract
 @docs ignoredFilesImpactResults
@@ -1125,6 +1125,7 @@ expectErrorsForElmJson expectedErrors reviewResult =
 {-| Assert that the rule reported some [global errors](./Review-Rule#globalError), by specifying which ones.
 
 If you expect the rule to report other kinds of errors or extract data, then you should use the [`Review.Test.expect`](#expect) and [`globalErrors`](#globalErrors) functions.
+If you need to specify fixes for the global error, you will want to use [`globalErrorsWithFixes`](#globalErrorsWithFixes) instead.
 
 Assert which errors are reported using records with the expected message and details. The test will fail if
 a different number of errors than expected are reported, or if the message or details is incorrect.
@@ -1154,6 +1155,40 @@ a different number of errors than expected are reported, or if the message or de
 expectGlobalErrors : List { message : String, details : List String } -> ReviewResult -> Expectation
 expectGlobalErrors expectedErrors reviewResult =
     expect [ globalErrors expectedErrors ] reviewResult
+
+
+{-| Assert that the rule reported some [global errors](./Review-Rule#globalError), by specifying which ones.
+
+If you expect the rule to report other kinds of errors or extract data, then you should use the [`Review.Test.expect`](#expect) and [`globalErrors`](#globalErrors) functions.
+
+Assert which errors are reported using records with the expected message and details. The test will fail if
+a different number of errors than expected are reported, or if the message or details is incorrect.
+
+    import Review.Test
+    import Test exposing (Test, test)
+    import The.Rule.You.Want.To.Test exposing (rule)
+
+    someTest : Test
+    someTest =
+        test "should report a global error when the specified module could not be found" <|
+            \() ->
+                """
+    module ModuleA exposing (a)
+    a = 1"""
+                    |> Review.Test.run (rule "ModuleB")
+                    |> Review.Test.expectGlobalErrors
+                        [ { message = "Could not find module ModuleB"
+                          , details =
+                                [ "You mentioned the module ModuleB in the configuration of this rule, but it could not be found."
+                                , "This likely means you misconfigured the rule or the configuration has become out of date with recent changes in your project."
+                                ]
+                          }
+                        ]
+
+-}
+expectGlobalErrorsWithFixes : List { message : String, details : List String, fixes : List ( String, ExpectedFix ) } -> ReviewResult -> Expectation
+expectGlobalErrorsWithFixes expectedErrors reviewResult =
+    expect [ globalErrorsWithFixes expectedErrors ] reviewResult
 
 
 {-| Assert that the rule reported some errors for the `README.md` file, by specifying which ones.
@@ -2363,7 +2398,7 @@ compileExpectations expectations =
 {-| Assert that the rule reported some [global errors](./Review-Rule#globalError), by specifying which ones. To be used along with [`Review.Test.expect`](#expect).
 
 If you expect only global errors, then you may want to use [`expectGlobalErrors`](#expectGlobalErrors) which is simpler.
-If you need to specify fixes for the global error, you will want to use [`globalErrorsWithFixes`](#globalErrorsWithFixes).
+If you need to specify fixes for the global error, you will want to use [`globalErrorsWithFixes`](#globalErrorsWithFixes) instead.
 
 Assert which errors are reported using records with the expected message and details. The test will fail if
 a different number of errors than expected are reported, or if the message or details is incorrect.
