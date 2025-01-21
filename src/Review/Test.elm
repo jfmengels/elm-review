@@ -715,11 +715,7 @@ like `expectErrors []`.
 -}
 expectNoErrors : ReviewResult -> Expectation
 expectNoErrors reviewResult =
-    expectGlobalAndLocalErrors
-        { global = []
-        , local = []
-        }
-        reviewResult
+    expect [] reviewResult
 
 
 expectNoGlobalErrors : List ReviewError -> Expectation
@@ -835,11 +831,8 @@ location is incorrect.
 -}
 expectErrorsForModules : List ( String, List ExpectedError ) -> ReviewResult -> Expectation
 expectErrorsForModules expectedErrorsList reviewResult =
-    -- TODO MULTIFILE-FIXES Should we add support for getting through the file path?
-    expectGlobalAndModuleErrors
-        { global = []
-        , modules = expectedErrorsList
-        }
+    expect
+        (List.map (\( moduleName, errors ) -> moduleErrors moduleName errors) expectedErrorsList)
         reviewResult
 
 
@@ -908,31 +901,14 @@ This function works in the same way as [`expectErrorsForModules`](#expectErrorsF
 -}
 expectGlobalAndModuleErrors : { global : List { message : String, details : List String }, modules : List ( String, List ExpectedError ) } -> ReviewResult -> Expectation
 expectGlobalAndModuleErrors { global, modules } reviewResult =
-    case reviewResult of
-        ConfigurationError configurationError ->
-            Expect.fail (FailureMessage.unexpectedConfigurationError configurationError)
-
-        FailedRun errorMessage ->
-            Expect.fail errorMessage
-
-        SuccessfulRun { foundGlobalErrors, runResults, extract, allErrors, project } reRun ->
-            Expect.all
-                [ \() ->
-                    if List.isEmpty global then
-                        expectNoGlobalErrors foundGlobalErrors
-
-                    else
-                        checkAllGlobalErrorsMatch
-                            project
-                            (List.length global)
-                            { expected = List.map (\{ message, details } -> { message = message, details = details, fixes = Dict.empty }) global
-                            , actual = foundGlobalErrors
-                            }
-                , \() -> expectErrorsForModulesHelp project modules runResults
-                , \() -> expectNoDataExtract extract
-                , \() -> checkResultsAreTheSameWhenIgnoringFiles allErrors reRun
-                ]
-                ()
+    let
+        expectations : List ReviewExpectation
+        expectations =
+            List.foldl (\( moduleName, errors ) acc -> moduleErrors moduleName errors :: acc)
+                [ globalErrors global ]
+                modules
+    in
+    expect expectations reviewResult
 
 
 checkResultsAreTheSameWhenIgnoringFiles : List ReviewError -> ReRun -> Expectation
@@ -1145,7 +1121,7 @@ location is incorrect.
 -}
 expectErrorsForElmJson : List ExpectedError -> ReviewResult -> Expectation
 expectErrorsForElmJson expectedErrors reviewResult =
-    expectErrorsForModules [ ( "elm.json", expectedErrors ) ] reviewResult
+    expect [ elmJsonErrors expectedErrors ] reviewResult
 
 
 {-| Assert that the rule reported some [global errors](./Review-Rule#globalError), by specifying which ones.
@@ -1179,11 +1155,7 @@ a different number of errors than expected are reported, or if the message or de
 -}
 expectGlobalErrors : List { message : String, details : List String } -> ReviewResult -> Expectation
 expectGlobalErrors expectedErrors reviewResult =
-    expectGlobalAndLocalErrors
-        { global = expectedErrors
-        , local = []
-        }
-        reviewResult
+    expect [ globalErrors expectedErrors ] reviewResult
 
 
 {-| Assert that the rule reported some errors for the `README.md` file, by specifying which ones.
@@ -1224,7 +1196,7 @@ location is incorrect.
 -}
 expectErrorsForReadme : List ExpectedError -> ReviewResult -> Expectation
 expectErrorsForReadme expectedErrors reviewResult =
-    expectErrorsForModules [ ( "README.md", expectedErrors ) ] reviewResult
+    expect [ readmeErrors expectedErrors ] reviewResult
 
 
 {-| Assert that the rule reported some errors for an extra file, by specifying which ones.
@@ -1265,7 +1237,7 @@ location is incorrect.
 -}
 expectErrorsForExtraFile : String -> List ExpectedError -> ReviewResult -> Expectation
 expectErrorsForExtraFile filePath expectedErrors reviewResult =
-    expectErrorsForModules [ ( filePath, expectedErrors ) ] reviewResult
+    expect [ extraFileErrors filePath expectedErrors ] reviewResult
 
 
 {-| Create an expectation for an error.
@@ -2230,21 +2202,7 @@ Note: You do not need to match the exact formatting of the JSON object, though t
 -}
 expectDataExtract : String -> ReviewResult -> Expectation
 expectDataExtract expectedExtract reviewResult =
-    case reviewResult of
-        ConfigurationError configurationError ->
-            Expect.fail (FailureMessage.unexpectedConfigurationError configurationError)
-
-        FailedRun errorMessage ->
-            Expect.fail errorMessage
-
-        SuccessfulRun { foundGlobalErrors, runResults, extract, allErrors } reRun ->
-            Expect.all
-                [ \() -> expectNoGlobalErrors foundGlobalErrors
-                , \() -> expectNoModuleErrors runResults
-                , \() -> expectDataExtractContent expectedExtract extract
-                , \() -> checkResultsAreTheSameWhenIgnoringFiles allErrors reRun
-                ]
-                ()
+    expect [ dataExtract expectedExtract ] reviewResult
 
 
 expectDataExtractContent : String -> ExtractResult -> Expectation
