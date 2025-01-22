@@ -1949,12 +1949,12 @@ checkFixesMatch project moduleName error_ expectedFixed fixes =
                     }
                     |> Expect.fail
 
-        ( target, ErrorFixes.Edit fileFixes ) :: rest ->
-            case getTargetFileFromProject target project of
+        ( fixTarget, ErrorFixes.Edit fileFixes ) :: rest ->
+            case getTargetFileFromProject fixTarget project of
                 Just targetInformation ->
-                    case getExpectedFixedCodeThroughFilePathOrModuleName (FileTarget.filePath target) targetInformation.moduleName expectedFixed of
+                    case getExpectedFixedCodeThroughFilePathOrModuleName (FileTarget.filePath fixTarget) targetInformation.moduleName expectedFixed of
                         Just ( key, ExpectEdited expectedFix ) ->
-                            case fixOneError target fileFixes targetInformation.source expectedFix error_ of
+                            case fixOneError fixTarget fileFixes targetInformation.source expectedFix error_ of
                                 Err failureMessage ->
                                     Expect.fail failureMessage
 
@@ -1979,19 +1979,19 @@ checkFixesMatch project moduleName error_ expectedFixed fixes =
                             FailureMessage.unexpectedAdditionalFixes
                                 { moduleName = moduleName
                                 , message = Rule.errorMessage error_
-                                , nameOfFixedFile = FileTarget.filePath target
+                                , nameOfFixedFile = FileTarget.filePath fixTarget
                                 , fixedSource = targetInformation.source
                                 }
                                 |> Expect.fail
 
                 Nothing ->
-                    FailureMessage.fixForUnknownFile (FileTarget.filePath target)
+                    FailureMessage.fixForUnknownFile (FileTarget.filePath fixTarget)
                         |> Expect.fail
 
-        ( target, ErrorFixes.Remove ) :: rest ->
-            case getTargetFileFromProject target project of
+        ( fixTarget, ErrorFixes.Remove ) :: rest ->
+            case getTargetFileFromProject fixTarget project of
                 Just targetInformation ->
-                    case getExpectedFixedCodeThroughFilePathOrModuleName (FileTarget.filePath target) targetInformation.moduleName expectedFixed of
+                    case getExpectedFixedCodeThroughFilePathOrModuleName (FileTarget.filePath fixTarget) targetInformation.moduleName expectedFixed of
                         Just ( key, ExpectRemoved ) ->
                             checkFixesMatch
                                 project
@@ -2012,13 +2012,13 @@ checkFixesMatch project moduleName error_ expectedFixed fixes =
                             FailureMessage.unexpectedAdditionalFixes
                                 { moduleName = moduleName
                                 , message = Rule.errorMessage error_
-                                , nameOfFixedFile = FileTarget.filePath target
+                                , nameOfFixedFile = FileTarget.filePath fixTarget
                                 , fixedSource = targetInformation.source
                                 }
                                 |> Expect.fail
 
                 Nothing ->
-                    FailureMessage.fixForUnknownFile (FileTarget.filePath target)
+                    FailureMessage.fixForUnknownFile (FileTarget.filePath fixTarget)
                         |> Expect.fail
 
 
