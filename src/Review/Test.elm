@@ -1924,6 +1924,7 @@ checkFixesAreCorrect project moduleName ((ReviewError err) as error_) expectedEr
                     error_
                     (Dict.singleton err.filePath (ExpectEdited fixedSource))
                     errorFixes
+                    |> resultToFailure
 
             ComesFromShouldFixFiles expectedFixes ->
                 checkFixesMatch
@@ -1932,14 +1933,25 @@ checkFixesAreCorrect project moduleName ((ReviewError err) as error_) expectedEr
                     error_
                     expectedFixes
                     errorFixes
+                    |> resultToFailure
 
 
-checkFixesMatch : ProjectInternals -> String -> ReviewError -> Dict String ExpectedFix -> List ( FileTarget, ErrorFixes.FixKind ) -> Expectation
+resultToFailure : Result String () -> Expectation
+resultToFailure result =
+    case result of
+        Ok () ->
+            Expect.pass
+
+        Err failure ->
+            Expect.fail failure
+
+
+checkFixesMatch : ProjectInternals -> String -> ReviewError -> Dict String ExpectedFix -> List ( FileTarget, ErrorFixes.FixKind ) -> Result String ()
 checkFixesMatch project moduleName error_ expectedFixed fixes =
     case fixes of
         [] ->
             if Dict.isEmpty expectedFixed then
-                Expect.pass
+                Ok ()
 
             else
                 FailureMessage.missingFixes
@@ -1947,7 +1959,7 @@ checkFixesMatch project moduleName error_ expectedFixed fixes =
                     , message = Rule.errorMessage error_
                     , expectedFixedModules = Dict.keys expectedFixed
                     }
-                    |> Expect.fail
+                    |> Err
 
         ( fixTarget, ErrorFixes.Edit fileFixes ) :: rest ->
             case getTargetFileFromProject fixTarget project of
@@ -1956,7 +1968,7 @@ checkFixesMatch project moduleName error_ expectedFixed fixes =
                         Just ( key, ExpectEdited expectedFix ) ->
                             case fixOneError fixTarget fileFixes targetInformation.source expectedFix error_ of
                                 Err failureMessage ->
-                                    Expect.fail failureMessage
+                                    Err failureMessage
 
                                 Ok () ->
                                     checkFixesMatch
@@ -1973,7 +1985,7 @@ checkFixesMatch project moduleName error_ expectedFixed fixes =
                                 , nameOfFixedFile = key
                                 , fixedSource = targetInformation.source
                                 }
-                                |> Expect.fail
+                                |> Err
 
                         Nothing ->
                             FailureMessage.unexpectedAdditionalFixes
@@ -1982,11 +1994,11 @@ checkFixesMatch project moduleName error_ expectedFixed fixes =
                                 , nameOfFixedFile = FileTarget.filePath fixTarget
                                 , fixedSource = targetInformation.source
                                 }
-                                |> Expect.fail
+                                |> Err
 
                 Nothing ->
                     FailureMessage.fixForUnknownFile (FileTarget.filePath fixTarget)
-                        |> Expect.fail
+                        |> Err
 
         ( fixTarget, ErrorFixes.Remove ) :: rest ->
             case getTargetFileFromProject fixTarget project of
@@ -2006,7 +2018,7 @@ checkFixesMatch project moduleName error_ expectedFixed fixes =
                                 , message = Rule.errorMessage error_
                                 , nameOfFixedFile = key
                                 }
-                                |> Expect.fail
+                                |> Err
 
                         Nothing ->
                             FailureMessage.unexpectedAdditionalFixes
@@ -2015,11 +2027,11 @@ checkFixesMatch project moduleName error_ expectedFixed fixes =
                                 , nameOfFixedFile = FileTarget.filePath fixTarget
                                 , fixedSource = targetInformation.source
                                 }
-                                |> Expect.fail
+                                |> Err
 
                 Nothing ->
                     FailureMessage.fixForUnknownFile (FileTarget.filePath fixTarget)
-                        |> Expect.fail
+                        |> Err
 
 
 checkGlobalErrorFixesMatch : ProjectInternals -> ReviewError -> Dict String ExpectedFix -> List ( FileTarget, ErrorFixes.FixKind ) -> Result String ()
