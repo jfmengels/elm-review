@@ -716,8 +716,8 @@ expectNoErrors reviewResult =
     expect [] reviewResult
 
 
-expectNoGlobalErrors : List ReviewError -> Expectation
-expectNoGlobalErrors foundGlobalErrors =
+checkNoGlobalErrors : List ReviewError -> Expectation
+checkNoGlobalErrors foundGlobalErrors =
     if List.isEmpty foundGlobalErrors then
         Expect.pass
 
@@ -728,15 +728,15 @@ expectNoGlobalErrors foundGlobalErrors =
             |> Expect.fail
 
 
-expectNoModuleErrors : List SuccessfulRunResult -> Expectation
-expectNoModuleErrors runResults =
+checkNoModuleErrors : List SuccessfulRunResult -> Expectation
+checkNoModuleErrors runResults =
     Expect.all
-        (List.map (\runResult -> \() -> expectNoErrorForModuleRunResult runResult) runResults)
+        (List.map (\runResult -> \() -> checkNoErrorForModuleRunResult runResult) runResults)
         ()
 
 
-expectNoErrorForModuleRunResult : SuccessfulRunResult -> Expectation
-expectNoErrorForModuleRunResult { moduleName, errors } =
+checkNoErrorForModuleRunResult : SuccessfulRunResult -> Expectation
+checkNoErrorForModuleRunResult { moduleName, errors } =
     if List.isEmpty errors then
         Expect.pass
 
@@ -859,7 +859,7 @@ expectGlobalAndLocalErrors { global, local } reviewResult =
             Expect.all
                 [ \() ->
                     if List.isEmpty global then
-                        expectNoGlobalErrors foundGlobalErrors
+                        checkNoGlobalErrors foundGlobalErrors
 
                     else
                         checkAllGlobalErrorsMatch
@@ -870,7 +870,7 @@ expectGlobalAndLocalErrors { global, local } reviewResult =
                             }
                 , \() ->
                     if List.isEmpty local then
-                        expectNoModuleErrors runResults
+                        checkNoModuleErrors runResults
 
                     else
                         case runResults of
@@ -879,7 +879,7 @@ expectGlobalAndLocalErrors { global, local } reviewResult =
 
                             _ ->
                                 Expect.fail FailureMessage.needToUsedExpectErrorsForModules
-                , \() -> expectNoDataExtract extract
+                , \() -> checkNoDataExtract extract
                 , \() -> checkResultsAreTheSameWhenIgnoringFiles allErrors reRun
                 ]
                 ()
@@ -1039,8 +1039,8 @@ maybeCons mapper maybe list =
             list
 
 
-expectErrorsForModulesHelp : ProjectInternals -> List ( String, List ExpectedError ) -> List SuccessfulRunResult -> Expectation
-expectErrorsForModulesHelp project expectedErrorsList runResults =
+checkErrorsForModules : ProjectInternals -> List ( String, List ExpectedError ) -> List SuccessfulRunResult -> Expectation
+checkErrorsForModules project expectedErrorsList runResults =
     let
         unknownModules : List String
         unknownModules =
@@ -1056,12 +1056,12 @@ expectErrorsForModulesHelp project expectedErrorsList runResults =
 
         [] ->
             Expect.all
-                (expectErrorsForModuleFiles project expectedErrorsList runResults)
+                (checkErrorsForModuleFiles project expectedErrorsList runResults)
                 ()
 
 
-expectErrorsForModuleFiles : ProjectInternals -> List ( String, List ExpectedError ) -> List SuccessfulRunResult -> List (() -> Expectation)
-expectErrorsForModuleFiles project expectedErrorsList runResults =
+checkErrorsForModuleFiles : ProjectInternals -> List ( String, List ExpectedError ) -> List SuccessfulRunResult -> List (() -> Expectation)
+checkErrorsForModuleFiles project expectedErrorsList runResults =
     List.map
         (\runResult () ->
             let
@@ -1073,7 +1073,7 @@ expectErrorsForModuleFiles project expectedErrorsList runResults =
                         |> Maybe.withDefault []
             in
             if List.isEmpty expectedErrors then
-                expectNoErrorForModuleRunResult runResult
+                checkNoErrorForModuleRunResult runResult
 
             else
                 checkAllErrorsMatch project runResult expectedErrors
@@ -2177,14 +2177,14 @@ expectConfigurationError : { message : String, details : List String } -> Rule -
 expectConfigurationError expectedError rule =
     case Rule.getConfigurationError rule of
         Just configurationError ->
-            expectConfigurationErrorDetailsMatch expectedError configurationError
+            checkConfigurationErrorDetailsMatch expectedError configurationError
 
         Nothing ->
             Expect.fail (FailureMessage.missingConfigurationError expectedError.message)
 
 
-expectConfigurationErrorDetailsMatch : { message : String, details : List String } -> { message : String, details : List String } -> Expectation
-expectConfigurationErrorDetailsMatch expectedError configurationError =
+checkConfigurationErrorDetailsMatch : { message : String, details : List String } -> { message : String, details : List String } -> Expectation
+checkConfigurationErrorDetailsMatch expectedError configurationError =
     if expectedError.message /= configurationError.message then
         Expect.fail (FailureMessage.messageMismatchForConfigurationError expectedError configurationError)
 
@@ -2198,8 +2198,8 @@ expectConfigurationErrorDetailsMatch expectedError configurationError =
         Expect.pass
 
 
-expectNoDataExtract : ExtractResult -> Expectation
-expectNoDataExtract maybeExtract =
+checkNoDataExtract : ExtractResult -> Expectation
+checkNoDataExtract maybeExtract =
     case maybeExtract of
         Just extract ->
             Expect.fail (FailureMessage.unexpectedExtract extract)
@@ -2238,8 +2238,8 @@ expectDataExtract expectedExtract reviewResult =
     expect [ dataExtract expectedExtract ] reviewResult
 
 
-expectDataExtractContent : String -> ExtractResult -> Expectation
-expectDataExtractContent rawExpected maybeActualExtract =
+checkDataExtractContent : String -> ExtractResult -> Expectation
+checkDataExtractContent rawExpected maybeActualExtract =
     case maybeActualExtract of
         Nothing ->
             Expect.fail FailureMessage.missingExtract
@@ -2346,18 +2346,18 @@ expect expectations reviewResult =
             Expect.all
                 [ \() ->
                     if List.isEmpty expected.globals then
-                        expectNoGlobalErrors foundGlobalErrors
+                        checkNoGlobalErrors foundGlobalErrors
 
                     else
                         checkAllGlobalErrorsMatch project (List.length expected.globals) { expected = expected.globals, actual = foundGlobalErrors }
-                , \() -> expectErrorsForModulesHelp project expected.modules runResults
+                , \() -> checkErrorsForModules project expected.modules runResults
                 , \() ->
                     case expected.dataExtract of
                         NoDataExtractExpected ->
-                            expectNoDataExtract extract
+                            checkNoDataExtract extract
 
                         DataExtractExpected string ->
-                            expectDataExtractContent string extract
+                            checkDataExtractContent string extract
 
                         MultipleDataExtractExpected ->
                             Expect.fail FailureMessage.specifiedMultipleExtracts
