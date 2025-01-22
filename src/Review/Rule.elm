@@ -5033,7 +5033,7 @@ computeStepsForProject reviewOptions { project, ruleProjectVisitors, fixedErrors
                 reviewOptions
                 (computeModules
                     reviewOptions
-                    (Just moduleZipper)
+                    moduleZipper
                     project
                     ruleProjectVisitors
                     fixedErrors
@@ -5056,7 +5056,7 @@ type Step
     | Readme
     | ExtraFiles
     | Dependencies
-    | Modules (Zipper GraphModule)
+    | Modules (Maybe (Zipper GraphModule))
     | FinalProjectEvaluation
     | EndAnalysis
 
@@ -5243,7 +5243,7 @@ computeDependencies reviewOptions project fixedErrors dependenciesData remaining
         [] ->
             { project = project
             , ruleProjectVisitors = accRules
-            , step = Modules (ValidProject.moduleZipper project)
+            , step = Modules (Just (ValidProject.moduleZipper project))
             , fixedErrors = fixedErrors
             }
 
@@ -5843,11 +5843,11 @@ standardFindFix reviewOptions project fixedErrors updateErrors errors =
                                     ExtraFiles
 
                                 FixedElmModule _ zipper ->
-                                    Modules zipper
+                                    Modules (Just zipper)
 
                                 RemovedElmModule ->
                                     -- TODO MULTIFILE-FIXES Move to a more optimal starting position.
-                                    ExtraFiles
+                                    Modules Nothing
                             )
             in
             FoundFixStandard { newProject = fixResult.project, newRule = newRule, newFixedErrors = newFixedErrors, step = step }
