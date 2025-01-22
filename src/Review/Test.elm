@@ -1454,21 +1454,29 @@ shouldFixFiles expectedFixes (ExpectedError expectedError) =
         }
 
 
+{-| TODO MULTIFILE-FIXES Update documentation
+-}
 type ExpectedFix
     = Edited String
     | Removed
 
 
+{-| TODO MULTIFILE-FIXES Update documentation
+-}
 shouldFixFilesWithIO : List ( String, ExpectedFix ) -> ExpectedError -> ExpectedError
 shouldFixFilesWithIO expectedFixes (ExpectedError expectedError) =
     ExpectedError { expectedError | expectedFixes = ComesFromShouldFixFiles (Dict.fromList expectedFixes) }
 
 
+{-| TODO MULTIFILE-FIXES Update documentation
+-}
 edited : String -> ExpectedFix
 edited =
     Edited
 
 
+{-| TODO MULTIFILE-FIXES Update documentation
+-}
 removed : ExpectedFix
 removed =
     Removed

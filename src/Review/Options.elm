@@ -20,7 +20,7 @@ process like the CLI.
 @docs withFixes
 @docs FixMode, fixedDisabled, fixesEnabledWithLimit, fixesEnabledWithoutLimits
 @docs withIgnoredFixes
-@docs withFileDeletionFixes
+@docs withFileRemovalFixes
 
 -}
 
