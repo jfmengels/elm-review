@@ -1690,7 +1690,7 @@ checkGlobalErrorsMatch project originalNumberOfExpectedErrors params =
                         Expect.fail (FailureMessage.emptyDetails head.message)
 
                     else
-                        case checkGlobalErrorFixesMatch project matchedError head.fixes (ErrorFixes.toList fixes) of
+                        case checkFixesMatch project FailureMessage.Global matchedError head.fixes (ErrorFixes.toList fixes) of
                             Err failure ->
                                 Expect.fail failure
 
@@ -1920,7 +1920,7 @@ checkFixesAreCorrect project moduleName ((ReviewError err) as error_) expectedEr
             ComesFromWhenFixed fixedSource ->
                 checkFixesMatch
                     project
-                    moduleName
+                    (FailureMessage.Module moduleName)
                     error_
                     (Dict.singleton err.filePath (ExpectEdited fixedSource))
                     errorFixes
@@ -1929,7 +1929,7 @@ checkFixesAreCorrect project moduleName ((ReviewError err) as error_) expectedEr
             ComesFromShouldFixFiles expectedFixes ->
                 checkFixesMatch
                     project
-                    moduleName
+                    (FailureMessage.Module moduleName)
                     error_
                     expectedFixes
                     errorFixes
@@ -1946,8 +1946,8 @@ resultToFailure result =
             Expect.fail failure
 
 
-checkFixesMatch : ProjectInternals -> String -> ReviewError -> Dict String ExpectedFix -> List ( FileTarget, ErrorFixes.FixKind ) -> Result String ()
-checkFixesMatch project moduleName error_ expectedFixed fixes =
+checkFixesMatch : ProjectInternals -> FailureMessage.Target -> ReviewError -> Dict String ExpectedFix -> List ( FileTarget, ErrorFixes.FixKind ) -> Result String ()
+checkFixesMatch project target error_ expectedFixed fixes =
     case fixes of
         [] ->
             if Dict.isEmpty expectedFixed then
@@ -1955,7 +1955,7 @@ checkFixesMatch project moduleName error_ expectedFixed fixes =
 
             else
                 FailureMessage.missingFixes
-                    { target = FailureMessage.Module moduleName
+                    { target = target
                     , message = Rule.errorMessage error_
                     , expectedFixedModules = Dict.keys expectedFixed
                     }
@@ -1973,14 +1973,14 @@ checkFixesMatch project moduleName error_ expectedFixed fixes =
                                 Ok () ->
                                     checkFixesMatch
                                         project
-                                        moduleName
+                                        target
                                         error_
                                         (Dict.remove key expectedFixed)
                                         rest
 
                         Just ( key, ExpectRemoved ) ->
                             FailureMessage.fileWasEditedInsteadOfRemoved
-                                { target = FailureMessage.Module moduleName
+                                { target = target
                                 , message = Rule.errorMessage error_
                                 , nameOfFixedFile = key
                                 , fixedSource = targetInformation.source
@@ -1989,7 +1989,7 @@ checkFixesMatch project moduleName error_ expectedFixed fixes =
 
                         Nothing ->
                             FailureMessage.unexpectedAdditionalFixes
-                                { target = FailureMessage.Module moduleName
+                                { target = target
                                 , message = Rule.errorMessage error_
                                 , nameOfFixedFile = FileTarget.filePath fixTarget
                                 , fixedSource = targetInformation.source
@@ -2007,14 +2007,14 @@ checkFixesMatch project moduleName error_ expectedFixed fixes =
                         Just ( key, ExpectRemoved ) ->
                             checkFixesMatch
                                 project
-                                moduleName
+                                target
                                 error_
                                 (Dict.remove key expectedFixed)
                                 rest
 
                         Just ( key, ExpectEdited _ ) ->
                             FailureMessage.fileWasRemovedInsteadOfEdited
-                                { target = FailureMessage.Module moduleName
+                                { target = target
                                 , message = Rule.errorMessage error_
                                 , nameOfFixedFile = key
                                 }
@@ -2022,7 +2022,7 @@ checkFixesMatch project moduleName error_ expectedFixed fixes =
 
                         Nothing ->
                             FailureMessage.unexpectedAdditionalFixes
-                                { target = FailureMessage.Module moduleName
+                                { target = target
                                 , message = Rule.errorMessage error_
                                 , nameOfFixedFile = FileTarget.filePath fixTarget
                                 , fixedSource = targetInformation.source
@@ -2031,92 +2031,6 @@ checkFixesMatch project moduleName error_ expectedFixed fixes =
 
                 Nothing ->
                     FailureMessage.fixForUnknownFile (FileTarget.filePath fixTarget)
-                        |> Err
-
-
-checkGlobalErrorFixesMatch : ProjectInternals -> ReviewError -> Dict String ExpectedFix -> List ( FileTarget, ErrorFixes.FixKind ) -> Result String ()
-checkGlobalErrorFixesMatch project error_ expectedFixed fixes =
-    case fixes of
-        [] ->
-            if Dict.isEmpty expectedFixed then
-                Ok ()
-
-            else
-                FailureMessage.missingFixes
-                    { target = FailureMessage.Global
-                    , message = Rule.errorMessage error_
-                    , expectedFixedModules = Dict.keys expectedFixed
-                    }
-                    |> Err
-
-        ( target, ErrorFixes.Edit fileFixes ) :: rest ->
-            case getTargetFileFromProject target project of
-                Just targetInformation ->
-                    case getExpectedFixedCodeThroughFilePathOrModuleName (FileTarget.filePath target) targetInformation.moduleName expectedFixed of
-                        Just ( key, ExpectEdited expectedFix ) ->
-                            case fixOneError target fileFixes targetInformation.source expectedFix error_ of
-                                Err failureMessage ->
-                                    Err failureMessage
-
-                                Ok () ->
-                                    checkGlobalErrorFixesMatch
-                                        project
-                                        error_
-                                        (Dict.remove key expectedFixed)
-                                        rest
-
-                        Just ( key, ExpectRemoved ) ->
-                            FailureMessage.fileWasEditedInsteadOfRemoved
-                                { target = FailureMessage.Global
-                                , message = Rule.errorMessage error_
-                                , nameOfFixedFile = key
-                                , fixedSource = targetInformation.source
-                                }
-                                |> Err
-
-                        Nothing ->
-                            FailureMessage.unexpectedAdditionalFixes
-                                { target = FailureMessage.Global
-                                , message = Rule.errorMessage error_
-                                , nameOfFixedFile = FileTarget.filePath target
-                                , fixedSource = targetInformation.source
-                                }
-                                |> Err
-
-                Nothing ->
-                    FailureMessage.fixForUnknownFile (FileTarget.filePath target)
-                        |> Err
-
-        ( target, ErrorFixes.Remove ) :: rest ->
-            case getTargetFileFromProject target project of
-                Just targetInformation ->
-                    case getExpectedFixedCodeThroughFilePathOrModuleName (FileTarget.filePath target) targetInformation.moduleName expectedFixed of
-                        Just ( key, ExpectRemoved ) ->
-                            checkGlobalErrorFixesMatch
-                                project
-                                error_
-                                (Dict.remove key expectedFixed)
-                                rest
-
-                        Just ( key, ExpectEdited _ ) ->
-                            FailureMessage.fileWasRemovedInsteadOfEdited
-                                { target = FailureMessage.Global
-                                , message = Rule.errorMessage error_
-                                , nameOfFixedFile = key
-                                }
-                                |> Err
-
-                        Nothing ->
-                            FailureMessage.unexpectedAdditionalFixes
-                                { target = FailureMessage.Global
-                                , message = Rule.errorMessage error_
-                                , nameOfFixedFile = FileTarget.filePath target
-                                , fixedSource = targetInformation.source
-                                }
-                                |> Err
-
-                Nothing ->
-                    FailureMessage.fixForUnknownFile (FileTarget.filePath target)
                         |> Err
 
 
