@@ -2054,9 +2054,13 @@ checkGlobalErrorFixesMatch project error_ expectedFixed fixes =
                                         rest
 
                         Just ( key, ExpectRemoved ) ->
-                            -- TODO MULTIFILE-FIXES Improve error message
-                            -- TODO Show the actual file content?
-                            Err ("In the tests, the file " ++ key ++ " is supposed to be removed, but I can see it being edited to: ...")
+                            FailureMessage.fileWasEditedInsteadOfRemoved
+                                { target = FailureMessage.Global
+                                , message = Rule.errorMessage error_
+                                , nameOfFixedFile = key
+                                , fixedSource = targetInformation.source
+                                }
+                                |> Err
 
                         Nothing ->
                             FailureMessage.unexpectedAdditionalFixesForGlobalError
@@ -2082,8 +2086,12 @@ checkGlobalErrorFixesMatch project error_ expectedFixed fixes =
                                 rest
 
                         Just ( key, ExpectEdited _ ) ->
-                            -- TODO MULTIFILE-FIXES Validate that file was expected to be deleted.
-                            Err ("In the tests, the file " ++ key ++ " is supposed to be edited, but I can see it being removed.")
+                            FailureMessage.fileWasRemovedInsteadOfEdited
+                                { target = FailureMessage.Global
+                                , message = Rule.errorMessage error_
+                                , nameOfFixedFile = key
+                                }
+                                |> Err
 
                         Nothing ->
                             FailureMessage.unexpectedAdditionalFixesForGlobalError
