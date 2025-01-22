@@ -4474,11 +4474,17 @@ errorFixes (Review.Error.ReviewError err) =
 
 {-| Get the automatic [`fixes`](./Review-Fix#Fix) of an [`Error`](#Error), if it
 defined any.
--- TODO MULTIFILE-FIXES Update documentation
--- TODO MULTIFILE-FIXES Expose something less likely to change
+
+An error can provide fixes for multiple files. For each file, the fix consists of
+either a `Just` list of edits (named `Fix` until the next breaking change) or of `Nothing` for a file removal.
+
 -}
-errorFixesV2 : Review.Error.ReviewError -> Maybe (Dict String ErrorFixes.FixKind)
+errorFixesV2 : Review.Error.ReviewError -> Maybe (Dict String (Maybe (List Fix)))
 errorFixesV2 (Review.Error.ReviewError err) =
+    -- The type for this function would be better described through a custom type.
+    -- It is however purposefully low-level in order to keep it possible to introduce
+    -- new fix kinds (most likely file creations) without a breaking change
+    -- (but through a new `errorFixesV3` function).
     case err.fixProblem of
         Just _ ->
             Nothing
@@ -4489,7 +4495,17 @@ errorFixesV2 (Review.Error.ReviewError err) =
 
             else
                 ErrorFixes.toList err.fixes
-                    |> List.map (\( target, fixKind ) -> ( FileTarget.filePath target, fixKind ))
+                    |> List.map
+                        (\( target, fixKind ) ->
+                            ( FileTarget.filePath target
+                            , case fixKind of
+                                ErrorFixes.Edit edits ->
+                                    Just edits
+
+                                ErrorFixes.Remove ->
+                                    Nothing
+                            )
+                        )
                     |> Dict.fromList
                     |> Just
 
