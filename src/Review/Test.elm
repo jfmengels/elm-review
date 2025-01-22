@@ -1994,8 +1994,12 @@ checkFixesMatch project moduleName error_ expectedFixed fixes =
                                 rest
 
                         Just ( key, ExpectEdited _ ) ->
-                            -- TODO MULTIFILE-FIXES Validate that file was expected to be deleted.
-                            Expect.fail ("In the tests, the file " ++ key ++ " is supposed to be edited, but I can see it being removed.")
+                            FailureMessage.fileWasRemovedInsteadOfEdited
+                                { moduleName = moduleName
+                                , message = Rule.errorMessage error_
+                                , nameOfFixedFile = key
+                                }
+                                |> Expect.fail
 
                         Nothing ->
                             FailureMessage.unexpectedAdditionalFixes

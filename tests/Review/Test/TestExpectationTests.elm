@@ -1,9 +1,11 @@
 module Review.Test.TestExpectationTests exposing (all)
 
 import NoDebug.Log
+import NoUnused.Exports
 import Review.Test
 import Review.Test.FailureMessageHelper exposing (expectFailure)
 import Test exposing (Test, describe, test)
+import TestProject
 
 
 all : Test
@@ -61,4 +63,28 @@ I expected the file to be removed, but instead it gets edited to:
     module A exposing (..)
     a = Debug.log "message" 1
   ```"""
+        , test "should fail test when a file is removed instead of edited" <|
+            \() ->
+                """
+module Reported exposing (..)
+import Something
+a = 1
+"""
+                    |> Review.Test.runWithProjectData TestProject.application NoUnused.Exports.rule
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Module `Reported` is never used."
+                            , details = [ "This module is never used. You may want to remove it to keep your project clean, and maybe detect some unused code in your project." ]
+                            , under = "Reported"
+                            }
+                            |> Review.Test.shouldFixFilesWithIO [ ( "Reported", Review.Test.edited "something" ) ]
+                        ]
+                    |> expectFailure """INCORRECT FIX TYPE
+
+I expected that the error for module `Reported` with the following message
+
+  `Module `Reported` is never used.`
+
+would provide fixes, but I found an unexpected fix for `Reported`.
+I expected the file to be edited, but instead it gets removed."""
         ]

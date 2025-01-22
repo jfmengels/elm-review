@@ -9,7 +9,7 @@ module Review.Test.FailureMessage exposing
     , unexpectedExtract, missingExtract, invalidJsonForExpectedDataExtract, extractMismatch, specifiedMultipleExtracts
     , resultsAreDifferentWhenFilesAreIgnored
     , fixForUnknownFile
-    , fileWasEditedInsteadOfRemoved, missingFixesForGlobalError, unexpectedAdditionalFixesForGlobalError
+    , fileWasEditedInsteadOfRemoved, fileWasRemovedInsteadOfEdited, missingFixesForGlobalError, unexpectedAdditionalFixesForGlobalError
     )
 
 {-| Failure messages for the `Review.Test` module.
@@ -586,6 +586,17 @@ would provide fixes, but I found an unexpected fix for """ ++ wrapInQuotes nameO
 I expected the file to be removed, but instead it gets edited to:
 
   """ ++ formatSourceCode fixedSource)
+
+
+fileWasRemovedInsteadOfEdited : { moduleName : String, message : String, nameOfFixedFile : String } -> String
+fileWasRemovedInsteadOfEdited { moduleName, message, nameOfFixedFile } =
+    failureMessage "INCORRECT FIX TYPE"
+        ("""I expected that the error for module `""" ++ moduleName ++ """` with the following message
+
+  """ ++ wrapInQuotes message ++ """
+
+would provide fixes, but I found an unexpected fix for """ ++ wrapInQuotes nameOfFixedFile ++ """.
+I expected the file to be edited, but instead it gets removed.""")
 
 
 fixedCodeWhitespaceMismatch : SourceCode -> SourceCode -> ReviewError -> String
