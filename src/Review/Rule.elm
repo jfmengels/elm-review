@@ -4495,18 +4495,20 @@ errorFixesV2 (Review.Error.ReviewError.ReviewError err) =
 
             else
                 ErrorFixes.toList err.fixes
-                    |> List.map
-                        (\( target, fixKind ) ->
-                            ( FileTarget.filePath target
-                            , case fixKind of
-                                ErrorFixes.Edit edits ->
-                                    Just edits
+                    |> List.foldl
+                        (\( target, fixKind ) acc ->
+                            Dict.insert
+                                (FileTarget.filePath target)
+                                (case fixKind of
+                                    ErrorFixes.Edit edits ->
+                                        Just edits
 
-                                ErrorFixes.Remove ->
-                                    Nothing
-                            )
+                                    ErrorFixes.Remove ->
+                                        Nothing
+                                )
+                                acc
                         )
-                    |> Dict.fromList
+                        Dict.empty
                     |> Just
 
 
