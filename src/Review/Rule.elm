@@ -29,7 +29,7 @@ module Review.Rule exposing
     , withDataExtractor, preventExtract
     , reviewV3, reviewV2, review, ProjectData, ruleName, ruleProvidesFixes, ruleKnowsAboutIgnoredFiles, ruleRequestedFiles, withRuleId, getConfigurationError
     , Required, Forbidden
-    , FixesV2, fixesForElmJson, fixesForExtraFile, fixesForModule, removeModule, fixesForReadme, withFixesV2
+    , FixesV2, fixesForElmJson, fixesForExtraFile, fixesForModule, removeModule, removeExtraFile, fixesForReadme, withFixesV2
     )
 
 {-| This module contains functions that are used for writing rules.
