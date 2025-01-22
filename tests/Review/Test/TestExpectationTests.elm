@@ -26,7 +26,7 @@ a = Debug.log "message" 1"""
                         ]
                     |> expectFailure """INCORRECT FIX TYPE
 
-I expected that the error for module `A` with the following message
+I expected that the error for module `A` with the following message:
 
   `Remove the use of `Debug.log` before shipping to production`
 
@@ -52,7 +52,7 @@ a = Debug.log "message" 1"""
                         ]
                     |> expectFailure """INCORRECT FIX TYPE
 
-I expected that the error for module `A` with the following message
+I expected that the error for module `A` with the following message:
 
   `Remove the use of `Debug.log` before shipping to production`
 
@@ -81,7 +81,7 @@ a = 1
                         ]
                     |> expectFailure """INCORRECT FIX TYPE
 
-I expected that the error for module `Reported` with the following message
+I expected that the error for module `Reported` with the following message:
 
   `Module `Reported` is never used.`
 

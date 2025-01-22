@@ -205,7 +205,7 @@ messageMismatchTest : Test
 messageMismatchTest =
     test "messageMismatch" <|
         \() ->
-            """module MyModule exposing (..)
+            """module A exposing (..)
 a = "abc"
 """
                 |> Review.Test.run testRuleReportsLiterals
@@ -218,7 +218,7 @@ a = "abc"
                     ]
                 |> expectFailure """UNEXPECTED ERROR MESSAGE
 
-I was looking for the error with the following message:
+I was looking for the error for module `A` with the following message:
 
   `Remove the use of `Debug` before shipping to production`
 
@@ -240,7 +240,7 @@ a = "abc"
                       , details = [ "Some details" ]
                       }
                     ]
-                |> expectFailure """UNEXPECTED GLOBAL ERROR MESSAGE
+                |> expectFailure """UNEXPECTED ERROR MESSAGE
 
 I was looking for the global error with the following message:
 
@@ -1062,14 +1062,14 @@ missingFixesTest =
         [ test "single fix for itself" <|
             \() ->
                 FailureMessage.missingFixes
-                    { moduleName = "A"
+                    { target = FailureMessage.Module "A"
                     , message = "Some error"
                     , expectedFixedModules = [ "A" ]
                     }
                     |> expectMessageEqual """
 \u{001B}[31m\u{001B}[1mMISSING FIXES\u{001B}[22m\u{001B}[39m
 
-I expected that the error for module `A` with the following message
+I expected that the error for module `A` with the following message:
 
   `Some error`
 
@@ -1080,14 +1080,14 @@ the list of provided fixes was empty."""
         , test "single fix for another module" <|
             \() ->
                 FailureMessage.missingFixes
-                    { moduleName = "A"
+                    { target = FailureMessage.Module "A"
                     , message = "Some error"
                     , expectedFixedModules = [ "B" ]
                     }
                     |> expectMessageEqual """
 \u{001B}[31m\u{001B}[1mMISSING FIXES\u{001B}[22m\u{001B}[39m
 
-I expected that the error for module `A` with the following message
+I expected that the error for module `A` with the following message:
 
   `Some error`
 
@@ -1098,14 +1098,14 @@ the list of provided fixes was empty."""
         , test "multiple fixes" <|
             \() ->
                 FailureMessage.missingFixes
-                    { moduleName = "A"
+                    { target = FailureMessage.Module "A"
                     , message = "Some error"
                     , expectedFixedModules = [ "A", "B", "elm.json" ]
                     }
                     |> expectMessageEqual """
 \u{001B}[31m\u{001B}[1mMISSING FIXES\u{001B}[22m\u{001B}[39m
 
-I expected that the error for module `A` with the following message
+I expected that the error for module `A` with the following message:
 
   `Some error`
 
@@ -1124,7 +1124,7 @@ unexpectedFixesTest =
                 |> expectMessageEqual """
 \u{001B}[31m\u{001B}[1mUNEXPECTED FIXES\u{001B}[22m\u{001B}[39m
 
-I expected that the error with the following message
+I expected that the error with the following message:
 
   `Some error`
 
@@ -1160,7 +1160,7 @@ a = 1"""
                     |> expectMessageEqual """
 \u{001B}[31m\u{001B}[1mUNEXPECTED FIXES\u{001B}[22m\u{001B}[39m
 
-I expected that the error for module `A` with the following message
+I expected that the error for module `A` with the following message:
 
   `Some error`
 

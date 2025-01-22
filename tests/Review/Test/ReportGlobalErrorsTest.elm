@@ -49,7 +49,7 @@ a = 1
                           , details = [ "I'll fix all modules now" ]
                           }
                         ]
-                    |> expectFailure """UNEXPECTED GLOBAL ERROR MESSAGE
+                    |> expectFailure """UNEXPECTED ERROR MESSAGE
 
 I was looking for the global error with the following message:
 
@@ -147,7 +147,7 @@ a = 1
                         ]
                     |> expectFailure """UNEXPECTED FIXES
 
-I found the global error with the following message
+I found the global error with the following message:
 
   `Oh no`
 

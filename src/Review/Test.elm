@@ -137,7 +137,6 @@ import Expect exposing (Expectation)
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Regex exposing (Regex)
-import Review.Error as Error
 import Review.Error.FileTarget as FileTarget exposing (FileTarget)
 import Review.Error.Fixes as ErrorFixes exposing (ErrorFixes(..))
 import Review.Error.ReviewError exposing (ReviewError(..))
@@ -1751,8 +1750,9 @@ failBecauseExpectedErrorCouldNotBeFound expectedError ( firstActual, restOfActua
                 |> Expect.fail
 
         Nothing ->
-            FailureMessage.messageMismatchForGlobalError
-                { expected = expectedError.message
+            FailureMessage.messageMismatch
+                { target = FailureMessage.Global
+                , expected = expectedError.message
                 , actual = Rule.errorMessage firstActual
                 }
                 |> Expect.fail
@@ -1795,7 +1795,14 @@ checkErrorMatch project runResult (ExpectedError expectedError) error_ =
           \() ->
             Rule.errorMessage error_
                 |> Expect.equal expectedError.message
-                |> onFail (\() -> FailureMessage.messageMismatch expectedError.message error_)
+                |> onFail
+                    (\() ->
+                        FailureMessage.messageMismatch
+                            { target = FailureMessage.Module runResult.moduleName
+                            , expected = expectedError.message
+                            , actual = Rule.errorMessage error_
+                            }
+                    )
         , \() -> checkMessageAppearsUnder runResult.inspector error_ expectedError
 
         -- Error details
@@ -1889,7 +1896,7 @@ checkFixesAreCorrect project moduleName ((ReviewError err) as error_) expectedEr
             ComesFromWhenFixed expectedFixedModule ->
                 Expect.fail
                     (FailureMessage.missingFixes
-                        { moduleName = moduleName
+                        { target = FailureMessage.Module moduleName
                         , message = expectedError.message
                         , expectedFixedModules = [ expectedFixedModule ]
                         }
@@ -1898,7 +1905,7 @@ checkFixesAreCorrect project moduleName ((ReviewError err) as error_) expectedEr
             ComesFromShouldFixFiles expectedFixedModules ->
                 Expect.fail
                     (FailureMessage.missingFixes
-                        { moduleName = moduleName
+                        { target = FailureMessage.Module moduleName
                         , message = expectedError.message
                         , expectedFixedModules = Dict.keys expectedFixedModules
                         }
@@ -1936,7 +1943,7 @@ checkFixesMatch project moduleName error_ expectedFixed fixes =
 
             else
                 FailureMessage.missingFixes
-                    { moduleName = moduleName
+                    { target = FailureMessage.Module moduleName
                     , message = Rule.errorMessage error_
                     , expectedFixedModules = Dict.keys expectedFixed
                     }
@@ -1961,7 +1968,7 @@ checkFixesMatch project moduleName error_ expectedFixed fixes =
 
                         Just ( key, ExpectRemoved ) ->
                             FailureMessage.fileWasEditedInsteadOfRemoved
-                                { moduleName = moduleName
+                                { target = FailureMessage.Module moduleName
                                 , message = Rule.errorMessage error_
                                 , nameOfFixedFile = key
                                 , fixedSource = targetInformation.source
@@ -1995,7 +2002,7 @@ checkFixesMatch project moduleName error_ expectedFixed fixes =
 
                         Just ( key, ExpectEdited _ ) ->
                             FailureMessage.fileWasRemovedInsteadOfEdited
-                                { moduleName = moduleName
+                                { target = FailureMessage.Module moduleName
                                 , message = Rule.errorMessage error_
                                 , nameOfFixedFile = key
                                 }
@@ -2023,8 +2030,9 @@ checkGlobalErrorFixesMatch project error_ expectedFixed fixes =
                 Ok ()
 
             else
-                FailureMessage.missingFixesForGlobalError
-                    { message = Rule.errorMessage error_
+                FailureMessage.missingFixes
+                    { target = FailureMessage.Global
+                    , message = Rule.errorMessage error_
                     , expectedFixedModules = Dict.keys expectedFixed
                     }
                     |> Err

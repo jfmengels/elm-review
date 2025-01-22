@@ -4,12 +4,12 @@ module Review.Test.FailureMessage exposing
     , needToUsedExpectErrorsForModules, missingSources, duplicateModuleName, unknownModulesInExpectedErrors
     , missingFixes, unexpectedFixes, unexpectedAdditionalFixes, fixedCodeMismatch, fixProblem, fixProblem_, unchangedSourceAfterFix, invalidSourceAfterFix, hasCollisionsInFixRanges
     , didNotExpectGlobalErrors, expectedMoreGlobalErrors, fixedCodeWhitespaceMismatch, messageMismatchForConfigurationError
-    , messageMismatchForGlobalError, missingConfigurationError, tooManyGlobalErrors
+    , missingConfigurationError, tooManyGlobalErrors
     , unexpectedConfigurationError, unexpectedConfigurationErrorDetails, unexpectedGlobalErrorDetails
     , unexpectedExtract, missingExtract, invalidJsonForExpectedDataExtract, extractMismatch, specifiedMultipleExtracts
     , resultsAreDifferentWhenFilesAreIgnored
     , fixForUnknownFile
-    , fileWasEditedInsteadOfRemoved, fileWasRemovedInsteadOfEdited, missingFixesForGlobalError, unexpectedAdditionalFixesForGlobalError
+    , Target(..), fileWasEditedInsteadOfRemoved, fileWasRemovedInsteadOfEdited, unexpectedAdditionalFixesForGlobalError
     )
 
 {-| Failure messages for the `Review.Test` module.
@@ -115,22 +115,10 @@ the same issue. Please fix this issue in your test.
 """)
 
 
-messageMismatch : String -> ReviewError -> String
-messageMismatch expectedErrorMessage error =
+messageMismatch : { target : Target, expected : String, actual : String } -> String
+messageMismatch { target, expected, actual } =
     failureMessage "UNEXPECTED ERROR MESSAGE"
-        ("""I was looking for the error with the following message:
-
-  """ ++ wrapInQuotes expectedErrorMessage ++ """
-
-but I found the following error message:
-
-  """ ++ wrapInQuotes (Rule.errorMessage error))
-
-
-messageMismatchForGlobalError : { expected : String, actual : String } -> String
-messageMismatchForGlobalError { expected, actual } =
-    failureMessage "UNEXPECTED GLOBAL ERROR MESSAGE"
-        ("""I was looking for the global error with the following message:
+        ("I was looking for the " ++ describeTarget target ++ """ with the following message:
 
   """ ++ wrapInQuotes expected ++ """
 
@@ -441,17 +429,17 @@ match the names of the modules in the test source codes to the ones in the
 expected errors list.""")
 
 
-missingFixes : { moduleName : String, message : String, expectedFixedModules : List String } -> String
-missingFixes { moduleName, message, expectedFixedModules } =
+missingFixes : { target : Target, message : String, expectedFixedModules : List String } -> String
+missingFixes { target, message, expectedFixedModules } =
     let
-        target : String
-        target =
+        targets : String
+        targets =
             case List.reverse expectedFixedModules of
                 [] ->
                     ""
 
                 single :: [] ->
-                    if single == moduleName then
+                    if Module single == target then
                         "itself"
 
                     else
@@ -463,39 +451,11 @@ missingFixes { moduleName, message, expectedFixedModules } =
                         ++ wrapInQuotes last
     in
     failureMessage "MISSING FIXES"
-        ("""I expected that the error for module `""" ++ moduleName ++ """` with the following message
+        ("I expected that the " ++ describeTarget target ++ """ with the following message:
 
   """ ++ wrapInQuotes message ++ """
 
-would provide some fixes for """ ++ target ++ """, but I didn't find any.
-
-Hint: Maybe you forgot to call a function like `Rule.errorWithFix` or maybe
-the list of provided fixes was empty.""")
-
-
-missingFixesForGlobalError : { message : String, expectedFixedModules : List String } -> String
-missingFixesForGlobalError { message, expectedFixedModules } =
-    let
-        target : String
-        target =
-            case List.reverse expectedFixedModules of
-                [] ->
-                    ""
-
-                single :: [] ->
-                    wrapInQuotes single
-
-                last :: previous ->
-                    (previous |> List.reverse |> List.map wrapInQuotes |> String.join ", ")
-                        ++ " and "
-                        ++ wrapInQuotes last
-    in
-    failureMessage "MISSING FIXES"
-        ("""I expected that the global error with the following message
-
-  """ ++ wrapInQuotes message ++ """
-
-would provide some fixes for """ ++ target ++ """, but I didn't find any.
+would provide some fixes for """ ++ targets ++ """, but I didn't find any.
 
 Hint: Maybe you forgot to call a function like `Rule.errorWithFix` or maybe
 the list of provided fixes was empty.""")
@@ -504,7 +464,7 @@ the list of provided fixes was empty.""")
 unexpectedFixes : String -> String
 unexpectedFixes errorMessage =
     failureMessage "UNEXPECTED FIXES"
-        ("""I expected that the error with the following message
+        ("""I expected that the error with the following message:
 
   """ ++ wrapInQuotes errorMessage ++ """
 
@@ -527,7 +487,7 @@ To fix this, you can call `Review.Test.whenFixed` on your error:
 unexpectedAdditionalFixes : { moduleName : String, message : String, nameOfFixedFile : String, fixedSource : String } -> String
 unexpectedAdditionalFixes { moduleName, message, nameOfFixedFile, fixedSource } =
     failureMessage "UNEXPECTED FIXES"
-        ("""I expected that the error for module `""" ++ moduleName ++ """` with the following message
+        ("""I expected that the error for module `""" ++ moduleName ++ """` with the following message:
 
   """ ++ wrapInQuotes message ++ """
 
@@ -544,7 +504,7 @@ implementation to not provide a fix for this situation.""")
 unexpectedAdditionalFixesForGlobalError : { message : String, nameOfFixedFile : String, fixedSource : String } -> String
 unexpectedAdditionalFixesForGlobalError { message, nameOfFixedFile, fixedSource } =
     failureMessage "UNEXPECTED FIXES"
-        ("""I found the global error with the following message
+        ("""I found the global error with the following message:
 
   """ ++ wrapInQuotes message ++ """
 
@@ -575,10 +535,25 @@ but I found:
   """ ++ formatSourceCode resultingSourceCode)
 
 
-fileWasEditedInsteadOfRemoved : { moduleName : String, message : String, nameOfFixedFile : String, fixedSource : String } -> String
-fileWasEditedInsteadOfRemoved { moduleName, message, nameOfFixedFile, fixedSource } =
+type Target
+    = Module String
+    | Global
+
+
+describeTarget : Target -> String
+describeTarget target =
+    case target of
+        Module moduleName ->
+            "error for module " ++ wrapInQuotes moduleName
+
+        Global ->
+            "global error"
+
+
+fileWasEditedInsteadOfRemoved : { target : Target, message : String, nameOfFixedFile : String, fixedSource : String } -> String
+fileWasEditedInsteadOfRemoved { target, message, nameOfFixedFile, fixedSource } =
     failureMessage "INCORRECT FIX TYPE"
-        ("""I expected that the error for module `""" ++ moduleName ++ """` with the following message
+        ("I expected that the " ++ describeTarget target ++ """ with the following message:
 
   """ ++ wrapInQuotes message ++ """
 
@@ -588,10 +563,10 @@ I expected the file to be removed, but instead it gets edited to:
   """ ++ formatSourceCode fixedSource)
 
 
-fileWasRemovedInsteadOfEdited : { moduleName : String, message : String, nameOfFixedFile : String } -> String
-fileWasRemovedInsteadOfEdited { moduleName, message, nameOfFixedFile } =
+fileWasRemovedInsteadOfEdited : { target : Target, message : String, nameOfFixedFile : String } -> String
+fileWasRemovedInsteadOfEdited { target, message, nameOfFixedFile } =
     failureMessage "INCORRECT FIX TYPE"
-        ("""I expected that the error for module `""" ++ moduleName ++ """` with the following message
+        ("I expected that the " ++ describeTarget target ++ """ with the following message:
 
   """ ++ wrapInQuotes message ++ """
 
