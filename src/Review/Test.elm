@@ -2011,7 +2011,6 @@ checkFixesMatch project moduleName error_ expectedFixed fixes =
                                 |> Expect.fail
 
                 Nothing ->
-                    -- TODO MULTIFILE-FIXES Specify it's a deletion fix
                     FailureMessage.fixForUnknownFile (FileTarget.filePath target)
                         |> Expect.fail
 
@@ -2087,7 +2086,6 @@ checkGlobalErrorFixesMatch project error_ expectedFixed fixes =
                                 |> Err
 
                 Nothing ->
-                    -- TODO MULTIFILE-FIXES Specify it's a deletion fix
                     FailureMessage.fixForUnknownFile (FileTarget.filePath target)
                         |> Err
 
