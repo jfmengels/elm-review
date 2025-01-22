@@ -1960,9 +1960,13 @@ checkFixesMatch project moduleName error_ expectedFixed fixes =
                                         rest
 
                         Just ( key, ExpectRemoved ) ->
-                            -- TODO MULTIFILE-FIXES Improve error message
-                            -- TODO Show the actual file content?
-                            Expect.fail ("In the tests, the file " ++ key ++ " is supposed to be removed, but I can see it being edited to: ...")
+                            FailureMessage.fileWasEditedInsteadOfRemoved
+                                { moduleName = moduleName
+                                , message = Rule.errorMessage error_
+                                , nameOfFixedFile = key
+                                , fixedSource = targetInformation.source
+                                }
+                                |> Expect.fail
 
                         Nothing ->
                             FailureMessage.unexpectedAdditionalFixes
