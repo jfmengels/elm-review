@@ -3622,7 +3622,7 @@ The following example forbids importing both `Element` (`elm-ui`) and
 `Html.Styled` (`elm-css`). Note that this is the same one written in the example
 for [`withImportVisitor`](#withImportVisitor), but using [`withFinalModuleEvaluation`](#withFinalModuleEvaluation).
 
-    import Dict as Dict exposing (Dict)
+    import Dict exposing (Dict)
     import Elm.Syntax.Import exposing (Import)
     import Elm.Syntax.Node as Node exposing (Node)
     import Elm.Syntax.Range exposing (Range)
@@ -4489,7 +4489,7 @@ errorFixesV2 (Review.Error.ReviewError err) =
 
             else
                 ErrorFixes.toList err.fixes
-                    |> List.map (\( target, fixList ) -> ( FileTarget.filePath target, fixList ))
+                    |> List.map (\( target, fixKind ) -> ( FileTarget.filePath target, fixKind ))
                     |> Dict.fromList
                     |> Just
 
