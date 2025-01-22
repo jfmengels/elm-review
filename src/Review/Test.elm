@@ -1450,7 +1450,7 @@ shouldFixFiles expectedFixes (ExpectedError expectedError) =
         { expectedError
             | expectedFixes =
                 expectedFixes
-                    |> List.map (\( path, expectedSource ) -> ( path, Edited expectedSource ))
+                    |> List.map (\( path, expectedSource ) -> ( path, ExpectEdited expectedSource ))
                     |> Dict.fromList
                     |> ComesFromShouldFixFiles
         }
@@ -1459,8 +1459,8 @@ shouldFixFiles expectedFixes (ExpectedError expectedError) =
 {-| TODO MULTIFILE-FIXES Update documentation
 -}
 type ExpectedFix
-    = Edited String
-    | Removed
+    = ExpectEdited String
+    | ExpectRemoved
 
 
 {-| TODO MULTIFILE-FIXES Update documentation
@@ -1474,14 +1474,14 @@ shouldFixFilesWithIO expectedFixes (ExpectedError expectedError) =
 -}
 edited : String -> ExpectedFix
 edited =
-    Edited
+    ExpectEdited
 
 
 {-| TODO MULTIFILE-FIXES Update documentation
 -}
 removed : ExpectedFix
 removed =
-    Removed
+    ExpectRemoved
 
 
 formatUnder : Under -> String
@@ -1915,7 +1915,7 @@ checkFixesAreCorrect project moduleName ((ReviewError err) as error_) expectedEr
                     project
                     moduleName
                     error_
-                    (Dict.singleton err.filePath (Edited fixedSource))
+                    (Dict.singleton err.filePath (ExpectEdited fixedSource))
                     errorFixes
 
             ComesFromShouldFixFiles expectedFixes ->
@@ -1946,7 +1946,7 @@ checkFixesMatch project moduleName error_ expectedFixed fixes =
             case getTargetFileFromProject target project of
                 Just targetInformation ->
                     case getExpectedFixedCodeThroughFilePathOrModuleName (FileTarget.filePath target) targetInformation.moduleName expectedFixed of
-                        Just ( key, Edited expectedFix ) ->
+                        Just ( key, ExpectEdited expectedFix ) ->
                             case fixOneError target fileFixes targetInformation.source expectedFix error_ of
                                 Err failureMessage ->
                                     Expect.fail failureMessage
@@ -1959,7 +1959,7 @@ checkFixesMatch project moduleName error_ expectedFixed fixes =
                                         (Dict.remove key expectedFixed)
                                         rest
 
-                        Just ( key, Removed ) ->
+                        Just ( key, ExpectRemoved ) ->
                             -- TODO MULTIFILE-FIXES Improve error message
                             -- TODO Show the actual file content?
                             Expect.fail ("In the tests, the file " ++ key ++ " is supposed to be removed, but I can see it being edited to: ...")
@@ -1981,7 +1981,7 @@ checkFixesMatch project moduleName error_ expectedFixed fixes =
             case getTargetFileFromProject target project of
                 Just targetInformation ->
                     case getExpectedFixedCodeThroughFilePathOrModuleName (FileTarget.filePath target) targetInformation.moduleName expectedFixed of
-                        Just ( key, Removed ) ->
+                        Just ( key, ExpectRemoved ) ->
                             checkFixesMatch
                                 project
                                 moduleName
@@ -1989,7 +1989,7 @@ checkFixesMatch project moduleName error_ expectedFixed fixes =
                                 (Dict.remove key expectedFixed)
                                 rest
 
-                        Just ( key, Edited _ ) ->
+                        Just ( key, ExpectEdited _ ) ->
                             -- TODO MULTIFILE-FIXES Validate that file was expected to be deleted.
                             Expect.fail ("In the tests, the file " ++ key ++ " is supposed to be edited, but I can see it being removed.")
 
@@ -2026,7 +2026,7 @@ checkGlobalErrorFixesMatch project error_ expectedFixed fixes =
             case getTargetFileFromProject target project of
                 Just targetInformation ->
                     case getExpectedFixedCodeThroughFilePathOrModuleName (FileTarget.filePath target) targetInformation.moduleName expectedFixed of
-                        Just ( key, Edited expectedFix ) ->
+                        Just ( key, ExpectEdited expectedFix ) ->
                             case fixOneError target fileFixes targetInformation.source expectedFix error_ of
                                 Err failureMessage ->
                                     Err failureMessage
@@ -2038,7 +2038,7 @@ checkGlobalErrorFixesMatch project error_ expectedFixed fixes =
                                         (Dict.remove key expectedFixed)
                                         rest
 
-                        Just ( key, Removed ) ->
+                        Just ( key, ExpectRemoved ) ->
                             -- TODO MULTIFILE-FIXES Improve error message
                             -- TODO Show the actual file content?
                             Err ("In the tests, the file " ++ key ++ " is supposed to be removed, but I can see it being edited to: ...")
@@ -2059,14 +2059,14 @@ checkGlobalErrorFixesMatch project error_ expectedFixed fixes =
             case getTargetFileFromProject target project of
                 Just targetInformation ->
                     case getExpectedFixedCodeThroughFilePathOrModuleName (FileTarget.filePath target) targetInformation.moduleName expectedFixed of
-                        Just ( key, Removed ) ->
+                        Just ( key, ExpectRemoved ) ->
                             checkGlobalErrorFixesMatch
                                 project
                                 error_
                                 (Dict.remove key expectedFixed)
                                 rest
 
-                        Just ( key, Edited _ ) ->
+                        Just ( key, ExpectEdited _ ) ->
                             -- TODO MULTIFILE-FIXES Validate that file was expected to be deleted.
                             Err ("In the tests, the file " ++ key ++ " is supposed to be edited, but I can see it being removed.")
 
