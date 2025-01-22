@@ -147,11 +147,11 @@ a = 1
                         ]
                     |> expectFailure """UNEXPECTED FIXES
 
-I found the global error with the following message:
+I expected that the global error with the following message:
 
   `Oh no`
 
-but it provided an unexpected fix for `src/A.elm`.
+would provide fixes, but I found an unexpected fix for `src/A.elm`.
 This is what it gets fixed to:
 
   ```

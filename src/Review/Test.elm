@@ -1977,7 +1977,7 @@ checkFixesMatch project moduleName error_ expectedFixed fixes =
 
                         Nothing ->
                             FailureMessage.unexpectedAdditionalFixes
-                                { moduleName = moduleName
+                                { target = FailureMessage.Module moduleName
                                 , message = Rule.errorMessage error_
                                 , nameOfFixedFile = FileTarget.filePath fixTarget
                                 , fixedSource = targetInformation.source
@@ -2010,7 +2010,7 @@ checkFixesMatch project moduleName error_ expectedFixed fixes =
 
                         Nothing ->
                             FailureMessage.unexpectedAdditionalFixes
-                                { moduleName = moduleName
+                                { target = FailureMessage.Module moduleName
                                 , message = Rule.errorMessage error_
                                 , nameOfFixedFile = FileTarget.filePath fixTarget
                                 , fixedSource = targetInformation.source
@@ -2063,8 +2063,9 @@ checkGlobalErrorFixesMatch project error_ expectedFixed fixes =
                                 |> Err
 
                         Nothing ->
-                            FailureMessage.unexpectedAdditionalFixesForGlobalError
-                                { message = Rule.errorMessage error_
+                            FailureMessage.unexpectedAdditionalFixes
+                                { target = FailureMessage.Global
+                                , message = Rule.errorMessage error_
                                 , nameOfFixedFile = FileTarget.filePath target
                                 , fixedSource = targetInformation.source
                                 }
@@ -2094,8 +2095,9 @@ checkGlobalErrorFixesMatch project error_ expectedFixed fixes =
                                 |> Err
 
                         Nothing ->
-                            FailureMessage.unexpectedAdditionalFixesForGlobalError
-                                { message = Rule.errorMessage error_
+                            FailureMessage.unexpectedAdditionalFixes
+                                { target = FailureMessage.Global
+                                , message = Rule.errorMessage error_
                                 , nameOfFixedFile = FileTarget.filePath target
                                 , fixedSource = targetInformation.source
                                 }

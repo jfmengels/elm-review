@@ -9,7 +9,7 @@ module Review.Test.FailureMessage exposing
     , unexpectedExtract, missingExtract, invalidJsonForExpectedDataExtract, extractMismatch, specifiedMultipleExtracts
     , resultsAreDifferentWhenFilesAreIgnored
     , fixForUnknownFile
-    , Target(..), fileWasEditedInsteadOfRemoved, fileWasRemovedInsteadOfEdited, unexpectedAdditionalFixesForGlobalError
+    , Target(..), fileWasEditedInsteadOfRemoved, fileWasRemovedInsteadOfEdited
     )
 
 {-| Failure messages for the `Review.Test` module.
@@ -484,38 +484,35 @@ To fix this, you can call `Review.Test.whenFixed` on your error:
       |> Review.Test.whenFixed "<source code>\"""")
 
 
-unexpectedAdditionalFixes : { moduleName : String, message : String, nameOfFixedFile : String, fixedSource : String } -> String
-unexpectedAdditionalFixes { moduleName, message, nameOfFixedFile, fixedSource } =
+unexpectedAdditionalFixes : { target : Target, message : String, nameOfFixedFile : String, fixedSource : String } -> String
+unexpectedAdditionalFixes { target, message, nameOfFixedFile, fixedSource } =
+    let
+        recommendation : String
+        recommendation =
+            case target of
+                Module _ ->
+                    """
+
+If this fix was expected, update the test by using `Review.Test.whenFixed`
+or `Review.Test.shouldFixFiles`. If it isn't, then change the rule's
+implementation to not provide a fix for this situation."""
+
+                Global ->
+                    """
+
+If this fix was expected, update the test by using
+`expectGlobalErrorsWithFixes` or `globalErrorsWithFixes`. If it isn't, then
+change the rule's implementation to not provide a fix for this situation."""
+    in
     failureMessage "UNEXPECTED FIXES"
-        ("""I expected that the error for module `""" ++ moduleName ++ """` with the following message:
+        ("I expected that the " ++ describeTarget target ++ """ with the following message:
 
   """ ++ wrapInQuotes message ++ """
 
 would provide fixes, but I found an unexpected fix for """ ++ wrapInQuotes nameOfFixedFile ++ """.
 This is what it gets fixed to:
 
-  """ ++ formatSourceCode fixedSource ++ """
-
-If this fix was expected, update the test by using `Review.Test.whenFixed`
-or `Review.Test.shouldFixFiles`. If it isn't, then change the rule's
-implementation to not provide a fix for this situation.""")
-
-
-unexpectedAdditionalFixesForGlobalError : { message : String, nameOfFixedFile : String, fixedSource : String } -> String
-unexpectedAdditionalFixesForGlobalError { message, nameOfFixedFile, fixedSource } =
-    failureMessage "UNEXPECTED FIXES"
-        ("""I found the global error with the following message:
-
-  """ ++ wrapInQuotes message ++ """
-
-but it provided an unexpected fix for """ ++ wrapInQuotes nameOfFixedFile ++ """.
-This is what it gets fixed to:
-
-  """ ++ formatSourceCode fixedSource ++ """
-
-If this fix was expected, update the test by using
-`expectGlobalErrorsWithFixes` or `globalErrorsWithFixes`. If it isn't, then
-change the rule's implementation to not provide a fix for this situation.""")
+  """ ++ formatSourceCode fixedSource ++ recommendation)
 
 
 fixedCodeMismatch : SourceCode -> SourceCode -> ReviewError -> String

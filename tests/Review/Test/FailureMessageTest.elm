@@ -1147,17 +1147,16 @@ To fix this, you can call `Review.Test.whenFixed` on your error:
 
 unexpectedAdditionalFixesTest : Test
 unexpectedAdditionalFixesTest =
-    describe "unexpectedAdditionalFixes"
-        [ test "unexpectedAdditionalFixesz" <|
-            \() ->
-                FailureMessage.unexpectedAdditionalFixes
-                    { moduleName = "A"
-                    , message = "Some error"
-                    , nameOfFixedFile = "src/A.elm"
-                    , fixedSource = """module A exposing (..)
+    test "unexpectedAdditionalFixes" <|
+        \() ->
+            FailureMessage.unexpectedAdditionalFixes
+                { target = FailureMessage.Module "A"
+                , message = "Some error"
+                , nameOfFixedFile = "src/A.elm"
+                , fixedSource = """module A exposing (..)
 a = 1"""
-                    }
-                    |> expectMessageEqual """
+                }
+                |> expectMessageEqual """
 \u{001B}[31m\u{001B}[1mUNEXPECTED FIXES\u{001B}[22m\u{001B}[39m
 
 I expected that the error for module `A` with the following message:
@@ -1175,7 +1174,6 @@ This is what it gets fixed to:
 If this fix was expected, update the test by using `Review.Test.whenFixed`
 or `Review.Test.shouldFixFiles`. If it isn't, then change the rule's
 implementation to not provide a fix for this situation."""
-        ]
 
 
 fixedCodeMismatchTest : Test
