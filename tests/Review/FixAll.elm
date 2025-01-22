@@ -10,9 +10,9 @@ import Json.Decode as Decode
 import Json.Encode as Encode
 import NoUnused.Dependencies
 import NoUnused.Variables
-import Review.Error exposing (ReviewError(..))
 import Review.Error.FileTarget as FileTarget
 import Review.Error.Fixes as ErrorFixes exposing (ErrorFixes)
+import Review.Error.ReviewError exposing (ReviewError(..))
 import Review.Error.Target as Target
 import Review.Fix.Internal exposing (Fix(..))
 import Review.Options

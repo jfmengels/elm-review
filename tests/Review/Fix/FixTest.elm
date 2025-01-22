@@ -3,6 +3,8 @@ module Review.Fix.FixTest exposing (all)
 import Expect
 import Review.Error.FileTarget as FileTarget
 import Review.Fix as Fix exposing (Fix)
+import Review.Fix.FixProblem exposing (FixProblem(..))
+import Review.Fix.Internal as FixInternal
 import Test exposing (Test, describe, test)
 
 
@@ -26,8 +28,8 @@ a = Debug.log "foo" 1
                             }
                         ]
                 in
-                Fix.fix (FileTarget.Module "A.elm") fixes source
-                    |> Expect.equal (Fix.Successful """module A exposing (a)
+                FixInternal.fix (FileTarget.Module "A.elm") fixes source
+                    |> Expect.equal (Ok """module A exposing (a)
 a =  1
 """)
         , test "should apply a replacement on a single line" <|
@@ -48,8 +50,8 @@ some_var = 1
                             "someVar"
                         ]
                 in
-                Fix.fix (FileTarget.Module "A.elm") fixes source
-                    |> Expect.equal (Fix.Successful """module A exposing (a)
+                FixInternal.fix (FileTarget.Module "A.elm") fixes source
+                    |> Expect.equal (Ok """module A exposing (a)
 someVar = 1
 """)
         , test "should insert something on a single line" <|
@@ -68,8 +70,8 @@ a = 1
                             """Debug.log "foo" """
                         ]
                 in
-                Fix.fix (FileTarget.Module "A.elm") fixes source
-                    |> Expect.equal (Fix.Successful """module A exposing (a)
+                FixInternal.fix (FileTarget.Module "A.elm") fixes source
+                    |> Expect.equal (Ok """module A exposing (a)
 a = Debug.log "foo" 1
 """)
         , test "should apply multiple fixes regardless of the order" <|
@@ -95,13 +97,13 @@ a = 1
                 in
                 Expect.all
                     [ \() ->
-                        Fix.fix (FileTarget.Module "A.elm") fixes source
-                            |> Expect.equal (Fix.Successful """module A exposing (a)
+                        FixInternal.fix (FileTarget.Module "A.elm") fixes source
+                            |> Expect.equal (Ok """module A exposing (a)
 someVar = Debug.log "foo" 1
 """)
                     , \() ->
-                        Fix.fix (FileTarget.Module "A.elm") (List.reverse fixes) source
-                            |> Expect.equal (Fix.Successful """module A exposing (a)
+                        FixInternal.fix (FileTarget.Module "A.elm") (List.reverse fixes) source
+                            |> Expect.equal (Ok """module A exposing (a)
 someVar = Debug.log "foo" 1
 """)
                     ]
@@ -126,8 +128,8 @@ a = 1
                             }
                         ]
                 in
-                Fix.fix (FileTarget.Module "A.elm") fixes source
-                    |> Expect.equal (Fix.Successful """module A exposing (someCode)
+                FixInternal.fix (FileTarget.Module "A.elm") fixes source
+                    |> Expect.equal (Ok """module A exposing (someCode)
 someCode = 2
 
 
@@ -150,8 +152,8 @@ some_var = 1
                             "someVar =\n  1"
                         ]
                 in
-                Fix.fix (FileTarget.Module "A.elm") fixes source
-                    |> Expect.equal (Fix.Successful """module A exposing (a)
+                FixInternal.fix (FileTarget.Module "A.elm") fixes source
+                    |> Expect.equal (Ok """module A exposing (a)
 someVar =
   1
 """)
@@ -174,8 +176,8 @@ some_var =
                             "someVar = 1"
                         ]
                 in
-                Fix.fix (FileTarget.Module "A.elm") fixes source
-                    |> Expect.equal (Fix.Successful """module A exposing (a)
+                FixInternal.fix (FileTarget.Module "A.elm") fixes source
+                    |> Expect.equal (Ok """module A exposing (a)
 someVar = 1
 """)
         , test "should apply a replacement on multiple lines with something on multiple lines" <|
@@ -197,8 +199,8 @@ some_var =
                             "foo =\n  2"
                         ]
                 in
-                Fix.fix (FileTarget.Module "A.elm") fixes source
-                    |> Expect.equal (Fix.Successful """module A exposing (a)
+                FixInternal.fix (FileTarget.Module "A.elm") fixes source
+                    |> Expect.equal (Ok """module A exposing (a)
 foo =
   2
 """)
@@ -221,8 +223,8 @@ a = 1
                             "b =\n  2\n"
                         ]
                 in
-                Fix.fix (FileTarget.Module "A.elm") fixes source
-                    |> Expect.equal (Fix.Successful """module A exposing (someCode)
+                FixInternal.fix (FileTarget.Module "A.elm") fixes source
+                    |> Expect.equal (Ok """module A exposing (someCode)
 someCode = 2
 
 b =
@@ -246,8 +248,8 @@ a = 1
                     fixes =
                         [ Fix.insertAt { row = 4, column = 1 } "" ]
                 in
-                Fix.fix (FileTarget.Module "A.elm") fixes source
-                    |> Expect.equal (Fix.Errored Fix.Unchanged)
+                FixInternal.fix (FileTarget.Module "A.elm") fixes source
+                    |> Expect.equal (Err Unchanged)
         , test "should fail if the source code is unparsable after fixes" <|
             \() ->
                 let
@@ -261,8 +263,8 @@ someCode = 2
                     fixes =
                         [ Fix.removeRange { start = { row = 1, column = 1 }, end = { row = 1, column = 4 } } ]
                 in
-                Fix.fix (FileTarget.Module "A.elm") fixes source
-                    |> Expect.equal (Fix.Errored <| Fix.SourceCodeIsNotValid """ule A exposing (someCode)
+                FixInternal.fix (FileTarget.Module "A.elm") fixes source
+                    |> Expect.equal (Err <| SourceCodeIsNotValid """ule A exposing (someCode)
 someCode = 2
 """)
         , test "should fail if the fixes' range overlap" <|
@@ -282,11 +284,11 @@ someCode = 2
                 in
                 Expect.all
                     [ \() ->
-                        Fix.fix (FileTarget.Module "A.elm") fixes source
-                            |> Expect.equal (Fix.Errored Fix.HasCollisionsInFixRanges)
+                        FixInternal.fix (FileTarget.Module "A.elm") fixes source
+                            |> Expect.equal (Err HasCollisionsInFixRanges)
                     , \() ->
-                        Fix.fix (FileTarget.Module "A.elm") (List.reverse fixes) source
-                            |> Expect.equal (Fix.Errored Fix.HasCollisionsInFixRanges)
+                        FixInternal.fix (FileTarget.Module "A.elm") (List.reverse fixes) source
+                            |> Expect.equal (Err HasCollisionsInFixRanges)
                     ]
                     ()
         , test "should fail if an insertion fix is contained inside another fix's range" <|
@@ -306,11 +308,11 @@ someCode = 2
                 in
                 Expect.all
                     [ \() ->
-                        Fix.fix (FileTarget.Module "A.elm") fixes source
-                            |> Expect.equal (Fix.Errored Fix.HasCollisionsInFixRanges)
+                        FixInternal.fix (FileTarget.Module "A.elm") fixes source
+                            |> Expect.equal (Err HasCollisionsInFixRanges)
                     , \() ->
-                        Fix.fix (FileTarget.Module "A.elm") (List.reverse fixes) source
-                            |> Expect.equal (Fix.Errored Fix.HasCollisionsInFixRanges)
+                        FixInternal.fix (FileTarget.Module "A.elm") (List.reverse fixes) source
+                            |> Expect.equal (Err HasCollisionsInFixRanges)
                     ]
                     ()
         , describe "README fixes"
@@ -323,12 +325,12 @@ someCode = 2
 My description
 """
 
-                        fixes : List Fix.Fix
+                        fixes : List Fix
                         fixes =
                             [ Fix.removeRange { start = { row = 1, column = 1 }, end = { row = 1, column = 4 } } ]
                     in
-                    Fix.fix (FileTarget.Module "A.elm") fixes source
-                        |> Expect.equal (Fix.Errored <| Fix.SourceCodeIsNotValid """y project
+                    FixInternal.fix (FileTarget.Module "A.elm") fixes source
+                        |> Expect.equal (Err <| SourceCodeIsNotValid """y project
 My description
 """)
             ]

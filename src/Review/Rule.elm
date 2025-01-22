@@ -328,9 +328,9 @@ import Review.Cache.ExtraFile as ExtraFile
 import Review.Cache.Module as ModuleCache
 import Review.Cache.ProjectFile as ProjectFileCache
 import Review.ElmProjectEncoder
-import Review.Error exposing (InternalError)
 import Review.Error.FileTarget as FileTarget exposing (FileTarget)
 import Review.Error.Fixes as ErrorFixes exposing (ErrorFixes, FixKind)
+import Review.Error.ReviewError exposing (InternalError)
 import Review.Error.Target as Target exposing (Target)
 import Review.Exceptions as Exceptions exposing (Exceptions)
 import Review.FilePath exposing (FilePath)
@@ -667,7 +667,7 @@ collectConfigurationErrors rules =
             case rule.ruleProjectVisitor of
                 Err { message, details } ->
                     Just
-                        (Review.Error.ReviewError
+                        (Review.Error.ReviewError.ReviewError
                             { filePath = "CONFIGURATION ERROR"
                             , ruleName = rule.name
                             , message = message
@@ -801,8 +801,8 @@ computeErrorsAndRulesAndExtracts reviewOptions ruleProjectVisitors =
                     ( newErrors, canComputeExtract ) =
                         List.foldl
                             (\(Error err) ( accErrors, canComputeExtract_ ) ->
-                                ( Review.Error.ReviewError err :: accErrors
-                                , canComputeExtract_ && not (Review.Error.doesPreventExtract err)
+                                ( Review.Error.ReviewError.ReviewError err :: accErrors
+                                , canComputeExtract_ && not (Review.Error.ReviewError.doesPreventExtract err)
                                 )
                             )
                             ( errors, True )
@@ -3843,7 +3843,7 @@ output incorrect data.
 -}
 preventExtract : Error a -> Error a
 preventExtract (Error err) =
-    Error (Review.Error.preventExtract err)
+    Error (Review.Error.ReviewError.preventExtract err)
 
 
 removeErrorPhantomTypes : List (Error something) -> List (Error {})
@@ -3859,7 +3859,7 @@ If you are building a [`Rule`](#Rule), you shouldn't have to use this.
 
 -}
 type alias ReviewError =
-    Review.Error.ReviewError
+    Review.Error.ReviewError.ReviewError
 
 
 {-| Create an [`Error`](#Error). Use it when you find a pattern that the rule should forbid.
@@ -4254,9 +4254,9 @@ globalError { message, details } =
         }
 
 
-parsingError : String -> Review.Error.ReviewError
+parsingError : String -> Review.Error.ReviewError.ReviewError
 parsingError path =
-    Review.Error.ReviewError
+    Review.Error.ReviewError.ReviewError
         { filePath = path
         , ruleName = "ParsingError"
         , message = path ++ " is not a correct Elm module"
@@ -4413,27 +4413,27 @@ withFixesV2 providedFixes error_ =
 
 errorToReviewError : Error scope -> ReviewError
 errorToReviewError (Error err) =
-    Review.Error.ReviewError err
+    Review.Error.ReviewError.ReviewError err
 
 
 {-| Get the name of the rule that triggered this [`Error`](#Error).
 -}
 errorRuleName : ReviewError -> String
-errorRuleName (Review.Error.ReviewError err) =
+errorRuleName (Review.Error.ReviewError.ReviewError err) =
     err.ruleName
 
 
 {-| Get the error message of an [`Error`](#Error).
 -}
 errorMessage : ReviewError -> String
-errorMessage (Review.Error.ReviewError err) =
+errorMessage (Review.Error.ReviewError.ReviewError err) =
     err.message
 
 
 {-| Get the error details of an [`Error`](#Error).
 -}
 errorDetails : ReviewError -> List String
-errorDetails (Review.Error.ReviewError err) =
+errorDetails (Review.Error.ReviewError.ReviewError err) =
     err.details
 
 
@@ -4441,7 +4441,7 @@ errorDetails (Review.Error.ReviewError err) =
 of an [`Error`](#Error).
 -}
 errorRange : ReviewError -> Range
-errorRange (Review.Error.ReviewError err) =
+errorRange (Review.Error.ReviewError.ReviewError err) =
     err.range
 
 
@@ -4449,7 +4449,7 @@ errorRange (Review.Error.ReviewError err) =
 defined any.
 -}
 errorFixes : ReviewError -> Maybe (List Fix)
-errorFixes (Review.Error.ReviewError err) =
+errorFixes (Review.Error.ReviewError.ReviewError err) =
     case err.fixProblem of
         Just _ ->
             Nothing
@@ -4479,8 +4479,8 @@ An error can provide fixes for multiple files. For each file, the fix consists o
 either a `Just` list of edits (named `Fix` until the next breaking change) or of `Nothing` for a file removal.
 
 -}
-errorFixesV2 : Review.Error.ReviewError -> Maybe (Dict String (Maybe (List Fix)))
-errorFixesV2 (Review.Error.ReviewError err) =
+errorFixesV2 : Review.Error.ReviewError.ReviewError -> Maybe (Dict String (Maybe (List Fix)))
+errorFixesV2 (Review.Error.ReviewError.ReviewError err) =
     -- The type for this function would be better described through a custom type.
     -- It is however purposefully low-level in order to keep it possible to introduce
     -- new fix kinds (most likely file creations) without a breaking change
@@ -4516,7 +4516,7 @@ Note that if the review process was not run in fix mode previously, then this wi
 
 -}
 errorFixFailure : ReviewError -> Maybe Fix.Problem
-errorFixFailure (Review.Error.ReviewError err) =
+errorFixFailure (Review.Error.ReviewError.ReviewError err) =
     case err.fixProblem of
         Just fixProblem ->
             case fixProblem of
@@ -4536,14 +4536,14 @@ errorFixFailure (Review.Error.ReviewError err) =
 {-| Get the file path of an [`Error`](#Error).
 -}
 errorFilePath : ReviewError -> String
-errorFilePath (Review.Error.ReviewError err) =
+errorFilePath (Review.Error.ReviewError.ReviewError err) =
     err.filePath
 
 
 {-| Get the target of an [`Error`](#Error).
 -}
 errorTarget : ReviewError -> Target
-errorTarget (Review.Error.ReviewError err) =
+errorTarget (Review.Error.ReviewError.ReviewError err) =
     err.target
 
 
@@ -6012,7 +6012,7 @@ applyFileDeletionFix project (Error err) target =
                     Ok { project = newProject, fixedFile = RemovedElmModule }
 
                 Nothing ->
-                    Err (Error (Review.Error.markFixesAsProblem FixProblem.Unchanged err))
+                    Err (Error (Review.Error.ReviewError.markFixesAsProblem FixProblem.Unchanged err))
 
         FileTarget.ExtraFile targetPath ->
             Ok { project = ValidProject.removeExtraFile targetPath project, fixedFile = FixedExtraFile }
@@ -6089,7 +6089,7 @@ applySingleModuleFix project maybeModuleZipper ((Error headError) as err) target
                         )
             of
                 Err fixProblem ->
-                    Err (Error (Review.Error.markFixesAsProblem fixProblem headError))
+                    Err (Error (Review.Error.ReviewError.markFixesAsProblem fixProblem headError))
 
                 Ok fixResult ->
                     Ok fixResult
@@ -6110,7 +6110,7 @@ applyElmJsonFix project ((Error headError) as err) fixes =
                         )
             of
                 Err fixProblem ->
-                    Err (Error (Review.Error.markFixesAsProblem fixProblem headError))
+                    Err (Error (Review.Error.ReviewError.markFixesAsProblem fixProblem headError))
 
                 Ok newProject ->
                     Ok
@@ -6128,7 +6128,7 @@ applyReadmeFix project ((Error headError) as err) fixes =
         Just readme ->
             case InternalFix.fixReadme fixes readme.content of
                 Err fixProblem ->
-                    Err (Error (Review.Error.markFixesAsProblem fixProblem headError))
+                    Err (Error (Review.Error.ReviewError.markFixesAsProblem fixProblem headError))
 
                 Ok content ->
                     Ok
@@ -6146,7 +6146,7 @@ applyExtraFileFix project ((Error headError) as err) targetPath fixes =
         Just content ->
             case InternalFix.fixExtraFile fixes content of
                 Err fixProblem ->
-                    Err (Error (Review.Error.markFixesAsProblem fixProblem headError))
+                    Err (Error (Review.Error.ReviewError.markFixesAsProblem fixProblem headError))
 
                 Ok newFileContent ->
                     Ok

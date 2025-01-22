@@ -140,9 +140,11 @@ import Regex exposing (Regex)
 import Review.Error as Error
 import Review.Error.FileTarget as FileTarget exposing (FileTarget)
 import Review.Error.Fixes as ErrorFixes exposing (ErrorFixes(..))
+import Review.Error.ReviewError exposing (ReviewError(..))
 import Review.Error.Target as Target exposing (Target)
 import Review.FileParser as FileParser
-import Review.Fix as Fix exposing (Fix)
+import Review.Fix exposing (Fix)
+import Review.Fix.Internal as FixInternal
 import Review.Options as ReviewOptions
 import Review.Project as Project exposing (Project, ProjectModule)
 import Review.Project.Internal exposing (ProjectInternals)
@@ -1684,7 +1686,7 @@ checkGlobalErrorsMatch project originalNumberOfExpectedErrors params =
     case params.expected of
         head :: rest ->
             case findAndRemove (\error_ -> Rule.errorMessage error_ == head.message && Rule.errorDetails error_ == head.details) params.actual of
-                Just ( (Error.ReviewError { fixes }) as matchedError, newActual ) ->
+                Just ( (ReviewError { fixes }) as matchedError, newActual ) ->
                     if List.isEmpty head.details then
                         Expect.fail (FailureMessage.emptyDetails head.message)
 
@@ -1863,7 +1865,7 @@ checkMessageAppearsUnder codeInspector error_ expectedError =
 
 
 checkFixesHaveNoProblem : ReviewError -> Expectation
-checkFixesHaveNoProblem ((Error.ReviewError err) as error_) =
+checkFixesHaveNoProblem ((ReviewError err) as error_) =
     case err.fixProblem of
         Just fixProblem ->
             Expect.fail <| FailureMessage.fixProblem_ fixProblem error_
@@ -1873,7 +1875,7 @@ checkFixesHaveNoProblem ((Error.ReviewError err) as error_) =
 
 
 checkFixesAreCorrect : ProjectInternals -> String -> ReviewError -> ExpectedErrorDetails -> Expectation
-checkFixesAreCorrect project moduleName ((Error.ReviewError err) as error_) expectedError =
+checkFixesAreCorrect project moduleName ((ReviewError err) as error_) expectedError =
     let
         errorFixes : List ( FileTarget, ErrorFixes.FixKind )
         errorFixes =
@@ -2099,8 +2101,8 @@ getExpectedFixedCodeThroughFilePathOrModuleName filePath moduleName expectedFixe
 
 fixOneError : FileTarget -> List Fix -> String -> String -> ReviewError -> Result String ()
 fixOneError target fileFixes source expectedFixedSource error_ =
-    case Fix.fix target fileFixes source of
-        Fix.Successful fixedSource ->
+    case FixInternal.fix target fileFixes source of
+        Ok fixedSource ->
             let
                 trimmedFixed : String
                 trimmedFixed =
@@ -2119,8 +2121,8 @@ fixOneError target fileFixes source expectedFixedSource error_ =
             else
                 Err <| FailureMessage.fixedCodeMismatch trimmedFixed expectedFixed error_
 
-        Fix.Errored fixProblem ->
-            Err <| FailureMessage.fixProblem fixProblem error_
+        Err fixProblem ->
+            Err <| FailureMessage.fixProblem_ fixProblem error_
 
 
 trimRightOnEveryLine : String -> String

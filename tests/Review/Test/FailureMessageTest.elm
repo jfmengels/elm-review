@@ -8,7 +8,7 @@ import Elm.Syntax.Range exposing (Range)
 import Expect exposing (Expectation)
 import Json.Decode as Decode
 import Json.Encode as Encode
-import Review.Error exposing (ReviewError)
+import Review.Error.ReviewError exposing (ReviewError)
 import Review.Rule as Rule exposing (Error, Rule)
 import Review.Test
 import Review.Test.ExpectationExtra exposing (onFail)
@@ -617,7 +617,7 @@ wrongLocationTest =
                 let
                     error : ReviewError
                     error =
-                        Review.Error.error
+                        Review.Error.ReviewError.error
                             { message = "Some error"
                             , details = [ "Some details" ]
                             }
@@ -653,7 +653,7 @@ but I found it at:
                 let
                     error : ReviewError
                     error =
-                        Review.Error.error
+                        Review.Error.ReviewError.error
                             { message = "Some other error"
                             , details = [ "Some other details" ]
                             }
@@ -697,7 +697,7 @@ locationNotFoundTest =
             let
                 error : ReviewError
                 error =
-                    Review.Error.error
+                    Review.Error.ReviewError.error
                         { message = "Some error"
                         , details = [ "Some details" ]
                         }
@@ -799,7 +799,7 @@ tooManyErrorsTest =
                 let
                     extraErrors : List ReviewError
                     extraErrors =
-                        [ Review.Error.error
+                        [ Review.Error.ReviewError.error
                             { message = "Remove the use of `Debug` before shipping to production"
                             , details = [ "Some details about Debug" ]
                             }
@@ -820,12 +820,12 @@ I found 1 error too many for module `MyModule`:
                 let
                     extraErrors : List ReviewError
                     extraErrors =
-                        [ Review.Error.error
+                        [ Review.Error.ReviewError.error
                             { message = "Remove the use of `Debug` before shipping to production"
                             , details = [ "Some details about Debug" ]
                             }
                             { start = { row = 2, column = 1 }, end = { row = 2, column = 5 } }
-                        , Review.Error.error
+                        , Review.Error.ReviewError.error
                             { message = "Remove the use of `Debug` before shipping to production"
                             , details = [ "Some details about Debug" ]
                             }
@@ -894,7 +894,7 @@ locationIsAmbiguousInSourceCodeTest =
 
                     error : ReviewError
                     error =
-                        Review.Error.error
+                        Review.Error.ReviewError.error
                             { message = "Some error"
                             , details = [ "Some details" ]
                             }
@@ -938,7 +938,7 @@ Tip: I found them at:
 
                     error : ReviewError
                     error =
-                        Review.Error.error
+                        Review.Error.ReviewError.error
                             { message = "Some other error"
                             , details = [ "Some other details" ]
                             }
@@ -1197,7 +1197,7 @@ abcd =
 
                 error : ReviewError
                 error =
-                    Review.Error.error
+                    Review.Error.ReviewError.error
                         { message = "Some error"
                         , details = [ "Some details" ]
                         }
@@ -1239,7 +1239,7 @@ unchangedSourceAfterFixTest =
             let
                 error : ReviewError
                 error =
-                    Review.Error.error
+                    Review.Error.ReviewError.error
                         { message = "Some error"
                         , details = [ "Some details" ]
                         }
@@ -1277,7 +1277,7 @@ abcd =
 
                 error : ReviewError
                 error =
-                    Review.Error.error
+                    Review.Error.ReviewError.error
                         { message = "Some error"
                         , details = [ "Some details" ]
                         }
@@ -1317,7 +1317,7 @@ hasCollisionsInFixRangesTest =
             let
                 error : ReviewError
                 error =
-                    Review.Error.error
+                    Review.Error.ReviewError.error
                         { message = "Some error"
                         , details = [ "Some details" ]
                         }

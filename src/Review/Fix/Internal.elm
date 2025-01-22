@@ -1,12 +1,14 @@
-module Review.Fix.Internal exposing (Fix(..), applyFix, containRangeCollisions, fixElmJson, fixExtraFile, fixModule, fixReadme, rangePosition)
+module Review.Fix.Internal exposing (Fix(..), applyFix, containRangeCollisions, fix, fixElmJson, fixExtraFile, fixModule, fixReadme, rangePosition)
 
 import Array
+import Elm.Parser
 import Elm.Project
 import Elm.Syntax.File exposing (File)
 import Elm.Syntax.Range exposing (Range)
 import Json.Decode as Decode
+import Review.Error.FileTarget as FileTarget exposing (FileTarget)
 import Review.FileParser as FileParser
-import Review.Fix.FixProblem as FixProblem
+import Review.Fix.FixProblem as FixProblem exposing (FixProblem)
 import Unicode
 import Vendor.ListExtra as ListExtra
 
@@ -81,6 +83,60 @@ getRowAtLine lines rowIndex =
 
 
 -- FIX ELM MODULE
+
+
+{-| Apply the changes on the source code.
+-}
+fix : FileTarget -> List Fix -> String -> Result FixProblem String
+fix target fixes sourceCode =
+    case target of
+        FileTarget.Module _ ->
+            tryToApplyFix_
+                fixes
+                sourceCode
+                (\resultAfterFix -> (Elm.Parser.parse resultAfterFix |> Result.toMaybe) /= Nothing)
+
+        FileTarget.Readme ->
+            tryToApplyFix_
+                fixes
+                sourceCode
+                (always True)
+
+        FileTarget.ExtraFile _ ->
+            tryToApplyFix_
+                fixes
+                sourceCode
+                (always True)
+
+        FileTarget.ElmJson ->
+            tryToApplyFix_
+                fixes
+                sourceCode
+                (\resultAfterFix -> (Decode.decodeString Elm.Project.decoder resultAfterFix |> Result.toMaybe) /= Nothing)
+
+
+tryToApplyFix_ : List Fix -> String -> (String -> Bool) -> Result FixProblem String
+tryToApplyFix_ fixes sourceCode isValidSourceCode =
+    if containRangeCollisions fixes then
+        Err FixProblem.HasCollisionsInFixRanges
+
+    else
+        let
+            resultAfterFix : String
+            resultAfterFix =
+                fixes
+                    |> List.sortBy (rangePosition >> negate)
+                    |> List.foldl applyFix (String.lines sourceCode)
+                    |> String.join "\n"
+        in
+        if sourceCode == resultAfterFix then
+            Err FixProblem.Unchanged
+
+        else if isValidSourceCode resultAfterFix then
+            Ok resultAfterFix
+
+        else
+            Err (FixProblem.SourceCodeIsNotValid resultAfterFix)
 
 
 {-| Apply the changes on the source code.

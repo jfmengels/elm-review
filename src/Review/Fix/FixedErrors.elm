@@ -1,8 +1,7 @@
 module Review.Fix.FixedErrors exposing (FixedErrors, count, empty, insert, shouldAbort, toDict)
 
 import Dict exposing (Dict)
-import Review.Error exposing (ReviewError)
-import Review.Error.FileTarget as FileTarget
+import Review.Error.ReviewError exposing (ReviewError(..))
 import Review.Error.Target as Target
 
 
@@ -24,7 +23,7 @@ empty =
 
 
 insert : ReviewError -> FixedErrors -> FixedErrors
-insert ((Review.Error.ReviewError { filePath, target }) as error) (FixedErrors fixedErrors) =
+insert ((ReviewError { filePath, target }) as error) (FixedErrors fixedErrors) =
     FixedErrors
         { count = fixedErrors.count + 1
         , errors =
