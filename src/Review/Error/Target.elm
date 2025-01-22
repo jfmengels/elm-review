@@ -2,7 +2,6 @@ module Review.Error.Target exposing
     ( Target(..)
     , elmJson
     , extraFile
-    , filePath
     , module_
     , readme
     , setCurrentFilePathOnTargetIfNeeded

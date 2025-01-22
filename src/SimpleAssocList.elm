@@ -1,4 +1,4 @@
-module SimpleAssocList exposing (SimpleAssocList, empty, get, insert, isEmpty, mapKeyAndValue, singleton, toDict, toList, update)
+module SimpleAssocList exposing (SimpleAssocList, empty, isEmpty, mapKeyAndValue, singleton, toList, update)
 
 import Dict exposing (Dict)
 
