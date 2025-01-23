@@ -18,18 +18,19 @@ module Review.Rule exposing
     , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitor, withModuleContext, withModuleContextUsingContextCreator, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDirectDependenciesProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withExtraFilesProjectVisitor, withContextFromImportedModules
     , providesFixesForProjectRule
     , ContextCreator, initContextCreator, withModuleName, withModuleNameNode, withIsInSourceDirectories, withFilePath, withIsFileIgnored, withModuleNameLookupTable, withModuleKey, withSourceCodeExtractor, withFullAst, withModuleDocumentation
-    , Metadata, withMetadata, moduleNameFromMetadata, moduleNameNodeFromMetadata, isInSourceDirectories
     , Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix
     , ElmJsonKey, errorForElmJson, errorForElmJsonWithFix
     , ReadmeKey, errorForReadme, errorForReadmeWithFix
     , ExtraFileKey, errorForExtraFile, errorForExtraFileWithFix
     , globalError, configurationError
-    , ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFilePath, errorTarget, errorFixes, errorFixesV2, errorFixFailure
+    , ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFilePath, errorTarget, errorFixesV2, errorFixFailureV2
     , ignoreErrorsForDirectories, ignoreErrorsForFiles, filterErrorsForFiles
     , withDataExtractor, preventExtract
     , reviewV3, reviewV2, review, ProjectData, ruleName, ruleProvidesFixes, ruleKnowsAboutIgnoredFiles, ruleRequestedFiles, withRuleId, getConfigurationError
     , Required, Forbidden
     , FixesV2, fixesForElmJson, fixesForExtraFile, fixesForModule, removeModule, removeExtraFile, fixesForReadme, withFixesV2
+    , errorFixes, errorFixFailure
+    , Metadata, withMetadata, moduleNameFromMetadata, moduleNameNodeFromMetadata, isInSourceDirectories
     )
 
 {-| This module contains functions that are used for writing rules.
@@ -242,11 +243,6 @@ first, as they are in practice a simpler version of project rules.
 @docs ContextCreator, initContextCreator, withModuleName, withModuleNameNode, withIsInSourceDirectories, withFilePath, withIsFileIgnored, withModuleNameLookupTable, withModuleKey, withSourceCodeExtractor, withFullAst, withModuleDocumentation
 
 
-### Requesting more information (DEPRECATED)
-
-@docs Metadata, withMetadata, moduleNameFromMetadata, moduleNameNodeFromMetadata, isInSourceDirectories
-
-
 ## Errors
 
 @docs Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix
@@ -254,7 +250,7 @@ first, as they are in practice a simpler version of project rules.
 @docs ReadmeKey, errorForReadme, errorForReadmeWithFix
 @docs ExtraFileKey, errorForExtraFile, errorForExtraFileWithFix
 @docs globalError, configurationError
-@docs ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFilePath, errorTarget, errorFixes, errorFixesV2, errorFixFailure
+@docs ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFilePath, errorTarget, errorFixesV2, errorFixFailureV2
 
 
 ## Configuring exceptions
@@ -305,6 +301,14 @@ find the tools to extract data below.
 
 @docs FixesV2, fixesForElmJson, fixesForExtraFile, fixesForModule, removeModule, removeExtraFile, fixesForReadme, withFixesV2
 
+
+# Deprecated
+
+These types and functions are deprecated and should not be used, as there are better alternatives.errorFixFailureV2
+
+@docs errorFixes, errorFixFailure
+@docs Metadata, withMetadata, moduleNameFromMetadata, moduleNameNodeFromMetadata, isInSourceDirectories
+
 -}
 
 import Dict exposing (Dict)
@@ -336,7 +340,7 @@ import Review.Exceptions as Exceptions exposing (Exceptions)
 import Review.FilePath exposing (FilePath)
 import Review.FilePattern as FilePattern exposing (FilePattern)
 import Review.Fix as Fix exposing (Fix)
-import Review.Fix.FixProblem as FixProblem
+import Review.Fix.FixProblem as FixProblem exposing (FixProblem)
 import Review.Fix.FixedErrors as FixedErrors exposing (FixedErrors)
 import Review.Fix.Internal as InternalFix
 import Review.ImportCycle as ImportCycle
@@ -4538,6 +4542,16 @@ errorFixFailure (Review.Error.ReviewError.ReviewError err) =
 
         Nothing ->
             Nothing
+
+
+{-| Get the reason why the fix for an error failed when its available automatic fix was attempted and deemed incorrect.
+
+Note that if the review process was not run in fix mode previously, then this will return `Nothing`.
+
+-}
+errorFixFailureV2 : ReviewError -> Maybe FixProblem
+errorFixFailureV2 (Review.Error.ReviewError.ReviewError err) =
+    err.fixProblem
 
 
 {-| Get the file path of an [`Error`](#Error).
