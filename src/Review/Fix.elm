@@ -177,6 +177,9 @@ insertAt =
 
 
 {-| Represents the result of having applied a list of fixes to a source code.
+
+TODO MULTIFILE-FIXES Mark as deprecated
+
 -}
 type FixResult
     = Successful String
@@ -185,6 +188,9 @@ type FixResult
 
 {-| Represents a problem that may have occurred when attempting to apply a list
 of fixes.
+
+TODO MULTIFILE-FIXES Mark as deprecated
+
 -}
 type Problem
     = Unchanged

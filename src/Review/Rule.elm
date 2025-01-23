@@ -4447,6 +4447,9 @@ errorRange (Review.Error.ReviewError.ReviewError err) =
 
 {-| Get the automatic [`fixes`](./Review-Fix#Fix) of an [`Error`](#Error), if it
 defined any.
+
+TODO MULTIFILE-FIXES Mark as deprecated
+
 -}
 errorFixes : ReviewError -> Maybe (List Fix)
 errorFixes (Review.Error.ReviewError.ReviewError err) =
@@ -4515,6 +4518,8 @@ errorFixesV2 (Review.Error.ReviewError.ReviewError err) =
 {-| Get the reason why the fix for an error failed when its available automatic fix was attempted and deemed incorrect.
 
 Note that if the review process was not run in fix mode previously, then this will return `Nothing`.
+
+TODO MULTIFILE-FIXES Mark as deprecated
 
 -}
 errorFixFailure : ReviewError -> Maybe Fix.Problem
