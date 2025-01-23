@@ -37,6 +37,7 @@ import Elm.Syntax.Node as Node
 import Path
 import Review.Cache.ContentHash as ContentHash exposing (ContentHash)
 import Review.FilePath exposing (FilePath)
+import Review.Fix.FixProblem as FixProblem exposing (FixProblem)
 import Review.ImportCycle as ImportCycle
 import Review.Project.Dependency as Dependency exposing (Dependency)
 import Review.Project.Internal exposing (Project(..))
@@ -496,7 +497,7 @@ addParsedModule { path, source, ast } maybeModuleZipper (ValidProject project) =
 removeModule :
     FilePath
     -> ValidProject
-    -> Maybe ValidProject
+    -> Result FixProblem ValidProject
 removeModule path (ValidProject project) =
     if Dict.member path project.modulesByPath then
         let
@@ -512,20 +513,20 @@ removeModule path (ValidProject project) =
         case Graph.checkAcyclic graph |> Result.map Graph.topologicalSort of
             Err _ ->
                 -- TODO Breaking change: Add a new kind of FixProblem about introducing import cycles
-                Nothing
+                Err FixProblem.Unchanged
 
             Ok sortedModules ->
                 if List.isEmpty sortedModules then
                     -- TODO MULTIFILE-FIXES Improve handling of removing the last module?
-                    Nothing
+                    Err FixProblem.Unchanged
 
                 else
                     ValidProject { project | modulesByPath = modulesByPath, moduleGraph = graph, sortedModules = sortedModules }
-                        |> Just
+                        |> Ok
 
     else
         -- File should always exist.
-        Nothing
+        Err FixProblem.Unchanged
 
 
 importedModulesSet : Elm.Syntax.File.File -> Set ModuleName -> Set ModuleName

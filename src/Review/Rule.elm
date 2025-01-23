@@ -6010,11 +6010,11 @@ applyFileDeletionFix project (Error err) target =
     case target of
         FileTarget.Module targetPath ->
             case ValidProject.removeModule targetPath project of
-                Just newProject ->
+                Ok newProject ->
                     Ok { project = newProject, fixedFile = RemovedElmModule }
 
-                Nothing ->
-                    Err (Error (Review.Error.ReviewError.markFixesAsProblem FixProblem.Unchanged err))
+                Err fixProblem ->
+                    Err (Error (Review.Error.ReviewError.markFixesAsProblem fixProblem err))
 
         FileTarget.ExtraFile targetPath ->
             Ok { project = ValidProject.removeExtraFile targetPath project, fixedFile = FixedExtraFile }
