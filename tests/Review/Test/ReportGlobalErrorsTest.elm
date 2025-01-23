@@ -214,7 +214,7 @@ rule =
             , fromModuleToProject =
                 Rule.initContextCreator
                     (\moduleKey () ->
-                        [ Rule.fixesForModule moduleKey
+                        [ Rule.editModule moduleKey
                             [ Fix.insertAt { row = 1, column = 1 } "-- Hi\n" ]
                         ]
                     )

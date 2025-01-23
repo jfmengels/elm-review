@@ -1180,13 +1180,13 @@ errorForModule moduleKey params constructorInformation =
                         (\moduleName fileFixes acc ->
                             case Dict.get moduleName params.moduleKeys of
                                 Just fileModuleKey ->
-                                    Rule.fixesForModule fileModuleKey fileFixes :: acc
+                                    Rule.editModule fileModuleKey fileFixes :: acc
 
                                 Nothing ->
                                     -- TODO Abort entire fix?
                                     acc
                         )
-                        [ Rule.fixesForModule moduleKey [ Fix.removeRange rangeToRemove ] ]
+                        [ Rule.editModule moduleKey [ Fix.removeRange rangeToRemove ] ]
                         params.fixesForRemovingConstructor
 
                 Nothing ->

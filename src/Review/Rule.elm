@@ -28,7 +28,7 @@ module Review.Rule exposing
     , withDataExtractor, preventExtract
     , reviewV3, reviewV2, review, ProjectData, ruleName, ruleProvidesFixes, ruleKnowsAboutIgnoredFiles, ruleRequestedFiles, withRuleId, getConfigurationError
     , Required, Forbidden
-    , FixesV2, fixesForElmJson, fixesForExtraFile, fixesForModule, removeModule, removeExtraFile, fixesForReadme, withFixesV2
+    , FixesV2, editElmJson, editExtraFile, editModule, removeModule, removeExtraFile, editReadme, withFixesV2
     , errorFixes, errorFixFailure
     , Metadata, withMetadata, moduleNameFromMetadata, moduleNameNodeFromMetadata, isInSourceDirectories
     )
@@ -299,7 +299,7 @@ find the tools to extract data below.
 
 -- TODO MULTIFILE-FIXES Update documentation
 
-@docs FixesV2, fixesForElmJson, fixesForExtraFile, fixesForModule, removeModule, removeExtraFile, fixesForReadme, withFixesV2
+@docs FixesV2, editElmJson, editExtraFile, editModule, removeModule, removeExtraFile, editReadme, withFixesV2
 
 
 # Deprecated
@@ -4335,8 +4335,8 @@ type FixesV2
 
 {-| TODO MULTIFILE-FIXES Update documentation
 -}
-fixesForModule : ModuleKey -> List Fix -> FixesV2
-fixesForModule (ModuleKey path) fixes =
+editModule : ModuleKey -> List Fix -> FixesV2
+editModule (ModuleKey path) fixes =
     FixesV2 (FileTarget.Module path) (ErrorFixes.Edit fixes)
 
 
@@ -4349,8 +4349,8 @@ removeModule (ModuleKey path) =
 
 {-| TODO MULTIFILE-FIXES Update documentation
 -}
-fixesForExtraFile : ExtraFileKey -> List Fix -> FixesV2
-fixesForExtraFile (ExtraFileKey { path }) fixes =
+editExtraFile : ExtraFileKey -> List Fix -> FixesV2
+editExtraFile (ExtraFileKey { path }) fixes =
     FixesV2 (FileTarget.ExtraFile path) (ErrorFixes.Edit fixes)
 
 
@@ -4363,18 +4363,18 @@ removeExtraFile (ExtraFileKey { path }) =
 
 {-| TODO MULTIFILE-FIXES Update documentation
 -}
-fixesForReadme : ReadmeKey -> List Fix -> FixesV2
-fixesForReadme (ReadmeKey { path }) fixes =
+editReadme : ReadmeKey -> List Fix -> FixesV2
+editReadme (ReadmeKey { path }) fixes =
     FixesV2 FileTarget.Readme (ErrorFixes.Edit fixes)
 
 
 {-| TODO MULTIFILE-FIXES Update documentation
 -}
-fixesForElmJson :
+editElmJson :
     ElmJsonKey
     -> (Elm.Project.Project -> Maybe Elm.Project.Project)
     -> FixesV2
-fixesForElmJson (ElmJsonKey elmJson) fixer =
+editElmJson (ElmJsonKey elmJson) fixer =
     let
         fixes : List Fix
         fixes =
