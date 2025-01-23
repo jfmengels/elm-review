@@ -512,7 +512,7 @@ removeModule path (ValidProject project) =
         in
         case Graph.checkAcyclic graph |> Result.map Graph.topologicalSort of
             Err _ ->
-                -- TODO Breaking change: Add a new kind of FixProblem about introducing import cycles
+                -- Removing a module should never be able to introduce an import cycle
                 Err FixProblem.Unchanged
 
             Ok sortedModules ->
