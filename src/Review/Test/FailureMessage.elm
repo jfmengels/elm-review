@@ -65,6 +65,13 @@ didNotExpectGlobalErrors errors =
 """ ++ quotedBulletList errors)
 
 
+bulletList : List String -> String
+bulletList strings =
+    strings
+        |> List.map (\string -> "  - " ++ string)
+        |> String.join "\n"
+
+
 quotedBulletList : List String -> String
 quotedBulletList strings =
     strings
@@ -659,6 +666,9 @@ fixProblem_ problem error_ =
         FixProblem.HasCollisionsInFixRanges ->
             hasCollisionsInFixRanges error_
 
+        FixProblem.CreatesImportCycle importCycleModuleNames ->
+            foundImportCycleAfterFix importCycleModuleNames error_
+
 
 unchangedSourceAfterFix : ReviewError -> String
 unchangedSourceAfterFix error =
@@ -716,6 +726,19 @@ the positions (for inserting) of every fix to be mutually exclusive.
 
 Hint: Maybe you duplicated a fix, or you targeted the wrong node for one
 of your fixes.""")
+
+
+foundImportCycleAfterFix : List String -> ReviewError -> String
+foundImportCycleAfterFix importCycleModuleNames error =
+    failureMessage "FOUND IMPORT CYCLE AFTER FIX"
+        ("""I got something unexpected when applying the fixes provided by the error
+with the following message:
+
+  """ ++ wrapInQuotes (Rule.errorMessage error) ++ """
+
+I found that introducing this fix creates a new import cycle:
+
+""" ++ bulletList importCycleModuleNames)
 
 
 unexpectedConfigurationError : { message : String, details : List String } -> String

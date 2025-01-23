@@ -456,9 +456,12 @@ addParsedModule { path, source, ast } maybeModuleZipper (ValidProject project) =
                         buildModuleGraph newProject.modulesByPath
                 in
                 case Graph.checkAcyclic graph of
-                    Err _ ->
-                        -- TODO Breaking change: Add a new kind of FixProblem about introducing import cycles
-                        Err FixProblem.Unchanged
+                    Err edge ->
+                        ImportCycle.findCycle graph edge
+                            |> List.filterMap (\filePath -> Dict.get filePath newProject.modulesByPath |> Maybe.map (ProjectModule.moduleName >> String.join "."))
+                            -- TODO MULTIFILE-FIXES Add test for this case
+                            |> FixProblem.CreatesImportCycle
+                            |> Err
 
                     Ok acyclicGraph ->
                         let

@@ -4540,6 +4540,9 @@ errorFixFailure (Review.Error.ReviewError.ReviewError err) =
                 FixProblem.HasCollisionsInFixRanges ->
                     Just Fix.HasCollisionsInFixRanges
 
+                FixProblem.CreatesImportCycle _ ->
+                    Just Fix.Unchanged
+
         Nothing ->
             Nothing
 

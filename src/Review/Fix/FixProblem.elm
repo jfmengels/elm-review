@@ -7,3 +7,4 @@ type
     = Unchanged
     | SourceCodeIsNotValid String
     | HasCollisionsInFixRanges
+    | CreatesImportCycle (List String)
