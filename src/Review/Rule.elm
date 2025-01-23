@@ -6098,15 +6098,12 @@ applySingleModuleFix project maybeModuleZipper ((Error headError) as err) target
                     |> Result.andThen
                         (\fixResult ->
                             ValidProject.addParsedModule { path = targetPath, source = fixResult.source, ast = fixResult.ast } maybeModuleZipper project
-                                |> Maybe.map
+                                |> Result.map
                                     (\( newProject, newModuleZipper ) ->
                                         { project = newProject
                                         , fixedFile = FixedElmModule fixResult newModuleZipper
                                         }
                                     )
-                                -- TODO Breaking change: This is a dummy value. We should report
-                                -- an import cycle problem, or whatever else that might be the problem.
-                                |> Result.fromMaybe FixProblem.Unchanged
                         )
             of
                 Err fixProblem ->

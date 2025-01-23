@@ -406,7 +406,7 @@ addParsedModule :
     { path : FilePath, source : String, ast : Elm.Syntax.File.File }
     -> Maybe (Zipper (Graph.NodeContext FilePath ()))
     -> ValidProject
-    -> Maybe ( ValidProject, Zipper (Graph.NodeContext FilePath ()) )
+    -> Result FixProblem ( ValidProject, Zipper (Graph.NodeContext FilePath ()) )
 addParsedModule { path, source, ast } maybeModuleZipper (ValidProject project) =
     case Dict.get path project.modulesByPath of
         Just existingModule ->
@@ -447,7 +447,7 @@ addParsedModule { path, source, ast } maybeModuleZipper (ValidProject project) =
                                     -- Should not happen :/
                                     |> Maybe.withDefault moduleZipper_
                 in
-                Just ( ValidProject newProject, newModuleZipper )
+                Ok ( ValidProject newProject, newModuleZipper )
 
             else
                 let
@@ -458,7 +458,7 @@ addParsedModule { path, source, ast } maybeModuleZipper (ValidProject project) =
                 case Graph.checkAcyclic graph of
                     Err _ ->
                         -- TODO Breaking change: Add a new kind of FixProblem about introducing import cycles
-                        Nothing
+                        Err FixProblem.Unchanged
 
                     Ok acyclicGraph ->
                         let
@@ -484,12 +484,12 @@ addParsedModule { path, source, ast } maybeModuleZipper (ValidProject project) =
                                             -- Should not happen :/
                                             |> Maybe.withDefault moduleZipper_
                         in
-                        Just ( ValidProject { newProject | moduleGraph = graph, sortedModules = sortedModules }, newModuleZipper )
+                        Ok ( ValidProject { newProject | moduleGraph = graph, sortedModules = sortedModules }, newModuleZipper )
 
         Nothing ->
             -- We don't support adding new files at the moment.
             -- TODO Support creating a new file (only in known source-directories?)
-            Nothing
+            Err FixProblem.Unchanged
 
 
 {-| Add an already parsed module to the project. This module will then be analyzed by the rules.
