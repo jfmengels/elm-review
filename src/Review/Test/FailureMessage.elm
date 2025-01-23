@@ -62,13 +62,13 @@ didNotExpectGlobalErrors errors =
     failureMessage "DID NOT EXPECT GLOBAL ERRORS"
         ("""I expected no global errors but found:
 
-""" ++ listErrorMessages errors)
+""" ++ quotedBulletList errors)
 
 
-listErrorMessages : List String -> String
-listErrorMessages errors =
-    errors
-        |> List.map (\errorMessage -> "  - " ++ wrapInQuotes errorMessage)
+quotedBulletList : List String -> String
+quotedBulletList strings =
+    strings
+        |> List.map (\string -> "  - " ++ wrapInQuotes string)
         |> String.join "\n"
 
 
@@ -317,7 +317,7 @@ tooManyGlobalErrors extraErrors =
     failureMessage "RULE REPORTED MORE GLOBAL ERRORS THAN EXPECTED"
         ("I found "
             ++ (String.fromInt numberOfErrors ++ " global " ++ pluralizeErrors numberOfErrors ++ " too many:\n\n")
-            ++ listErrorMessages extraErrors
+            ++ quotedBulletList extraErrors
         )
 
 
