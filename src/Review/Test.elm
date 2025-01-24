@@ -149,7 +149,9 @@ import Review.Fix.Internal as FixInternal
 import Review.Options as ReviewOptions
 import Review.Project as Project exposing (Project, ProjectModule)
 import Review.Project.Internal exposing (ProjectInternals)
+import Review.Project.InvalidProjectError as InvalidProjectError
 import Review.Project.ProjectModule as ProjectModule
+import Review.Project.Valid as ValidProject
 import Review.Rule as Rule exposing (ReviewError, Rule)
 import Review.Test.Dependencies exposing (projectWithElmCore)
 import Review.Test.ExpectationExtra exposing (onFail)
@@ -1938,10 +1940,10 @@ checkFixesAreCorrect project moduleName ((ReviewError err) as error_) expectedEr
                     |> resultToFailure
 
 
-resultToFailure : Result String () -> Expectation
+resultToFailure : Result String a -> Expectation
 resultToFailure result =
     case result of
-        Ok () ->
+        Ok _ ->
             Expect.pass
 
         Err failure ->
@@ -1954,16 +1956,35 @@ checkAllFixesMatch project target error_ expectedFixed fixes =
         Err failure ->
             Err failure
 
-        Ok () ->
-            Ok ()
+        Ok newProject ->
+            case ValidProject.parse (Review.Project.Internal.Project newProject) of
+                Err (InvalidProjectError.ImportCycleError files) ->
+                    FailureMessage.importCycleAfterFix target files error_
+                        |> Err
+
+                Err (InvalidProjectError.SomeModulesFailedToParse files) ->
+                    -- Should be covered by previous tests and better error messages already
+                    ("Some modules failed to parse after fixes were applied: " ++ String.join ", " files)
+                        |> Err
+
+                Err (InvalidProjectError.DuplicateModuleNames { moduleName, paths }) ->
+                    ("Some modules ended up with the same module name `" ++ String.join "." moduleName ++ "`: " ++ String.join ", " paths)
+                        |> Err
+
+                Err InvalidProjectError.NoModulesError ->
+                    -- We will consider this to not be a problem in the case of tests
+                    Ok ()
+
+                Ok _ ->
+                    Ok ()
 
 
-checkFixesMatch : ProjectInternals -> FailureMessage.Target -> ReviewError -> Dict String ExpectedFix -> List ( FileTarget, ErrorFixes.FixKind ) -> Result String ()
+checkFixesMatch : ProjectInternals -> FailureMessage.Target -> ReviewError -> Dict String ExpectedFix -> List ( FileTarget, ErrorFixes.FixKind ) -> Result String ProjectInternals
 checkFixesMatch project target error_ expectedFixed fixes =
     case fixes of
         [] ->
             if Dict.isEmpty expectedFixed then
-                Ok ()
+                Ok project
 
             else
                 FailureMessage.missingFixes
@@ -1983,8 +2004,6 @@ checkFixesMatch project target error_ expectedFixed fixes =
                                     Err failureMessage
 
                                 Ok () ->
-                                    -- TODO MULTIFILE-FIXES Update Project with ValidProject.addParsedModule (and similar functions)?
-                                    -- Do this once the entire fix has been applied, not on intermediate steps.
                                     case addFileToProject fixTarget expectedResult (Review.Project.Internal.Project project) of
                                         Ok (Review.Project.Internal.Project newProject) ->
                                             checkFixesMatch

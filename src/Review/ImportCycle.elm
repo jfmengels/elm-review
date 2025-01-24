@@ -1,8 +1,7 @@
-module Review.ImportCycle exposing (error, findCycle)
+module Review.ImportCycle exposing (error, findCycle, printCycle)
 
 import Ansi
 import Dict exposing (Dict)
-import Elm.Syntax.ModuleName exposing (ModuleName)
 import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModule)
 import Vendor.Graph as Graph exposing (Graph)
 import Vendor.IntDict as IntDict

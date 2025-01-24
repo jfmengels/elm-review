@@ -9,7 +9,7 @@ module Review.Test.FailureMessage exposing
     , unexpectedExtract, missingExtract, invalidJsonForExpectedDataExtract, extractMismatch, specifiedMultipleExtracts
     , resultsAreDifferentWhenFilesAreIgnored
     , fixForUnknownFile
-    , Target(..), fileWasEditedInsteadOfRemoved, fileWasRemovedInsteadOfEdited
+    , Target(..), fileWasEditedInsteadOfRemoved, fileWasRemovedInsteadOfEdited, importCycleAfterFix
     )
 
 {-| Failure messages for the `Review.Test` module.
@@ -36,6 +36,7 @@ import Json.Decode as Decode
 import Json.Encode as Encode
 import Review.Fix as Fix
 import Review.Fix.FixProblem as FixProblem
+import Review.ImportCycle as ImportCycle
 import Review.Rule as Rule exposing (ReviewError)
 import Vendor.Diff as Diff
 import Vendor.ListExtra as ListExtra
@@ -706,6 +707,18 @@ this fix will give them more work to do. After the fix has been applied,
 the problem should be solved and the user should not have to think about it
 anymore. If a fix can not be applied fully, it should not be applied at
 all.""")
+
+
+importCycleAfterFix : Target -> List String -> ReviewError -> String
+importCycleAfterFix target cycle error =
+    failureMessage "IMPORT CYCLE AFTER FIX"
+        ("I expected that the " ++ describeTarget target ++ """ with the following message:
+
+  """ ++ wrapInQuotes (Rule.errorMessage error) ++ """
+
+The fixes introduced an import cycle in the project:
+
+""" ++ ImportCycle.printCycle cycle)
 
 
 hasCollisionsInFixRanges : ReviewError -> String
