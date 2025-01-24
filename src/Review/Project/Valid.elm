@@ -113,16 +113,7 @@ parse ((Project p) as project) =
                 in
                 case Graph.checkAcyclic graph of
                     Err edge ->
-                        ImportCycle.findCycle graph edge
-                            |> List.map
-                                (\filePath ->
-                                    case Dict.get filePath p.modules of
-                                        Just mod ->
-                                            String.join "." (ProjectModule.moduleName mod)
-
-                                        Nothing ->
-                                            filePath
-                                )
+                        ImportCycle.findCycle p.modules graph edge
                             |> InvalidProjectError.ImportCycleError
                             |> Err
 
@@ -465,16 +456,7 @@ addParsedModule { path, source, ast } maybeModuleZipper (ValidProject project) =
                 in
                 case Graph.checkAcyclic graph of
                     Err edge ->
-                        ImportCycle.findCycle graph edge
-                            |> List.map
-                                (\filePath ->
-                                    case Dict.get filePath newProject.modulesByPath of
-                                        Just mod ->
-                                            String.join "." (ProjectModule.moduleName mod)
-
-                                        Nothing ->
-                                            filePath
-                                )
+                        ImportCycle.findCycle newProject.modulesByPath graph edge
                             |> FixProblem.CreatesImportCycle
                             |> Err
 

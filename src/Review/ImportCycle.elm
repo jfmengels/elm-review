@@ -1,7 +1,9 @@
 module Review.ImportCycle exposing (error, findCycle)
 
 import Ansi
+import Dict exposing (Dict)
 import Elm.Syntax.ModuleName exposing (ModuleName)
+import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModule)
 import Vendor.Graph as Graph exposing (Graph)
 import Vendor.IntDict as IntDict
 
@@ -16,16 +18,26 @@ error cycle =
     }
 
 
-findCycle : Graph n e -> Graph.Edge e -> List n
-findCycle graph edge =
+findCycle : Dict String OpaqueProjectModule -> Graph String e -> Graph.Edge e -> List String
+findCycle modules graph edge =
     let
-        initialCycle : List (Graph.Node n)
+        initialCycle : List (Graph.Node String)
         initialCycle =
             Graph.guidedBfs Graph.alongIncomingEdges (visitorDiscoverCycle edge.to) [ edge.from ] [] graph
                 |> Tuple.first
     in
     findSmallerCycle graph initialCycle initialCycle
-        |> List.map .label
+        |> List.map (filePathToModuleName modules)
+
+
+filePathToModuleName : Dict String OpaqueProjectModule -> { a | label : String } -> String
+filePathToModuleName modules { label } =
+    case Dict.get label modules of
+        Just mod ->
+            String.join "." (ProjectModule.moduleName mod)
+
+        Nothing ->
+            label
 
 
 findSmallerCycle : Graph n e -> List (Graph.Node n) -> List (Graph.Node n) -> List (Graph.Node n)
