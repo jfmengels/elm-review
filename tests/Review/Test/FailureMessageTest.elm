@@ -9,6 +9,7 @@ import Expect exposing (Expectation)
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Review.Error.ReviewError exposing (ReviewError)
+import Review.Fix as Fix
 import Review.Rule as Rule exposing (Error, Rule)
 import Review.Test
 import Review.Test.ExpectationExtra exposing (onFail)
@@ -52,6 +53,7 @@ all =
         , unchangedSourceAfterFixTest
         , invalidSourceAfterFixTest
         , hasCollisionsInFixRangesTest
+        , importCycleAfterFixTest
         , unexpectedExtractTest
         , invalidJsonForExpectedDataExtractTest
         , extractMismatchTest
@@ -1340,6 +1342,78 @@ the positions (for inserting) of every fix to be mutually exclusive.
 
 Hint: Maybe you duplicated a fix, or you targeted the wrong node for one
 of your fixes."""
+
+
+importCycleAfterFixTest : Test
+importCycleAfterFixTest =
+    test "importCycleAfterFix" <|
+        \() ->
+            let
+                testRule : Rule
+                testRule =
+                    Rule.newProjectRuleSchema "TestRule" Dict.empty
+                        |> Rule.withModuleVisitor (Rule.withSimpleModuleDefinitionVisitor (always []))
+                        |> Rule.withModuleContextUsingContextCreator
+                            { fromProjectToModule = Rule.initContextCreator (\_ -> ())
+                            , fromModuleToProject =
+                                Rule.initContextCreator (\filePath moduleKey _ -> Dict.singleton filePath moduleKey)
+                                    |> Rule.withFilePath
+                                    |> Rule.withModuleKey
+                            , foldProjectContexts = Dict.union
+                            }
+                        |> Rule.withFinalProjectEvaluation finalEvaluation
+                        |> Rule.fromProjectRuleSchema
+
+                finalEvaluation : Dict String Rule.ModuleKey -> List (Error { useErrorForModule : () })
+                finalEvaluation dict =
+                    let
+                        fixes : List Rule.FixesV2
+                        fixes =
+                            case Dict.get "src/A.elm" dict of
+                                Just moduleKey ->
+                                    [ Rule.editModule moduleKey
+                                        [ Fix.insertAt { row = 2, column = 1 } "import B\n" ]
+                                    ]
+
+                                Nothing ->
+                                    []
+                    in
+                    [ Rule.globalError
+                        { message = "Adding import cycle"
+                        , details = [ "Details" ]
+                        }
+                        |> Rule.withFixesV2 fixes
+                    ]
+            in
+            [ """module A exposing (..)
+a = "abc"
+""", """module B exposing (..)
+import A
+b = "abc"
+""" ]
+                |> Review.Test.runOnModules testRule
+                |> Review.Test.expectGlobalErrorsWithFixes
+                    [ { message = "Adding import cycle"
+                      , details = [ "Details" ]
+                      , fixes = [ ( "A", Review.Test.edited """module A exposing (..)
+import B
+a = "abc"
+""" ) ]
+                      }
+                    ]
+                |> expectFailure """IMPORT CYCLE AFTER FIX
+
+I expected that the global error with the following message:
+
+  `Message`
+
+The fixes introduced an import cycle in the project:
+
+    ┌─────┐
+    │    \u{001B}[33mA\u{001B}[39m
+    │     ↓
+    │    \u{001B}[33mB\u{001B}[39m
+    └─────┘"""
 
 
 unexpectedExtractTest : Test

@@ -459,7 +459,6 @@ addParsedModule { path, source, ast } maybeModuleZipper (ValidProject project) =
                     Err edge ->
                         ImportCycle.findCycle graph edge
                             |> List.filterMap (\filePath -> Dict.get filePath newProject.modulesByPath |> Maybe.map (ProjectModule.moduleName >> String.join "."))
-                            -- TODO MULTIFILE-FIXES Add test for this case
                             |> FixProblem.CreatesImportCycle
                             |> Err
 
