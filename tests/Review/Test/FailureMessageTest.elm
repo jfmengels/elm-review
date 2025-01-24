@@ -12,6 +12,7 @@ import Review.Error.ReviewError exposing (ReviewError)
 import Review.Fix as Fix
 import Review.Rule as Rule exposing (Error, Rule)
 import Review.Test
+import Review.Test.ArbitraryFixRule as ArbitraryFixRule
 import Review.Test.ExpectationExtra exposing (onFail)
 import Review.Test.FailureMessage as FailureMessage
 import Review.Test.FailureMessageHelper exposing (expectFailure)
@@ -1351,39 +1352,9 @@ importCycleAfterFixTest =
             let
                 testRule : Rule
                 testRule =
-                    Rule.newProjectRuleSchema "TestRule" Dict.empty
-                        |> Rule.withModuleVisitor (Rule.withSimpleModuleDefinitionVisitor (always []))
-                        |> Rule.withModuleContextUsingContextCreator
-                            { fromProjectToModule = Rule.initContextCreator (\_ -> ())
-                            , fromModuleToProject =
-                                Rule.initContextCreator (\filePath moduleKey _ -> Dict.singleton filePath moduleKey)
-                                    |> Rule.withFilePath
-                                    |> Rule.withModuleKey
-                            , foldProjectContexts = Dict.union
-                            }
-                        |> Rule.withFinalProjectEvaluation finalEvaluation
-                        |> Rule.fromProjectRuleSchema
-
-                finalEvaluation : Dict String Rule.ModuleKey -> List (Error { useErrorForModule : () })
-                finalEvaluation dict =
-                    let
-                        fixes : List Rule.FixesV2
-                        fixes =
-                            case Dict.get "src/A.elm" dict of
-                                Just moduleKey ->
-                                    [ Rule.editModule moduleKey
-                                        [ Fix.insertAt { row = 2, column = 1 } "import B\n" ]
-                                    ]
-
-                                Nothing ->
-                                    []
-                    in
-                    [ Rule.globalError
-                        { message = "Adding import cycle"
-                        , details = [ "Details" ]
-                        }
-                        |> Rule.withFixesV2 fixes
-                    ]
+                    ArbitraryFixRule.rule
+                        "src/A.elm"
+                        [ Fix.insertAt { row = 2, column = 1 } "import B\n" ]
             in
             [ """module A exposing (..)
 a = "abc"
@@ -1393,8 +1364,8 @@ b = "abc"
 """ ]
                 |> Review.Test.runOnModules testRule
                 |> Review.Test.expectGlobalErrorsWithFixes
-                    [ { message = "Adding import cycle"
-                      , details = [ "Details" ]
+                    [ { message = ArbitraryFixRule.message
+                      , details = ArbitraryFixRule.details
                       , fixes = [ ( "A", Review.Test.edited """module A exposing (..)
 import B
 a = "abc"
