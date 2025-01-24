@@ -716,7 +716,7 @@ getModulesSortedByImport project =
             Ok result
 
 
-importCycleError : List ModuleName -> ReviewError
+importCycleError : List String -> ReviewError
 importCycleError cycle =
     ImportCycle.error cycle
         |> elmReviewGlobalError

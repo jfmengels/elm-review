@@ -6,7 +6,7 @@ import Vendor.Graph as Graph exposing (Graph)
 import Vendor.IntDict as IntDict
 
 
-error : List ModuleName -> { message : String, details : List String }
+error : List String -> { message : String, details : List String }
 error cycle =
     { message = "Your module imports form a cycle"
     , details =
@@ -93,10 +93,10 @@ visitorDiscoverCycle targetNode path distance acc =
         acc
 
 
-printCycle : List ModuleName -> String
+printCycle : List String -> String
 printCycle moduleNames =
     moduleNames
-        |> List.map (String.join "." >> Ansi.yellow)
+        |> List.map Ansi.yellow
         |> String.join "\n    │     ↓\n    │    "
         |> wrapInCycle
 

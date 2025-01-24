@@ -114,7 +114,7 @@ parse ((Project p) as project) =
                 case Graph.checkAcyclic graph of
                     Err edge ->
                         ImportCycle.findCycle graph edge
-                            |> List.filterMap (\path -> Dict.get path p.modules |> Maybe.map ProjectModule.moduleName)
+                            |> List.filterMap (\path -> Dict.get path p.modules |> Maybe.map (ProjectModule.moduleName >> String.join "."))
                             |> InvalidProjectError.ImportCycleError
                             |> Err
 
