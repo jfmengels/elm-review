@@ -130,6 +130,7 @@ for this module.
 
 import Array exposing (Array)
 import Dict exposing (Dict)
+import Elm.Project
 import Elm.Syntax.Module as Module
 import Elm.Syntax.Node as Node
 import Elm.Syntax.Range exposing (Range)
@@ -143,6 +144,7 @@ import Review.Error.ReviewError exposing (ReviewError(..))
 import Review.Error.Target as Target exposing (Target)
 import Review.FileParser as FileParser
 import Review.Fix exposing (Fix)
+import Review.Fix.FixProblem as FixProblem exposing (FixProblem)
 import Review.Fix.Internal as FixInternal
 import Review.Options as ReviewOptions
 import Review.Project as Project exposing (Project, ProjectModule)
@@ -1973,12 +1975,17 @@ checkFixesMatch project target error_ expectedFixed fixes =
                                 Ok () ->
                                     -- TODO MULTIFILE-FIXES Update Project with ValidProject.addParsedModule (and similar functions)?
                                     -- Do this once the entire fix has been applied, not on intermediate steps.
-                                    checkFixesMatch
-                                        project
-                                        target
-                                        error_
-                                        (Dict.remove key expectedFixed)
-                                        rest
+                                    case addFileToProject fixTarget expectedFix (Review.Project.Internal.Project project) of
+                                        Ok (Review.Project.Internal.Project newProject) ->
+                                            checkFixesMatch
+                                                newProject
+                                                target
+                                                error_
+                                                (Dict.remove key expectedFixed)
+                                                rest
+
+                                        Err fixProblem ->
+                                            Err (FailureMessage.fixProblem_ fixProblem error_)
 
                         Just ( key, ExpectRemoved ) ->
                             FailureMessage.fileWasEditedInsteadOfRemoved
@@ -2008,7 +2015,7 @@ checkFixesMatch project target error_ expectedFixed fixes =
                     case getExpectedFixedCodeThroughFilePathOrModuleName (FileTarget.filePath fixTarget) targetInformation.moduleName expectedFixed of
                         Just ( key, ExpectRemoved ) ->
                             checkFixesMatch
-                                project
+                                (removeFileFromProject fixTarget project)
                                 target
                                 error_
                                 (Dict.remove key expectedFixed)
@@ -2034,6 +2041,45 @@ checkFixesMatch project target error_ expectedFixed fixes =
                 Nothing ->
                     FailureMessage.fixForUnknownFile (FileTarget.filePath fixTarget)
                         |> Err
+
+
+addFileToProject : FileTarget -> String -> Project -> Result FixProblem Project
+addFileToProject target source project =
+    case target of
+        FileTarget.Module filePath ->
+            case FileParser.parse source of
+                Ok ast ->
+                    Project.addParsedModule { path = filePath, source = source, ast = ast } project
+                        |> Ok
+
+                Err _ ->
+                    Err (FixProblem.SourceCodeIsNotValid source)
+
+        FileTarget.ElmJson ->
+            case Decode.decodeString Elm.Project.decoder source of
+                Ok elmJson ->
+                    Project.addElmJson { path = "elm.json", raw = source, project = elmJson } project
+                        |> Ok
+
+                Err _ ->
+                    Err (FixProblem.SourceCodeIsNotValid source)
+
+        FileTarget.Readme ->
+            Project.addReadme { path = "README.md", content = source } project
+                |> Ok
+
+        FileTarget.ExtraFile filePath ->
+            Project.addExtraFile { path = filePath, source = source } project
+                |> Ok
+
+
+removeFileFromProject : FileTarget -> ProjectInternals -> ProjectInternals
+removeFileFromProject target project =
+    let
+        (Review.Project.Internal.Project newProject) =
+            Project.removeFile (FileTarget.filePath target) (Review.Project.Internal.Project project)
+    in
+    newProject
 
 
 getExpectedFixedCodeThroughFilePathOrModuleName : String -> Maybe String -> Dict String ExpectedFix -> Maybe ( String, ExpectedFix )
