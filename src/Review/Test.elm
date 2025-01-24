@@ -1971,6 +1971,8 @@ checkFixesMatch project target error_ expectedFixed fixes =
                                     Err failureMessage
 
                                 Ok () ->
+                                    -- TODO MULTIFILE-FIXES Update Project with ValidProject.addParsedModule (and similar functions)?
+                                    -- Do this once the entire fix has been applied, not on intermediate steps.
                                     checkFixesMatch
                                         project
                                         target
