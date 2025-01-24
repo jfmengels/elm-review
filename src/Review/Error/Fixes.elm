@@ -1,6 +1,7 @@
 module Review.Error.Fixes exposing
     ( ErrorFixes
     , FixKind(..)
+    , FixesV2(..)
     , add
     , edit
     , isEmpty
@@ -26,6 +27,10 @@ type FixKind
 none : ErrorFixes
 none =
     ErrorFixes SimpleAssocList.empty
+
+
+type FixesV2
+    = FixesV2 FileTarget FixKind
 
 
 edit : FileTarget -> List Fix -> ErrorFixes

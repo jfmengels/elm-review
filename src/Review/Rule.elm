@@ -4329,43 +4329,43 @@ withFixes fixes error_ =
 
 {-| TODO MULTIFILE-FIXES Update documentation
 -}
-type FixesV2
-    = FixesV2 FileTarget FixKind
+type alias FixesV2 =
+    ErrorFixes.FixesV2
 
 
 {-| TODO MULTIFILE-FIXES Update documentation
 -}
 editModule : ModuleKey -> List Fix -> FixesV2
 editModule (ModuleKey path) fixes =
-    FixesV2 (FileTarget.Module path) (ErrorFixes.Edit fixes)
+    ErrorFixes.FixesV2 (FileTarget.Module path) (ErrorFixes.Edit fixes)
 
 
 {-| TODO MULTIFILE-FIXES Update documentation
 -}
 removeModule : ModuleKey -> FixesV2
 removeModule (ModuleKey path) =
-    FixesV2 (FileTarget.Module path) ErrorFixes.Remove
+    ErrorFixes.FixesV2 (FileTarget.Module path) ErrorFixes.Remove
 
 
 {-| TODO MULTIFILE-FIXES Update documentation
 -}
 editExtraFile : ExtraFileKey -> List Fix -> FixesV2
 editExtraFile (ExtraFileKey { path }) fixes =
-    FixesV2 (FileTarget.ExtraFile path) (ErrorFixes.Edit fixes)
+    ErrorFixes.FixesV2 (FileTarget.ExtraFile path) (ErrorFixes.Edit fixes)
 
 
 {-| TODO MULTIFILE-FIXES Update documentation
 -}
 removeExtraFile : ExtraFileKey -> FixesV2
 removeExtraFile (ExtraFileKey { path }) =
-    FixesV2 (FileTarget.ExtraFile path) ErrorFixes.Remove
+    ErrorFixes.FixesV2 (FileTarget.ExtraFile path) ErrorFixes.Remove
 
 
 {-| TODO MULTIFILE-FIXES Update documentation
 -}
 editReadme : ReadmeKey -> List Fix -> FixesV2
 editReadme (ReadmeKey { path }) fixes =
-    FixesV2 FileTarget.Readme (ErrorFixes.Edit fixes)
+    ErrorFixes.FixesV2 FileTarget.Readme (ErrorFixes.Edit fixes)
 
 
 {-| TODO MULTIFILE-FIXES Update documentation
@@ -4395,7 +4395,7 @@ editElmJson (ElmJsonKey elmJson) fixer =
                 Nothing ->
                     []
     in
-    FixesV2 FileTarget.ElmJson (ErrorFixes.Edit fixes)
+    ErrorFixes.FixesV2 FileTarget.ElmJson (ErrorFixes.Edit fixes)
 
 
 {-| TODO MULTIFILE-FIXES Update documentation
@@ -4409,7 +4409,7 @@ withFixesV2 providedFixes error_ =
                     List.foldl
                         (List.singleton >> ErrorFixes.add)
                         err.fixes
-                        (List.map (\(FixesV2 target fixes) -> ( target, fixes )) providedFixes)
+                        (List.map (\(ErrorFixes.FixesV2 target fixes) -> ( target, fixes )) providedFixes)
             }
         )
         error_
