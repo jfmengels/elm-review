@@ -1968,7 +1968,7 @@ checkFixesMatch project target error_ expectedFixed fixes =
                 Just targetInformation ->
                     case getExpectedFixedCodeThroughFilePathOrModuleName (FileTarget.filePath fixTarget) targetInformation.moduleName expectedFixed of
                         Just ( key, ExpectEdited expectedFix ) ->
-                            case fixOneError fixTarget fileFixes targetInformation.source expectedFix error_ of
+                            case fixOneError fileFixes targetInformation.source expectedFix error_ of
                                 Err failureMessage ->
                                     Err failureMessage
 
@@ -2097,9 +2097,9 @@ getExpectedFixedCodeThroughFilePathOrModuleName filePath moduleName expectedFixe
                     )
 
 
-fixOneError : FileTarget -> List Fix -> String -> String -> ReviewError -> Result String ()
-fixOneError target fileFixes source expectedFixedSource error_ =
-    case FixInternal.fix target fileFixes source of
+fixOneError : List Fix -> String -> String -> ReviewError -> Result String ()
+fixOneError fileFixes source expectedFixedSource error_ =
+    case FixInternal.fix fileFixes source of
         Ok fixedSource ->
             let
                 trimmedFixed : String

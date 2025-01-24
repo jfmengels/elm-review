@@ -87,36 +87,8 @@ getRowAtLine lines rowIndex =
 
 {-| Apply the changes on the source code.
 -}
-fix : FileTarget -> List Fix -> String -> Result FixProblem String
-fix target fixes sourceCode =
-    case target of
-        FileTarget.Module _ ->
-            tryToApplyFix_
-                fixes
-                sourceCode
-                (\resultAfterFix -> (Elm.Parser.parse resultAfterFix |> Result.toMaybe) /= Nothing)
-
-        FileTarget.Readme ->
-            tryToApplyFix_
-                fixes
-                sourceCode
-                (always True)
-
-        FileTarget.ExtraFile _ ->
-            tryToApplyFix_
-                fixes
-                sourceCode
-                (always True)
-
-        FileTarget.ElmJson ->
-            tryToApplyFix_
-                fixes
-                sourceCode
-                (\resultAfterFix -> (Decode.decodeString Elm.Project.decoder resultAfterFix |> Result.toMaybe) /= Nothing)
-
-
-tryToApplyFix_ : List Fix -> String -> (String -> Bool) -> Result FixProblem String
-tryToApplyFix_ fixes sourceCode isValidSourceCode =
+fix : List Fix -> String -> Result FixProblem String
+fix fixes sourceCode =
     if containRangeCollisions fixes then
         Err FixProblem.HasCollisionsInFixRanges
 
@@ -132,11 +104,8 @@ tryToApplyFix_ fixes sourceCode isValidSourceCode =
         if sourceCode == resultAfterFix then
             Err FixProblem.Unchanged
 
-        else if isValidSourceCode resultAfterFix then
-            Ok resultAfterFix
-
         else
-            Err (FixProblem.SourceCodeIsNotValid resultAfterFix)
+            Ok resultAfterFix
 
 
 {-| Apply the changes on the source code.
