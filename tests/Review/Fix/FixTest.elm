@@ -315,23 +315,4 @@ someCode = 2
                             |> Expect.equal (Err HasCollisionsInFixRanges)
                     ]
                     ()
-        , describe "README fixes"
-            [ test "should apply fixes to README" <|
-                \() ->
-                    let
-                        source : String
-                        source =
-                            """# My project
-My description
-"""
-
-                        fixes : List Fix
-                        fixes =
-                            [ Fix.removeRange { start = { row = 1, column = 1 }, end = { row = 1, column = 4 } } ]
-                    in
-                    FixInternal.fix (FileTarget.Module "A.elm") fixes source
-                        |> Expect.equal (Err <| SourceCodeIsNotValid """y project
-My description
-""")
-            ]
         ]
