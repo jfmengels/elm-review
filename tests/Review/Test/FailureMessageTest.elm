@@ -1270,45 +1270,45 @@ invalidSourceAfterFixTest =
     test "invalidSourceAfterFix" <|
         \() ->
             let
-                sourceCode : String
-                sourceCode =
-                    """ule A exposing (b)
-abcd =
-  1"""
-
-                error : ReviewError
-                error =
-                    Review.Error.ReviewError.error
-                        { message = "Some error"
-                        , details = [ "Some details" ]
-                        }
-                        { start = { row = 3, column = 1 }, end = { row = 3, column = 5 } }
+                testRule : Rule
+                testRule =
+                    ArbitraryFixRule.rule
+                        "src/A.elm"
+                        [ Fix.removeRange { start = { row = 1, column = 1 }, end = { row = 1, column = 4 } } ]
             in
-            FailureMessage.invalidSourceAfterFix
-                error
-                sourceCode
-                |> expectMessageEqual """
-\u{001B}[31m\u{001B}[1mINVALID SOURCE AFTER FIX\u{001B}[22m\u{001B}[39m
+            """module A exposing (..)
+a = "abc"
+"""
+                |> Review.Test.run testRule
+                |> Review.Test.expectGlobalErrorsWithFixes
+                    [ { message = ArbitraryFixRule.message
+                      , details = ArbitraryFixRule.details
+                      , fixes = [ ( "A", Review.Test.edited """ule A exposing (..)
+a = "abc"
+""" ) ]
+                      }
+                    ]
+                |> expectFailure ("""INVALID SOURCE AFTER FIX
 
 I got something unexpected when applying the fixes provided by the error
 with the following message:
 
-  `Some error`
+  `""" ++ ArbitraryFixRule.message ++ """`
 
 I was unable to parse the source code after applying the fixes. Here is
 the result of the automatic fixing:
 
   ```
-    ule A exposing (b)
-    abcd =
-      1
+    ule A exposing (..)
+    a = "abc"
+
   ```
 
 This is problematic because fixes are meant to help the user, and applying
 this fix will give them more work to do. After the fix has been applied,
 the problem should be solved and the user should not have to think about it
 anymore. If a fix can not be applied fully, it should not be applied at
-all."""
+all.""")
 
 
 hasCollisionsInFixRangesTest : Test
