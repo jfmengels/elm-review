@@ -1692,7 +1692,7 @@ checkGlobalErrorsMatch project originalNumberOfExpectedErrors params =
                         Expect.fail (FailureMessage.emptyDetails head.message)
 
                     else
-                        case checkFixesMatch project FailureMessage.Global matchedError head.fixes (ErrorFixes.toList fixes) of
+                        case checkAllFixesMatch project FailureMessage.Global matchedError head.fixes (ErrorFixes.toList fixes) of
                             Err failure ->
                                 Expect.fail failure
 
@@ -1920,7 +1920,7 @@ checkFixesAreCorrect project moduleName ((ReviewError err) as error_) expectedEr
                     |> Expect.fail
 
             ComesFromWhenFixed fixedSource ->
-                checkFixesMatch
+                checkAllFixesMatch
                     project
                     (FailureMessage.Module moduleName)
                     error_
@@ -1929,7 +1929,7 @@ checkFixesAreCorrect project moduleName ((ReviewError err) as error_) expectedEr
                     |> resultToFailure
 
             ComesFromShouldFixFiles expectedFixes ->
-                checkFixesMatch
+                checkAllFixesMatch
                     project
                     (FailureMessage.Module moduleName)
                     error_
@@ -1946,6 +1946,16 @@ resultToFailure result =
 
         Err failure ->
             Expect.fail failure
+
+
+checkAllFixesMatch : ProjectInternals -> FailureMessage.Target -> ReviewError -> Dict String ExpectedFix -> List ( FileTarget, ErrorFixes.FixKind ) -> Result String ()
+checkAllFixesMatch project target error_ expectedFixed fixes =
+    case checkFixesMatch project target error_ expectedFixed fixes of
+        Err failure ->
+            Err failure
+
+        Ok () ->
+            Ok ()
 
 
 checkFixesMatch : ProjectInternals -> FailureMessage.Target -> ReviewError -> Dict String ExpectedFix -> List ( FileTarget, ErrorFixes.FixKind ) -> Result String ()
