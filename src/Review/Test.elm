@@ -1967,15 +1967,15 @@ checkFixesMatch project target error_ expectedFixed fixes =
             case getTargetFileFromProject fixTarget project of
                 Just targetInformation ->
                     case getExpectedFixedCodeThroughFilePathOrModuleName (FileTarget.filePath fixTarget) targetInformation.moduleName expectedFixed of
-                        Just ( key, ExpectEdited expectedFix ) ->
-                            case fixOneError fileFixes targetInformation.source expectedFix error_ of
+                        Just ( key, ExpectEdited expectedResult ) ->
+                            case fixOneError fileFixes targetInformation.source expectedResult error_ of
                                 Err failureMessage ->
                                     Err failureMessage
 
                                 Ok () ->
                                     -- TODO MULTIFILE-FIXES Update Project with ValidProject.addParsedModule (and similar functions)?
                                     -- Do this once the entire fix has been applied, not on intermediate steps.
-                                    case addFileToProject fixTarget expectedFix (Review.Project.Internal.Project project) of
+                                    case addFileToProject fixTarget expectedResult (Review.Project.Internal.Project project) of
                                         Ok (Review.Project.Internal.Project newProject) ->
                                             checkFixesMatch
                                                 newProject
