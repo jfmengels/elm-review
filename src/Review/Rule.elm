@@ -4337,6 +4337,23 @@ type alias FixesV2 =
 
 {-| TODO MULTIFILE-FIXES Update documentation
 -}
+withFixesV2 : List FixesV2 -> Error scope -> Error scope
+withFixesV2 providedFixes error_ =
+    mapInternalError
+        (\err ->
+            { err
+                | fixes =
+                    List.foldl
+                        (List.singleton >> ErrorFixes.add)
+                        err.fixes
+                        (List.map (\(ErrorFixes.FixesV2 target fixes) -> ( target, fixes )) providedFixes)
+            }
+        )
+        error_
+
+
+{-| TODO MULTIFILE-FIXES Update documentation
+-}
 editModule : ModuleKey -> List Fix -> FixesV2
 editModule (ModuleKey path) fixes =
     ErrorFixes.FixesV2 (FileTarget.Module path) (ErrorFixes.Edit fixes)
@@ -4398,23 +4415,6 @@ editElmJson (ElmJsonKey elmJson) fixer =
                     []
     in
     ErrorFixes.FixesV2 FileTarget.ElmJson (ErrorFixes.Edit fixes)
-
-
-{-| TODO MULTIFILE-FIXES Update documentation
--}
-withFixesV2 : List FixesV2 -> Error scope -> Error scope
-withFixesV2 providedFixes error_ =
-    mapInternalError
-        (\err ->
-            { err
-                | fixes =
-                    List.foldl
-                        (List.singleton >> ErrorFixes.add)
-                        err.fixes
-                        (List.map (\(ErrorFixes.FixesV2 target fixes) -> ( target, fixes )) providedFixes)
-            }
-        )
-        error_
 
 
 errorToReviewError : Error scope -> ReviewError
