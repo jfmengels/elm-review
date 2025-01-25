@@ -28,7 +28,7 @@ module Review.Rule exposing
     , withDataExtractor, preventExtract
     , reviewV3, reviewV2, review, ProjectData, ruleName, ruleProvidesFixes, ruleKnowsAboutIgnoredFiles, ruleRequestedFiles, withRuleId, getConfigurationError
     , Required, Forbidden
-    , FixesV2, editElmJson, editExtraFile, editModule, removeModule, removeExtraFile, editReadme, withFixesV2
+    , FixesV2, withFixesV2, editModule, removeModule, editElmJson, editReadme, editExtraFile, removeExtraFile
     , errorFixes, errorFixFailure
     , Metadata, withMetadata, moduleNameFromMetadata, moduleNameNodeFromMetadata, isInSourceDirectories
     )
@@ -299,7 +299,7 @@ find the tools to extract data below.
 
 -- TODO MULTIFILE-FIXES Update documentation
 
-@docs FixesV2, editElmJson, editExtraFile, editModule, removeModule, removeExtraFile, editReadme, withFixesV2
+@docs FixesV2, withFixesV2, editModule, removeModule, editElmJson, editReadme, editExtraFile, removeExtraFile
 
 
 # Deprecated
