@@ -338,16 +338,19 @@ readme (Internal.Project project) =
 addExtraFiles : Dict String String -> Project -> Project
 addExtraFiles newFiles (Internal.Project project) =
     let
-        extraFilesContentHashes : Dict String ContentHash
-        extraFilesContentHashes =
+        ( updatedExtraFiles, extraFilesContentHashes ) =
             Dict.foldl
-                (\path content acc -> Dict.insert path (ContentHash.hash content) acc)
-                project.extraFilesContentHashes
+                (\path content ( extraFiles_, hashes ) ->
+                    ( Dict.insert path content extraFiles_
+                    , Dict.insert path (ContentHash.hash content) hashes
+                    )
+                )
+                ( project.extraFiles, project.extraFilesContentHashes )
                 newFiles
     in
     Internal.Project
         { project
-            | extraFiles = Dict.union newFiles project.extraFiles
+            | extraFiles = updatedExtraFiles
             , extraFilesContentHashes = extraFilesContentHashes
         }
 
