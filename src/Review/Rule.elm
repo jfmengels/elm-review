@@ -586,10 +586,12 @@ only need it if you try to make `elm-review` run in a new environment.
 
     doReview =
         let
-            { errors, rules, projectData, extracts } =
-                -- Replace `config` by `rules` next time you call reviewV2
-                -- Replace `Nothing` by `projectData` next time you call reviewV2
-                Rule.reviewV3 config Nothing project
+            { errors, rules, projectData, extracts, fixedErrors } =
+                -- Replace `config` by `rules` next time you call reviewV3
+                Rule.reviewV3
+                    ReviewOptions.defaults
+                    config
+                    project
         in
         doSomethingWithTheseValues
 
@@ -610,10 +612,10 @@ reviewV3 :
     -> Project
     ->
         { errors : List ReviewError
-        , fixedErrors : Dict String (List ReviewError)
         , rules : List Rule
         , project : Project
         , extracts : Dict String Encode.Value
+        , fixedErrors : Dict String (List ReviewError)
         }
 reviewV3 reviewOptions rules project =
     case getValidProjectAndRules project rules of
@@ -622,10 +624,10 @@ reviewV3 reviewOptions rules project =
 
         Err errors ->
             { errors = errors
-            , fixedErrors = Dict.empty
             , rules = rules
             , project = project
             , extracts = Dict.empty
+            , fixedErrors = Dict.empty
             }
 
 
