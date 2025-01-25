@@ -229,8 +229,10 @@ removeFileFromFilesThatFailedToParse path (Internal.Project project) =
 -}
 modules : Project -> List ProjectModule
 modules (Internal.Project project) =
-    Dict.values project.modules
-        |> List.map ProjectModule.toRecord
+    Dict.foldr
+        (\_ mod acc -> ProjectModule.toRecord mod :: acc)
+        []
+        project.modules
 
 
 {-| Get the list of file paths that failed to parse, because they were syntactically invalid Elm code.
