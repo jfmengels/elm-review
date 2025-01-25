@@ -7,9 +7,4 @@ module Review.Error exposing (Target(..))
 {-| TODO Breaking change: Remove this type. It's only here to avoid a breaking change.
 -}
 type Target
-    = Module
-    | ElmJson
-    | Readme
-    | ExtraFile
-    | Global
-    | UserGlobal
+    = UserGlobal

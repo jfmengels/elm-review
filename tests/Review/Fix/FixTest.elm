@@ -1,7 +1,6 @@
 module Review.Fix.FixTest exposing (all)
 
 import Expect
-import Review.Error.FileTarget as FileTarget
 import Review.Fix as Fix exposing (Fix)
 import Review.Fix.FixProblem exposing (FixProblem(..))
 import Review.Fix.Internal as FixInternal

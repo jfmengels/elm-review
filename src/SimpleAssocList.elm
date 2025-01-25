@@ -1,7 +1,5 @@
 module SimpleAssocList exposing (SimpleAssocList, empty, isEmpty, mapKeyAndValue, singleton, toList, update)
 
-import Dict exposing (Dict)
-
 
 type SimpleAssocList key value
     = SimpleAssocList (List ( key, value ))
@@ -15,11 +13,6 @@ empty =
 singleton : key -> value -> SimpleAssocList key value
 singleton key value =
     SimpleAssocList [ ( key, value ) ]
-
-
-insert : key -> value -> SimpleAssocList key value -> SimpleAssocList key value
-insert key value (SimpleAssocList list) =
-    SimpleAssocList (( key, value ) :: remove key list)
 
 
 update : key -> (Maybe value -> Maybe value) -> SimpleAssocList key value -> SimpleAssocList key value
@@ -57,11 +50,6 @@ mapKeyAndValue targetKey fn (SimpleAssocList list) =
         )
 
 
-get : key -> SimpleAssocList key value -> Maybe value
-get targetKey (SimpleAssocList list) =
-    getHelp targetKey list
-
-
 getHelp : key -> List ( key, value ) -> Maybe value
 getHelp targetKey list =
     case list of
@@ -79,11 +67,6 @@ getHelp targetKey list =
 remove : key -> List ( key, value ) -> List ( key, value )
 remove targetKey list =
     List.filter (\( key, _ ) -> key /= targetKey) list
-
-
-toDict : SimpleAssocList comparable value -> Dict comparable value
-toDict (SimpleAssocList list) =
-    Dict.fromList list
 
 
 toList : SimpleAssocList key value -> List ( key, value )

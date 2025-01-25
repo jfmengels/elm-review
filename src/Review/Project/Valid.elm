@@ -504,8 +504,7 @@ removeModule path (ValidProject project) =
             modulesByPath : Dict FilePath OpaqueProjectModule
             modulesByPath =
                 Dict.remove path project.modulesByPath
-        in
-        let
+
             graph : Graph FilePath ()
             graph =
                 buildModuleGraph modulesByPath

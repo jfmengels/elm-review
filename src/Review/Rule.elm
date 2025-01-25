@@ -333,7 +333,7 @@ import Review.Cache.Module as ModuleCache
 import Review.Cache.ProjectFile as ProjectFileCache
 import Review.ElmProjectEncoder
 import Review.Error.FileTarget as FileTarget exposing (FileTarget)
-import Review.Error.Fixes as ErrorFixes exposing (ErrorFixes, FixKind)
+import Review.Error.Fixes as ErrorFixes exposing (FixKind)
 import Review.Error.ReviewError exposing (InternalError)
 import Review.Error.Target as Target exposing (Target)
 import Review.Exceptions as Exceptions exposing (Exceptions)

@@ -48,16 +48,3 @@ setCurrentFilePathOnTargetIfNeeded path target =
 
         UserGlobal ->
             target
-
-
-filePath : Target -> Maybe String
-filePath target =
-    case target of
-        FileTarget fileTarget ->
-            Just (FileTarget.filePath fileTarget)
-
-        Global ->
-            Nothing
-
-        UserGlobal ->
-            Nothing

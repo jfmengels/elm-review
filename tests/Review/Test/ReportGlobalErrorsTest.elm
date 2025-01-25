@@ -1,7 +1,7 @@
 module Review.Test.ReportGlobalErrorsTest exposing (all)
 
 import Review.Fix as Fix
-import Review.Rule as Rule exposing (Error, FixesV2, ModuleKey, Rule)
+import Review.Rule as Rule exposing (Error, FixesV2, Rule)
 import Review.Test
 import Review.Test.FailureMessageHelper exposing (expectFailure)
 import Test exposing (Test, describe, test)
@@ -223,11 +223,6 @@ rule =
             }
         |> Rule.withFinalProjectEvaluation finalProjectEvaluation
         |> Rule.fromProjectRuleSchema
-
-
-initialProjectContext : List FixesV2
-initialProjectContext =
-    []
 
 
 finalProjectEvaluation : List FixesV2 -> List (Error scope)

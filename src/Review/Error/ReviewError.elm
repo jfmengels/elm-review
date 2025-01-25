@@ -9,7 +9,7 @@ module Review.Error.ReviewError exposing
 
 import Elm.Syntax.Range exposing (Range)
 import Review.Error.Fixes as ErrorFixes exposing (ErrorFixes)
-import Review.Error.Target as Target exposing (Target(..))
+import Review.Error.Target as Target
 import Review.Fix.FixProblem exposing (FixProblem)
 
 

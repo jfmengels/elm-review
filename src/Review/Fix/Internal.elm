@@ -1,12 +1,10 @@
-module Review.Fix.Internal exposing (Fix(..), applyFix, containRangeCollisions, fix, fixElmJson, fixExtraFile, fixModule, fixReadme, rangePosition)
+module Review.Fix.Internal exposing (Fix(..), fix, fixElmJson, fixExtraFile, fixModule, fixReadme)
 
 import Array
-import Elm.Parser
 import Elm.Project
 import Elm.Syntax.File exposing (File)
 import Elm.Syntax.Range exposing (Range)
 import Json.Decode as Decode
-import Review.Error.FileTarget as FileTarget exposing (FileTarget)
 import Review.FileParser as FileParser
 import Review.Fix.FixProblem as FixProblem exposing (FixProblem)
 import Unicode

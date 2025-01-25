@@ -1170,7 +1170,7 @@ value1 = case foo of
 value2 = case foo of
   B.Unused -> 1
   B.Used -> 2
-""" |> String.replace "$" "" )
+""" )
                                     ]
                             ]
                           )

@@ -139,9 +139,9 @@ import Json.Decode as Decode
 import Json.Encode as Encode
 import Regex exposing (Regex)
 import Review.Error.FileTarget as FileTarget exposing (FileTarget)
-import Review.Error.Fixes as ErrorFixes exposing (ErrorFixes(..))
+import Review.Error.Fixes as ErrorFixes
 import Review.Error.ReviewError exposing (ReviewError(..))
-import Review.Error.Target as Target exposing (Target)
+import Review.Error.Target as Target
 import Review.FileParser as FileParser
 import Review.Fix exposing (Fix)
 import Review.Fix.FixProblem as FixProblem exposing (FixProblem)

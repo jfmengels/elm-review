@@ -34,7 +34,6 @@ import Ansi
 import Elm.Syntax.Range exposing (Range)
 import Json.Decode as Decode
 import Json.Encode as Encode
-import Review.Fix as Fix
 import Review.Fix.FixProblem as FixProblem
 import Review.ImportCycle as ImportCycle
 import Review.Rule as Rule exposing (ReviewError)

@@ -131,12 +131,8 @@ in the context of your rule.
 
 -}
 
-import Elm.Parser
-import Elm.Project
 import Elm.Syntax.Range exposing (Range)
-import Json.Decode as Decode
-import Review.Error as Error exposing (Target)
-import Review.Error.FileTarget as FileTarget exposing (FileTarget)
+import Review.Error as Error
 import Review.Fix.Internal as Internal
 
 
@@ -199,61 +195,10 @@ type Problem
 {-| Apply the changes on the source code.
 -}
 fix : Error.Target -> List Fix -> String -> FixResult
-fix target fixes sourceCode =
+fix target _ _ =
     case target of
-        Error.Module ->
-            tryToApplyFix
-                fixes
-                sourceCode
-                (\resultAfterFix -> (Elm.Parser.parse resultAfterFix |> Result.toMaybe) /= Nothing)
-
-        Error.Readme ->
-            tryToApplyFix
-                fixes
-                sourceCode
-                (always True)
-
-        Error.ExtraFile ->
-            tryToApplyFix
-                fixes
-                sourceCode
-                (always True)
-
-        Error.ElmJson ->
-            tryToApplyFix
-                fixes
-                sourceCode
-                (\resultAfterFix -> (Decode.decodeString Elm.Project.decoder resultAfterFix |> Result.toMaybe) /= Nothing)
-
-        Error.Global ->
-            Errored Unchanged
-
         Error.UserGlobal ->
             Errored Unchanged
-
-
-tryToApplyFix : List Fix -> String -> (String -> Bool) -> FixResult
-tryToApplyFix fixes sourceCode isValidSourceCode =
-    if Internal.containRangeCollisions fixes then
-        Errored HasCollisionsInFixRanges
-
-    else
-        let
-            resultAfterFix : String
-            resultAfterFix =
-                fixes
-                    |> List.sortBy (Internal.rangePosition >> negate)
-                    |> List.foldl Internal.applyFix (String.lines sourceCode)
-                    |> String.join "\n"
-        in
-        if sourceCode == resultAfterFix then
-            Errored Unchanged
-
-        else if isValidSourceCode resultAfterFix then
-            Successful resultAfterFix
-
-        else
-            Errored (SourceCodeIsNotValid resultAfterFix)
 
 
 
