@@ -3689,7 +3689,7 @@ withFinalModuleEvaluation visitor (ModuleRuleSchema schema) =
 
 {-| TODO MULTIFILE-FIXES Update documentation
 -}
-withFinalModuleEvaluation2 : (moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
+withFinalModuleEvaluation2 : (moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
 withFinalModuleEvaluation2 visitor (ModuleRuleSchema schema) =
     let
         combinedVisitor : moduleContext -> ( List (Error {}), moduleContext )
