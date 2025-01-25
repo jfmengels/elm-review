@@ -195,10 +195,8 @@ type Problem
 {-| Apply the changes on the source code.
 -}
 fix : Error.Target -> List Fix -> String -> FixResult
-fix target _ _ =
-    case target of
-        Error.UserGlobal ->
-            Errored Unchanged
+fix _ _ _ =
+    Errored Unchanged
 
 
 

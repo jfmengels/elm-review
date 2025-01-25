@@ -4383,7 +4383,7 @@ removeExtraFile (ExtraFileKey { path }) =
 {-| TODO MULTIFILE-FIXES Update documentation
 -}
 editReadme : ReadmeKey -> List Fix -> FixesV2
-editReadme (ReadmeKey { path }) fixes =
+editReadme (ReadmeKey _) fixes =
     ErrorFixes.FixesV2 FileTarget.Readme (ErrorFixes.Edit fixes)
 
 
