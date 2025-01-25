@@ -1,15 +1,16 @@
 module Review.Test.FailureMessage exposing
-    ( parsingFailure, globalErrorInTest, messageMismatch, emptyDetails, unexpectedDetails, wrongLocation, didNotExpectErrors
+    ( Target(..)
+    , parsingFailure, globalErrorInTest, messageMismatch, emptyDetails, unexpectedDetails, wrongLocation, didNotExpectErrors
     , underMismatch, expectedMoreErrors, tooManyErrors, locationNotFound, underMayNotBeEmpty, locationIsAmbiguousInSourceCode
     , needToUsedExpectErrorsForModules, missingSources, duplicateModuleName, unknownModulesInExpectedErrors
-    , missingFixes, unexpectedFixes, unexpectedAdditionalFixes, fixedCodeMismatch, unchangedSourceAfterFix, hasCollisionsInFixRanges
+    , missingFixes, unexpectedFixes, unexpectedAdditionalFixes, fixedCodeMismatch, fixProblem, unchangedSourceAfterFix, hasCollisionsInFixRanges
+    , fileWasEditedInsteadOfRemoved, fileWasRemovedInsteadOfEdited, importCycleAfterFix
     , didNotExpectGlobalErrors, expectedMoreGlobalErrors, fixedCodeWhitespaceMismatch, messageMismatchForConfigurationError
     , missingConfigurationError, tooManyGlobalErrors
     , unexpectedConfigurationError, unexpectedConfigurationErrorDetails, unexpectedGlobalErrorDetails
     , unexpectedExtract, missingExtract, invalidJsonForExpectedDataExtract, extractMismatch, specifiedMultipleExtracts
     , resultsAreDifferentWhenFilesAreIgnored
     , fixForUnknownFile
-    , Target(..), fileWasEditedInsteadOfRemoved, fileWasRemovedInsteadOfEdited, fixProblem, importCycleAfterFix
     )
 
 {-| Failure messages for the `Review.Test` module.
@@ -17,12 +18,14 @@ module Review.Test.FailureMessage exposing
 
 # ReviewError messages
 
+@docs Target
 @docs parsingFailure, globalErrorInTest, messageMismatch, emptyDetails, unexpectedDetails, wrongLocation, didNotExpectErrors
 @docs underMismatch, expectedMoreErrors, tooManyErrors, locationNotFound, underMayNotBeEmpty, locationIsAmbiguousInSourceCode
 @docs needToUsedExpectErrorsForModules, missingSources, duplicateModuleName, unknownModulesInExpectedErrors
-@docs missingFixes, unexpectedFixes, unexpectedAdditionalFixes, fixedCodeMismatch, fixProblem_, unchangedSourceAfterFix, hasCollisionsInFixRanges
+@docs missingFixes, unexpectedFixes, unexpectedAdditionalFixes, fixedCodeMismatch, fixProblem, unchangedSourceAfterFix, hasCollisionsInFixRanges
+@docs fileWasEditedInsteadOfRemoved, fileWasRemovedInsteadOfEdited, importCycleAfterFix
 @docs didNotExpectGlobalErrors, expectedMoreGlobalErrors, fixedCodeWhitespaceMismatch, messageMismatchForConfigurationError
-@docs messageMismatchForGlobalError, missingConfigurationError, tooManyGlobalErrors
+@docs missingConfigurationError, tooManyGlobalErrors
 @docs unexpectedConfigurationError, unexpectedConfigurationErrorDetails, unexpectedGlobalErrorDetails
 @docs unexpectedExtract, missingExtract, invalidJsonForExpectedDataExtract, extractMismatch, specifiedMultipleExtracts
 @docs resultsAreDifferentWhenFilesAreIgnored
