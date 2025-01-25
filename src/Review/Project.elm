@@ -235,7 +235,7 @@ modules (Internal.Project project) =
         project.modules
 
 
-{-| Get the list of file paths that failed to parse, because they were syntactically invalid Elm code.
+{-| Get the list of file paths that failed to parse because they were syntactically invalid Elm code.
 -}
 modulesThatFailedToParse : Project -> List { path : String, source : String }
 modulesThatFailedToParse (Internal.Project project) =
