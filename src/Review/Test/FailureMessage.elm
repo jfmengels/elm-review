@@ -2,14 +2,14 @@ module Review.Test.FailureMessage exposing
     ( parsingFailure, globalErrorInTest, messageMismatch, emptyDetails, unexpectedDetails, wrongLocation, didNotExpectErrors
     , underMismatch, expectedMoreErrors, tooManyErrors, locationNotFound, underMayNotBeEmpty, locationIsAmbiguousInSourceCode
     , needToUsedExpectErrorsForModules, missingSources, duplicateModuleName, unknownModulesInExpectedErrors
-    , missingFixes, unexpectedFixes, unexpectedAdditionalFixes, fixedCodeMismatch, fixProblem, fixProblem_, unchangedSourceAfterFix, invalidSourceAfterFix, hasCollisionsInFixRanges
+    , missingFixes, unexpectedFixes, unexpectedAdditionalFixes, fixedCodeMismatch, unchangedSourceAfterFix, hasCollisionsInFixRanges
     , didNotExpectGlobalErrors, expectedMoreGlobalErrors, fixedCodeWhitespaceMismatch, messageMismatchForConfigurationError
     , missingConfigurationError, tooManyGlobalErrors
     , unexpectedConfigurationError, unexpectedConfigurationErrorDetails, unexpectedGlobalErrorDetails
     , unexpectedExtract, missingExtract, invalidJsonForExpectedDataExtract, extractMismatch, specifiedMultipleExtracts
     , resultsAreDifferentWhenFilesAreIgnored
     , fixForUnknownFile
-    , Target(..), fileWasEditedInsteadOfRemoved, fileWasRemovedInsteadOfEdited, importCycleAfterFix
+    , Target(..), fileWasEditedInsteadOfRemoved, fileWasRemovedInsteadOfEdited, fixProblem, importCycleAfterFix
     )
 
 {-| Failure messages for the `Review.Test` module.
@@ -20,7 +20,7 @@ module Review.Test.FailureMessage exposing
 @docs parsingFailure, globalErrorInTest, messageMismatch, emptyDetails, unexpectedDetails, wrongLocation, didNotExpectErrors
 @docs underMismatch, expectedMoreErrors, tooManyErrors, locationNotFound, underMayNotBeEmpty, locationIsAmbiguousInSourceCode
 @docs needToUsedExpectErrorsForModules, missingSources, duplicateModuleName, unknownModulesInExpectedErrors
-@docs missingFixes, unexpectedFixes, unexpectedAdditionalFixes, fixedCodeMismatch, fixProblem, fixProblem_, unchangedSourceAfterFix, invalidSourceAfterFix, hasCollisionsInFixRanges
+@docs missingFixes, unexpectedFixes, unexpectedAdditionalFixes, fixedCodeMismatch, fixProblem_, unchangedSourceAfterFix, hasCollisionsInFixRanges
 @docs didNotExpectGlobalErrors, expectedMoreGlobalErrors, fixedCodeWhitespaceMismatch, messageMismatchForConfigurationError
 @docs messageMismatchForGlobalError, missingConfigurationError, tooManyGlobalErrors
 @docs unexpectedConfigurationError, unexpectedConfigurationErrorDetails, unexpectedGlobalErrorDetails
@@ -642,21 +642,8 @@ replaceWhitespace lines =
         |> String.split "\n"
 
 
-fixProblem : Fix.Problem -> ReviewError -> String
+fixProblem : FixProblem.FixProblem -> ReviewError -> String
 fixProblem problem error_ =
-    case problem of
-        Fix.Unchanged ->
-            unchangedSourceAfterFix error_
-
-        Fix.SourceCodeIsNotValid sourceCode ->
-            invalidSourceAfterFix error_ sourceCode
-
-        Fix.HasCollisionsInFixRanges ->
-            hasCollisionsInFixRanges error_
-
-
-fixProblem_ : FixProblem.FixProblem -> ReviewError -> String
-fixProblem_ problem error_ =
     case problem of
         FixProblem.Unchanged ->
             unchangedSourceAfterFix error_

@@ -1879,7 +1879,7 @@ checkFixesHaveNoProblem : ReviewError -> Expectation
 checkFixesHaveNoProblem ((ReviewError err) as error_) =
     case err.fixProblem of
         Just fixProblem ->
-            Expect.fail <| FailureMessage.fixProblem_ fixProblem error_
+            Expect.fail <| FailureMessage.fixProblem fixProblem error_
 
         Nothing ->
             Expect.pass
@@ -2014,7 +2014,7 @@ checkFixesMatch project target error_ expectedFixed fixes =
                                                 rest
 
                                         Err fixProblem ->
-                                            Err (FailureMessage.fixProblem_ fixProblem error_)
+                                            Err (FailureMessage.fixProblem fixProblem error_)
 
                         Just ( key, ExpectRemoved ) ->
                             FailureMessage.fileWasEditedInsteadOfRemoved
@@ -2149,7 +2149,7 @@ fixOneError fileFixes source expectedFixedSource error_ =
                 Err <| FailureMessage.fixedCodeMismatch trimmedFixed expectedFixed error_
 
         Err fixProblem ->
-            Err <| FailureMessage.fixProblem_ fixProblem error_
+            Err <| FailureMessage.fixProblem fixProblem error_
 
 
 trimRightOnEveryLine : String -> String
