@@ -4454,36 +4454,6 @@ errorRange (Review.Error.ReviewError.ReviewError err) =
 {-| Get the automatic [`fixes`](./Review-Fix#Fix) of an [`Error`](#Error), if it
 defined any.
 
-TODO MULTIFILE-FIXES Mark as deprecated
-
--}
-errorFixes : ReviewError -> Maybe (List Fix)
-errorFixes (Review.Error.ReviewError.ReviewError err) =
-    case err.fixProblem of
-        Just _ ->
-            Nothing
-
-        Nothing ->
-            case ErrorFixes.toList err.fixes of
-                [ ( target, fixes ) ] ->
-                    if FileTarget.filePath target == err.filePath then
-                        case fixes of
-                            ErrorFixes.Edit edits ->
-                                Just edits
-
-                            ErrorFixes.Remove ->
-                                Nothing
-
-                    else
-                        Nothing
-
-                _ ->
-                    Nothing
-
-
-{-| Get the automatic [`fixes`](./Review-Fix#Fix) of an [`Error`](#Error), if it
-defined any.
-
 An error can provide fixes for multiple files. For each file, the fix consists of
 either a `Just` list of edits (named `Fix` until the next breaking change) or of `Nothing` for a file removal.
 
@@ -4521,11 +4491,53 @@ errorFixesV2 (Review.Error.ReviewError.ReviewError err) =
                     |> Just
 
 
+{-| Get the automatic [`fixes`](./Review-Fix#Fix) of an [`Error`](#Error), if it
+defined any.
+
+**@deprecated**: Use [`errorFixesV2`](#errorFixesV2) which supports file removals.
+`errorFixes` will consider any error with a file removal fix as not having a fix.
+
+-}
+errorFixes : ReviewError -> Maybe (List Fix)
+errorFixes (Review.Error.ReviewError.ReviewError err) =
+    case err.fixProblem of
+        Just _ ->
+            Nothing
+
+        Nothing ->
+            case ErrorFixes.toList err.fixes of
+                [ ( target, fixes ) ] ->
+                    if FileTarget.filePath target == err.filePath then
+                        case fixes of
+                            ErrorFixes.Edit edits ->
+                                Just edits
+
+                            ErrorFixes.Remove ->
+                                Nothing
+
+                    else
+                        Nothing
+
+                _ ->
+                    Nothing
+
+
 {-| Get the reason why the fix for an error failed when its available automatic fix was attempted and deemed incorrect.
 
 Note that if the review process was not run in fix mode previously, then this will return `Nothing`.
 
-TODO MULTIFILE-FIXES Mark as deprecated
+-}
+errorFixFailureV2 : ReviewError -> Maybe FixProblem
+errorFixFailureV2 (Review.Error.ReviewError.ReviewError err) =
+    err.fixProblem
+
+
+{-| Get the reason why the fix for an error failed when its available automatic fix was attempted and deemed incorrect.
+
+Note that if the review process was not run in fix mode previously, then this will return `Nothing`.
+
+**@deprecated**: Use [`errorFixFailure`](#errorFixFailure) which returns a different type that better
+describes fixing problems that have been checked for.
 
 -}
 errorFixFailure : ReviewError -> Maybe Fix.Problem
@@ -4547,16 +4559,6 @@ errorFixFailure (Review.Error.ReviewError.ReviewError err) =
 
         Nothing ->
             Nothing
-
-
-{-| Get the reason why the fix for an error failed when its available automatic fix was attempted and deemed incorrect.
-
-Note that if the review process was not run in fix mode previously, then this will return `Nothing`.
-
--}
-errorFixFailureV2 : ReviewError -> Maybe FixProblem
-errorFixFailureV2 (Review.Error.ReviewError.ReviewError err) =
-    err.fixProblem
 
 
 {-| Get the file path of an [`Error`](#Error).
