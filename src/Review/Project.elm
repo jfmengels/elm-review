@@ -133,7 +133,7 @@ then it will replace it.
 If the file is syntactically valid Elm code, it will then be analyzed by the
 review rules. Otherwise, the file will be added to the list of files that failed
 to parse, which you can get using [`modulesThatFailedToParse`](#modulesThatFailedToParse),
-and for which a parsing error will be reported when running [`the review function`](./Review-Rule#reviewV2).
+and for which a parsing error will be reported when running [`the review function`](./Review-Rule#reviewV3).
 
 -}
 addModule : { path : String, source : String } -> Project -> Project

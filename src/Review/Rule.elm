@@ -434,7 +434,7 @@ type alias ExtraFileRequest =
 -- REVIEWING
 
 
-{-| **DEPRECATED:** Use [`reviewV2`](#reviewV2) instead.
+{-| **DEPRECATED:** Use [`reviewV3`](#reviewV3) instead.
 
 Review a project and gives back the errors raised by the given rules.
 
