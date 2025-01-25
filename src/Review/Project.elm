@@ -540,7 +540,7 @@ diffV2 projects =
         |> diffElmFiles2 projects_
 
 
-{-| TODO MULTIFILE-FIXES documentation
+{-| The kind of change associated to a file. A file was either edited or removed.
 -}
 type Diff
     = Edited { before : String, after : String }
