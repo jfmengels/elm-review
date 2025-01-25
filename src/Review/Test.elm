@@ -275,7 +275,7 @@ If your rule is interested in project related details, then you should use
 -}
 run : Rule -> String -> ReviewResult
 run rule source =
-    runWithProjectData projectWithElmCore rule source
+    runOnModulesWithProjectData projectWithElmCore rule [ source ]
 
 
 {-| Run a `Rule` on a `String` containing source code, with data about the
