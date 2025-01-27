@@ -706,14 +706,12 @@ like `expectErrors []`.
 
     tests : Test
     tests =
-        describe "The.Rule.You.Want.To.Test"
-            [ test "should not report anything when <condition>" <|
-                \() ->
-                    """module A exposing (..)
+        test "should not report anything when <condition>" <|
+            \() ->
+                """module A exposing (..)
     a = foo n"""
-                        |> Review.Test.run rule
-                        |> Review.Test.expectNoErrors
-            ]
+                    |> Review.Test.run rule
+                    |> Review.Test.expectNoErrors
 
 -}
 expectNoErrors : ReviewResult -> Expectation
@@ -761,21 +759,19 @@ location is incorrect.
 
     tests : Test
     tests =
-        describe "The.Rule.You.Want.To.Test"
-            [ test "should report Debug.log use" <|
-                \() ->
-                    """module A exposing (..)
+        test "should report Debug.log use" <|
+            \() ->
+                """module A exposing (..)
     a = Debug.log "some" "message"
     """
-                        |> Review.Test.run rule
-                        |> Review.Test.expectErrors
-                            [ Review.Test.error
-                                { message = "Remove the use of `Debug` before shipping to production"
-                                , details = [ "Details about the error" ]
-                                , under = "Debug.log"
-                                }
-                            ]
-            ]
+                    |> Review.Test.run rule
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Remove the use of `Debug` before shipping to production"
+                            , details = [ "Details about the error" ]
+                            , under = "Debug.log"
+                            }
+                        ]
 
 -}
 expectErrors : List ExpectedError -> ReviewResult -> Expectation
@@ -1288,20 +1284,18 @@ lines will appear if the error appeared in an editor.
 
     tests : Test
     tests =
-        describe "The.Rule.You.Want.To.Test"
-            [ test "should report Debug.log use" <|
-                \() ->
-                    """module A exposing (..)
+        test "should report Debug.log use" <|
+            \() ->
+                """module A exposing (..)
     a = Debug.log "some" "message\""""
-                        |> Review.Test.run rule
-                        |> Review.Test.expectErrors
-                            [ Review.Test.error
-                                { message = "Remove the use of `Debug` before shipping to production"
-                                , details = [ "Details about the error" ]
-                                , under = "Debug.log"
-                                }
-                            ]
-            ]
+                    |> Review.Test.run rule
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Remove the use of `Debug` before shipping to production"
+                            , details = [ "Details about the error" ]
+                            , under = "Debug.log"
+                            }
+                        ]
 
 If there are multiple locations where the value of `under` appears, the test will
 fail unless you use [`atExactly`](#atExactly) to remove any ambiguity of where the
@@ -1325,29 +1319,27 @@ is only necessary when the `under` field is ambiguous.
 
     tests : Test
     tests =
-        describe "The.Rule.You.Want.To.Test"
-            [ test "should report multiple Debug.log calls" <|
-                \() ->
-                    """module A exposing (..)
+        test "should report multiple Debug.log calls" <|
+            \() ->
+                """module A exposing (..)
     a = Debug.log "foo" z
     b = Debug.log "foo" z
     """
-                        |> Review.Test.run rule
-                        |> Review.Test.expectErrors
-                            [ Review.Test.error
-                                { message = "Remove the use of `Debug` before shipping to production"
-                                , details = [ "Details about the error" ]
-                                , under = "Debug.log"
-                                }
-                                |> Review.Test.atExactly { start = { row = 4, column = 5 }, end = { row = 4, column = 14 } }
-                            , Review.Test.error
-                                { message = "Remove the use of `Debug` before shipping to production"
-                                , details = [ "Details about the error" ]
-                                , under = "Debug.log"
-                                }
-                                |> Review.Test.atExactly { start = { row = 5, column = 5 }, end = { row = 5, column = 14 } }
-                            ]
-            ]
+                    |> Review.Test.run rule
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Remove the use of `Debug` before shipping to production"
+                            , details = [ "Details about the error" ]
+                            , under = "Debug.log"
+                            }
+                            |> Review.Test.atExactly { start = { row = 4, column = 5 }, end = { row = 4, column = 14 } }
+                        , Review.Test.error
+                            { message = "Remove the use of `Debug` before shipping to production"
+                            , details = [ "Details about the error" ]
+                            , under = "Debug.log"
+                            }
+                            |> Review.Test.atExactly { start = { row = 5, column = 5 }, end = { row = 5, column = 14 } }
+                        ]
 
 Tip: By default, do not use this function. If the test fails because there is some
 ambiguity, the test error will give you a recommendation of what to use as a parameter
@@ -1368,26 +1360,24 @@ In other words, you only need to use this function if the error provides a fix.
 
     tests : Test
     tests =
-        describe "The.Rule.You.Want.To.Test"
-            [ test "should report multiple Debug.log calls" <|
-                \() ->
-                    """module A exposing (..)
+        test "should report multiple Debug.log calls" <|
+            \() ->
+                """module A exposing (..)
     a = 1
     b = Debug.log "foo" 2
     """
-                        |> Review.Test.run rule
-                        |> Review.Test.expectErrors
-                            [ Review.Test.error
-                                { message = "Remove the use of `Debug` before shipping to production"
-                                , details = [ "Details about the error" ]
-                                , under = "Debug.log"
-                                }
-                                |> Review.Test.whenFixed """module SomeModule exposing (b)
+                    |> Review.Test.run rule
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Remove the use of `Debug` before shipping to production"
+                            , details = [ "Details about the error" ]
+                            , under = "Debug.log"
+                            }
+                            |> Review.Test.whenFixed """module SomeModule exposing (b)
     a = 1
     b = 2
     """
-                            ]
-            ]
+                        ]
 
 -}
 whenFixed : String -> ExpectedError -> ExpectedError
@@ -1407,44 +1397,42 @@ The second element in the tuples is the expected source code.
 
     tests : Test
     tests =
-        describe "The.Rule.You.Want.To.Test"
-            [ test "should report multiple Debug.log calls" <|
-                \() ->
-                    [ """module A exposing (main)
+        test "should report multiple Debug.log calls" <|
+            \() ->
+                [ """module A exposing (main)
     import Other exposing (Msg(..))
     a = Used
     main = case foo of
       Unused -> 1
       Used -> 2
     """
-                    , """module Other exposing (Msg(..))
+                , """module Other exposing (Msg(..))
     type Msg = Unused | Used
     """
-                    ]
-                        |> Review.Test.runOnModules rule
-                        |> Review.Test.expectErrorsForModules
-                            [ ( "A"
-                              , [ Review.Test.error
-                                    { message = "Remove the use of `Debug` before shipping to production"
-                                    , details = [ "Details about the error" ]
-                                    , under = "Debug.log"
-                                    }
-                                    |> Review.Test.shouldFixFiles
-                                        [ ( "A", """module A exposing (main)
+                ]
+                    |> Review.Test.runOnModules rule
+                    |> Review.Test.expectErrorsForModules
+                        [ ( "A"
+                          , [ Review.Test.error
+                                { message = "Remove the use of `Debug` before shipping to production"
+                                , details = [ "Details about the error" ]
+                                , under = "Debug.log"
+                                }
+                                |> Review.Test.shouldFixFiles
+                                    [ ( "A", """module A exposing (main)
     import Other exposing (Msg(..))
     a = Used
     main = case foo of
       $
       Used -> 2
     """ )
-                                        , ( "src/Other.elm", """module Other exposing (Msg(..))
+                                    , ( "src/Other.elm", """module Other exposing (Msg(..))
     type Msg = Used
     """ )
-                                        ]
-                                ]
-                              )
+                                    ]
                             ]
-            ]
+                          )
+                        ]
 
 -}
 shouldFixFiles : List ( String, String ) -> ExpectedError -> ExpectedError
@@ -2337,32 +2325,30 @@ When you have multiple expectations to make for a module, use this function.
 
     tests : Test
     tests =
-        describe "The.Rule.You.Want.To.Test"
-            [ test "should ..." <|
-                \() ->
-                    [ """module A.B exposing (..)
+        test "should ..." <|
+            \() ->
+                [ """module A.B exposing (..)
     import B
     a = 1
     b = 2
     c = 3
     """
-                    , """module B exposing (..)
+                , """module B exposing (..)
     x = 1
     y = 2
     z = 3
     """
-                    ]
-                        |> Review.Test.runOnModules rule
-                        |> Review.Test.expect
-                            [ Review.Test.globalErrors [ { message = "message", details = [ "details" ] } ]
-                            , Review.Test.moduleErrors "A.B" [ { message = "message", details = [ "details" ] } ]
-                            , Review.Test.dataExtract """
+                ]
+                    |> Review.Test.runOnModules rule
+                    |> Review.Test.expect
+                        [ Review.Test.globalErrors [ { message = "message", details = [ "details" ] } ]
+                        , Review.Test.moduleErrors "A.B" [ { message = "message", details = [ "details" ] } ]
+                        , Review.Test.dataExtract """
     {
         "foo": "bar",
         "other": [ 1, 2, 3 ]
     }"""
-                            ]
-            ]
+                        ]
 
 -}
 expect : List ReviewExpectation -> ReviewResult -> Expectation
@@ -2603,28 +2589,26 @@ If you expect only errors for `README.md`, then you may want to use [`expectErro
 
     tests : Test
     tests =
-        describe "The.Rule.You.Want.To.Test"
-            [ test "should extract even if there are errors" <|
-                \() ->
-                    let
-                        project : Project
-                        project =
-                            Project.new
-                                |> Project.addReadme { path = "README.md", context = "# Project\n..." }
-                    in
-                    """module ModuleA exposing (a)
+        test "should extract even if there are errors" <|
+            \() ->
+                let
+                    project : Project
+                    project =
+                        Project.new
+                            |> Project.addReadme { path = "README.md", context = "# Project\n..." }
+                in
+                """module ModuleA exposing (a)
     a = 1"""
-                        |> Review.Test.runWithProjectData project rule
-                        |> Review.Test.expect
-                            [ Review.Test.readme
-                                [ Review.Test.error
-                                    { message = "Invalid link"
-                                    , details = [ "README contains an invalid link" ]
-                                    , under = "htt://example.com"
-                                    }
-                                ]
+                    |> Review.Test.runWithProjectData project rule
+                    |> Review.Test.expect
+                        [ Review.Test.readme
+                            [ Review.Test.error
+                                { message = "Invalid link"
+                                , details = [ "README contains an invalid link" ]
+                                , under = "htt://example.com"
+                                }
                             ]
-            ]
+                        ]
 
 -}
 readmeErrors : List ExpectedError -> ReviewExpectation
@@ -2643,28 +2627,26 @@ If you expect only errors for one file, then you may want to use [`expectErrorsF
 
     tests : Test
     tests =
-        describe "The.Rule.You.Want.To.Test"
-            [ test "should extract even if there are errors" <|
-                \() ->
-                    let
-                        project : Project
-                        project =
-                            Project.new
-                                |> Project.addExtraFile { path = "my-file.ext", context = "some string" }
-                    in
-                    """module ModuleA exposing (a)
+        test "should extract even if there are errors" <|
+            \() ->
+                let
+                    project : Project
+                    project =
+                        Project.new
+                            |> Project.addExtraFile { path = "my-file.ext", context = "some string" }
+                in
+                """module ModuleA exposing (a)
     a = 1"""
-                        |> Review.Test.runWithProjectData project rule
-                        |> Review.Test.expect
-                            [ Review.Test.extraFileErrors
-                                [ Review.Test.error
-                                    { message = "Some message"
-                                    , details = [ "Some details" ]
-                                    , under = "some string"
-                                    }
-                                ]
+                    |> Review.Test.runWithProjectData project rule
+                    |> Review.Test.expect
+                        [ Review.Test.extraFileErrors
+                            [ Review.Test.error
+                                { message = "Some message"
+                                , details = [ "Some details" ]
+                                , under = "some string"
+                                }
                             ]
-            ]
+                        ]
 
 -}
 extraFileErrors : String -> List ExpectedError -> ReviewExpectation
@@ -2684,30 +2666,28 @@ Note: You do not need to match the exact formatting of the JSON object, though t
 
     tests : Test
     tests =
-        describe "The.Rule.You.Want.To.Test"
-            [ test "should extract even if there are errors" <|
-                \() ->
-                    [ """module A.B exposing (..)
+        test "should extract even if there are errors" <|
+            \() ->
+                [ """module A.B exposing (..)
     import B
     a = 1
     b = 2
     c = 3
     """
-                    , """module B exposing (..)
+                , """module B exposing (..)
     x = 1
     y = 2
     z = 3
     """
-                    ]
-                        |> Review.Test.runOnModules rule
-                        |> Review.Test.expect
-                            [ Review.Test.dataExtract """
+                ]
+                    |> Review.Test.runOnModules rule
+                    |> Review.Test.expect
+                        [ Review.Test.dataExtract """
     {
         "foo": "bar",
         "other": [ 1, 2, 3 ]
     }"""
-                            ]
-            ]
+                        ]
 
 -}
 dataExtract : String -> ReviewExpectation
