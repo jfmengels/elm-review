@@ -196,6 +196,7 @@ type Problem
 -}
 fix : Error.Target -> List Fix -> String -> FixResult
 fix _ _ _ =
+    -- TODO Breaking change: Remove this function, and other types
     Errored Unchanged
 
 
