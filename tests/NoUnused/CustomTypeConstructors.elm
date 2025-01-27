@@ -125,7 +125,7 @@ rule phantomTypes =
     Rule.newProjectRuleSchema "NoUnused.CustomTypeConstructors" (initialProjectContext phantomTypes)
         |> Rule.withElmJsonProjectVisitor elmJsonVisitor
         |> Rule.withModuleVisitor moduleVisitor
-        |> Rule.withModuleContextUsingContextCreator
+        |> Rule.withModuleContextWithErrors
             { fromProjectToModule = fromProjectToModule
             , fromModuleToProject = fromModuleToProject
             , foldProjectContexts = foldProjectContexts
@@ -149,7 +149,6 @@ moduleVisitor schema =
         |> Rule.withExpressionEnterVisitor (\node context -> ( [], expressionVisitor node context ))
         |> Rule.withCaseBranchEnterVisitor (\caseBlock casePattern context -> ( [], caseBranchEnterVisitor caseBlock casePattern context ))
         |> Rule.withCaseBranchExitVisitor (\caseBlock casePattern context -> ( [], caseBranchExitVisitor caseBlock casePattern context ))
-        |> Rule.withFinalModuleEvaluation2 finalModuleEvaluation
 
 
 
@@ -258,11 +257,15 @@ fromProjectToModule =
         |> Rule.withModuleName
 
 
-fromModuleToProject : Rule.ContextCreator ModuleContext ProjectContext
+fromModuleToProject : Rule.ContextCreator ModuleContext ( List (Rule.Error {}), ProjectContext )
 fromModuleToProject =
     Rule.initContextCreator
         (\moduleKey moduleContext ->
-            fromModuleToProjectHelp moduleKey moduleContext
+            let
+                ( errors, newModuleContext ) =
+                    reportErrorsForNonExposedConstructors moduleContext
+            in
+            ( errors, fromModuleToProjectHelp moduleKey newModuleContext )
         )
         |> Rule.withModuleKey
 
@@ -787,8 +790,8 @@ caseBranchExitVisitor _ _ moduleContext =
     { moduleContext | constructorsToIgnore = List.drop 1 moduleContext.constructorsToIgnore }
 
 
-finalModuleEvaluation : ModuleContext -> ( List (Rule.Error {}), ModuleContext )
-finalModuleEvaluation moduleContext =
+reportErrorsForNonExposedConstructors : ModuleContext -> ( List (Rule.Error {}), ModuleContext )
+reportErrorsForNonExposedConstructors moduleContext =
     case Dict.get moduleContext.currentModuleName moduleContext.usedFunctionsOrValues of
         Nothing ->
             ( [], moduleContext )
