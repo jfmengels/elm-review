@@ -15,7 +15,7 @@ module Review.Rule exposing
     , withFinalModuleEvaluation, withFinalModuleEvaluation2
     , withElmJsonModuleVisitor, withReadmeModuleVisitor, withDirectDependenciesModuleVisitor, withDependenciesModuleVisitor
     , withExtraFilesModuleVisitor
-    , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitor, withModuleContext, withModuleContextUsingContextCreator, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDirectDependenciesProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withExtraFilesProjectVisitor, withContextFromImportedModules
+    , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitor, withModuleContext, withModuleContextUsingContextCreator, withModuleContextWithErrors, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDirectDependenciesProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withExtraFilesProjectVisitor, withContextFromImportedModules
     , providesFixesForProjectRule
     , ContextCreator, initContextCreator, withModuleName, withModuleNameNode, withIsInSourceDirectories, withFilePath, withIsFileIgnored, withModuleNameLookupTable, withModuleKey, withSourceCodeExtractor, withFullAst, withModuleDocumentation
     , Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix
@@ -234,7 +234,7 @@ Project rules can also report errors in the `elm.json` or the `README.md` files.
 If you are new to writing rules, I would recommend learning [how to build a module rule](#creating-a-module-rule)
 first, as they are in practice a simpler version of project rules.
 
-@docs ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitor, withModuleContext, withModuleContextUsingContextCreator, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDirectDependenciesProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withExtraFilesProjectVisitor, withContextFromImportedModules
+@docs ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitor, withModuleContext, withModuleContextUsingContextCreator, withModuleContextWithErrors, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDirectDependenciesProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withExtraFilesProjectVisitor, withContextFromImportedModules
 @docs providesFixesForProjectRule
 
 
@@ -1827,7 +1827,10 @@ withModuleContext functions (ProjectRuleSchema schema) =
             , folder =
                 Just
                     { fromModuleToProject =
-                        initContextCreator (\moduleKey moduleNameNode_ moduleContext -> functions.fromModuleToProject moduleKey moduleNameNode_ moduleContext)
+                        initContextCreator
+                            (\moduleKey moduleNameNode_ moduleContext ->
+                                ( [], functions.fromModuleToProject moduleKey moduleNameNode_ moduleContext )
+                            )
                             |> withModuleKey
                             |> withModuleNameNode
                     , foldProjectContexts = functions.foldProjectContexts
@@ -1836,7 +1839,7 @@ withModuleContext functions (ProjectRuleSchema schema) =
 
 
 {-| Use a [`ContextCreator`](#ContextCreator) to initialize your `moduleContext` and `projectContext`. This will allow
-you to request more information
+you to request more information.
 
     import Review.Rule as Rule exposing (Rule)
 
@@ -1878,6 +1881,58 @@ withModuleContextUsingContextCreator :
     -> ProjectRuleSchema { schemaState | canAddModuleVisitor : (), withModuleContext : Required } projectContext moduleContext
     -> ProjectRuleSchema { schemaState | hasAtLeastOneVisitor : (), withModuleContext : Forbidden } projectContext moduleContext
 withModuleContextUsingContextCreator functions (ProjectRuleSchema schema) =
+    ProjectRuleSchema
+        { schema
+            | moduleContextCreator = Just functions.fromProjectToModule
+            , folder =
+                Just
+                    { fromModuleToProject = mapContextCreator (Tuple.pair []) functions.fromModuleToProject
+                    , foldProjectContexts = functions.foldProjectContexts
+                    }
+        }
+
+
+{-| Use a [`ContextCreator`](#ContextCreator) to initialize your `moduleContext` and `projectContext`. This will allow
+you to request more information.
+
+This is similar to [`withModuleContextUsingContextCreator`](#withModuleContextUsingContextCreator) but it allows you
+to return errors in the `fromModuleToProject` function. In the case where you would need to report errors in a
+[final module evaluation](#withFinalModuleEvaluation) and then do similar computations in `fromModuleToProject`, you can
+use this variant to do both in a single function (bypassing the need for the final module evaluation).
+
+    import Review.Rule as Rule exposing (Rule)
+
+    rule : Rule
+    rule =
+        Rule.newProjectRuleSchema "Rule.Name" initialProjectContext
+            |> Rule.withModuleVisitor moduleVisitor
+            |> Rule.withModuleContextWithErrors
+                { fromProjectToModule = fromProjectToModule
+                , fromModuleToProject = fromModuleToProject
+                , foldProjectContexts = foldProjectContexts
+                }
+            |> Rule.fromProjectRuleSchema
+
+    fromModuleToProject : Rule.ContextCreator ModuleContext ( List (Rule.Error {}), ProjectContext )
+    fromModuleToProject =
+        Rule.initContextCreator
+            (\moduleContext ->
+                let
+                    ( errors, someData ) =
+                        someComputation moduleContext
+                in
+                ( errors, { someData = someData } )
+            )
+
+-}
+withModuleContextWithErrors :
+    { fromProjectToModule : ContextCreator projectContext moduleContext
+    , fromModuleToProject : ContextCreator moduleContext ( List (Error {}), projectContext )
+    , foldProjectContexts : projectContext -> projectContext -> projectContext
+    }
+    -> ProjectRuleSchema { schemaState | canAddModuleVisitor : (), withModuleContext : Required } projectContext moduleContext
+    -> ProjectRuleSchema { schemaState | hasAtLeastOneVisitor : (), withModuleContext : Forbidden } projectContext moduleContext
+withModuleContextWithErrors functions (ProjectRuleSchema schema) =
     ProjectRuleSchema
         { schema
             | moduleContextCreator = Just functions.fromProjectToModule
@@ -4815,7 +4870,7 @@ type TraversalAndFolder projectContext moduleContext
 
 
 type alias Folder projectContext moduleContext =
-    { fromModuleToProject : ContextCreator moduleContext projectContext
+    { fromModuleToProject : ContextCreator moduleContext ( List (Error {}), projectContext )
     , foldProjectContexts : projectContext -> projectContext -> projectContext
     }
 
@@ -6883,20 +6938,19 @@ createModuleVisitorFromProjectVisitorHelp schema raise hidden traversalAndFolder
                             toRuleProjectVisitor : ( List (Error {}), moduleContext ) -> RuleProjectVisitor
                             toRuleProjectVisitor ( errors, resultModuleContext ) =
                                 let
-                                    outputProjectContext : projectContext
-                                    outputProjectContext =
+                                    ( fromModuleToProjectErrors, outputProjectContext ) =
                                         case getFolderFromTraversal traversalAndFolder of
                                             Just { fromModuleToProject } ->
                                                 applyContextCreator availableData isFileIgnored fromModuleToProject resultModuleContext
 
                                             Nothing ->
-                                                schema.initialProjectContext
+                                                ( [], schema.initialProjectContext )
 
                                     cacheEntry : ModuleCacheEntry projectContext
                                     cacheEntry =
                                         ModuleCache.create
                                             { contentHash = moduleContentHash
-                                            , errors = errors
+                                            , errors = qualifyErrors ruleData fromModuleToProjectErrors errors
                                             , inputContextHashes = inputContextHashes
                                             , isFileIgnored = isFileIgnored
                                             , outputContext = outputProjectContext
@@ -7247,10 +7301,15 @@ requestedDataFromContextCreator (ContextCreator _ requestedData) =
 
 -}
 initContextCreator : (from -> to) -> ContextCreator from to
-initContextCreator fromProjectToModule =
+initContextCreator fn =
     ContextCreator
-        (\_ _ -> fromProjectToModule)
+        (\_ _ -> fn)
         RequestedData.none
+
+
+mapContextCreator : (a -> b) -> ContextCreator from a -> ContextCreator from b
+mapContextCreator mapper (ContextCreator fn requestedData) =
+    ContextCreator (\availableData bool from -> mapper (fn availableData bool from)) requestedData
 
 
 applyContextCreator : AvailableData -> Bool -> ContextCreator from to -> from -> to
