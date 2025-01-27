@@ -262,47 +262,52 @@ fromModuleToProject : Rule.ContextCreator ModuleContext ProjectContext
 fromModuleToProject =
     Rule.initContextCreator
         (\moduleKey moduleContext ->
-            let
-                localPhantomTypes : List ( CustomTypeName, Int )
-                localPhantomTypes =
-                    moduleContext.phantomVariables
-                        |> Dict.get moduleContext.currentModuleName
-                        |> Maybe.withDefault []
-            in
-            { exposedModules = Set.empty
-            , moduleKeys = Dict.singleton moduleContext.currentModuleName moduleKey
-            , declaredConstructors =
-                if moduleContext.isExposed then
-                    if moduleContext.exposesEverything then
-                        Dict.empty
-
-                    else
-                        Dict.singleton
-                            moduleContext.currentModuleName
-                            (ExposedConstructors
-                                { moduleKey = moduleKey
-                                , customTypes =
-                                    moduleContext.declaredTypesWithConstructors
-                                        |> Dict.filter (\typeName _ -> not <| Set.member typeName moduleContext.exposedCustomTypesWithConstructors)
-                                }
-                            )
-
-                else
-                    Dict.singleton
-                        moduleContext.currentModuleName
-                        (ExposedConstructors
-                            { moduleKey = moduleKey
-                            , customTypes = moduleContext.declaredTypesWithConstructors
-                            }
-                        )
-            , usedConstructors = moduleContext.usedFunctionsOrValues
-            , phantomVariables = Dict.singleton moduleContext.currentModuleName localPhantomTypes
-            , wasUsedInLocationThatNeedsItself = moduleContext.wasUsedInLocationThatNeedsItself
-            , wasUsedInComparisons = moduleContext.wasUsedInComparisons
-            , fixesForRemovingConstructor = moduleContext.fixesForRemovingConstructor
-            }
+            fromModuleToProjectHelp moduleKey moduleContext
         )
         |> Rule.withModuleKey
+
+
+fromModuleToProjectHelp : Rule.ModuleKey -> ModuleContext -> ProjectContext
+fromModuleToProjectHelp moduleKey moduleContext =
+    let
+        localPhantomTypes : List ( CustomTypeName, Int )
+        localPhantomTypes =
+            moduleContext.phantomVariables
+                |> Dict.get moduleContext.currentModuleName
+                |> Maybe.withDefault []
+    in
+    { exposedModules = Set.empty
+    , moduleKeys = Dict.singleton moduleContext.currentModuleName moduleKey
+    , declaredConstructors =
+        if moduleContext.isExposed then
+            if moduleContext.exposesEverything then
+                Dict.empty
+
+            else
+                Dict.singleton
+                    moduleContext.currentModuleName
+                    (ExposedConstructors
+                        { moduleKey = moduleKey
+                        , customTypes =
+                            moduleContext.declaredTypesWithConstructors
+                                |> Dict.filter (\typeName _ -> not <| Set.member typeName moduleContext.exposedCustomTypesWithConstructors)
+                        }
+                    )
+
+        else
+            Dict.singleton
+                moduleContext.currentModuleName
+                (ExposedConstructors
+                    { moduleKey = moduleKey
+                    , customTypes = moduleContext.declaredTypesWithConstructors
+                    }
+                )
+    , usedConstructors = moduleContext.usedFunctionsOrValues
+    , phantomVariables = Dict.singleton moduleContext.currentModuleName localPhantomTypes
+    , wasUsedInLocationThatNeedsItself = moduleContext.wasUsedInLocationThatNeedsItself
+    , wasUsedInComparisons = moduleContext.wasUsedInComparisons
+    , fixesForRemovingConstructor = moduleContext.fixesForRemovingConstructor
+    }
 
 
 foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext
