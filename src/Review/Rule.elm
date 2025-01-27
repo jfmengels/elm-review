@@ -28,7 +28,7 @@ module Review.Rule exposing
     , reviewV3, reviewV2, review, ProjectData, ruleName, ruleProvidesFixes, ruleKnowsAboutIgnoredFiles, ruleRequestedFiles, withRuleId, getConfigurationError
     , ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFilePath, errorTarget, errorFixesV2, errorFixFailureV2
     , Required, Forbidden
-    , FixesV2, withFixesV2, editModule, removeModule, editElmJson, editReadme, editExtraFile, removeExtraFile
+    , FixV2, withFixesV2, editModule, removeModule, editElmJson, editReadme, editExtraFile, removeExtraFile
     , errorFixes, errorFixFailure
     , Metadata, withMetadata, moduleNameFromMetadata, moduleNameNodeFromMetadata, isInSourceDirectories
     )
@@ -300,7 +300,7 @@ find the tools to extract data below.
 
 -- TODO MULTIFILE-FIXES Update documentation
 
-@docs FixesV2, withFixesV2, editModule, removeModule, editElmJson, editReadme, editExtraFile, removeExtraFile
+@docs FixV2, withFixesV2, editModule, removeModule, editElmJson, editReadme, editExtraFile, removeExtraFile
 
 
 # Deprecated
@@ -4353,13 +4353,13 @@ withFixes fixes error_ =
 
 {-| TODO MULTIFILE-FIXES Update documentation
 -}
-type alias FixesV2 =
-    ErrorFixes.FixesV2
+type alias FixV2 =
+    ErrorFixes.FixV2
 
 
 {-| TODO MULTIFILE-FIXES Update documentation
 -}
-withFixesV2 : List FixesV2 -> Error scope -> Error scope
+withFixesV2 : List FixV2 -> Error scope -> Error scope
 withFixesV2 providedFixes error_ =
     mapInternalError
         (\err ->
@@ -4368,7 +4368,7 @@ withFixesV2 providedFixes error_ =
                     List.foldl
                         (List.singleton >> ErrorFixes.add)
                         err.fixes
-                        (List.map (\(ErrorFixes.FixesV2 target fixes) -> ( target, fixes )) providedFixes)
+                        (List.map (\(ErrorFixes.FixV2 target fixes) -> ( target, fixes )) providedFixes)
             }
         )
         error_
@@ -4376,37 +4376,37 @@ withFixesV2 providedFixes error_ =
 
 {-| TODO MULTIFILE-FIXES Update documentation
 -}
-editModule : ModuleKey -> List Fix -> FixesV2
+editModule : ModuleKey -> List Fix -> FixV2
 editModule (ModuleKey path) fixes =
-    ErrorFixes.FixesV2 (FileTarget.Module path) (ErrorFixes.Edit fixes)
+    ErrorFixes.FixV2 (FileTarget.Module path) (ErrorFixes.Edit fixes)
 
 
 {-| TODO MULTIFILE-FIXES Update documentation
 -}
-removeModule : ModuleKey -> FixesV2
+removeModule : ModuleKey -> FixV2
 removeModule (ModuleKey path) =
-    ErrorFixes.FixesV2 (FileTarget.Module path) ErrorFixes.Remove
+    ErrorFixes.FixV2 (FileTarget.Module path) ErrorFixes.Remove
 
 
 {-| TODO MULTIFILE-FIXES Update documentation
 -}
-editExtraFile : ExtraFileKey -> List Fix -> FixesV2
+editExtraFile : ExtraFileKey -> List Fix -> FixV2
 editExtraFile (ExtraFileKey { path }) fixes =
-    ErrorFixes.FixesV2 (FileTarget.ExtraFile path) (ErrorFixes.Edit fixes)
+    ErrorFixes.FixV2 (FileTarget.ExtraFile path) (ErrorFixes.Edit fixes)
 
 
 {-| TODO MULTIFILE-FIXES Update documentation
 -}
-removeExtraFile : ExtraFileKey -> FixesV2
+removeExtraFile : ExtraFileKey -> FixV2
 removeExtraFile (ExtraFileKey { path }) =
-    ErrorFixes.FixesV2 (FileTarget.ExtraFile path) ErrorFixes.Remove
+    ErrorFixes.FixV2 (FileTarget.ExtraFile path) ErrorFixes.Remove
 
 
 {-| TODO MULTIFILE-FIXES Update documentation
 -}
-editReadme : ReadmeKey -> List Fix -> FixesV2
+editReadme : ReadmeKey -> List Fix -> FixV2
 editReadme (ReadmeKey _) fixes =
-    ErrorFixes.FixesV2 FileTarget.Readme (ErrorFixes.Edit fixes)
+    ErrorFixes.FixV2 FileTarget.Readme (ErrorFixes.Edit fixes)
 
 
 {-| TODO MULTIFILE-FIXES Update documentation
@@ -4414,7 +4414,7 @@ editReadme (ReadmeKey _) fixes =
 editElmJson :
     ElmJsonKey
     -> (Elm.Project.Project -> Maybe Elm.Project.Project)
-    -> FixesV2
+    -> FixV2
 editElmJson (ElmJsonKey elmJson) fixer =
     let
         fixes : List Fix
@@ -4436,7 +4436,7 @@ editElmJson (ElmJsonKey elmJson) fixer =
                 Nothing ->
                     []
     in
-    ErrorFixes.FixesV2 FileTarget.ElmJson (ErrorFixes.Edit fixes)
+    ErrorFixes.FixV2 FileTarget.ElmJson (ErrorFixes.Edit fixes)
 
 
 errorToReviewError : Error scope -> ReviewError

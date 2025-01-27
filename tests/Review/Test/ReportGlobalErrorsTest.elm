@@ -1,7 +1,7 @@
 module Review.Test.ReportGlobalErrorsTest exposing (all)
 
 import Review.Fix as Fix
-import Review.Rule as Rule exposing (Error, FixesV2, Rule)
+import Review.Rule as Rule exposing (Error, FixV2, Rule)
 import Review.Test
 import Review.Test.FailureMessageHelper exposing (expectFailure)
 import Test exposing (Test, describe, test)
@@ -225,7 +225,7 @@ rule =
         |> Rule.fromProjectRuleSchema
 
 
-finalProjectEvaluation : List FixesV2 -> List (Error scope)
+finalProjectEvaluation : List FixV2 -> List (Error scope)
 finalProjectEvaluation fixes =
     [ Rule.globalError
         { message = "Oh no"

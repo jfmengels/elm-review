@@ -1180,7 +1180,7 @@ errorForModule :
     -> Error scope
 errorForModule moduleKey params constructorInformation =
     let
-        fixes : List Rule.FixesV2
+        fixes : List Rule.FixV2
         fixes =
             case constructorInformation.rangeToRemove of
                 Just rangeToRemove ->
