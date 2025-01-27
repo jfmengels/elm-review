@@ -23,12 +23,12 @@ module Review.Rule exposing
     , ReadmeKey, errorForReadme, errorForReadmeWithFix
     , ExtraFileKey, errorForExtraFile, errorForExtraFileWithFix
     , globalError, configurationError
+    , FixV2, withFixesV2, editModule, removeModule, editElmJson, editReadme, editExtraFile, removeExtraFile
     , ignoreErrorsForDirectories, ignoreErrorsForFiles, filterErrorsForFiles
     , withDataExtractor, preventExtract
     , reviewV3, reviewV2, review, ProjectData, ruleName, ruleProvidesFixes, ruleKnowsAboutIgnoredFiles, ruleRequestedFiles, withRuleId, getConfigurationError
     , ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFilePath, errorTarget, errorFixesV2, errorFixFailureV2
     , Required, Forbidden
-    , FixV2, withFixesV2, editModule, removeModule, editElmJson, editReadme, editExtraFile, removeExtraFile
     , errorFixes, errorFixFailure
     , Metadata, withMetadata, moduleNameFromMetadata, moduleNameNodeFromMetadata, isInSourceDirectories
     )
@@ -252,6 +252,24 @@ first, as they are in practice a simpler version of project rules.
 @docs globalError, configurationError
 
 
+## Multi-file automatic fixes
+
+If you wish to provide automatic fixes for the file the error was reported for, you can use the previously listed functions
+([`errorWithFix`](#errorWithFix), [`errorForModuleWithFix`](#errorForModuleWithFix), [`errorForElmJsonWithFix`](#errorForElmJsonWithFix),
+[`errorForReadmeWithFix`](#errorForReadmeWithFix) and [`errorForExtraFile`](#errorForExtraFile)).
+
+If you wish to provide an automatic fix that spawns multiple files or removes files, then use the following functions.
+
+I highly recommend reading at the guidelines in [`Review.Fix`](./Review-Fix) to understand how to provide good fixes.
+
+**NOTE**: The type names are a bit confusing, and will be improved in the next major version.
+The [`Review.Fix.Fix`](./Review-Fix#Fix) type will likely be renamed to `Edit` as it represents edits inside of a specific file,
+and [`FixV2`](#FixV2) will likely be renamed to `Fix` and moved to another module.
+In the meantime, some functions still refer to edits as "fixes", sorry about the confusion!
+
+@docs FixV2, withFixesV2, editModule, removeModule, editElmJson, editReadme, editExtraFile, removeExtraFile
+
+
 ## Configuring exceptions
 
 There are situations where you don't want review rules to report errors:
@@ -297,10 +315,6 @@ find the tools to extract data below.
 # Internals
 
 @docs Required, Forbidden
-
--- TODO MULTIFILE-FIXES Update documentation
-
-@docs FixV2, withFixesV2, editModule, removeModule, editElmJson, editReadme, editExtraFile, removeExtraFile
 
 
 # Deprecated
@@ -4351,13 +4365,34 @@ withFixes fixes error_ =
         error_
 
 
-{-| TODO MULTIFILE-FIXES Update documentation
+{-| Represents (part of a) fix that will be edit files and/or remove modules.
 -}
 type alias FixV2 =
     ErrorFixes.FixV2
 
 
-{-| TODO MULTIFILE-FIXES Update documentation
+{-| Provide automatic fixes for an error that the user can apply.
+
+To be used along with functions listed below, such as [`editModule`](#editModule).
+
+    import Review.Fix as Fix
+
+    error : Rule.ModuleKey -> Node a -> Error {}
+    error moduleKey node =
+        Rule.error
+            { message = "Remove the use of `Debug` before shipping to production"
+            , details = [ "The `Debug` module is useful when developing, but is not meant to be shipped to production or published in a package. I suggest removing its use before committing and attempting to push to production." ]
+            }
+            (Node.range node)
+            [ Fix.editModule
+                moduleKey
+                [ Fix.removeRange (Node.range node) ]
+            ]
+
+Take a look at [`Review.Fix`](./Review-Fix) to know more on how to makes fixes.
+
+If the list of fixes is empty, then the error will be considered as not providing a fix.
+
 -}
 withFixesV2 : List FixV2 -> Error scope -> Error scope
 withFixesV2 providedFixes error_ =
@@ -4374,42 +4409,70 @@ withFixesV2 providedFixes error_ =
         error_
 
 
-{-| TODO MULTIFILE-FIXES Update documentation
+{-| Provide an automatic fix for a specific Elm module, by using edit functions from [`Review.Fix`](./Review-Fix) module.
+
+You will need a [`ModuleKey`](#ModuleKey), which you can get from the `fromProjectToModule` and `fromModuleToProject`
+functions that you define when using [`newProjectRuleSchema`](#newProjectRuleSchema).
+
 -}
 editModule : ModuleKey -> List Fix -> FixV2
 editModule (ModuleKey path) fixes =
     ErrorFixes.FixV2 (FileTarget.Module path) (ErrorFixes.Edit fixes)
 
 
-{-| TODO MULTIFILE-FIXES Update documentation
+{-| Provide an automatic fix that removes an Elm module.
+
+When using the CLI, this will only be enabled when running with the `--allow-remove-files` flag. When the flag is absent,
+then the entire fix will be ignored.
+
+You will need a [`ModuleKey`](#ModuleKey), which you can get from the `fromProjectToModule` and `fromModuleToProject`
+functions that you define when using [`newProjectRuleSchema`](#newProjectRuleSchema).
+
 -}
 removeModule : ModuleKey -> FixV2
 removeModule (ModuleKey path) =
     ErrorFixes.FixV2 (FileTarget.Module path) ErrorFixes.Remove
 
 
-{-| TODO MULTIFILE-FIXES Update documentation
+{-| Provide an automatic fix for a specific extra file, by using edit functions from [`Review.Fix`](./Review-Fix) module.
+
+You will need a [`ExtraFileKey`](#ExtraFileKey), which you can get from the [`withExtraFilesProjectVisitor`](#withExtraFilesProjectVisitor).
+
 -}
 editExtraFile : ExtraFileKey -> List Fix -> FixV2
 editExtraFile (ExtraFileKey { path }) fixes =
     ErrorFixes.FixV2 (FileTarget.ExtraFile path) (ErrorFixes.Edit fixes)
 
 
-{-| TODO MULTIFILE-FIXES Update documentation
+{-| Provide an automatic fix that removes an extra file.
+
+You will need a [`ExtraFileKey`](#ExtraFileKey), which you can get from the [`withExtraFilesProjectVisitor`](#withExtraFilesProjectVisitor).
+
+When using the CLI, this will only be enabled when running with the `--allow-remove-files` flag. When the flag is absent,
+then the entire fix will be ignored.
+
 -}
 removeExtraFile : ExtraFileKey -> FixV2
 removeExtraFile (ExtraFileKey { path }) =
     ErrorFixes.FixV2 (FileTarget.ExtraFile path) ErrorFixes.Remove
 
 
-{-| TODO MULTIFILE-FIXES Update documentation
+{-| Provide an automatic fix for the `README.md` file, by using edit functions from [`Review.Fix`](./Review-Fix) module.
+
+You will need an [`ReadmeKey`](#ReadmeKey), which you can get from the [`withReadmeProjectVisitor`](#withReadmeProjectVisitor)
+function.
+
 -}
 editReadme : ReadmeKey -> List Fix -> FixV2
 editReadme (ReadmeKey _) fixes =
     ErrorFixes.FixV2 FileTarget.Readme (ErrorFixes.Edit fixes)
 
 
-{-| TODO MULTIFILE-FIXES Update documentation
+{-| Provide an automatic fix for the `elm.json` file.
+
+You will need an [`ElmJsonKey`](#ElmJsonKey), which you can get from the [`withElmJsonProjectVisitor`](#withElmJsonProjectVisitor)
+function.
+
 -}
 editElmJson :
     ElmJsonKey
