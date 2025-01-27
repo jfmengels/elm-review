@@ -1447,28 +1447,72 @@ shouldFixFiles expectedFixes (ExpectedError expectedError) =
         }
 
 
-{-| TODO MULTIFILE-FIXES Update documentation
+{-| Expectation that a file has been altered by an automatic fix.
+
+To be provided to [`shouldFixFilesWithIO`](#shouldFixFilesWithIO).
+
 -}
 type ExpectedFix
     = ExpectEdited String
     | ExpectRemoved
 
 
-{-| TODO MULTIFILE-FIXES Update documentation
+{-| Same as [`shouldFixFiles`](#shouldFixFiles) but allows specifying that files were deleted.
+
+The first element in the tuples is the file to be fixed, which can be either the module name or the file path.
+The second element in the tuples is the expected fix, which can be defined using either [`Review.Test.edited`](#edited)
+or [`Review.Test.removed`](#removed).
+
+    tests : Test
+    tests =
+        test "should remove unused modules" <|
+            \() ->
+                [ """module A exposing (main)
+    import B
+    a = 1
+    """
+                , """module B exposing (Msg(..))
+    type Msg = Unused | Used
+    """
+                ]
+                    |> Review.Test.runOnModules rule
+                    |> Review.Test.expectErrorsForModules
+                        [ ( "A"
+                          , [ Review.Test.error
+                                { message = "Remove unused module B"
+                                , details = [ "Details about the error" ]
+                                , under = "Debug.log"
+                                }
+                                |> Review.Test.shouldFixFilesWithIO
+                                    [ ( "A", Review.Test.edited """module A exposing (main)
+    a = 1
+    """ )
+                                    , ( "src/B.elm", Review.Test.removed )
+                                    ]
+                            ]
+                          )
+                        ]
+
 -}
 shouldFixFilesWithIO : List ( String, ExpectedFix ) -> ExpectedError -> ExpectedError
 shouldFixFilesWithIO expectedFixes (ExpectedError expectedError) =
     ExpectedError { expectedError | expectedFixes = ComesFromShouldFixFiles (Dict.fromList expectedFixes) }
 
 
-{-| TODO MULTIFILE-FIXES Update documentation
+{-| Expect that a file has been edited and results in the given string.
+
+To be used along [`shouldFixFilesWithIO`](#shouldFixFilesWithIO).
+
 -}
 edited : String -> ExpectedFix
 edited =
     ExpectEdited
 
 
-{-| TODO MULTIFILE-FIXES Update documentation
+{-| Expect that a file has been removed.
+
+To be used along [`shouldFixFilesWithIO`](#shouldFixFilesWithIO).
+
 -}
 removed : ExpectedFix
 removed =
