@@ -23,10 +23,10 @@ module Review.Rule exposing
     , ReadmeKey, errorForReadme, errorForReadmeWithFix
     , ExtraFileKey, errorForExtraFile, errorForExtraFileWithFix
     , globalError, configurationError
-    , ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFilePath, errorTarget, errorFixesV2, errorFixFailureV2
     , ignoreErrorsForDirectories, ignoreErrorsForFiles, filterErrorsForFiles
     , withDataExtractor, preventExtract
     , reviewV3, reviewV2, review, ProjectData, ruleName, ruleProvidesFixes, ruleKnowsAboutIgnoredFiles, ruleRequestedFiles, withRuleId, getConfigurationError
+    , ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFilePath, errorTarget, errorFixesV2, errorFixFailureV2
     , Required, Forbidden
     , FixesV2, withFixesV2, editModule, removeModule, editElmJson, editReadme, editExtraFile, removeExtraFile
     , errorFixes, errorFixFailure
@@ -250,7 +250,6 @@ first, as they are in practice a simpler version of project rules.
 @docs ReadmeKey, errorForReadme, errorForReadmeWithFix
 @docs ExtraFileKey, errorForExtraFile, errorForExtraFileWithFix
 @docs globalError, configurationError
-@docs ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFilePath, errorTarget, errorFixesV2, errorFixFailureV2
 
 
 ## Configuring exceptions
@@ -291,6 +290,8 @@ find the tools to extract data below.
 # Running rules
 
 @docs reviewV3, reviewV2, review, ProjectData, ruleName, ruleProvidesFixes, ruleKnowsAboutIgnoredFiles, ruleRequestedFiles, withRuleId, getConfigurationError
+
+@docs ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFilePath, errorTarget, errorFixesV2, errorFixFailureV2
 
 
 # Internals
