@@ -515,13 +515,8 @@ removeModule path (ValidProject project) =
                 Err FixProblem.Unchanged
 
             Ok sortedModules ->
-                if List.isEmpty sortedModules then
-                    -- TODO MULTIFILE-FIXES Improve handling of removing the last module?
-                    Err FixProblem.Unchanged
-
-                else
-                    ValidProject { project | modulesByPath = modulesByPath, moduleGraph = graph, sortedModules = sortedModules }
-                        |> Ok
+                ValidProject { project | modulesByPath = modulesByPath, moduleGraph = graph, sortedModules = sortedModules }
+                    |> Ok
 
     else
         -- File should always exist.
