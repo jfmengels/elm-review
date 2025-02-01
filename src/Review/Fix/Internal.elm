@@ -147,21 +147,21 @@ containRangeCollisions : List Fix -> Bool
 containRangeCollisions fixes =
     fixes
         |> List.map getFixRange
-        |> anyCombination collide
+        |> anyCombinationCollides
 
 
-anyCombination : (a -> a -> Bool) -> List a -> Bool
-anyCombination predicate xs =
+anyCombinationCollides : List Range -> Bool
+anyCombinationCollides xs =
     case xs of
         [] ->
             False
 
         x :: xs_ ->
-            if List.any (\y -> predicate x y) xs_ then
+            if List.any (\y -> collide x y) xs_ then
                 True
 
             else
-                anyCombination predicate xs_
+                anyCombinationCollides xs_
 
 
 getFixRange : Fix -> Range
