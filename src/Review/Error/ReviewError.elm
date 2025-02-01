@@ -30,7 +30,32 @@ fromBaseError internalError =
     , target = internalError.target
     , preventsExtract = internalError.preventsExtract
     }
+        |> condenseFixes
         |> ReviewError
+
+
+condenseFixes : InternalError -> InternalError
+condenseFixes internalError =
+    case internalError.fixProblem of
+        Just _ ->
+            internalError
+
+        Nothing ->
+            if ErrorFixes.isEmpty internalError.fixes then
+                internalError
+
+            else
+                case optimizeFixes internalError.fixes of
+                    Ok fixes ->
+                        { internalError | fixes = fixes }
+
+                    Err fixProblem ->
+                        { internalError | fixProblem = Just fixProblem }
+
+
+optimizeFixes : ErrorFixes -> Result FixProblem ErrorFixes
+optimizeFixes errorFixes =
+    Ok errorFixes
 
 
 type alias InternalError =
