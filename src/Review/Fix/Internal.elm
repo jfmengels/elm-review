@@ -77,21 +77,21 @@ applyIndividualEdits lines edits =
             lines
 
         edit :: restOfEdits ->
-            case edit of
-                Replacement range replacement ->
-                    applyIndividualEdits
-                        (applyReplace range replacement lines)
-                        restOfEdits
+            let
+                ( rangeToReplace, replacement ) =
+                    case edit of
+                        Replacement range replacement_ ->
+                            ( range, replacement_ )
 
-                Removal range ->
-                    applyIndividualEdits
-                        (applyReplace range "" lines)
-                        restOfEdits
+                        Removal range ->
+                            ( range, "" )
 
-                InsertAt position insertion ->
-                    applyIndividualEdits
-                        (applyReplace { start = position, end = position } insertion lines)
-                        restOfEdits
+                        InsertAt position insertion ->
+                            ( { start = position, end = position }, insertion )
+            in
+            applyIndividualEdits
+                (applyReplace rangeToReplace replacement lines)
+                restOfEdits
 
 
 {-| Apply the changes on the elm.json file.
