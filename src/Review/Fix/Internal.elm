@@ -88,10 +88,12 @@ applyIndividualEdits lines edits =
 
                         InsertAt position insertion ->
                             ( { start = position, end = position }, insertion )
+
+                ( newLines, newLinesAfter ) =
+                    applyReplace rangeToReplace replacement lines
             in
-            applyIndividualEdits
-                (applyReplace rangeToReplace replacement lines)
-                restOfEdits
+            applyIndividualEdits newLines restOfEdits
+                ++ newLinesAfter
 
 
 {-| Apply the changes on the elm.json file.
@@ -111,7 +113,7 @@ editElmJson fixes originalSourceCode =
             Err err
 
 
-applyReplace : Range -> String -> List String -> List String
+applyReplace : Range -> String -> List String -> ( List String, List String )
 applyReplace range replacement lines =
     let
         linesBefore : List String
@@ -132,11 +134,12 @@ applyReplace range replacement lines =
             getRowAtLine lines (range.end.row - 1)
                 |> Unicode.dropLeft (range.end.column - 1)
     in
-    List.concat
+    ( List.concat
         [ linesBefore
         , startLine ++ replacement ++ endLine |> String.lines
-        , linesAfter
         ]
+    , linesAfter
+    )
 
 
 getRowAtLine : List String -> Int -> String
