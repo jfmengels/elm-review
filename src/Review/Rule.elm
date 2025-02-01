@@ -4543,19 +4543,19 @@ An error can provide fixes for multiple files. For each file, the fix consists o
 either a `Just` list of edits (named `Fix` until the next breaking change) or of `Nothing` for a file removal.
 
 -}
-errorFixesV2 : Review.Error.ReviewError.ReviewError -> Maybe (Dict String (Maybe (List Fix)))
+errorFixesV2 : Review.Error.ReviewError.ReviewError -> Result FixProblem (Maybe (Dict String (Maybe (List Fix))))
 errorFixesV2 (Review.Error.ReviewError.ReviewError err) =
     -- The type for this function would be better described through a custom type.
     -- It is however purposefully low-level in order to keep it possible to introduce
     -- new fix kinds (most likely file creations) without a breaking change
     -- (but through a new `errorFixesV3` function).
     case err.fixProblem of
-        Just _ ->
-            Nothing
+        Just fixProblem ->
+            Err fixProblem
 
         Nothing ->
             if ErrorFixes.isEmpty err.fixes then
-                Nothing
+                Ok Nothing
 
             else
                 ErrorFixes.toList err.fixes
@@ -4574,6 +4574,7 @@ errorFixesV2 (Review.Error.ReviewError.ReviewError err) =
                         )
                         Dict.empty
                     |> Just
+                    |> Ok
 
 
 {-| Get the automatic [`fixes`](./Review-Fix#Fix) of an [`Error`](#Error), if it
