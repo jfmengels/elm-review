@@ -348,8 +348,8 @@ import Review.Cache.Module as ModuleCache
 import Review.Cache.ProjectFile as ProjectFileCache
 import Review.ElmProjectEncoder
 import Review.Error.FileTarget as FileTarget exposing (FileTarget)
-import Review.Error.Fixes as ErrorFixes exposing (FixKind)
-import Review.Error.ReviewError exposing (InternalError)
+import Review.Error.Fixes as ErrorFixes exposing (ErrorFixes, FixKind)
+import Review.Error.ReviewError
 import Review.Error.Target as Target exposing (Target)
 import Review.Exceptions as Exceptions exposing (Exceptions)
 import Review.FilePath exposing (FilePath)
@@ -3867,7 +3867,20 @@ combineExitVisitors2 newVisitor maybePreviousVisitor =
 {-| Represents an error found by a [`Rule`](#Rule). These are created by the rules.
 -}
 type Error scope
-    = Error InternalError
+    = Error BaseError
+
+
+type alias BaseError =
+    { message : String
+    , ruleName : String
+    , filePath : String
+    , details : List String
+    , range : Range
+    , fixes : ErrorFixes
+    , fixProblem : Maybe FixProblem
+    , target : Target.Target
+    , preventsExtract : Bool
+    }
 
 
 {-| Make this error prevent extracting data using [`withDataExtractor`](#withDataExtractor).
@@ -4661,7 +4674,7 @@ errorTarget (Review.Error.ReviewError.ReviewError err) =
     err.target
 
 
-mapInternalError : (InternalError -> InternalError) -> Error scope -> Error scope
+mapInternalError : (BaseError -> BaseError) -> Error scope -> Error scope
 mapInternalError fn (Error err) =
     Error (fn err)
 
@@ -4942,7 +4955,7 @@ qualifyErrors params errors acc =
 qualifyError : { ruleName : String, exceptions : Exceptions, filePath : String } -> Error {} -> List (Error {}) -> List (Error {})
 qualifyError params (Error err) acc =
     let
-        newError : InternalError
+        newError : BaseError
         newError =
             if err.filePath == "" then
                 { err
