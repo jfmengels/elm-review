@@ -27,7 +27,7 @@ a = Debug.log "foo" 1
                             }
                         ]
                 in
-                FixInternal.fix fixes source
+                FixInternal.applyEdits fixes source
                     |> Expect.equal (Ok """module A exposing (a)
 a =  1
 """)
@@ -49,7 +49,7 @@ some_var = 1
                             "someVar"
                         ]
                 in
-                FixInternal.fix fixes source
+                FixInternal.applyEdits fixes source
                     |> Expect.equal (Ok """module A exposing (a)
 someVar = 1
 """)
@@ -69,7 +69,7 @@ a = 1
                             """Debug.log "foo" """
                         ]
                 in
-                FixInternal.fix fixes source
+                FixInternal.applyEdits fixes source
                     |> Expect.equal (Ok """module A exposing (a)
 a = Debug.log "foo" 1
 """)
@@ -96,12 +96,12 @@ a = 1
                 in
                 Expect.all
                     [ \() ->
-                        FixInternal.fix fixes source
+                        FixInternal.applyEdits fixes source
                             |> Expect.equal (Ok """module A exposing (a)
 someVar = Debug.log "foo" 1
 """)
                     , \() ->
-                        FixInternal.fix (List.reverse fixes) source
+                        FixInternal.applyEdits (List.reverse fixes) source
                             |> Expect.equal (Ok """module A exposing (a)
 someVar = Debug.log "foo" 1
 """)
@@ -127,7 +127,7 @@ a = 1
                             }
                         ]
                 in
-                FixInternal.fix fixes source
+                FixInternal.applyEdits fixes source
                     |> Expect.equal (Ok """module A exposing (someCode)
 someCode = 2
 
@@ -151,7 +151,7 @@ some_var = 1
                             "someVar =\n  1"
                         ]
                 in
-                FixInternal.fix fixes source
+                FixInternal.applyEdits fixes source
                     |> Expect.equal (Ok """module A exposing (a)
 someVar =
   1
@@ -175,7 +175,7 @@ some_var =
                             "someVar = 1"
                         ]
                 in
-                FixInternal.fix fixes source
+                FixInternal.applyEdits fixes source
                     |> Expect.equal (Ok """module A exposing (a)
 someVar = 1
 """)
@@ -198,7 +198,7 @@ some_var =
                             "foo =\n  2"
                         ]
                 in
-                FixInternal.fix fixes source
+                FixInternal.applyEdits fixes source
                     |> Expect.equal (Ok """module A exposing (a)
 foo =
   2
@@ -222,7 +222,7 @@ a = 1
                             "b =\n  2\n"
                         ]
                 in
-                FixInternal.fix fixes source
+                FixInternal.applyEdits fixes source
                     |> Expect.equal (Ok """module A exposing (someCode)
 someCode = 2
 
@@ -247,7 +247,7 @@ a = 1
                     fixes =
                         [ Fix.insertAt { row = 4, column = 1 } "" ]
                 in
-                FixInternal.fix fixes source
+                FixInternal.applyEdits fixes source
                     |> Expect.equal (Err Unchanged)
         , test "should fail if the fixes' range overlap" <|
             \() ->
@@ -266,10 +266,10 @@ someCode = 2
                 in
                 Expect.all
                     [ \() ->
-                        FixInternal.fix fixes source
+                        FixInternal.applyEdits fixes source
                             |> Expect.equal (Err HasCollisionsInFixRanges)
                     , \() ->
-                        FixInternal.fix (List.reverse fixes) source
+                        FixInternal.applyEdits (List.reverse fixes) source
                             |> Expect.equal (Err HasCollisionsInFixRanges)
                     ]
                     ()
@@ -290,10 +290,10 @@ someCode = 2
                 in
                 Expect.all
                     [ \() ->
-                        FixInternal.fix fixes source
+                        FixInternal.applyEdits fixes source
                             |> Expect.equal (Err HasCollisionsInFixRanges)
                     , \() ->
-                        FixInternal.fix (List.reverse fixes) source
+                        FixInternal.applyEdits (List.reverse fixes) source
                             |> Expect.equal (Err HasCollisionsInFixRanges)
                     ]
                     ()

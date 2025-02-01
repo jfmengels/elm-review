@@ -6178,7 +6178,7 @@ fixTriesToDeleteFiles list =
         list
 
 
-applySingleModuleFix : ValidProject -> Maybe (Zipper (Graph.NodeContext FilePath ())) -> Error {} -> String -> List InternalFix.Fix -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
+applySingleModuleFix : ValidProject -> Maybe (Zipper (Graph.NodeContext FilePath ())) -> Error {} -> String -> List InternalFix.Edit -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
 applySingleModuleFix project maybeModuleZipper ((Error headError) as err) targetPath fixes =
     case ValidProject.getModuleByPath targetPath project of
         Nothing ->
@@ -6186,7 +6186,7 @@ applySingleModuleFix project maybeModuleZipper ((Error headError) as err) target
 
         Just file ->
             case
-                InternalFix.fixModule fixes (ProjectModule.source file)
+                InternalFix.editModule fixes (ProjectModule.source file)
                     |> Result.andThen
                         (\fixResult ->
                             ValidProject.addParsedModule { path = targetPath, source = fixResult.source, ast = fixResult.ast } maybeModuleZipper project
@@ -6205,7 +6205,7 @@ applySingleModuleFix project maybeModuleZipper ((Error headError) as err) target
                     Ok fixResult
 
 
-applyElmJsonFix : ValidProject -> Error {} -> List InternalFix.Fix -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
+applyElmJsonFix : ValidProject -> Error {} -> List InternalFix.Edit -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
 applyElmJsonFix project ((Error headError) as err) fixes =
     case ValidProject.elmJson project of
         Nothing ->
@@ -6213,7 +6213,7 @@ applyElmJsonFix project ((Error headError) as err) fixes =
 
         Just elmJson ->
             case
-                InternalFix.fixElmJson fixes elmJson.raw
+                InternalFix.editElmJson fixes elmJson.raw
                     |> Result.map
                         (\fixResult ->
                             ValidProject.addElmJson { path = elmJson.path, raw = fixResult.raw, project = fixResult.project } project
@@ -6229,14 +6229,14 @@ applyElmJsonFix project ((Error headError) as err) fixes =
                         }
 
 
-applyReadmeFix : ValidProject -> Error {} -> List InternalFix.Fix -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
+applyReadmeFix : ValidProject -> Error {} -> List InternalFix.Edit -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
 applyReadmeFix project ((Error headError) as err) fixes =
     case ValidProject.readme project of
         Nothing ->
             Err err
 
         Just readme ->
-            case InternalFix.fix fixes readme.content of
+            case InternalFix.applyEdits fixes readme.content of
                 Err fixProblem ->
                     Err (Error (Review.Error.ReviewError.markFixesAsProblem fixProblem headError))
 
@@ -6247,14 +6247,14 @@ applyReadmeFix project ((Error headError) as err) fixes =
                         }
 
 
-applyExtraFileFix : ValidProject -> Error {} -> String -> List InternalFix.Fix -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
+applyExtraFileFix : ValidProject -> Error {} -> String -> List InternalFix.Edit -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
 applyExtraFileFix project ((Error headError) as err) targetPath fixes =
     case Dict.get targetPath (ValidProject.extraFilesWithoutKeys project) of
         Nothing ->
             Err err
 
         Just content ->
-            case InternalFix.fix fixes content of
+            case InternalFix.applyEdits fixes content of
                 Err fixProblem ->
                     Err (Error (Review.Error.ReviewError.markFixesAsProblem fixProblem headError))
 

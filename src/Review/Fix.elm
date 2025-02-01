@@ -144,7 +144,7 @@ import Review.Fix.Internal as Internal
 automatically fix a review error.
 -}
 type alias Fix =
-    Internal.Fix
+    Internal.Edit
 
 
 

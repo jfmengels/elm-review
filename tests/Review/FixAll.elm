@@ -14,7 +14,7 @@ import Review.Error.FileTarget as FileTarget
 import Review.Error.Fixes as ErrorFixes exposing (ErrorFixes)
 import Review.Error.ReviewError exposing (ReviewError(..))
 import Review.Error.Target as Target
-import Review.Fix.Internal exposing (Fix(..))
+import Review.Fix.Internal exposing (Edit(..))
 import Review.Options
 import Review.Project as Project exposing (Project)
 import Review.Rule as Rule exposing (Rule)
@@ -390,17 +390,17 @@ a = 1
         ]
 
 
-fixForFile : Fix -> ErrorFixes
+fixForFile : Edit -> ErrorFixes
 fixForFile fix =
     ErrorFixes.edit (FileTarget.Module "A.elm") [ fix ]
 
 
-fixForElmJson : Fix -> ErrorFixes
+fixForElmJson : Edit -> ErrorFixes
 fixForElmJson fix =
     ErrorFixes.edit FileTarget.ElmJson [ fix ]
 
 
-fixForReadme : Fix -> ErrorFixes
+fixForReadme : Edit -> ErrorFixes
 fixForReadme fix =
     ErrorFixes.edit FileTarget.Readme [ fix ]
 

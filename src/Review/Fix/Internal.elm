@@ -1,4 +1,4 @@
-module Review.Fix.Internal exposing (Fix(..), fix, fixElmJson, fixModule)
+module Review.Fix.Internal exposing (Edit(..), applyEdits, editElmJson, editModule)
 
 import Array
 import Elm.Project
@@ -13,7 +13,7 @@ import Unicode
 {-| Represents (part of a) fix that will be applied to a file's source code in order to
 automatically fix a review error.
 -}
-type Fix
+type Edit
     = Removal Range
     | Replacement Range String
     | InsertAt { row : Int, column : Int } String
@@ -23,9 +23,9 @@ type Fix
 -- APPLY FIX
 
 
-applyFix : Fix -> List String -> List String
-applyFix fix_ lines =
-    case fix_ of
+applyEdit : Edit -> List String -> List String
+applyEdit edit lines =
+    case edit of
         Replacement range replacement ->
             applyReplace range replacement lines
 
@@ -79,37 +79,37 @@ getRowAtLine lines rowIndex =
 
 
 
--- FIX ELM MODULE
+-- EDIT ELM MODULE
 
 
-{-| Apply the changes on the source code.
+{-| Apply the edits on the source code.
 -}
-fix : List Fix -> String -> Result FixProblem String
-fix fixes sourceCode =
+applyEdits : List Edit -> String -> Result FixProblem String
+applyEdits fixes sourceCode =
     if containRangeCollisions fixes then
         Err FixProblem.HasCollisionsInFixRanges
 
     else
         let
-            resultAfterFix : String
-            resultAfterFix =
+            resultAfterEdit : String
+            resultAfterEdit =
                 fixes
                     |> List.sortBy (rangePosition >> negate)
-                    |> List.foldl applyFix (String.lines sourceCode)
+                    |> List.foldl applyEdit (String.lines sourceCode)
                     |> String.join "\n"
         in
-        if sourceCode == resultAfterFix then
+        if sourceCode == resultAfterEdit then
             Err FixProblem.Unchanged
 
         else
-            Ok resultAfterFix
+            Ok resultAfterEdit
 
 
 {-| Apply the changes on the source code.
 -}
-fixModule : List Fix -> String -> Result FixProblem.FixProblem { source : String, ast : File }
-fixModule fixes originalSourceCode =
-    case fix fixes originalSourceCode of
+editModule : List Edit -> String -> Result FixProblem.FixProblem { source : String, ast : File }
+editModule fixes originalSourceCode =
+    case applyEdits fixes originalSourceCode of
         Ok fixedSourceCode ->
             case FileParser.parse fixedSourceCode of
                 Ok ast ->
@@ -124,9 +124,9 @@ fixModule fixes originalSourceCode =
 
 {-| Apply the changes on the elm.json file.
 -}
-fixElmJson : List Fix -> String -> Result FixProblem.FixProblem { raw : String, project : Elm.Project.Project }
-fixElmJson fixes originalSourceCode =
-    case fix fixes originalSourceCode of
+editElmJson : List Edit -> String -> Result FixProblem.FixProblem { raw : String, project : Elm.Project.Project }
+editElmJson fixes originalSourceCode =
+    case applyEdits fixes originalSourceCode of
         Ok resultAfterFix ->
             case Decode.decodeString Elm.Project.decoder resultAfterFix of
                 Ok project ->
@@ -143,30 +143,30 @@ fixElmJson fixes originalSourceCode =
 -- CONTAINS RANGE COLLISIONS
 
 
-containRangeCollisions : List Fix -> Bool
+containRangeCollisions : List Edit -> Bool
 containRangeCollisions fixes =
     fixes
-        |> List.sortWith (\a b -> compareRanges (getFixRange a) (getFixRange b))
+        |> List.sortWith (\a b -> compareRanges (getEditRange a) (getEditRange b))
         |> anyCombinationCollides
 
 
-anyCombinationCollides : List Fix -> Bool
+anyCombinationCollides : List Edit -> Bool
 anyCombinationCollides xs =
     case xs of
         [] ->
             False
 
         x :: xs_ ->
-            if List.any (\y -> collide (getFixRange x) (getFixRange y)) xs_ then
+            if List.any (\y -> collide (getEditRange x) (getEditRange y)) xs_ then
                 True
 
             else
                 anyCombinationCollides xs_
 
 
-getFixRange : Fix -> Range
-getFixRange fix_ =
-    case fix_ of
+getEditRange : Edit -> Range
+getEditRange edit =
+    case edit of
         Replacement range _ ->
             range
 
@@ -222,10 +222,10 @@ comparePosition a b =
 -- RANGE POSITION
 
 
-rangePosition : Fix -> Int
-rangePosition fix_ =
+rangePosition : Edit -> Int
+rangePosition edit =
     positionAsInt <|
-        case fix_ of
+        case edit of
             Replacement range _ ->
                 range.start
 
