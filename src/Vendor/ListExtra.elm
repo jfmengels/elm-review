@@ -1,7 +1,6 @@
 module Vendor.ListExtra exposing
     ( find, last
     , orderIndependentMapAppend, orderIndependentConcatMapAppend
-    , anyCombination
     , foldlSwitched
     )
 
@@ -83,19 +82,3 @@ orderIndependentMapAppend fn left right =
 orderIndependentConcatMapAppend : (a -> List b) -> List a -> List b -> List b
 orderIndependentConcatMapAppend fn left right =
     List.foldl (\item acc -> List.append (fn item) acc) right left
-
-
-{-| Similar to List.any, but on any combination pair of the list.
--}
-anyCombination : (a -> a -> Bool) -> List a -> Bool
-anyCombination predicate xs =
-    case xs of
-        [] ->
-            False
-
-        x :: xs_ ->
-            if List.any (\y -> predicate x y) xs_ then
-                True
-
-            else
-                anyCombination predicate xs_

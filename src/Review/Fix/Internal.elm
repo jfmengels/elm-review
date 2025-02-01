@@ -8,7 +8,6 @@ import Json.Decode as Decode
 import Review.FileParser as FileParser
 import Review.Fix.FixProblem as FixProblem exposing (FixProblem)
 import Unicode
-import Vendor.ListExtra as ListExtra
 
 
 {-| Represents (part of a) fix that will be applied to a file's source code in order to
@@ -148,7 +147,21 @@ containRangeCollisions : List Fix -> Bool
 containRangeCollisions fixes =
     fixes
         |> List.map getFixRange
-        |> ListExtra.anyCombination collide
+        |> anyCombination collide
+
+
+anyCombination : (a -> a -> Bool) -> List a -> Bool
+anyCombination predicate xs =
+    case xs of
+        [] ->
+            False
+
+        x :: xs_ ->
+            if List.any (\y -> predicate x y) xs_ then
+                True
+
+            else
+                anyCombination predicate xs_
 
 
 getFixRange : Fix -> Range
