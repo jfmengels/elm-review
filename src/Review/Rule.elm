@@ -6236,7 +6236,7 @@ applyReadmeFix project ((Error headError) as err) fixes =
             Err err
 
         Just readme ->
-            case InternalFix.fixReadme fixes readme.content of
+            case InternalFix.fix fixes readme.content of
                 Err fixProblem ->
                     Err (Error (Review.Error.ReviewError.markFixesAsProblem fixProblem headError))
 
@@ -6254,7 +6254,7 @@ applyExtraFileFix project ((Error headError) as err) targetPath fixes =
             Err err
 
         Just content ->
-            case InternalFix.fixExtraFile fixes content of
+            case InternalFix.fix fixes content of
                 Err fixProblem ->
                     Err (Error (Review.Error.ReviewError.markFixesAsProblem fixProblem headError))
 

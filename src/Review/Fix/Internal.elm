@@ -1,4 +1,4 @@
-module Review.Fix.Internal exposing (Fix(..), fix, fixElmJson, fixExtraFile, fixModule, fixReadme)
+module Review.Fix.Internal exposing (Fix(..), fix, fixElmJson, fixModule)
 
 import Array
 import Elm.Project
@@ -110,7 +110,7 @@ fix fixes sourceCode =
 -}
 fixModule : List Fix -> String -> Result FixProblem.FixProblem { source : String, ast : File }
 fixModule fixes originalSourceCode =
-    case tryToApplyFix fixes originalSourceCode of
+    case fix fixes originalSourceCode of
         Ok fixedSourceCode ->
             case FileParser.parse fixedSourceCode of
                 Ok ast ->
@@ -127,7 +127,7 @@ fixModule fixes originalSourceCode =
 -}
 fixElmJson : List Fix -> String -> Result FixProblem.FixProblem { raw : String, project : Elm.Project.Project }
 fixElmJson fixes originalSourceCode =
-    case tryToApplyFix fixes originalSourceCode of
+    case fix fixes originalSourceCode of
         Ok resultAfterFix ->
             case Decode.decodeString Elm.Project.decoder resultAfterFix of
                 Ok project ->
@@ -138,41 +138,6 @@ fixElmJson fixes originalSourceCode =
 
         Err err ->
             Err err
-
-
-{-| Apply the changes on the README.md file.
--}
-fixReadme : List Fix -> String -> Result FixProblem.FixProblem String
-fixReadme fixes originalSourceCode =
-    tryToApplyFix fixes originalSourceCode
-
-
-{-| Apply the changes on an extra file.
--}
-fixExtraFile : List Fix -> String -> Result FixProblem.FixProblem String
-fixExtraFile fixes originalSourceCode =
-    tryToApplyFix fixes originalSourceCode
-
-
-tryToApplyFix : List Fix -> String -> Result FixProblem.FixProblem String
-tryToApplyFix fixes sourceCode =
-    if containRangeCollisions fixes then
-        Err FixProblem.HasCollisionsInFixRanges
-
-    else
-        let
-            resultAfterFix : String
-            resultAfterFix =
-                fixes
-                    |> List.sortBy (rangePosition >> negate)
-                    |> List.foldl applyFix (String.lines sourceCode)
-                    |> String.join "\n"
-        in
-        if sourceCode == resultAfterFix then
-            Err FixProblem.Unchanged
-
-        else
-            Ok resultAfterFix
 
 
 
