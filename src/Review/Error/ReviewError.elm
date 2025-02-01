@@ -18,7 +18,18 @@ type ReviewError
     = ReviewError InternalError
 
 
-fromBaseError : InternalError -> ReviewError
+fromBaseError :
+    { message : String
+    , ruleName : String
+    , filePath : String
+    , details : List String
+    , range : Range
+    , fixes : ErrorFixes
+    , fixProblem : Maybe FixProblem
+    , target : Target.Target
+    , preventsExtract : Bool
+    }
+    -> ReviewError
 fromBaseError internalError =
     { message = internalError.message
     , ruleName = internalError.ruleName
