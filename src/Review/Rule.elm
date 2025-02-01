@@ -27,7 +27,7 @@ module Review.Rule exposing
     , ignoreErrorsForDirectories, ignoreErrorsForFiles, filterErrorsForFiles
     , withDataExtractor, preventExtract
     , reviewV3, reviewV2, review, ProjectData, ruleName, ruleProvidesFixes, ruleKnowsAboutIgnoredFiles, ruleRequestedFiles, withRuleId, getConfigurationError
-    , ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFilePath, errorTarget, errorFixesV2, errorFixFailureV2
+    , ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFilePath, errorTarget, errorFixesV2, errorFixProblem
     , Required, Forbidden
     , errorFixes, errorFixFailure
     , Metadata, withMetadata, moduleNameFromMetadata, moduleNameNodeFromMetadata, isInSourceDirectories
@@ -309,7 +309,7 @@ find the tools to extract data below.
 
 @docs reviewV3, reviewV2, review, ProjectData, ruleName, ruleProvidesFixes, ruleKnowsAboutIgnoredFiles, ruleRequestedFiles, withRuleId, getConfigurationError
 
-@docs ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFilePath, errorTarget, errorFixesV2, errorFixFailureV2
+@docs ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFilePath, errorTarget, errorFixesV2, errorFixProblem
 
 
 # Internals
@@ -319,7 +319,7 @@ find the tools to extract data below.
 
 # Deprecated
 
-These types and functions are deprecated and should not be used, as there are better alternatives.errorFixFailureV2
+These types and functions are deprecated and should not be used, as there are now better alternatives.
 
 @docs errorFixes, errorFixFailure
 @docs Metadata, withMetadata, moduleNameFromMetadata, moduleNameNodeFromMetadata, isInSourceDirectories
@@ -4612,8 +4612,8 @@ errorFixes (Review.Error.ReviewError.ReviewError err) =
 Note that if the review process was not run in fix mode previously, then this may return `Nothing`.
 
 -}
-errorFixFailureV2 : ReviewError -> Maybe FixProblem
-errorFixFailureV2 (Review.Error.ReviewError.ReviewError err) =
+errorFixProblem : ReviewError -> Maybe FixProblem
+errorFixProblem (Review.Error.ReviewError.ReviewError err) =
     err.fixProblem
 
 
@@ -4621,7 +4621,7 @@ errorFixFailureV2 (Review.Error.ReviewError.ReviewError err) =
 
 Note that if the review process was not run in fix mode previously, then this will return `Nothing`.
 
-**@deprecated**: Use [`errorFixFailure`](#errorFixFailure) which returns a different type that better
+**@deprecated**: Use [`errorFixProblem`](#errorFixProblem) which returns a different type that better
 describes fixing problems that have been checked for.
 
 -}
