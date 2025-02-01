@@ -3,6 +3,7 @@ module Review.Error.ReviewError exposing
     , ReviewError(..)
     , doesPreventExtract
     , error
+    , fromBaseError
     , markFixesAsProblem
     , preventExtract
     )
@@ -15,6 +16,21 @@ import Review.Fix.FixProblem exposing (FixProblem)
 
 type ReviewError
     = ReviewError InternalError
+
+
+fromBaseError : InternalError -> ReviewError
+fromBaseError internalError =
+    { message = internalError.message
+    , ruleName = internalError.ruleName
+    , filePath = internalError.filePath
+    , details = internalError.details
+    , range = internalError.range
+    , fixes = internalError.fixes
+    , fixProblem = internalError.fixProblem
+    , target = internalError.target
+    , preventsExtract = internalError.preventsExtract
+    }
+        |> ReviewError
 
 
 type alias InternalError =

@@ -4504,7 +4504,7 @@ editElmJson (ElmJsonKey elmJson) fixer =
 
 errorToReviewError : Error scope -> ReviewError
 errorToReviewError (Error err) =
-    Review.Error.ReviewError.ReviewError err
+    Review.Error.ReviewError.fromBaseError err
 
 
 {-| Get the name of the rule that triggered this [`Error`](#Error).
