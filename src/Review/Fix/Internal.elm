@@ -43,7 +43,7 @@ applyEdits fixes sourceCode =
             resultAfterEdit =
                 fixes
                     |> List.sortBy (rangePosition >> negate)
-                    |> List.foldl applyEdit (String.lines sourceCode)
+                    |> applyIndividualEdits (String.lines sourceCode)
                     |> String.join "\n"
         in
         if sourceCode == resultAfterEdit then
@@ -70,6 +70,30 @@ editModule fixes originalSourceCode =
             Err err
 
 
+applyIndividualEdits : List String -> List Edit -> List String
+applyIndividualEdits lines edits =
+    case edits of
+        [] ->
+            lines
+
+        edit :: restOfEdits ->
+            case edit of
+                Replacement range replacement ->
+                    applyIndividualEdits
+                        (applyReplace range replacement lines)
+                        restOfEdits
+
+                Removal range ->
+                    applyIndividualEdits
+                        (applyReplace range "" lines)
+                        restOfEdits
+
+                InsertAt position insertion ->
+                    applyIndividualEdits
+                        (applyReplace { start = position, end = position } insertion lines)
+                        restOfEdits
+
+
 {-| Apply the changes on the elm.json file.
 -}
 editElmJson : List Edit -> String -> Result FixProblem.FixProblem { raw : String, project : Elm.Project.Project }
@@ -85,23 +109,6 @@ editElmJson fixes originalSourceCode =
 
         Err err ->
             Err err
-
-
-
--- APPLY FIX
-
-
-applyEdit : Edit -> List String -> List String
-applyEdit edit lines =
-    case edit of
-        Replacement range replacement ->
-            applyReplace range replacement lines
-
-        Removal range ->
-            applyReplace range "" lines
-
-        InsertAt position insertion ->
-            applyReplace { start = position, end = position } insertion lines
 
 
 applyReplace : Range -> String -> List String -> List String
