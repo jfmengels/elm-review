@@ -4609,7 +4609,7 @@ errorFixes (Review.Error.ReviewError.ReviewError err) =
 
 {-| Get the reason why the fix for an error failed when its available automatic fix was attempted and deemed incorrect.
 
-Note that if the review process was not run in fix mode previously, then this will return `Nothing`.
+Note that if the review process was not run in fix mode previously, then this may return `Nothing`.
 
 -}
 errorFixFailureV2 : ReviewError -> Maybe FixProblem
