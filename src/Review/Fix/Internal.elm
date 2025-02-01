@@ -146,6 +146,7 @@ fixElmJson fixes originalSourceCode =
 containRangeCollisions : List Fix -> Bool
 containRangeCollisions fixes =
     fixes
+        |> List.sortWith (\a b -> compareRanges (getFixRange a) (getFixRange b))
         |> anyCombinationCollides
 
 
@@ -195,6 +196,16 @@ collide a b =
 
                 GT ->
                     True
+
+
+compareRanges : Range -> Range -> Order
+compareRanges a b =
+    case comparePosition a.end b.start of
+        EQ ->
+            comparePosition b.end a.start
+
+        order ->
+            order
 
 
 comparePosition : { row : Int, column : Int } -> { row : Int, column : Int } -> Order
