@@ -146,18 +146,17 @@ fixElmJson fixes originalSourceCode =
 containRangeCollisions : List Fix -> Bool
 containRangeCollisions fixes =
     fixes
-        |> List.map getFixRange
         |> anyCombinationCollides
 
 
-anyCombinationCollides : List Range -> Bool
+anyCombinationCollides : List Fix -> Bool
 anyCombinationCollides xs =
     case xs of
         [] ->
             False
 
         x :: xs_ ->
-            if List.any (\y -> collide x y) xs_ then
+            if List.any (\y -> collide (getFixRange x) (getFixRange y)) xs_ then
                 True
 
             else
