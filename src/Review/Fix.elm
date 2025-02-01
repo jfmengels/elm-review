@@ -161,8 +161,12 @@ removeRange =
 {-| Replace the code in between a range by some other code.
 -}
 replaceRangeBy : Range -> String -> Fix
-replaceRangeBy =
-    Internal.Replacement
+replaceRangeBy range replacement =
+    if replacement == "" then
+        Internal.Removal range
+
+    else
+        Internal.Replacement range replacement
 
 
 {-| Insert some code at the given position.
