@@ -20,65 +20,6 @@ type Edit
 
 
 
--- APPLY FIX
-
-
-applyEdit : Edit -> List String -> List String
-applyEdit edit lines =
-    case edit of
-        Replacement range replacement ->
-            applyReplace range replacement lines
-
-        Removal range ->
-            applyReplace range "" lines
-
-        InsertAt position insertion ->
-            applyReplace { start = position, end = position } insertion lines
-
-
-applyReplace : Range -> String -> List String -> List String
-applyReplace range replacement lines =
-    let
-        linesBefore : List String
-        linesBefore =
-            List.take (range.start.row - 1) lines
-
-        linesAfter : List String
-        linesAfter =
-            List.drop range.end.row lines
-
-        startLine : String
-        startLine =
-            getRowAtLine lines (range.start.row - 1)
-                |> Unicode.left (range.start.column - 1)
-
-        endLine : String
-        endLine =
-            getRowAtLine lines (range.end.row - 1)
-                |> Unicode.dropLeft (range.end.column - 1)
-    in
-    List.concat
-        [ linesBefore
-        , startLine ++ replacement ++ endLine |> String.lines
-        , linesAfter
-        ]
-
-
-getRowAtLine : List String -> Int -> String
-getRowAtLine lines rowIndex =
-    case lines |> Array.fromList |> Array.get rowIndex of
-        Just line ->
-            if String.trim line /= "" then
-                line
-
-            else
-                ""
-
-        Nothing ->
-            ""
-
-
-
 -- EDIT ELM MODULE
 
 
@@ -137,6 +78,65 @@ editElmJson fixes originalSourceCode =
 
         Err err ->
             Err err
+
+
+
+-- APPLY FIX
+
+
+applyEdit : Edit -> List String -> List String
+applyEdit edit lines =
+    case edit of
+        Replacement range replacement ->
+            applyReplace range replacement lines
+
+        Removal range ->
+            applyReplace range "" lines
+
+        InsertAt position insertion ->
+            applyReplace { start = position, end = position } insertion lines
+
+
+applyReplace : Range -> String -> List String -> List String
+applyReplace range replacement lines =
+    let
+        linesBefore : List String
+        linesBefore =
+            List.take (range.start.row - 1) lines
+
+        linesAfter : List String
+        linesAfter =
+            List.drop range.end.row lines
+
+        startLine : String
+        startLine =
+            getRowAtLine lines (range.start.row - 1)
+                |> Unicode.left (range.start.column - 1)
+
+        endLine : String
+        endLine =
+            getRowAtLine lines (range.end.row - 1)
+                |> Unicode.dropLeft (range.end.column - 1)
+    in
+    List.concat
+        [ linesBefore
+        , startLine ++ replacement ++ endLine |> String.lines
+        , linesAfter
+        ]
+
+
+getRowAtLine : List String -> Int -> String
+getRowAtLine lines rowIndex =
+    case lines |> Array.fromList |> Array.get rowIndex of
+        Just line ->
+            if String.trim line /= "" then
+                line
+
+            else
+                ""
+
+        Nothing ->
+            ""
 
 
 
