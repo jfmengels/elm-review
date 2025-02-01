@@ -6139,7 +6139,7 @@ applyFileDeletionFix project (Error err) target =
                     Ok { project = newProject, fixedFile = RemovedElmModule }
 
                 Err fixProblem ->
-                    Err (Error (Review.Error.ReviewError.markFixesAsProblem fixProblem err))
+                    Err (Error (markFixesAsProblem fixProblem err))
 
         FileTarget.ExtraFile targetPath ->
             Ok { project = ValidProject.removeExtraFile targetPath project, fixedFile = FixedExtraFile }
@@ -6151,6 +6151,11 @@ applyFileDeletionFix project (Error err) target =
         FileTarget.Readme ->
             -- Not supported
             Ok { project = project, fixedFile = FixedReadme }
+
+
+markFixesAsProblem : FixProblem -> BaseError -> BaseError
+markFixesAsProblem fixProblem error_ =
+    { error_ | fixProblem = Just fixProblem }
 
 
 isFixable : Bool -> ({ ruleName : String, filePath : String, message : String, details : List String, range : Range } -> Bool) -> Error {} -> Maybe (List ( FileTarget, FixKind ))
@@ -6213,7 +6218,7 @@ applySingleModuleFix project maybeModuleZipper ((Error headError) as err) target
                         )
             of
                 Err fixProblem ->
-                    Err (Error (Review.Error.ReviewError.markFixesAsProblem fixProblem headError))
+                    Err (Error (markFixesAsProblem fixProblem headError))
 
                 Ok fixResult ->
                     Ok fixResult
@@ -6234,7 +6239,7 @@ applyElmJsonFix project ((Error headError) as err) fixes =
                         )
             of
                 Err fixProblem ->
-                    Err (Error (Review.Error.ReviewError.markFixesAsProblem fixProblem headError))
+                    Err (Error (markFixesAsProblem fixProblem headError))
 
                 Ok newProject ->
                     Ok
@@ -6252,7 +6257,7 @@ applyReadmeFix project ((Error headError) as err) fixes =
         Just readme ->
             case InternalFix.applyEdits fixes readme.content of
                 Err fixProblem ->
-                    Err (Error (Review.Error.ReviewError.markFixesAsProblem fixProblem headError))
+                    Err (Error (markFixesAsProblem fixProblem headError))
 
                 Ok content ->
                     Ok
@@ -6270,7 +6275,7 @@ applyExtraFileFix project ((Error headError) as err) targetPath fixes =
         Just content ->
             case InternalFix.applyEdits fixes content of
                 Err fixProblem ->
-                    Err (Error (Review.Error.ReviewError.markFixesAsProblem fixProblem headError))
+                    Err (Error (markFixesAsProblem fixProblem headError))
 
                 Ok newFileContent ->
                     Ok

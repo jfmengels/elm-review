@@ -4,7 +4,6 @@ module Review.Error.ReviewError exposing
     , doesPreventExtract
     , error
     , fromBaseError
-    , markFixesAsProblem
     , preventExtract
     )
 
@@ -80,11 +79,6 @@ type alias InternalError =
     , target : Target.Target
     , preventsExtract : Bool
     }
-
-
-markFixesAsProblem : FixProblem -> InternalError -> InternalError
-markFixesAsProblem fixProblem error_ =
-    { error_ | fixProblem = Just fixProblem }
 
 
 error : { message : String, details : List String } -> Range -> ReviewError
