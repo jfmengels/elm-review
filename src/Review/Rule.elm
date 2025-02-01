@@ -688,7 +688,7 @@ collectConfigurationErrors rules =
             case rule.ruleProjectVisitor of
                 Err { message, details } ->
                     Just
-                        (Review.Error.ReviewError.ReviewError
+                        (Review.Error.ReviewError.fromBaseError
                             { filePath = "CONFIGURATION ERROR"
                             , ruleName = rule.name
                             , message = message
@@ -822,8 +822,8 @@ computeErrorsAndRulesAndExtracts reviewOptions ruleProjectVisitors =
                     ( newErrors, canComputeExtract ) =
                         List.foldl
                             (\(Error err) ( accErrors, canComputeExtract_ ) ->
-                                ( Review.Error.ReviewError.ReviewError err :: accErrors
-                                , canComputeExtract_ && not (Review.Error.ReviewError.doesPreventExtract err)
+                                ( Review.Error.ReviewError.fromBaseError err :: accErrors
+                                , canComputeExtract_ && not err.preventsExtract
                                 )
                             )
                             ( errors, True )
@@ -4311,7 +4311,7 @@ globalError { message, details } =
 
 parsingError : String -> Review.Error.ReviewError.ReviewError
 parsingError path =
-    Review.Error.ReviewError.ReviewError
+    Review.Error.ReviewError.fromBaseError
         { filePath = path
         , ruleName = "ParsingError"
         , message = path ++ " is not a correct Elm module"
