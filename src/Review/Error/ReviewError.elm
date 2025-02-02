@@ -70,16 +70,21 @@ compileFixesHelp fixes acc =
 
         ( target, fixKind ) :: rest ->
             let
-                fix : Maybe (List Fix)
+                fix : Result x (Maybe (List Fix))
                 fix =
                     case fixKind of
                         ErrorFixes.Edit edits ->
-                            Just edits
+                            Ok (Just edits)
 
                         ErrorFixes.Remove ->
-                            Nothing
+                            Ok Nothing
             in
-            compileFixesHelp rest (( FileTarget.filePath target, fix ) :: acc)
+            case fix of
+                Ok fix_ ->
+                    compileFixesHelp rest (( FileTarget.filePath target, fix_ ) :: acc)
+
+                Err err ->
+                    Err err
 
 
 type alias InternalError =
