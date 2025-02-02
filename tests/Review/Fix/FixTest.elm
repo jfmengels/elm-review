@@ -4,6 +4,10 @@ import Expect
 import Review.Fix as Fix exposing (Fix)
 import Review.Fix.FixProblem exposing (FixProblem(..))
 import Review.Fix.Internal as FixInternal
+import Review.Rule exposing (Rule)
+import Review.Test
+import Review.Test.ArbitraryFixRule as ArbitraryFixRule
+import Review.Test.FailureMessageHelper exposing (expectFailure)
 import Test exposing (Test, describe, test)
 
 
@@ -252,49 +256,81 @@ a = 1
         , test "should fail if the fixes' range overlap" <|
             \() ->
                 let
-                    source : String
-                    source =
-                        """module A exposing (someCode)
-someCode = 2
-"""
-
-                    fixes : List Fix.Fix
-                    fixes =
-                        [ Fix.replaceRangeBy { start = { row = 10, column = 1 }, end = { row = 20, column = 1 } } ""
-                        , Fix.replaceRangeBy { start = { row = 15, column = 1 }, end = { row = 20, column = 1 } } ""
-                        ]
+                    testRule : Rule
+                    testRule =
+                        ArbitraryFixRule.rule
+                            "src/A.elm"
+                            [ Fix.replaceRangeBy { start = { row = 2, column = 12 }, end = { row = 20, column = 15 } } "321"
+                            , Fix.replaceRangeBy { start = { row = 2, column = 13 }, end = { row = 20, column = 14 } } "432"
+                            ]
                 in
-                Expect.all
-                    [ \() ->
-                        FixInternal.applyEdits fixes source
-                            |> Expect.equal (Err HasCollisionsInFixRanges)
-                    , \() ->
-                        FixInternal.applyEdits (List.reverse fixes) source
-                            |> Expect.equal (Err HasCollisionsInFixRanges)
-                    ]
-                    ()
+                """module A exposing (someCode)
+someCode = 200
+"""
+                    |> Review.Test.run testRule
+                    |> Review.Test.expectGlobalErrorsWithFixes
+                        [ { message = ArbitraryFixRule.message
+                          , details = ArbitraryFixRule.details
+                          , fixes = [ ( "A", Review.Test.edited """module A exposing (..)
+someCode = 432
+""" ) ]
+                          }
+                        ]
+                    |> expectFailure """FOUND COLLISIONS IN FIX RANGES
+
+I got something unexpected when applying the fixes provided by the error
+with the following message:
+
+  `Message`
+
+I found that some fixes were targeting (partially or completely) the same
+section of code. The problem with that is that I can't determine which fix
+to apply first, and the result will be different and potentially invalid
+based on the order in which I apply these fixes.
+
+For this reason, I require that the ranges (for replacing and removing) and
+the positions (for inserting) of every fix to be mutually exclusive.
+
+Hint: Maybe you duplicated a fix, or you targeted the wrong node for one
+of your fixes."""
         , test "should fail if an insertion fix is contained inside another fix's range" <|
             \() ->
                 let
-                    source : String
-                    source =
-                        """module A exposing (someCode)
-someCode = 2
-                    """
-
-                    fixes : List Fix.Fix
-                    fixes =
-                        [ Fix.replaceRangeBy { start = { row = 10, column = 1 }, end = { row = 20, column = 1 } } ""
-                        , Fix.insertAt { row = 15, column = 1 } "foo"
-                        ]
+                    testRule : Rule
+                    testRule =
+                        ArbitraryFixRule.rule
+                            "src/A.elm"
+                            [ Fix.replaceRangeBy { start = { row = 10, column = 1 }, end = { row = 20, column = 1 } } ""
+                            , Fix.insertAt { row = 15, column = 1 } "foo"
+                            ]
                 in
-                Expect.all
-                    [ \() ->
-                        FixInternal.applyEdits fixes source
-                            |> Expect.equal (Err HasCollisionsInFixRanges)
-                    , \() ->
-                        FixInternal.applyEdits (List.reverse fixes) source
-                            |> Expect.equal (Err HasCollisionsInFixRanges)
-                    ]
-                    ()
+                """module A exposing (someCode)
+someCode = 2
+"""
+                    |> Review.Test.run testRule
+                    |> Review.Test.expectGlobalErrorsWithFixes
+                        [ { message = ArbitraryFixRule.message
+                          , details = ArbitraryFixRule.details
+                          , fixes = [ ( "A", Review.Test.edited """ule A exposing (..)
+someCode = 2
+""" ) ]
+                          }
+                        ]
+                    |> expectFailure """FOUND COLLISIONS IN FIX RANGES
+
+I got something unexpected when applying the fixes provided by the error
+with the following message:
+
+  `Message`
+
+I found that some fixes were targeting (partially or completely) the same
+section of code. The problem with that is that I can't determine which fix
+to apply first, and the result will be different and potentially invalid
+based on the order in which I apply these fixes.
+
+For this reason, I require that the ranges (for replacing and removing) and
+the positions (for inserting) of every fix to be mutually exclusive.
+
+Hint: Maybe you duplicated a fix, or you targeted the wrong node for one
+of your fixes."""
         ]
