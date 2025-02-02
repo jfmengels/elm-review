@@ -1,4 +1,11 @@
-module Review.Fix.Internal exposing (Edit(..), Fix, applyEdits, compileEdits, editElmJson, editModule)
+module Review.Fix.Internal exposing
+    ( Edit(..)
+    , Fix
+    , applyEdits
+    , compileEdits
+    , editElmJson
+    , editModule
+    )
 
 import Array
 import Elm.Project
