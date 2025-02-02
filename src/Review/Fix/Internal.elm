@@ -38,7 +38,7 @@ compileEdits edits =
     compileEditsHelp
         (List.sortWith (\a b -> compareRanges2 (getEditRange a) (getEditRange b)) edits)
         { row = infinity, column = infinity }
-        False
+        Nothing
         []
 
 
@@ -47,16 +47,21 @@ infinity =
     round (1 / 0)
 
 
-compileEditsHelp : List Edit -> Location -> Bool -> List Edit -> Result FixProblem (List Edit)
-compileEditsHelp edits previousStart previousWasRemoval acc =
+compileEditsHelp : List Edit -> Location -> Maybe Range -> List Edit -> Result FixProblem (List Edit)
+compileEditsHelp edits previousStart previousRemoval acc =
     case edits of
         [] ->
-            Ok acc
+            case previousRemoval of
+                Just range ->
+                    Ok (Removal range :: acc)
+
+                Nothing ->
+                    Ok acc
 
         edit :: rest ->
             case edit of
                 InsertAt _ "" ->
-                    compileEditsHelp rest previousStart previousWasRemoval acc
+                    compileEditsHelp rest previousStart previousRemoval acc
 
                 InsertAt position _ ->
                     case comparePosition position previousStart of
@@ -64,27 +69,28 @@ compileEditsHelp edits previousStart previousWasRemoval acc =
                             Err FixProblem.HasCollisionsInFixRanges
 
                         _ ->
-                            compileEditsHelp rest position False (edit :: acc)
+                            compileEditsHelp rest position Nothing (edit :: acc)
 
                 Removal range ->
                     if range.start == range.end then
-                        compileEditsHelp rest previousStart previousWasRemoval acc
+                        compileEditsHelp rest previousStart previousRemoval acc
 
                     else
                         case comparePosition range.end previousStart of
                             GT ->
-                                if previousWasRemoval then
-                                    compileEditsHelp
-                                        rest
-                                        range.start
-                                        True
-                                        (Removal { start = range.start, end = previousStart } :: acc)
+                                case previousRemoval of
+                                    Just { end } ->
+                                        compileEditsHelp
+                                            rest
+                                            range.start
+                                            (Just { start = range.start, end = end })
+                                            acc
 
-                                else
-                                    Err FixProblem.HasCollisionsInFixRanges
+                                    Nothing ->
+                                        Err FixProblem.HasCollisionsInFixRanges
 
                             _ ->
-                                compileEditsHelp rest range.start True (edit :: acc)
+                                compileEditsHelp rest range.start (Just range) acc
 
                 Replacement range _ ->
                     case comparePosition range.end previousStart of
@@ -92,7 +98,7 @@ compileEditsHelp edits previousStart previousWasRemoval acc =
                             Err FixProblem.HasCollisionsInFixRanges
 
                         _ ->
-                            compileEditsHelp rest range.start False (edit :: acc)
+                            compileEditsHelp rest range.start Nothing (edit :: acc)
 
 
 
