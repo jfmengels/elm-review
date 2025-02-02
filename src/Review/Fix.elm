@@ -158,7 +158,7 @@ The two types are interchangeable.
 
 -}
 type alias Fix =
-    Internal.Edit
+    Internal.Fix
 
 
 

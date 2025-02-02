@@ -1,4 +1,4 @@
-module Review.Fix.Internal exposing (Edit(..), applyEdits, editElmJson, editModule)
+module Review.Fix.Internal exposing (Edit(..), Fix, applyEdits, editElmJson, editModule)
 
 import Array
 import Elm.Project
@@ -17,6 +17,13 @@ type Edit
     = Removal Range
     | Replacement Range String
     | InsertAt { row : Int, column : Int } String
+
+
+{-| Represents (part of a) fix that will be applied to a file's source code in order to
+automatically fix a review error.
+-}
+type alias Fix =
+    Edit
 
 
 
