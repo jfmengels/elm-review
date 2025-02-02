@@ -14,6 +14,7 @@ import Review.Error.FileTarget as FileTarget
 import Review.Error.Fixes as ErrorFixes exposing (ErrorFixes)
 import Review.Error.ReviewError exposing (ReviewError(..))
 import Review.Error.Target as Target
+import Review.Fix as Fix
 import Review.Fix.Internal exposing (Edit(..))
 import Review.Options
 import Review.Project as Project exposing (Project)
@@ -87,7 +88,7 @@ a = 1
                                             { message = "Top-level variable `c` is not used"
                                             , details = [ "You should either use this value somewhere, or remove it at the location I pointed at." ]
                                             , filePath = "A.elm"
-                                            , fixes = fixForFile (Removal { end = { column = 1, row = 5 }, start = { column = 1, row = 4 } })
+                                            , fixes = fixForFile (Fix.removeRange { end = { column = 1, row = 5 }, start = { column = 1, row = 4 } })
                                             , fixProblem = Nothing
                                             , preventsExtract = False
                                             , range = { end = { column = 2, row = 4 }, start = { column = 1, row = 4 } }
@@ -98,7 +99,7 @@ a = 1
                                             { message = "Top-level variable `b` is not used"
                                             , details = [ "You should either use this value somewhere, or remove it at the location I pointed at." ]
                                             , filePath = "A.elm"
-                                            , fixes = fixForFile (Removal { end = { column = 1, row = 5 }, start = { column = 1, row = 4 } })
+                                            , fixes = fixForFile (Fix.removeRange { end = { column = 1, row = 5 }, start = { column = 1, row = 4 } })
                                             , fixProblem = Nothing
                                             , preventsExtract = False
                                             , range = { end = { column = 2, row = 4 }, start = { column = 1, row = 4 } }
@@ -159,7 +160,7 @@ d = 1
                                             { message = "Top-level variable `c` is not used"
                                             , details = [ "You should either use this value somewhere, or remove it at the location I pointed at." ]
                                             , filePath = "A.elm"
-                                            , fixes = fixForFile (Removal { end = { column = 1, row = 5 }, start = { column = 1, row = 4 } })
+                                            , fixes = fixForFile (Fix.removeRange { end = { column = 1, row = 5 }, start = { column = 1, row = 4 } })
                                             , fixProblem = Nothing
                                             , preventsExtract = False
                                             , range = { end = { column = 2, row = 4 }, start = { column = 1, row = 4 } }
@@ -170,7 +171,7 @@ d = 1
                                             { message = "Top-level variable `b` is not used"
                                             , details = [ "You should either use this value somewhere, or remove it at the location I pointed at." ]
                                             , filePath = "A.elm"
-                                            , fixes = fixForFile (Removal { end = { column = 1, row = 5 }, start = { column = 1, row = 4 } })
+                                            , fixes = fixForFile (Fix.removeRange { end = { column = 1, row = 5 }, start = { column = 1, row = 4 } })
                                             , fixProblem = Nothing
                                             , preventsExtract = False
                                             , range = { end = { column = 2, row = 4 }, start = { column = 1, row = 4 } }
@@ -224,7 +225,7 @@ a = 1
                                             { message = "Unused dependency `something/unused`"
                                             , details = [ "To remove it, I recommend running the following command:", "    elm-json uninstall something/unused" ]
                                             , filePath = "elm.json"
-                                            , fixes = fixForElmJson (Replacement { end = { column = 1, row = 100000000 }, start = { column = 1, row = 1 } } """{
+                                            , fixes = fixForElmJson (Fix.replaceRangeBy { end = { column = 1, row = 100000000 }, start = { column = 1, row = 1 } } """{
     "type": "application",
     "source-directories": [
         "src"
@@ -300,7 +301,7 @@ a = 1
                                                 , "    elm-json uninstall something/unused"
                                                 ]
                                             , filePath = "elm.json"
-                                            , fixes = fixForElmJson (Replacement { end = { column = 1, row = 100000000 }, start = { column = 1, row = 1 } } """{
+                                            , fixes = fixForElmJson (Fix.replaceRangeBy { end = { column = 1, row = 100000000 }, start = { column = 1, row = 1 } } """{
     "type": "application",
     "source-directories": [
         "src"
@@ -371,7 +372,7 @@ a = 1
                                             { message = "Link does not point to the current version of the package"
                                             , details = [ "I suggest to run elm-review --fix to get the correct link." ]
                                             , filePath = "README.md"
-                                            , fixes = fixForReadme (Replacement { end = { column = 68, row = 1 }, start = { column = 8, row = 1 } } "https://package.elm-lang.org/packages/author/package/1.0.0/A/")
+                                            , fixes = fixForReadme (Fix.replaceRangeBy { end = { column = 68, row = 1 }, start = { column = 8, row = 1 } } "https://package.elm-lang.org/packages/author/package/1.0.0/A/")
                                             , fixProblem = Nothing
                                             , preventsExtract = False
                                             , range = { end = { column = 68, row = 1 }, start = { column = 8, row = 1 } }
