@@ -155,6 +155,7 @@ import Review.Project.Valid as ValidProject
 import Review.Rule as Rule exposing (ReviewError, Rule)
 import Review.Test.Dependencies exposing (projectWithElmCore)
 import Review.Test.ExpectationExtra exposing (onFail)
+import Review.Test.ExpectedFix exposing (ExpectedFix(..))
 import Review.Test.FailureMessage as FailureMessage
 import Set exposing (Set)
 import Unicode
@@ -1452,9 +1453,8 @@ shouldFixFiles expectedFixes (ExpectedError expectedError) =
 To be provided to [`shouldFixFilesWithIO`](#shouldFixFilesWithIO).
 
 -}
-type ExpectedFix
-    = ExpectEdited String
-    | ExpectRemoved
+type alias ExpectedFix =
+    Review.Test.ExpectedFix.ExpectedFix
 
 
 {-| Same as [`shouldFixFiles`](#shouldFixFiles) but allows specifying that files were deleted.
