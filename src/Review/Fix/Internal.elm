@@ -46,6 +46,9 @@ compileEditsHelp edits acc =
 
         edit :: rest ->
             case edit of
+                InsertAt _ "" ->
+                    compileEditsHelp rest acc
+
                 InsertAt _ _ ->
                     compileEditsHelp rest (edit :: acc)
 
