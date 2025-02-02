@@ -35,7 +35,9 @@ type alias Fix =
 
 compileEdits : List Edit -> Result FixProblem (List Edit)
 compileEdits edits =
-    compileEditsHelp edits []
+    compileEditsHelp
+        (List.sortWith (\a b -> compareRanges2 (getEditRange a) (getEditRange b)) edits)
+        []
 
 
 compileEditsHelp : List Edit -> List Edit -> Result FixProblem (List Edit)
@@ -256,6 +258,16 @@ compareRanges a b =
     case comparePosition a.end b.start of
         EQ ->
             comparePosition b.end a.start
+
+        order ->
+            order
+
+
+compareRanges2 : Range -> Range -> Order
+compareRanges2 a b =
+    case comparePosition a.start b.start of
+        EQ ->
+            comparePosition a.end b.end
 
         order ->
             order
