@@ -14,6 +14,7 @@ import Review.Error.Fixes as ErrorFixes exposing (ErrorFixes)
 import Review.Error.Target as Target
 import Review.Fix exposing (Fix)
 import Review.Fix.FixProblem exposing (FixProblem)
+import Review.Fix.Internal exposing (Edit)
 
 
 type ReviewError
@@ -62,7 +63,7 @@ compileFixes fixes maybeFixProblem =
                     |> Result.map Just
 
 
-compileFixesHelp : List ( FileTarget, ErrorFixes.FixKind ) -> List ( String, Maybe (List Fix) ) -> Result x (List ( String, Maybe (List Fix) ))
+compileFixesHelp : List ( FileTarget, ErrorFixes.FixKind ) -> List ( String, Maybe (List Edit) ) -> Result FixProblem (List ( String, Maybe (List Edit) ))
 compileFixesHelp fixes acc =
     case fixes of
         [] ->
@@ -70,11 +71,12 @@ compileFixesHelp fixes acc =
 
         ( target, fixKind ) :: rest ->
             let
-                fix : Result x (Maybe (List Fix))
+                fix : Result FixProblem (Maybe (List Edit))
                 fix =
                     case fixKind of
                         ErrorFixes.Edit edits ->
-                            Ok (Just edits)
+                            Review.Fix.Internal.compileEdits edits
+                                |> Result.map Just
 
                         ErrorFixes.Remove ->
                             Ok Nothing

@@ -1,4 +1,4 @@
-module Review.Fix.Internal exposing (Edit(..), Fix, applyEdits, editElmJson, editModule)
+module Review.Fix.Internal exposing (Edit(..), Fix, applyEdits, compileEdits, editElmJson, editModule)
 
 import Array
 import Elm.Project
@@ -24,6 +24,21 @@ automatically fix a review error.
 -}
 type alias Fix =
     Edit
+
+
+compileEdits : List Edit -> Result FixProblem (List Edit)
+compileEdits edits =
+    compileEditsHelp edits []
+
+
+compileEditsHelp : List Edit -> List Edit -> Result FixProblem (List Edit)
+compileEditsHelp edits acc =
+    case edits of
+        [] ->
+            Ok acc
+
+        edit :: rest ->
+            compileEditsHelp rest (edit :: acc)
 
 
 
