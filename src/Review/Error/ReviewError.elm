@@ -47,7 +47,7 @@ fromBaseError internalError =
         |> ReviewError
 
 
-compileFixes : ErrorFixes -> Maybe FixProblem -> Result FixProblem (Maybe (Dict String (Maybe (List Fix))))
+compileFixes : ErrorFixes -> Maybe FixProblem -> Result FixProblem (Maybe (List ( String, Maybe (List Fix) )))
 compileFixes fixes maybeFixProblem =
     case maybeFixProblem of
         Just fixProblem ->
@@ -59,20 +59,17 @@ compileFixes fixes maybeFixProblem =
 
             else
                 ErrorFixes.toList fixes
-                    |> List.foldl
-                        (\( target, fixKind ) acc ->
-                            Dict.insert
-                                (FileTarget.filePath target)
-                                (case fixKind of
-                                    ErrorFixes.Edit edits ->
-                                        Just edits
+                    |> List.map
+                        (\( target, fixKind ) ->
+                            ( FileTarget.filePath target
+                            , case fixKind of
+                                ErrorFixes.Edit edits ->
+                                    Just edits
 
-                                    ErrorFixes.Remove ->
-                                        Nothing
-                                )
-                                acc
+                                ErrorFixes.Remove ->
+                                    Nothing
+                            )
                         )
-                        Dict.empty
                     |> Just
                     |> Ok
 
@@ -83,7 +80,7 @@ type alias InternalError =
     , filePath : String
     , details : List String
     , range : Range
-    , fixes : Result FixProblem (Maybe (Dict String (Maybe (List Fix))))
+    , fixes : Result FixProblem (Maybe (List ( String, Maybe (List Fix) )))
     , originalFixes : ErrorFixes
     , fixProblem : Maybe FixProblem
     , target : Target.Target

@@ -4556,7 +4556,7 @@ An error can provide fixes for multiple files. For each file, the fix consists o
 either a `Just` list of edits (named `Fix` until the next breaking change) or of `Nothing` for a file removal.
 
 -}
-errorFixesV2 : Review.Error.ReviewError.ReviewError -> Result FixProblem (Maybe (Dict String (Maybe (List Fix))))
+errorFixesV2 : Review.Error.ReviewError.ReviewError -> Result FixProblem (Maybe (List ( String, Maybe (List Fix) )))
 errorFixesV2 (Review.Error.ReviewError.ReviewError err) =
     -- The type for this function would be better described through a custom type.
     -- It is however purposefully low-level in order to keep it possible to introduce
@@ -4582,7 +4582,7 @@ errorFixes (Review.Error.ReviewError.ReviewError err) =
             Nothing
 
         Ok (Just fixes) ->
-            case Dict.toList fixes of
+            case fixes of
                 [ ( target, fileFixes ) ] ->
                     if target == err.filePath then
                         fileFixes
