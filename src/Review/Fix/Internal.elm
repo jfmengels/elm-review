@@ -109,23 +109,19 @@ compileEditsHelp edits previousStart previousRemoval acc =
 -}
 applyEdits : List Edit -> String -> Result FixProblem String
 applyEdits fixes sourceCode =
-    if containRangeCollisions fixes then
-        Err FixProblem.HasCollisionsInFixRanges
+    let
+        resultAfterEdit : String
+        resultAfterEdit =
+            fixes
+                |> List.sortBy (rangePosition >> negate)
+                |> applyIndividualEdits (String.lines sourceCode) []
+                |> String.join "\n"
+    in
+    if sourceCode == resultAfterEdit then
+        Err FixProblem.Unchanged
 
     else
-        let
-            resultAfterEdit : String
-            resultAfterEdit =
-                fixes
-                    |> List.sortBy (rangePosition >> negate)
-                    |> applyIndividualEdits (String.lines sourceCode) []
-                    |> String.join "\n"
-        in
-        if sourceCode == resultAfterEdit then
-            Err FixProblem.Unchanged
-
-        else
-            Ok resultAfterEdit
+        Ok resultAfterEdit
 
 
 {-| Apply the changes on the source code.
