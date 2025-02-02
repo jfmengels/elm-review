@@ -69,18 +69,19 @@ compileFixesHelp fixes acc =
             Ok acc
 
         ( target, fixKind ) :: rest ->
-            compileFixesHelp
-                rest
-                (( FileTarget.filePath target
-                 , case fixKind of
-                    ErrorFixes.Edit edits ->
-                        Just edits
+            let
+                fix : ( String, Maybe (List Fix) )
+                fix =
+                    ( FileTarget.filePath target
+                    , case fixKind of
+                        ErrorFixes.Edit edits ->
+                            Just edits
 
-                    ErrorFixes.Remove ->
-                        Nothing
-                 )
-                    :: acc
-                )
+                        ErrorFixes.Remove ->
+                            Nothing
+                    )
+            in
+            compileFixesHelp rest (fix :: acc)
 
 
 type alias InternalError =
