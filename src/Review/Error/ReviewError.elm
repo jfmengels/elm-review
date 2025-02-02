@@ -3,11 +3,13 @@ module Review.Error.ReviewError exposing
     , ReviewError(..)
     , doesPreventExtract
     , error
+    , errorFixes
     , fromBaseError
     , preventExtract
     )
 
 import Elm.Syntax.Range exposing (Range)
+import Review.Error.FileTarget exposing (FileTarget)
 import Review.Error.Fixes as ErrorFixes exposing (ErrorFixes)
 import Review.Error.Target as Target
 import Review.Fix.FixProblem exposing (FixProblem)
@@ -64,8 +66,8 @@ condenseFixes internalError =
 
 
 optimizeFixes : ErrorFixes -> Result FixProblem ErrorFixes
-optimizeFixes errorFixes =
-    Ok errorFixes
+optimizeFixes =
+    Ok
 
 
 type alias InternalError =
@@ -104,3 +106,14 @@ preventExtract error_ =
 doesPreventExtract : InternalError -> Bool
 doesPreventExtract error_ =
     error_.preventsExtract
+
+
+errorFixes : ReviewError -> Result FixProblem (List ( FileTarget, ErrorFixes.FixKind ))
+errorFixes (ReviewError err) =
+    case err.fixProblem of
+        Just fixProblem ->
+            Err fixProblem
+
+        Nothing ->
+            ErrorFixes.toList err.fixes
+                |> Ok

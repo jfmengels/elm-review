@@ -140,7 +140,7 @@ import Json.Encode as Encode
 import Regex exposing (Regex)
 import Review.Error.FileTarget as FileTarget exposing (FileTarget)
 import Review.Error.Fixes as ErrorFixes
-import Review.Error.ReviewError exposing (ReviewError(..))
+import Review.Error.ReviewError as ReviewError exposing (ReviewError(..))
 import Review.Error.Target as Target
 import Review.FileParser as FileParser
 import Review.Fix exposing (Fix)
@@ -1721,17 +1721,22 @@ checkGlobalErrorsMatch project originalNumberOfExpectedErrors params =
     case params.expected of
         head :: rest ->
             case findAndRemove (\error_ -> Rule.errorMessage error_ == head.message && Rule.errorDetails error_ == head.details) params.actual of
-                Just ( (ReviewError { fixes }) as matchedError, newActual ) ->
+                Just ( matchedError, newActual ) ->
                     if List.isEmpty head.details then
                         Expect.fail (FailureMessage.emptyDetails head.message)
 
                     else
-                        case checkAllFixesMatch project FailureMessage.Global matchedError head.fixes (ErrorFixes.toList fixes) of
-                            Err failure ->
-                                Expect.fail failure
+                        case ReviewError.errorFixes matchedError of
+                            Err fixProblem ->
+                                Expect.fail <| FailureMessage.fixProblem fixProblem matchedError
 
-                            Ok () ->
-                                checkGlobalErrorsMatch project originalNumberOfExpectedErrors { expected = rest, actual = newActual, needSecondPass = params.needSecondPass }
+                            Ok fixes ->
+                                case checkAllFixesMatch project FailureMessage.Global matchedError head.fixes fixes of
+                                    Err failure ->
+                                        Expect.fail failure
+
+                                    Ok () ->
+                                        checkGlobalErrorsMatch project originalNumberOfExpectedErrors { expected = rest, actual = newActual, needSecondPass = params.needSecondPass }
 
                 Nothing ->
                     checkGlobalErrorsMatch project originalNumberOfExpectedErrors { expected = rest, actual = params.actual, needSecondPass = head :: params.needSecondPass }
