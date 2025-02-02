@@ -1288,12 +1288,12 @@ a = "abc"
 """ ) ]
                       }
                     ]
-                |> expectFailure ("""INVALID SOURCE AFTER FIX
+                |> expectFailure """INVALID SOURCE AFTER FIX
 
 I got something unexpected when applying the fixes provided by the error
 with the following message:
 
-  `""" ++ ArbitraryFixRule.message ++ """`
+  `Message`
 
 I was unable to parse the source code after applying the fixes. Here is
 the result of the automatic fixing:
@@ -1308,7 +1308,7 @@ This is problematic because fixes are meant to help the user, and applying
 this fix will give them more work to do. After the fix has been applied,
 the problem should be solved and the user should not have to think about it
 anymore. If a fix can not be applied fully, it should not be applied at
-all.""")
+all."""
 
 
 hasCollisionsInFixRangesTest : Test
