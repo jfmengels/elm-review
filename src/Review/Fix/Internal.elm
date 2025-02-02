@@ -10,7 +10,7 @@ module Review.Fix.Internal exposing
 import Array
 import Elm.Project
 import Elm.Syntax.File exposing (File)
-import Elm.Syntax.Range exposing (Range)
+import Elm.Syntax.Range exposing (Location, Range)
 import Json.Decode as Decode
 import Review.FileParser as FileParser
 import Review.Fix.FixProblem as FixProblem exposing (FixProblem)
@@ -37,11 +37,18 @@ compileEdits : List Edit -> Result FixProblem (List Edit)
 compileEdits edits =
     compileEditsHelp
         (List.sortWith (\a b -> compareRanges2 (getEditRange a) (getEditRange b)) edits)
+        { row = infinity, column = infinity }
+        False
         []
 
 
-compileEditsHelp : List Edit -> List Edit -> Result FixProblem (List Edit)
-compileEditsHelp edits acc =
+infinity : Int
+infinity =
+    round (1 / 0)
+
+
+compileEditsHelp : List Edit -> Location -> Bool -> List Edit -> Result FixProblem (List Edit)
+compileEditsHelp edits previousStart previousWasRemoval acc =
     case edits of
         [] ->
             Ok acc
@@ -49,20 +56,20 @@ compileEditsHelp edits acc =
         edit :: rest ->
             case edit of
                 InsertAt _ "" ->
-                    compileEditsHelp rest acc
+                    compileEditsHelp rest previousStart previousWasRemoval acc
 
-                InsertAt _ _ ->
-                    compileEditsHelp rest (edit :: acc)
+                InsertAt position _ ->
+                    compileEditsHelp rest position False (edit :: acc)
 
                 Removal range ->
                     if range.start == range.end then
-                        compileEditsHelp rest acc
+                        compileEditsHelp rest previousStart previousWasRemoval acc
 
                     else
-                        compileEditsHelp rest (edit :: acc)
+                        compileEditsHelp rest range.start True (edit :: acc)
 
-                Replacement _ _ ->
-                    compileEditsHelp rest (edit :: acc)
+                Replacement range _ ->
+                    compileEditsHelp rest range.start False (edit :: acc)
 
 
 
