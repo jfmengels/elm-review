@@ -22,7 +22,7 @@ a = Debug.log "message" 1"""
                             , details = [ "`Debug.log` is useful when developing, but is not meant to be shipped to production or published in a package. I suggest removing its use before committing and attempting to push to production." ]
                             , under = "Debug.log"
                             }
-                            |> Review.Test.shouldFixFilesWithIO [ ( "A", Review.Test.removed ) ]
+                            |> Review.Test.shouldFixFilesWithFileRemoval [ ( "A", Review.Test.removed ) ]
                         ]
                     |> expectFailure """INCORRECT FIX TYPE
 
@@ -48,7 +48,7 @@ a = Debug.log "message" 1"""
                             , details = [ "`Debug.log` is useful when developing, but is not meant to be shipped to production or published in a package. I suggest removing its use before committing and attempting to push to production." ]
                             , under = "Debug.log"
                             }
-                            |> Review.Test.shouldFixFilesWithIO [ ( "src/A.elm", Review.Test.removed ) ]
+                            |> Review.Test.shouldFixFilesWithFileRemoval [ ( "src/A.elm", Review.Test.removed ) ]
                         ]
                     |> expectFailure """INCORRECT FIX TYPE
 
@@ -77,7 +77,7 @@ a = 1
                             , details = [ "This module is never used. You may want to remove it to keep your project clean, and maybe detect some unused code in your project." ]
                             , under = "Reported"
                             }
-                            |> Review.Test.shouldFixFilesWithIO [ ( "Reported", Review.Test.edited "something" ) ]
+                            |> Review.Test.shouldFixFilesWithFileRemoval [ ( "Reported", Review.Test.edited "something" ) ]
                         ]
                     |> expectFailure """INCORRECT FIX TYPE
 

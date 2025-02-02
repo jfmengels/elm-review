@@ -1,7 +1,7 @@
 module Review.Test exposing
     ( ReviewResult, run, runWithProjectData, runOnModules, runOnModulesWithProjectData
     , ExpectedError, expectNoErrors, expectErrors, error, atExactly, whenFixed, shouldFixFiles
-    , ExpectedFix, shouldFixFilesWithIO, edited, removed
+    , ExpectedFix, shouldFixFilesWithFileRemoval, edited, removed
     , expectErrorsForModules, expectErrorsForElmJson, expectErrorsForReadme, expectErrorsForExtraFile
     , expectGlobalErrors, expectGlobalErrorsWithFixes
     , expectConfigurationError
@@ -108,7 +108,7 @@ for this module.
 # Making assertions
 
 @docs ExpectedError, expectNoErrors, expectErrors, error, atExactly, whenFixed, shouldFixFiles
-@docs ExpectedFix, shouldFixFilesWithIO, edited, removed
+@docs ExpectedFix, shouldFixFilesWithFileRemoval, edited, removed
 @docs expectErrorsForModules, expectErrorsForElmJson, expectErrorsForReadme, expectErrorsForExtraFile
 @docs expectGlobalErrors, expectGlobalErrorsWithFixes
 @docs expectConfigurationError
@@ -1450,7 +1450,7 @@ shouldFixFiles expectedFixes (ExpectedError expectedError) =
 
 {-| Expectation that a file has been altered by an automatic fix.
 
-To be provided to [`shouldFixFilesWithIO`](#shouldFixFilesWithIO).
+To be provided to [`shouldFixFilesWithFileRemoval`](#shouldFixFilesWithFileRemoval).
 
 -}
 type alias ExpectedFix =
@@ -1483,7 +1483,7 @@ or [`Review.Test.removed`](#removed).
                                 , details = [ "Details about the error" ]
                                 , under = "Debug.log"
                                 }
-                                |> Review.Test.shouldFixFilesWithIO
+                                |> Review.Test.shouldFixFilesWithFileRemoval
                                     [ ( "A", Review.Test.edited """module A exposing (main)
     a = 1
     """ )
@@ -1494,14 +1494,14 @@ or [`Review.Test.removed`](#removed).
                         ]
 
 -}
-shouldFixFilesWithIO : List ( String, ExpectedFix ) -> ExpectedError -> ExpectedError
-shouldFixFilesWithIO expectedFixes (ExpectedError expectedError) =
+shouldFixFilesWithFileRemoval : List ( String, ExpectedFix ) -> ExpectedError -> ExpectedError
+shouldFixFilesWithFileRemoval expectedFixes (ExpectedError expectedError) =
     ExpectedError { expectedError | expectedFixes = ComesFromShouldFixFiles (Dict.fromList expectedFixes) }
 
 
 {-| Expect that a file has been edited and results in the given string.
 
-To be used along [`shouldFixFilesWithIO`](#shouldFixFilesWithIO).
+To be used along [`shouldFixFilesWithFileRemoval`](#shouldFixFilesWithFileRemoval).
 
 -}
 edited : String -> ExpectedFix
@@ -1511,7 +1511,7 @@ edited =
 
 {-| Expect that a file has been removed.
 
-To be used along [`shouldFixFilesWithIO`](#shouldFixFilesWithIO).
+To be used along [`shouldFixFilesWithFileRemoval`](#shouldFixFilesWithFileRemoval).
 
 -}
 removed : ExpectedFix
