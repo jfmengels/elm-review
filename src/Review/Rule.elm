@@ -6010,8 +6010,8 @@ findFixHelp project supportsFileDeletion fixablePredicate errors accErrors maybe
                 Nothing ->
                     findFixHelp project supportsFileDeletion fixablePredicate restOfErrors (err :: accErrors) maybeModuleZipper
 
-                Just fixDict ->
-                    case fixDict of
+                Just fixes ->
+                    case fixes of
                         [] ->
                             findFixHelp project supportsFileDeletion fixablePredicate restOfErrors (err :: accErrors) maybeModuleZipper
 
