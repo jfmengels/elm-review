@@ -71,7 +71,20 @@ compileEditsHelp edits previousStart previousWasRemoval acc =
                         compileEditsHelp rest previousStart previousWasRemoval acc
 
                     else
-                        compileEditsHelp rest range.start True (edit :: acc)
+                        case comparePosition range.end previousStart of
+                            GT ->
+                                if previousWasRemoval then
+                                    compileEditsHelp
+                                        rest
+                                        range.start
+                                        True
+                                        (Removal { start = range.start, end = previousStart } :: acc)
+
+                                else
+                                    Err FixProblem.HasCollisionsInFixRanges
+
+                            _ ->
+                                compileEditsHelp rest range.start True (edit :: acc)
 
                 Replacement range _ ->
                     case comparePosition range.end previousStart of
