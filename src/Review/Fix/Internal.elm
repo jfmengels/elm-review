@@ -59,7 +59,12 @@ compileEditsHelp edits previousStart previousWasRemoval acc =
                     compileEditsHelp rest previousStart previousWasRemoval acc
 
                 InsertAt position _ ->
-                    compileEditsHelp rest position False (edit :: acc)
+                    case comparePosition position previousStart of
+                        GT ->
+                            Err FixProblem.HasCollisionsInFixRanges
+
+                        _ ->
+                            compileEditsHelp rest position False (edit :: acc)
 
                 Removal range ->
                     if range.start == range.end then
@@ -69,7 +74,12 @@ compileEditsHelp edits previousStart previousWasRemoval acc =
                         compileEditsHelp rest range.start True (edit :: acc)
 
                 Replacement range _ ->
-                    compileEditsHelp rest range.start False (edit :: acc)
+                    case comparePosition range.end previousStart of
+                        GT ->
+                            Err FixProblem.HasCollisionsInFixRanges
+
+                        _ ->
+                            compileEditsHelp rest range.start False (edit :: acc)
 
 
 
