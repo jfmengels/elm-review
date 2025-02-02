@@ -58,18 +58,15 @@ compileFixes fixes maybeFixProblem =
                 Ok Nothing
 
             else
-                compileFixesHelp
-                    (ErrorFixes.toList fixes)
-                    []
-                    |> Just
-                    |> Ok
+                compileFixesHelp (ErrorFixes.toList fixes) []
+                    |> Result.map Just
 
 
-compileFixesHelp : List ( FileTarget, ErrorFixes.FixKind ) -> List ( String, Maybe (List Fix) ) -> List ( String, Maybe (List Fix) )
+compileFixesHelp : List ( FileTarget, ErrorFixes.FixKind ) -> List ( String, Maybe (List Fix) ) -> Result x (List ( String, Maybe (List Fix) ))
 compileFixesHelp fixes acc =
     case fixes of
         [] ->
-            acc
+            Ok acc
 
         ( target, fixKind ) :: rest ->
             compileFixesHelp
