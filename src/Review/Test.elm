@@ -1927,7 +1927,7 @@ checkFixesAreCorrect project moduleName ((ReviewError err) as error_) expectedEr
     let
         errorFixes : List ( FileTarget, ErrorFixes.FixKind )
         errorFixes =
-            ErrorFixes.toList err.fixes
+            ErrorFixes.toList err.originalFixes
     in
     if List.isEmpty errorFixes then
         case expectedError.expectedFixes of

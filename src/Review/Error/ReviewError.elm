@@ -5,13 +5,14 @@ module Review.Error.ReviewError exposing
     , error
     , errorFixes
     , fromBaseError
-    , preventExtract
     )
 
+import Dict exposing (Dict)
 import Elm.Syntax.Range exposing (Range)
-import Review.Error.FileTarget exposing (FileTarget)
+import Review.Error.FileTarget as FileTarget exposing (FileTarget)
 import Review.Error.Fixes as ErrorFixes exposing (ErrorFixes)
 import Review.Error.Target as Target
+import Review.Fix exposing (Fix)
 import Review.Fix.FixProblem exposing (FixProblem)
 
 
@@ -37,37 +38,43 @@ fromBaseError internalError =
     , filePath = internalError.filePath
     , details = internalError.details
     , range = internalError.range
-    , fixes = internalError.fixes
+    , originalFixes = internalError.fixes
+    , fixes = compileFixes internalError.fixes internalError.fixProblem
     , fixProblem = internalError.fixProblem
     , target = internalError.target
     , preventsExtract = internalError.preventsExtract
     }
-        |> condenseFixes
         |> ReviewError
 
 
-condenseFixes : InternalError -> InternalError
-condenseFixes internalError =
-    case internalError.fixProblem of
-        Just _ ->
-            internalError
+compileFixes : ErrorFixes -> Maybe FixProblem -> Result FixProblem (Maybe (Dict String (Maybe (List Fix))))
+compileFixes fixes maybeFixProblem =
+    case maybeFixProblem of
+        Just fixProblem ->
+            Err fixProblem
 
         Nothing ->
-            if ErrorFixes.isEmpty internalError.fixes then
-                internalError
+            if ErrorFixes.isEmpty fixes then
+                Ok Nothing
 
             else
-                case optimizeFixes internalError.fixes of
-                    Ok fixes ->
-                        { internalError | fixes = fixes }
+                ErrorFixes.toList fixes
+                    |> List.foldl
+                        (\( target, fixKind ) acc ->
+                            Dict.insert
+                                (FileTarget.filePath target)
+                                (case fixKind of
+                                    ErrorFixes.Edit edits ->
+                                        Just edits
 
-                    Err fixProblem ->
-                        { internalError | fixProblem = Just fixProblem }
-
-
-optimizeFixes : ErrorFixes -> Result FixProblem ErrorFixes
-optimizeFixes =
-    Ok
+                                    ErrorFixes.Remove ->
+                                        Nothing
+                                )
+                                acc
+                        )
+                        Dict.empty
+                    |> Just
+                    |> Ok
 
 
 type alias InternalError =
@@ -76,7 +83,8 @@ type alias InternalError =
     , filePath : String
     , details : List String
     , range : Range
-    , fixes : ErrorFixes
+    , fixes : Result FixProblem (Maybe (Dict String (Maybe (List Fix))))
+    , originalFixes : ErrorFixes
     , fixProblem : Maybe FixProblem
     , target : Target.Target
     , preventsExtract : Bool
@@ -91,16 +99,12 @@ error { message, details } range =
         , filePath = ""
         , details = details
         , range = range
-        , fixes = ErrorFixes.none
+        , originalFixes = ErrorFixes.none
+        , fixes = Ok Nothing
         , fixProblem = Nothing
         , target = Target.module_ ""
         , preventsExtract = False
         }
-
-
-preventExtract : InternalError -> InternalError
-preventExtract error_ =
-    { error_ | preventsExtract = True }
 
 
 doesPreventExtract : InternalError -> Bool
@@ -115,5 +119,5 @@ errorFixes (ReviewError err) =
             Err fixProblem
 
         Nothing ->
-            ErrorFixes.toList err.fixes
+            ErrorFixes.toList err.originalFixes
                 |> Ok

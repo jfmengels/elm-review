@@ -3898,7 +3898,7 @@ output incorrect data.
 -}
 preventExtract : Error a -> Error a
 preventExtract (Error err) =
-    Error (Review.Error.ReviewError.preventExtract err)
+    Error { err | preventsExtract = True }
 
 
 removeErrorPhantomTypes : List (Error something) -> List (Error {})
@@ -4562,32 +4562,7 @@ errorFixesV2 (Review.Error.ReviewError.ReviewError err) =
     -- It is however purposefully low-level in order to keep it possible to introduce
     -- new fix kinds (most likely file creations) without a breaking change
     -- (but through a new `errorFixesV3` function).
-    case err.fixProblem of
-        Just fixProblem ->
-            Err fixProblem
-
-        Nothing ->
-            if ErrorFixes.isEmpty err.fixes then
-                Ok Nothing
-
-            else
-                ErrorFixes.toList err.fixes
-                    |> List.foldl
-                        (\( target, fixKind ) acc ->
-                            Dict.insert
-                                (FileTarget.filePath target)
-                                (case fixKind of
-                                    ErrorFixes.Edit edits ->
-                                        Just edits
-
-                                    ErrorFixes.Remove ->
-                                        Nothing
-                                )
-                                acc
-                        )
-                        Dict.empty
-                    |> Just
-                    |> Ok
+    err.fixes
 
 
 {-| Get the automatic [`fixes`](./Review-Fix#Fix) of an [`Error`](#Error), if it
@@ -4599,20 +4574,18 @@ defined any.
 -}
 errorFixes : ReviewError -> Maybe (List Fix)
 errorFixes (Review.Error.ReviewError.ReviewError err) =
-    case err.fixProblem of
-        Just _ ->
+    case err.fixes of
+        Err _ ->
             Nothing
 
-        Nothing ->
-            case ErrorFixes.toList err.fixes of
-                [ ( target, fixes ) ] ->
-                    if FileTarget.filePath target == err.filePath then
-                        case fixes of
-                            ErrorFixes.Edit edits ->
-                                Just edits
+        Ok Nothing ->
+            Nothing
 
-                            ErrorFixes.Remove ->
-                                Nothing
+        Ok (Just fixes) ->
+            case Dict.toList fixes of
+                [ ( target, fileFixes ) ] ->
+                    if target == err.filePath then
+                        fileFixes
 
                     else
                         Nothing
