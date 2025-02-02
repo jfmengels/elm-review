@@ -45,7 +45,15 @@ compileEditsHelp edits acc =
             Ok acc
 
         edit :: rest ->
-            compileEditsHelp rest (edit :: acc)
+            case edit of
+                InsertAt _ _ ->
+                    compileEditsHelp rest (edit :: acc)
+
+                Removal _ ->
+                    compileEditsHelp rest (edit :: acc)
+
+                Replacement _ _ ->
+                    compileEditsHelp rest (edit :: acc)
 
 
 
