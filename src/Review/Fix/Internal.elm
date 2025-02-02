@@ -52,8 +52,12 @@ compileEditsHelp edits acc =
                 InsertAt _ _ ->
                     compileEditsHelp rest (edit :: acc)
 
-                Removal _ ->
-                    compileEditsHelp rest (edit :: acc)
+                Removal range ->
+                    if range.start == range.end then
+                        compileEditsHelp rest acc
+
+                    else
+                        compileEditsHelp rest (edit :: acc)
 
                 Replacement _ _ ->
                     compileEditsHelp rest (edit :: acc)
