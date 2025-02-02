@@ -1,5 +1,5 @@
 module Review.Fix exposing
-    ( Fix, removeRange, replaceRangeBy, insertAt
+    ( Edit, Fix, removeRange, replaceRangeBy, insertAt
     , FixResult(..), Problem(..), fix
     , toRecord
     )
@@ -115,7 +115,7 @@ in the context of your rule.
 
 # Creating a fix
 
-@docs Fix, removeRange, replaceRangeBy, insertAt
+@docs Edit, Fix, removeRange, replaceRangeBy, insertAt
 
 
 # Applying fixes
@@ -142,6 +142,20 @@ import Review.Fix.Internal as Internal
 
 {-| Represents (part of a) fix that will be applied to a file's source code in order to
 automatically fix a review error.
+
+This is the new name for [`Fix`](#Fix), prefer this one. The two types are interchangeable.
+
+-}
+type alias Edit =
+    Internal.Edit
+
+
+{-| Represents (part of a) fix that will be applied to a file's source code in order to
+automatically fix a review error.
+
+This is the old name for [`Edit`](#Edit) and will be removed in a future major version.
+The two types are interchangeable.
+
 -}
 type alias Fix =
     Internal.Edit
