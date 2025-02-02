@@ -58,22 +58,32 @@ compileFixes fixes maybeFixProblem =
                 Ok Nothing
 
             else
-                ErrorFixes.toList fixes
-                    |> List.foldr
-                        (\( target, fixKind ) acc ->
-                            ( FileTarget.filePath target
-                            , case fixKind of
-                                ErrorFixes.Edit edits ->
-                                    Just edits
-
-                                ErrorFixes.Remove ->
-                                    Nothing
-                            )
-                                :: acc
-                        )
-                        []
+                compileFixesHelp
+                    (ErrorFixes.toList fixes)
+                    []
                     |> Just
                     |> Ok
+
+
+compileFixesHelp : List ( FileTarget, ErrorFixes.FixKind ) -> List ( String, Maybe (List Fix) ) -> List ( String, Maybe (List Fix) )
+compileFixesHelp fixes acc =
+    case fixes of
+        [] ->
+            acc
+
+        ( target, fixKind ) :: rest ->
+            compileFixesHelp
+                rest
+                (( FileTarget.filePath target
+                 , case fixKind of
+                    ErrorFixes.Edit edits ->
+                        Just edits
+
+                    ErrorFixes.Remove ->
+                        Nothing
+                 )
+                    :: acc
+                )
 
 
 type alias InternalError =
