@@ -59,8 +59,8 @@ compileFixes fixes maybeFixProblem =
 
             else
                 ErrorFixes.toList fixes
-                    |> List.map
-                        (\( target, fixKind ) ->
+                    |> List.foldr
+                        (\( target, fixKind ) acc ->
                             ( FileTarget.filePath target
                             , case fixKind of
                                 ErrorFixes.Edit edits ->
@@ -69,7 +69,9 @@ compileFixes fixes maybeFixProblem =
                                 ErrorFixes.Remove ->
                                     Nothing
                             )
+                                :: acc
                         )
+                        []
                     |> Just
                     |> Ok
 
