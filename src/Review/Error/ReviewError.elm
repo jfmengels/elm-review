@@ -2,17 +2,15 @@ module Review.Error.ReviewError exposing
     ( InternalError
     , ReviewError(..)
     , error
-    , errorFixes
     , fromBaseError
     )
 
 import Elm.Syntax.Range exposing (Range)
-import Review.Error.FileTarget as FileTarget exposing (FileTarget)
+import Review.Error.FileTarget exposing (FileTarget)
 import Review.Error.Fixes as ErrorFixes exposing (ErrorFixes)
 import Review.Error.Target as Target
-import Review.Fix exposing (Fix)
 import Review.Fix.FixProblem exposing (FixProblem)
-import Review.Fix.Internal exposing (Edit)
+import Review.Fix.Internal
 
 
 type ReviewError
@@ -46,7 +44,7 @@ fromBaseError internalError =
         |> ReviewError
 
 
-compileFixes : ErrorFixes -> Maybe FixProblem -> Result FixProblem (Maybe (List ( String, Maybe (List Fix) )))
+compileFixes : ErrorFixes -> Maybe FixProblem -> Result FixProblem (Maybe (List ( FileTarget, ErrorFixes.FixKind )))
 compileFixes fixes maybeFixProblem =
     case maybeFixProblem of
         Just fixProblem ->
@@ -61,7 +59,7 @@ compileFixes fixes maybeFixProblem =
                     |> Result.map Just
 
 
-compileFixesHelp : List ( FileTarget, ErrorFixes.FixKind ) -> List ( String, Maybe (List Edit) ) -> Result FixProblem (List ( String, Maybe (List Edit) ))
+compileFixesHelp : List ( FileTarget, ErrorFixes.FixKind ) -> List ( FileTarget, ErrorFixes.FixKind ) -> Result FixProblem (List ( FileTarget, ErrorFixes.FixKind ))
 compileFixesHelp fixes acc =
     case fixes of
         [] ->
@@ -69,19 +67,19 @@ compileFixesHelp fixes acc =
 
         ( target, fixKind ) :: rest ->
             let
-                fix : Result FixProblem (Maybe (List Edit))
+                fix : Result FixProblem ErrorFixes.FixKind
                 fix =
                     case fixKind of
                         ErrorFixes.Edit edits ->
                             Review.Fix.Internal.compileEdits edits
-                                |> Result.map Just
+                                |> Result.map ErrorFixes.Edit
 
                         ErrorFixes.Remove ->
-                            Ok Nothing
+                            Ok fixKind
             in
             case fix of
                 Ok fix_ ->
-                    compileFixesHelp rest (( FileTarget.filePath target, fix_ ) :: acc)
+                    compileFixesHelp rest (( target, fix_ ) :: acc)
 
                 Err err ->
                     Err err
@@ -93,7 +91,7 @@ type alias InternalError =
     , filePath : String
     , details : List String
     , range : Range
-    , fixes : Result FixProblem (Maybe (List ( String, Maybe (List Fix) )))
+    , fixes : Result FixProblem (Maybe (List ( FileTarget, ErrorFixes.FixKind )))
     , originalFixes : ErrorFixes
     , fixProblem : Maybe FixProblem
     , target : Target.Target
@@ -115,14 +113,3 @@ error { message, details } range =
         , target = Target.module_ ""
         , preventsExtract = False
         }
-
-
-errorFixes : ReviewError -> Result FixProblem (List ( FileTarget, ErrorFixes.FixKind ))
-errorFixes (ReviewError err) =
-    case err.fixProblem of
-        Just fixProblem ->
-            Err fixProblem
-
-        Nothing ->
-            ErrorFixes.toList err.originalFixes
-                |> Ok

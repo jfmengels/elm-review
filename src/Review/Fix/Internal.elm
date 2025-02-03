@@ -36,7 +36,7 @@ type alias Fix =
 compileEdits : List Edit -> Result FixProblem (List Edit)
 compileEdits edits =
     compileEditsHelp
-        (List.sortWith (\a b -> compareRanges2 (getEditRange a) (getEditRange b)) edits)
+        (List.sortWith (\a b -> compareRanges2 (getEditRange b) (getEditRange a)) edits)
         { row = infinity, column = infinity }
         Nothing
         []
@@ -51,12 +51,9 @@ compileEditsHelp : List Edit -> Location -> Maybe Range -> List Edit -> Result F
 compileEditsHelp edits previousStart previousRemoval acc =
     case edits of
         [] ->
-            case previousRemoval of
-                Just range ->
-                    Ok (Removal range :: acc)
-
-                Nothing ->
-                    Ok acc
+            addMaybeRemovalEdit previousRemoval acc
+                |> List.reverse
+                |> Ok
 
         edit :: rest ->
             case edit of
@@ -69,7 +66,7 @@ compileEditsHelp edits previousStart previousRemoval acc =
                             Err FixProblem.HasCollisionsInFixRanges
 
                         _ ->
-                            compileEditsHelp rest position Nothing (edit :: acc)
+                            compileEditsHelp rest position Nothing (edit :: addMaybeRemovalEdit previousRemoval acc)
 
                 Removal range ->
                     if range.start == range.end then
@@ -89,8 +86,20 @@ compileEditsHelp edits previousStart previousRemoval acc =
                                     Nothing ->
                                         Err FixProblem.HasCollisionsInFixRanges
 
-                            _ ->
-                                compileEditsHelp rest range.start (Just range) acc
+                            EQ ->
+                                case previousRemoval of
+                                    Just { end } ->
+                                        compileEditsHelp
+                                            rest
+                                            range.start
+                                            (Just { start = range.start, end = end })
+                                            acc
+
+                                    Nothing ->
+                                        compileEditsHelp rest range.start (Just range) (addMaybeRemovalEdit previousRemoval acc)
+
+                            LT ->
+                                compileEditsHelp rest range.start (Just range) (addMaybeRemovalEdit previousRemoval acc)
 
                 Replacement range _ ->
                     case comparePosition range.end previousStart of
@@ -98,7 +107,17 @@ compileEditsHelp edits previousStart previousRemoval acc =
                             Err FixProblem.HasCollisionsInFixRanges
 
                         _ ->
-                            compileEditsHelp rest range.start Nothing (edit :: acc)
+                            compileEditsHelp rest range.start Nothing (edit :: addMaybeRemovalEdit previousRemoval acc)
+
+
+addMaybeRemovalEdit : Maybe Range -> List Edit -> List Edit
+addMaybeRemovalEdit previousRemoval acc =
+    case previousRemoval of
+        Just range ->
+            Removal range :: acc
+
+        Nothing ->
+            acc
 
 
 
@@ -113,7 +132,6 @@ applyEdits fixes sourceCode =
         resultAfterEdit : String
         resultAfterEdit =
             fixes
-                |> List.sortBy (rangePosition >> negate)
                 |> applyIndividualEdits (String.lines sourceCode) []
                 |> String.join "\n"
     in
@@ -265,26 +283,3 @@ comparePosition a b =
 
 
 -- RANGE POSITION
-
-
-rangePosition : Edit -> Int
-rangePosition edit =
-    positionAsInt <|
-        case edit of
-            Replacement range _ ->
-                range.start
-
-            Removal range ->
-                range.start
-
-            InsertAt position _ ->
-                position
-
-
-positionAsInt : { row : Int, column : Int } -> Int
-positionAsInt { row, column } =
-    -- This is a quick and simple heuristic to be able to sort ranges.
-    -- It is entirely based on the assumption that no line is longer than
-    -- 1.000.000 characters long. Then, as long as ranges don't overlap,
-    -- this should work fine.
-    row * 1000000 + column

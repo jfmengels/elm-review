@@ -140,7 +140,7 @@ import Json.Encode as Encode
 import Regex exposing (Regex)
 import Review.Error.FileTarget as FileTarget exposing (FileTarget)
 import Review.Error.Fixes as ErrorFixes
-import Review.Error.ReviewError as ReviewError exposing (ReviewError(..))
+import Review.Error.ReviewError exposing (ReviewError(..))
 import Review.Error.Target as Target
 import Review.FileParser as FileParser
 import Review.Fix exposing (Fix)
@@ -1721,17 +1721,17 @@ checkGlobalErrorsMatch project originalNumberOfExpectedErrors params =
     case params.expected of
         head :: rest ->
             case findAndRemove (\error_ -> Rule.errorMessage error_ == head.message && Rule.errorDetails error_ == head.details) params.actual of
-                Just ( matchedError, newActual ) ->
+                Just ( (ReviewError { fixes }) as matchedError, newActual ) ->
                     if List.isEmpty head.details then
                         Expect.fail (FailureMessage.emptyDetails head.message)
 
                     else
-                        case ReviewError.errorFixes matchedError of
+                        case fixes of
                             Err fixProblem ->
                                 Expect.fail <| FailureMessage.fixProblem fixProblem matchedError
 
-                            Ok fixes ->
-                                case checkAllFixesMatch project FailureMessage.Global matchedError head.fixes fixes of
+                            Ok fixes_ ->
+                                case checkAllFixesMatch project FailureMessage.Global matchedError head.fixes (Maybe.withDefault [] fixes_) of
                                     Err failure ->
                                         Expect.fail failure
 
@@ -1924,57 +1924,57 @@ checkFixesHaveNoProblem ((ReviewError err) as error_) =
 
 checkFixesAreCorrect : ProjectInternals -> String -> ReviewError -> ExpectedErrorDetails -> Expectation
 checkFixesAreCorrect project moduleName ((ReviewError err) as error_) expectedError =
-    let
-        errorFixes : List ( FileTarget, ErrorFixes.FixKind )
-        errorFixes =
-            ErrorFixes.toList err.originalFixes
-    in
-    if List.isEmpty errorFixes then
-        case expectedError.expectedFixes of
-            NoFixesExpected ->
-                Expect.pass
+    case err.fixes of
+        Err fixProblem ->
+            FailureMessage.fixProblem fixProblem error_
+                |> Expect.fail
 
-            ComesFromWhenFixed expectedFixedModule ->
-                Expect.fail
-                    (FailureMessage.missingFixes
-                        { target = FailureMessage.Module moduleName
-                        , message = expectedError.message
-                        , expectedFixedModules = [ expectedFixedModule ]
-                        }
-                    )
+        Ok Nothing ->
+            case expectedError.expectedFixes of
+                NoFixesExpected ->
+                    Expect.pass
 
-            ComesFromShouldFixFiles expectedFixedModules ->
-                Expect.fail
-                    (FailureMessage.missingFixes
-                        { target = FailureMessage.Module moduleName
-                        , message = expectedError.message
-                        , expectedFixedModules = Dict.keys expectedFixedModules
-                        }
-                    )
+                ComesFromWhenFixed expectedFixedModule ->
+                    Expect.fail
+                        (FailureMessage.missingFixes
+                            { target = FailureMessage.Module moduleName
+                            , message = expectedError.message
+                            , expectedFixedModules = [ expectedFixedModule ]
+                            }
+                        )
 
-    else
-        case expectedError.expectedFixes of
-            NoFixesExpected ->
-                FailureMessage.unexpectedFixes (Rule.errorMessage error_)
-                    |> Expect.fail
+                ComesFromShouldFixFiles expectedFixedModules ->
+                    Expect.fail
+                        (FailureMessage.missingFixes
+                            { target = FailureMessage.Module moduleName
+                            , message = expectedError.message
+                            , expectedFixedModules = Dict.keys expectedFixedModules
+                            }
+                        )
 
-            ComesFromWhenFixed fixedSource ->
-                checkAllFixesMatch
-                    project
-                    (FailureMessage.Module moduleName)
-                    error_
-                    (Dict.singleton err.filePath (ExpectEdited fixedSource))
-                    errorFixes
-                    |> resultToFailure
+        Ok (Just errorFixes) ->
+            case expectedError.expectedFixes of
+                NoFixesExpected ->
+                    FailureMessage.unexpectedFixes (Rule.errorMessage error_)
+                        |> Expect.fail
 
-            ComesFromShouldFixFiles expectedFixes ->
-                checkAllFixesMatch
-                    project
-                    (FailureMessage.Module moduleName)
-                    error_
-                    expectedFixes
-                    errorFixes
-                    |> resultToFailure
+                ComesFromWhenFixed fixedSource ->
+                    checkAllFixesMatch
+                        project
+                        (FailureMessage.Module moduleName)
+                        error_
+                        (Dict.singleton err.filePath (ExpectEdited fixedSource))
+                        errorFixes
+                        |> resultToFailure
+
+                ComesFromShouldFixFiles expectedFixes ->
+                    checkAllFixesMatch
+                        project
+                        (FailureMessage.Module moduleName)
+                        error_
+                        expectedFixes
+                        errorFixes
+                        |> resultToFailure
 
 
 resultToFailure : Result String a -> Expectation

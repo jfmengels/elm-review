@@ -4563,6 +4563,21 @@ errorFixesV2 (Review.Error.ReviewError.ReviewError err) =
     -- new fix kinds (most likely file creations) without a breaking change
     -- (but through a new `errorFixesV3` function).
     err.fixes
+        |> Result.map
+            (Maybe.map
+                (List.map
+                    (\( fileTarget, fixKind ) ->
+                        ( FileTarget.filePath fileTarget
+                        , case fixKind of
+                            ErrorFixes.Edit edits ->
+                                Just edits
+
+                            ErrorFixes.Remove ->
+                                Nothing
+                        )
+                    )
+                )
+            )
 
 
 {-| Get the automatic [`fixes`](./Review-Fix#Fix) of an [`Error`](#Error), if it
@@ -4583,9 +4598,9 @@ errorFixes (Review.Error.ReviewError.ReviewError err) =
 
         Ok (Just fixes) ->
             case fixes of
-                [ ( target, fileFixes ) ] ->
-                    if target == err.filePath then
-                        fileFixes
+                [ ( target, ErrorFixes.Edit fileFixes ) ] ->
+                    if FileTarget.filePath target == err.filePath then
+                        Just fileFixes
 
                     else
                         Nothing

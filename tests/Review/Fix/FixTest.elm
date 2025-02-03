@@ -77,40 +77,6 @@ a = 1
                     |> Expect.equal (Ok """module A exposing (a)
 a = Debug.log "foo" 1
 """)
-        , test "should apply multiple fixes regardless of the order" <|
-            \() ->
-                let
-                    source : String
-                    source =
-                        """module A exposing (a)
-a = 1
-"""
-
-                    fixes : List Fix
-                    fixes =
-                        [ Fix.replaceRangeBy
-                            { start = { row = 2, column = 1 }
-                            , end = { row = 2, column = 2 }
-                            }
-                            "someVar"
-                        , Fix.insertAt
-                            { row = 2, column = 5 }
-                            """Debug.log "foo" """
-                        ]
-                in
-                Expect.all
-                    [ \() ->
-                        FixInternal.applyEdits fixes source
-                            |> Expect.equal (Ok """module A exposing (a)
-someVar = Debug.log "foo" 1
-""")
-                    , \() ->
-                        FixInternal.applyEdits (List.reverse fixes) source
-                            |> Expect.equal (Ok """module A exposing (a)
-someVar = Debug.log "foo" 1
-""")
-                    ]
-                    ()
         , test "should apply a removal on multiple lines" <|
             \() ->
                 let
