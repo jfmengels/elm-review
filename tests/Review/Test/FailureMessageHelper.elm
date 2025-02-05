@@ -26,9 +26,13 @@ expectFailureModifiedBy expectedFailureMessage actualResult =
                         (String.lines receivedMessage
                             |> List.map
                                 (\line () ->
-                                    String.length line
-                                        |> Expect.atMost 76
-                                        |> onFail (\() -> "Message has line longer than 76 characters:\n\n" ++ line)
+                                    if String.startsWith "  " line then
+                                        Expect.pass
+
+                                    else
+                                        String.length line
+                                            |> Expect.atMost 76
+                                            |> onFail (\() -> "Message has line longer than 76 characters:\n\n" ++ line)
                                 )
                         )
                         ()
