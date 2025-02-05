@@ -64,7 +64,10 @@ compileEditsHelp edits previousStart previousEdit previousRemoval acc =
                 InsertAt position _ ->
                     case comparePosition position previousStart of
                         GT ->
-                            Err FixProblem.HasCollisionsInFixRanges
+                            FixProblem.HasCollisionsInFixRanges
+                                (toRecord edit)
+                                (toRecord previousEdit)
+                                |> Err
 
                         _ ->
                             compileEditsHelp rest position edit Nothing (edit :: addMaybeRemovalEdit previousRemoval acc)
@@ -86,7 +89,10 @@ compileEditsHelp edits previousStart previousEdit previousRemoval acc =
                                             acc
 
                                     Nothing ->
-                                        Err FixProblem.HasCollisionsInFixRanges
+                                        FixProblem.HasCollisionsInFixRanges
+                                            (toRecord edit)
+                                            (toRecord previousEdit)
+                                            |> Err
 
                             EQ ->
                                 case previousRemoval of
@@ -107,7 +113,10 @@ compileEditsHelp edits previousStart previousEdit previousRemoval acc =
                 Replacement range _ ->
                     case comparePosition range.end previousStart of
                         GT ->
-                            Err FixProblem.HasCollisionsInFixRanges
+                            FixProblem.HasCollisionsInFixRanges
+                                (toRecord edit)
+                                (toRecord previousEdit)
+                                |> Err
 
                         _ ->
                             compileEditsHelp rest range.start edit Nothing (edit :: addMaybeRemovalEdit previousRemoval acc)
@@ -262,6 +271,19 @@ getEditRange edit =
 
         InsertAt position _ ->
             { start = position, end = position }
+
+
+toRecord : Edit -> { range : Range, replacement : String }
+toRecord edit =
+    case edit of
+        Replacement range replacement ->
+            { range = range, replacement = replacement }
+
+        Removal range ->
+            { range = range, replacement = "" }
+
+        InsertAt position replacement ->
+            { range = { start = position, end = position }, replacement = replacement }
 
 
 compareRanges2 : Range -> Range -> Order

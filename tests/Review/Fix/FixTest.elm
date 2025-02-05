@@ -242,15 +242,25 @@ someCode = 432
 """ ) ]
                           }
                         ]
-                    |> expectFailure """FOUND COLLISIONS IN FIX RANGES
+                    |> expectFailure """FOUND COLLISIONS IN EDIT RANGES
 
 I got something unexpected when applying the fixes provided by the error
 with the following message:
 
   `Message`
 
-I found that some fixes were targeting (partially or completely) the same
-section of code. The problem with that is that I can't determine which fix
+I found that some edits were targeting (partially or completely) the same
+section of code, among which the following two:
+
+  1. Review.Fix.replaceRangeBy
+         { start = { row = 2, column = 12 }, end = { row = 20, column = 15 } }
+         "321"
+
+  2. Review.Fix.replaceRangeBy
+         { start = { row = 2, column = 13 }, end = { row = 20, column = 14 } }
+         "432"
+
+The problem with that is that I can't determine which fix
 to apply first, and the result will be different and potentially invalid
 based on the order in which I apply these fixes.
 
@@ -282,15 +292,24 @@ someCode = 2
 """ ) ]
                           }
                         ]
-                    |> expectFailure """FOUND COLLISIONS IN FIX RANGES
+                    |> expectFailure """FOUND COLLISIONS IN EDIT RANGES
 
 I got something unexpected when applying the fixes provided by the error
 with the following message:
 
   `Message`
 
-I found that some fixes were targeting (partially or completely) the same
-section of code. The problem with that is that I can't determine which fix
+I found that some edits were targeting (partially or completely) the same
+section of code, among which the following two:
+
+  1. Review.Fix.removeRange
+         { start = { row = 10, column = 1 }, end = { row = 20, column = 1 } }
+
+  2. Review.Fix.insertAt
+         { row = 15, column = 1 }
+         "foo"
+
+The problem with that is that I can't determine which fix
 to apply first, and the result will be different and potentially invalid
 based on the order in which I apply these fixes.
 

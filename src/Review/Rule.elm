@@ -4638,7 +4638,7 @@ errorFixFailure (Review.Error.ReviewError.ReviewError err) =
                 FixProblem.SourceCodeIsNotValid string ->
                     Just (Fix.SourceCodeIsNotValid string)
 
-                FixProblem.HasCollisionsInFixRanges ->
+                FixProblem.HasCollisionsInFixRanges _ _ ->
                     Just Fix.HasCollisionsInFixRanges
 
                 FixProblem.CreatesImportCycle _ ->

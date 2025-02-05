@@ -3,7 +3,7 @@ module Review.Test.FailureMessage exposing
     , parsingFailure, globalErrorInTest, messageMismatch, emptyDetails, unexpectedDetails, wrongLocation, didNotExpectErrors
     , underMismatch, expectedMoreErrors, tooManyErrors, locationNotFound, underMayNotBeEmpty, locationIsAmbiguousInSourceCode
     , needToUsedExpectErrorsForModules, missingSources, duplicateModuleName, unknownModulesInExpectedErrors
-    , missingFixes, unexpectedFixes, unexpectedAdditionalFixes, fixedCodeMismatch, fixProblem, unchangedSourceAfterFix, hasCollisionsInFixRanges
+    , missingFixes, unexpectedFixes, unexpectedAdditionalFixes, fixedCodeMismatch, fixProblem, unchangedSourceAfterFix
     , fileWasEditedInsteadOfRemoved, fileWasRemovedInsteadOfEdited, importCycleAfterFix
     , didNotExpectGlobalErrors, expectedMoreGlobalErrors, fixedCodeWhitespaceMismatch, messageMismatchForConfigurationError
     , missingConfigurationError, tooManyGlobalErrors
@@ -22,7 +22,7 @@ module Review.Test.FailureMessage exposing
 @docs parsingFailure, globalErrorInTest, messageMismatch, emptyDetails, unexpectedDetails, wrongLocation, didNotExpectErrors
 @docs underMismatch, expectedMoreErrors, tooManyErrors, locationNotFound, underMayNotBeEmpty, locationIsAmbiguousInSourceCode
 @docs needToUsedExpectErrorsForModules, missingSources, duplicateModuleName, unknownModulesInExpectedErrors
-@docs missingFixes, unexpectedFixes, unexpectedAdditionalFixes, fixedCodeMismatch, fixProblem, unchangedSourceAfterFix, hasCollisionsInFixRanges
+@docs missingFixes, unexpectedFixes, unexpectedAdditionalFixes, fixedCodeMismatch, fixProblem, unchangedSourceAfterFix
 @docs fileWasEditedInsteadOfRemoved, fileWasRemovedInsteadOfEdited, importCycleAfterFix
 @docs didNotExpectGlobalErrors, expectedMoreGlobalErrors, fixedCodeWhitespaceMismatch, messageMismatchForConfigurationError
 @docs missingConfigurationError, tooManyGlobalErrors
@@ -653,8 +653,8 @@ fixProblem problem error_ =
         FixProblem.SourceCodeIsNotValid sourceCode ->
             invalidSourceAfterFix error_ sourceCode
 
-        FixProblem.HasCollisionsInFixRanges ->
-            hasCollisionsInFixRanges error_
+        FixProblem.HasCollisionsInFixRanges edit1 edit2 ->
+            hasCollisionsInFixRanges error_ edit1 edit2
 
         FixProblem.CreatesImportCycle importCycleModuleNames ->
             foundImportCycleAfterFix importCycleModuleNames error_
@@ -710,16 +710,22 @@ The fixes introduced an import cycle in the project:
 """ ++ ImportCycle.printCycle cycle)
 
 
-hasCollisionsInFixRanges : ReviewError -> String
-hasCollisionsInFixRanges error =
-    failureMessage "FOUND COLLISIONS IN FIX RANGES"
+hasCollisionsInFixRanges : ReviewError -> { range : Range, replacement : String } -> { range : Range, replacement : String } -> String
+hasCollisionsInFixRanges error edit1 edit2 =
+    failureMessage "FOUND COLLISIONS IN EDIT RANGES"
         ("""I got something unexpected when applying the fixes provided by the error
 with the following message:
 
   """ ++ wrapInQuotes (Rule.errorMessage error) ++ """
 
-I found that some fixes were targeting (partially or completely) the same
-section of code. The problem with that is that I can't determine which fix
+I found that some edits were targeting (partially or completely) the same
+section of code, among which the following two:
+
+  1. """ ++ editToFix edit1 ++ """
+
+  2. """ ++ editToFix edit2 ++ """
+
+The problem with that is that I can't determine which fix
 to apply first, and the result will be different and potentially invalid
 based on the order in which I apply these fixes.
 
@@ -728,6 +734,27 @@ the positions (for inserting) of every fix to be mutually exclusive.
 
 Hint: Maybe you duplicated a fix, or you targeted the wrong node for one
 of your fixes.""")
+
+
+editToFix : { range : Range, replacement : String } -> String
+editToFix { range, replacement } =
+    if replacement == "" then
+        "Review.Fix.removeRange\n         " ++ rangeAsString range
+
+    else if range.start == range.end then
+        "Review.Fix.insertAt\n         " ++ locationAsString range.start ++ "\n         " ++ wrapInDoubleOrTripleQuotes replacement
+
+    else
+        "Review.Fix.replaceRangeBy\n         " ++ rangeAsString range ++ "\n         " ++ wrapInDoubleOrTripleQuotes replacement
+
+
+wrapInDoubleOrTripleQuotes : String -> String
+wrapInDoubleOrTripleQuotes string =
+    if String.contains "\"" string then
+        "\"\"\"" ++ string ++ "\"\"\""
+
+    else
+        "\"" ++ string ++ "\""
 
 
 foundImportCycleAfterFix : List String -> ReviewError -> String
