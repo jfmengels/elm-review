@@ -705,7 +705,8 @@ importCycleAfterFix target cycle error =
 
   """ ++ wrapInQuotes (Rule.errorMessage error) ++ """
 
-The fixes introduced an import cycle in the project:
+would provide some fixes, but they introduced an import cycle in the
+project:
 
 """ ++ ImportCycle.printCycle cycle)
 

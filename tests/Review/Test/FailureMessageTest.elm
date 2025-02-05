@@ -1343,7 +1343,8 @@ I expected that the global error with the following message:
 
   `Message`
 
-The fixes introduced an import cycle in the project:
+would provide some fixes, but they introduced an import cycle in the
+project:
 
     ┌─────┐
     │    \u{001B}[33mA\u{001B}[39m
