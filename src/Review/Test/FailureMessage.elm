@@ -34,7 +34,7 @@ module Review.Test.FailureMessage exposing
 -}
 
 import Ansi
-import Elm.Syntax.Range exposing (Range)
+import Elm.Syntax.Range exposing (Location, Range)
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Review.Fix.FixProblem as FixProblem
@@ -1055,12 +1055,17 @@ wrapInTripleQuotes str =
 
 rangeAsString : Range -> String
 rangeAsString { start, end } =
-    "{ start = { row = " ++ String.fromInt start.row ++ ", column = " ++ String.fromInt start.column ++ " }, end = { row = " ++ String.fromInt end.row ++ ", column = " ++ String.fromInt end.column ++ " } }"
+    "{ start = " ++ locationAsString start ++ ", end = " ++ locationAsString end ++ " }"
 
 
 rangeAsStringOnMultipleLines : Range -> String
 rangeAsStringOnMultipleLines { start, end } =
-    "{ start = { row = " ++ String.fromInt start.row ++ ", column = " ++ String.fromInt start.column ++ " }\n              , end = { row = " ++ String.fromInt end.row ++ ", column = " ++ String.fromInt end.column ++ " }\n              }"
+    "{ start = " ++ locationAsString start ++ "\n              , end = " ++ locationAsString end ++ "\n              }"
+
+
+locationAsString : Location -> String
+locationAsString location =
+    "{ row = " ++ String.fromInt location.row ++ ", column = " ++ String.fromInt location.column ++ " }"
 
 
 pluralizeErrors : Int -> String
