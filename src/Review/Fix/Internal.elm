@@ -64,7 +64,7 @@ compileEditsHelp edits previousStart previousEdit previousRemoval acc =
                 InsertAt position _ ->
                     case comparePosition position previousStart of
                         GT ->
-                            FixProblem.HasCollisionsInFixRanges
+                            FixProblem.HasCollisionsInEditRanges
                                 (toRecord edit)
                                 (toRecord previousEdit)
                                 |> Err
@@ -89,7 +89,7 @@ compileEditsHelp edits previousStart previousEdit previousRemoval acc =
                                             acc
 
                                     Nothing ->
-                                        FixProblem.HasCollisionsInFixRanges
+                                        FixProblem.HasCollisionsInEditRanges
                                             (toRecord edit)
                                             (toRecord previousEdit)
                                             |> Err
@@ -113,7 +113,7 @@ compileEditsHelp edits previousStart previousEdit previousRemoval acc =
                 Replacement range _ ->
                     case comparePosition range.end previousStart of
                         GT ->
-                            FixProblem.HasCollisionsInFixRanges
+                            FixProblem.HasCollisionsInEditRanges
                                 (toRecord edit)
                                 (toRecord previousEdit)
                                 |> Err

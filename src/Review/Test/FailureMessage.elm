@@ -653,8 +653,8 @@ fixProblem problem error_ =
         FixProblem.SourceCodeIsNotValid sourceCode ->
             invalidSourceAfterFix error_ sourceCode
 
-        FixProblem.HasCollisionsInFixRanges edit1 edit2 ->
-            hasCollisionsInFixRanges error_ edit1 edit2
+        FixProblem.HasCollisionsInEditRanges edit1 edit2 ->
+            hasCollisionsInEditRanges error_ edit1 edit2
 
         FixProblem.CreatesImportCycle importCycleModuleNames ->
             foundImportCycleAfterFix importCycleModuleNames error_
@@ -710,8 +710,8 @@ The fixes introduced an import cycle in the project:
 """ ++ ImportCycle.printCycle cycle)
 
 
-hasCollisionsInFixRanges : ReviewError -> { range : Range, replacement : String } -> { range : Range, replacement : String } -> String
-hasCollisionsInFixRanges error edit1 edit2 =
+hasCollisionsInEditRanges : ReviewError -> { range : Range, replacement : String } -> { range : Range, replacement : String } -> String
+hasCollisionsInEditRanges error edit1 edit2 =
     failureMessage "FOUND COLLISIONS IN EDIT RANGES"
         ("""I got something unexpected when applying the fixes provided by the error
 with the following message:
