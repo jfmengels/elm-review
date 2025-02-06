@@ -230,27 +230,6 @@ getRowAtLine lines rowIndex =
 -- CONTAINS RANGE COLLISIONS
 
 
-containRangeCollisions : List Edit -> Bool
-containRangeCollisions fixes =
-    fixes
-        |> List.sortWith (\a b -> compareRanges (getEditRange a) (getEditRange b))
-        |> anyCombinationCollides
-
-
-anyCombinationCollides : List Edit -> Bool
-anyCombinationCollides xs =
-    case xs of
-        [] ->
-            False
-
-        x :: xs_ ->
-            if List.any (\y -> collide (getEditRange x) (getEditRange y)) xs_ then
-                True
-
-            else
-                anyCombinationCollides xs_
-
-
 getEditRange : Edit -> Range
 getEditRange edit =
     case edit of
@@ -262,37 +241,6 @@ getEditRange edit =
 
         InsertAt position _ ->
             { start = position, end = position }
-
-
-collide : Range -> Range -> Bool
-collide a b =
-    case comparePosition a.end b.start of
-        LT ->
-            False
-
-        EQ ->
-            False
-
-        GT ->
-            case comparePosition b.end a.start of
-                LT ->
-                    False
-
-                EQ ->
-                    False
-
-                GT ->
-                    True
-
-
-compareRanges : Range -> Range -> Order
-compareRanges a b =
-    case comparePosition a.end b.start of
-        EQ ->
-            comparePosition b.end a.start
-
-        order ->
-            order
 
 
 compareRanges2 : Range -> Range -> Order
