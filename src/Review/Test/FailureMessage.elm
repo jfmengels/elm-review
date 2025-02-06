@@ -727,9 +727,9 @@ section of code, among which the following two:
 
   2. """ ++ editToFix edit2 ++ """
 
-The problem with that is that I can't determine which fix
-to apply first, and the result will be different and potentially invalid
-based on the order in which I apply these fixes.
+The problem is that I can't determine which fix to apply first, and the
+result will be different and potentially invalid based on the order in
+which I apply these fixes.
 
 For this reason, I require that the ranges (for replacing and removing) and
 the positions (for inserting) of every fix to be mutually exclusive.
