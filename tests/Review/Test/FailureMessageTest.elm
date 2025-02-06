@@ -1237,22 +1237,31 @@ unchangedSourceAfterFixTest =
     test "unchangedSourceAfterFix" <|
         \() ->
             let
-                error : ReviewError
-                error =
-                    Review.Error.ReviewError.error
-                        { message = "Some error"
-                        , details = [ "Some details" ]
-                        }
-                        { start = { row = 3, column = 1 }, end = { row = 3, column = 5 } }
+                testRule : Rule
+                testRule =
+                    ArbitraryFixRule.rule
+                        "src/A.elm"
+                        [ Fix.replaceRangeBy { start = { row = 1, column = 1 }, end = { row = 1, column = 7 } } "module"
+                        ]
             in
-            FailureMessage.unchangedSourceAfterFix error
-                |> expectMessageEqual """
-\u{001B}[31m\u{001B}[1mUNCHANGED SOURCE AFTER FIX\u{001B}[22m\u{001B}[39m
+            """module A exposing (..)
+a = "abc"
+"""
+                |> Review.Test.run testRule
+                |> Review.Test.expectGlobalErrorsWithFixes
+                    [ { message = ArbitraryFixRule.message
+                      , details = ArbitraryFixRule.details
+                      , fixes = [ ( "A", Review.Test.edited """ule A exposing (..)
+a = "abc"
+""" ) ]
+                      }
+                    ]
+                |> expectFailure """UNCHANGED SOURCE AFTER FIX
 
 I got something unexpected when applying the fixes provided by the error
 with the following message:
 
-  `Some error`
+  `Message`
 
 I expected the fix to make some changes to the source code, but it resulted
 in the same source code as before the fixes.
