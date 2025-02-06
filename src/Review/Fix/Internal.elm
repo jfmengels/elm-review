@@ -41,6 +41,10 @@ compileEdits edits =
         (InsertAt { row = infinity, column = infinity } "")
         Nothing
         []
+        |> Result.mapError
+            (\( edit1, edit2 ) ->
+                FixProblem.HasCollisionsInEditRanges (toRecord edit1) (toRecord edit2)
+            )
 
 
 infinity : Int
@@ -48,7 +52,7 @@ infinity =
     round (1 / 0)
 
 
-compileEditsHelp : List Edit -> Location -> Edit -> Maybe Range -> List Edit -> Result FixProblem (List Edit)
+compileEditsHelp : List Edit -> Location -> Edit -> Maybe Range -> List Edit -> Result ( Edit, Edit ) (List Edit)
 compileEditsHelp edits previousStart previousEdit previousRemoval acc =
     case edits of
         [] ->
@@ -64,9 +68,7 @@ compileEditsHelp edits previousStart previousEdit previousRemoval acc =
                 InsertAt position _ ->
                     case comparePosition position previousStart of
                         GT ->
-                            FixProblem.HasCollisionsInEditRanges
-                                (toRecord edit)
-                                (toRecord previousEdit)
+                            ( edit, previousEdit )
                                 |> Err
 
                         _ ->
@@ -89,9 +91,7 @@ compileEditsHelp edits previousStart previousEdit previousRemoval acc =
                                             acc
 
                                     Nothing ->
-                                        FixProblem.HasCollisionsInEditRanges
-                                            (toRecord edit)
-                                            (toRecord previousEdit)
+                                        ( edit, previousEdit )
                                             |> Err
 
                             EQ ->
@@ -113,9 +113,7 @@ compileEditsHelp edits previousStart previousEdit previousRemoval acc =
                 Replacement range _ ->
                     case comparePosition range.end previousStart of
                         GT ->
-                            FixProblem.HasCollisionsInEditRanges
-                                (toRecord edit)
-                                (toRecord previousEdit)
+                            ( edit, previousEdit )
                                 |> Err
 
                         _ ->
