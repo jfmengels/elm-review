@@ -15,7 +15,7 @@ import Review.Test
 import Review.Test.ArbitraryFixRule as ArbitraryFixRule
 import Review.Test.ExpectationExtra exposing (onFail)
 import Review.Test.FailureMessage as FailureMessage
-import Review.Test.FailureMessageHelper exposing (expectFailure)
+import Review.Test.FailureMessageHelper exposing (expectFailure, expectFailureNoLengthCheck)
 import Test exposing (Test, describe, test)
 import Vendor.Diff as Diff
 
@@ -1256,10 +1256,9 @@ a = "abc"
 """ ) ]
                       }
                     ]
-                |> expectFailure """UNCHANGED SOURCE AFTER FIX
+                |> expectFailureNoLengthCheck """UNCHANGED SOURCE AFTER FIX
 
-I got something unexpected when applying the fixes provided by the error
-with the following message:
+I got something unexpected when applying the fixes provided by the global error with the following message:
 
   `Message`
 
@@ -1275,7 +1274,7 @@ Hint: Maybe you inserted an empty string into the source code."""
 
 invalidSourceAfterFixTest : Test
 invalidSourceAfterFixTest =
-    test "invalidSourceAfterFix" <|
+    test "Invalid source after fix" <|
         \() ->
             let
                 testRule : Rule
@@ -1296,10 +1295,9 @@ a = "abc"
 """ ) ]
                       }
                     ]
-                |> expectFailure """INVALID SOURCE AFTER FIX
+                |> expectFailureNoLengthCheck """INVALID SOURCE AFTER FIX
 
-I got something unexpected when applying the fixes provided by the error
-with the following message:
+I got something unexpected when applying the fixes provided by the global error with the following message:
 
   `Message`
 

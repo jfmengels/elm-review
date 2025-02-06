@@ -7,7 +7,7 @@ import Review.Fix.Internal as FixInternal
 import Review.Rule exposing (Rule)
 import Review.Test
 import Review.Test.ArbitraryFixRule as ArbitraryFixRule
-import Review.Test.FailureMessageHelper exposing (expectFailure)
+import Review.Test.FailureMessageHelper exposing (expectFailureNoLengthCheck)
 import Test exposing (Test, describe, test)
 
 
@@ -242,10 +242,9 @@ someCode = 432
 """ ) ]
                           }
                         ]
-                    |> expectFailure """FOUND COLLISIONS IN EDIT RANGES
+                    |> expectFailureNoLengthCheck """FOUND COLLISIONS IN EDIT RANGES
 
-I got something unexpected when applying the fixes provided by the error
-with the following message:
+I got something unexpected when applying the fixes provided by the global error with the following message:
 
   `Message`
 
@@ -293,10 +292,9 @@ someCode = 2
 """ ) ]
                           }
                         ]
-                    |> expectFailure """FOUND COLLISIONS IN EDIT RANGES
+                    |> expectFailureNoLengthCheck """FOUND COLLISIONS IN EDIT RANGES
 
-I got something unexpected when applying the fixes provided by the error
-with the following message:
+I got something unexpected when applying the fixes provided by the global error with the following message:
 
   `Message`
 

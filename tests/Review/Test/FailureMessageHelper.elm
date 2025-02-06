@@ -1,4 +1,4 @@
-module Review.Test.FailureMessageHelper exposing (expectFailure)
+module Review.Test.FailureMessageHelper exposing (expectFailure, expectFailureNoLengthCheck)
 
 import Expect exposing (Expectation)
 import Review.Test.ExpectationExtra exposing (onFail)
@@ -7,11 +7,16 @@ import Test.Runner
 
 expectFailure : String -> Expectation -> Expectation
 expectFailure expectedFailureMessage actualResult =
-    expectFailureModifiedBy (String.trim expectedFailureMessage) actualResult
+    expectFailureModifiedBy True (String.trim expectedFailureMessage) actualResult
 
 
-expectFailureModifiedBy : String -> Expectation -> Expectation
-expectFailureModifiedBy expectedFailureMessage actualResult =
+expectFailureNoLengthCheck : String -> Expectation -> Expectation
+expectFailureNoLengthCheck expectedFailureMessage actualResult =
+    expectFailureModifiedBy False (String.trim expectedFailureMessage) actualResult
+
+
+expectFailureModifiedBy : Bool -> String -> Expectation -> Expectation
+expectFailureModifiedBy checkLength expectedFailureMessage actualResult =
     case Test.Runner.getFailureReason actualResult of
         Nothing ->
             Expect.fail "Expected a failure, but got a pass"
@@ -22,20 +27,24 @@ expectFailureModifiedBy expectedFailureMessage actualResult =
                     receivedMessage
                         |> Expect.equal (removeColors (String.trim expectedFailureMessage))
                 , \receivedMessage ->
-                    Expect.all
-                        (String.lines receivedMessage
-                            |> List.map
-                                (\line () ->
-                                    if String.startsWith "  " line then
-                                        Expect.pass
+                    if checkLength then
+                        Expect.all
+                            (String.lines receivedMessage
+                                |> List.map
+                                    (\line () ->
+                                        if String.startsWith "  " line then
+                                            Expect.pass
 
-                                    else
-                                        String.length line
-                                            |> Expect.atMost 76
-                                            |> onFail (\() -> "Message has line longer than 76 characters:\n\n" ++ line)
-                                )
-                        )
-                        ()
+                                        else
+                                            String.length line
+                                                |> Expect.atMost 76
+                                                |> onFail (\() -> "Message has line longer than 76 characters:\n\n" ++ line)
+                                    )
+                            )
+                            ()
+
+                    else
+                        Expect.pass
                 ]
                 (removeColors actualInfo.description)
 

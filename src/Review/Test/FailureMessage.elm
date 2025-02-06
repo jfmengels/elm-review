@@ -644,27 +644,26 @@ replaceWhitespace lines =
         |> String.split "\n"
 
 
-fixProblem : FixProblem.FixProblem -> ReviewError -> String
-fixProblem problem error_ =
+fixProblem : Target -> FixProblem.FixProblem -> ReviewError -> String
+fixProblem target problem error_ =
     case problem of
         FixProblem.Unchanged ->
-            unchangedSourceAfterFix error_
+            unchangedSourceAfterFix target error_
 
         FixProblem.SourceCodeIsNotValid sourceCode ->
-            invalidSourceAfterFix error_ sourceCode
+            invalidSourceAfterFix target error_ sourceCode
 
         FixProblem.HasCollisionsInEditRanges filePath edit1 edit2 ->
-            hasCollisionsInEditRanges filePath error_ edit1 edit2
+            hasCollisionsInEditRanges target filePath error_ edit1 edit2
 
         FixProblem.CreatesImportCycle importCycleModuleNames ->
             foundImportCycleAfterFix importCycleModuleNames error_
 
 
-unchangedSourceAfterFix : ReviewError -> String
-unchangedSourceAfterFix error =
+unchangedSourceAfterFix : Target -> ReviewError -> String
+unchangedSourceAfterFix target error =
     failureMessage "UNCHANGED SOURCE AFTER FIX"
-        ("""I got something unexpected when applying the fixes provided by the error
-with the following message:
+        ("""I got something unexpected when applying the fixes provided by the """ ++ describeTarget target ++ """ with the following message:
 
   """ ++ wrapInQuotes (Rule.errorMessage error) ++ """
 
@@ -678,11 +677,10 @@ doesn't do anything.
 Hint: Maybe you inserted an empty string into the source code.""")
 
 
-invalidSourceAfterFix : ReviewError -> SourceCode -> String
-invalidSourceAfterFix error resultingSourceCode =
+invalidSourceAfterFix : Target -> ReviewError -> SourceCode -> String
+invalidSourceAfterFix target error resultingSourceCode =
     failureMessage "INVALID SOURCE AFTER FIX"
-        ("""I got something unexpected when applying the fixes provided by the error
-with the following message:
+        ("""I got something unexpected when applying the fixes provided by the """ ++ describeTarget target ++ """ with the following message:
 
   """ ++ wrapInQuotes (Rule.errorMessage error) ++ """
 
@@ -711,11 +709,10 @@ project:
 """ ++ ImportCycle.printCycle cycle)
 
 
-hasCollisionsInEditRanges : String -> ReviewError -> { range : Range, replacement : String } -> { range : Range, replacement : String } -> String
-hasCollisionsInEditRanges fileWithFixIssues error edit1 edit2 =
+hasCollisionsInEditRanges : Target -> String -> ReviewError -> { range : Range, replacement : String } -> { range : Range, replacement : String } -> String
+hasCollisionsInEditRanges target fileWithFixIssues error edit1 edit2 =
     failureMessage "FOUND COLLISIONS IN EDIT RANGES"
-        ("""I got something unexpected when applying the fixes provided by the error
-with the following message:
+        ("""I got something unexpected when applying the fixes provided by the """ ++ describeTarget target ++ """ with the following message:
 
   """ ++ wrapInQuotes (Rule.errorMessage error) ++ """
 

@@ -1726,12 +1726,18 @@ checkGlobalErrorsMatch project originalNumberOfExpectedErrors params =
                         Expect.fail (FailureMessage.emptyDetails head.message)
 
                     else
+                        let
+                            target : FailureMessage.Target
+                            target =
+                                FailureMessage.Global
+                        in
                         case fixes of
                             Err fixProblem ->
-                                Expect.fail <| FailureMessage.fixProblem fixProblem matchedError
+                                FailureMessage.fixProblem target fixProblem matchedError
+                                    |> Expect.fail
 
                             Ok fixes_ ->
-                                case checkAllFixesMatch project FailureMessage.Global matchedError head.fixes (Maybe.withDefault [] fixes_) of
+                                case checkAllFixesMatch project target matchedError head.fixes (Maybe.withDefault [] fixes_) of
                                     Err failure ->
                                         Expect.fail failure
 
@@ -1831,6 +1837,11 @@ checkErrorsMatch project runResult expectedErrors expectedNumberOfErrors errors 
 
 checkErrorMatch : ProjectInternals -> SuccessfulRunResult -> ExpectedError -> ReviewError -> (() -> Expectation)
 checkErrorMatch project runResult (ExpectedError expectedError) error_ =
+    let
+        target : FailureMessage.Target
+        target =
+            FailureMessage.Module runResult.moduleName
+    in
     Expect.all
         [ -- Error message
           \() ->
@@ -1839,7 +1850,7 @@ checkErrorMatch project runResult (ExpectedError expectedError) error_ =
                 |> onFail
                     (\() ->
                         FailureMessage.messageMismatch
-                            { target = FailureMessage.Module runResult.moduleName
+                            { target = target
                             , expected = expectedError.message
                             , actual = Rule.errorMessage error_
                             }
@@ -1858,8 +1869,8 @@ checkErrorMatch project runResult (ExpectedError expectedError) error_ =
                         |> onFail (\() -> FailureMessage.unexpectedDetails expectedError.details error_)
 
         -- Error fixes
-        , \() -> checkFixesHaveNoProblem error_
-        , \() -> checkFixesAreCorrect project runResult.moduleName error_ expectedError
+        , \() -> checkFixesHaveNoProblem target error_
+        , \() -> checkFixesAreCorrect project target runResult.moduleName error_ expectedError
         ]
 
 
@@ -1912,21 +1923,22 @@ checkMessageAppearsUnder codeInspector error_ expectedError =
                     |> Expect.fail
 
 
-checkFixesHaveNoProblem : ReviewError -> Expectation
-checkFixesHaveNoProblem ((ReviewError err) as error_) =
+checkFixesHaveNoProblem : FailureMessage.Target -> ReviewError -> Expectation
+checkFixesHaveNoProblem target ((ReviewError err) as error_) =
     case err.fixProblem of
         Just fixProblem ->
-            Expect.fail <| FailureMessage.fixProblem fixProblem error_
+            FailureMessage.fixProblem target fixProblem error_
+                |> Expect.fail
 
         Nothing ->
             Expect.pass
 
 
-checkFixesAreCorrect : ProjectInternals -> String -> ReviewError -> ExpectedErrorDetails -> Expectation
-checkFixesAreCorrect project moduleName ((ReviewError err) as error_) expectedError =
+checkFixesAreCorrect : ProjectInternals -> FailureMessage.Target -> String -> ReviewError -> ExpectedErrorDetails -> Expectation
+checkFixesAreCorrect project target moduleName ((ReviewError err) as error_) expectedError =
     case err.fixes of
         Err fixProblem ->
-            FailureMessage.fixProblem fixProblem error_
+            FailureMessage.fixProblem target fixProblem error_
                 |> Expect.fail
 
         Ok Nothing ->
@@ -2036,7 +2048,7 @@ checkFixesMatch project target error_ expectedFixed fixes =
                 Just targetInformation ->
                     case getExpectedFixedCodeThroughFilePathOrModuleName (FileTarget.filePath fixTarget) targetInformation.moduleName expectedFixed of
                         Just ( key, ExpectEdited expectedResult ) ->
-                            case fixOneError fileFixes targetInformation.source expectedResult error_ of
+                            case fixOneError target fileFixes targetInformation.source expectedResult error_ of
                                 Err failureMessage ->
                                     Err failureMessage
 
@@ -2051,7 +2063,7 @@ checkFixesMatch project target error_ expectedFixed fixes =
                                                 rest
 
                                         Err fixProblem ->
-                                            Err (FailureMessage.fixProblem fixProblem error_)
+                                            Err (FailureMessage.fixProblem target fixProblem error_)
 
                         Just ( key, ExpectRemoved ) ->
                             FailureMessage.fileWasEditedInsteadOfRemoved
@@ -2163,8 +2175,8 @@ getExpectedFixedCodeThroughFilePathOrModuleName filePath moduleName expectedFixe
                     )
 
 
-fixOneError : List Fix -> String -> String -> ReviewError -> Result String ()
-fixOneError fileFixes source expectedFixedSource error_ =
+fixOneError : FailureMessage.Target -> List Fix -> String -> String -> ReviewError -> Result String ()
+fixOneError target fileFixes source expectedFixedSource error_ =
     case FixInternal.applyEdits fileFixes source of
         Ok fixedSource ->
             let
@@ -2186,7 +2198,7 @@ fixOneError fileFixes source expectedFixedSource error_ =
                 Err <| FailureMessage.fixedCodeMismatch trimmedFixed expectedFixed error_
 
         Err fixProblem ->
-            Err <| FailureMessage.fixProblem fixProblem error_
+            Err <| FailureMessage.fixProblem target fixProblem error_
 
 
 trimRightOnEveryLine : String -> String
