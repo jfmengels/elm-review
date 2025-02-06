@@ -1,13 +1,11 @@
 module Review.Error.ReviewError exposing
     ( InternalError
     , ReviewError(..)
-    , doesPreventExtract
     , error
     , errorFixes
     , fromBaseError
     )
 
-import Dict exposing (Dict)
 import Elm.Syntax.Range exposing (Range)
 import Review.Error.FileTarget as FileTarget exposing (FileTarget)
 import Review.Error.Fixes as ErrorFixes exposing (ErrorFixes)
@@ -117,11 +115,6 @@ error { message, details } range =
         , target = Target.module_ ""
         , preventsExtract = False
         }
-
-
-doesPreventExtract : InternalError -> Bool
-doesPreventExtract error_ =
-    error_.preventsExtract
 
 
 errorFixes : ReviewError -> Result FixProblem (List ( FileTarget, ErrorFixes.FixKind ))
