@@ -2008,7 +2008,7 @@ checkAllFixesMatch project target error_ expectedFixed fixes =
         Ok newProject ->
             case ValidProject.parse (Review.Project.Internal.Project newProject) of
                 Err (InvalidProjectError.ImportCycleError files) ->
-                    FailureMessage.importCycleAfterFix target files error_
+                    FailureMessage.fixProblem target (FixProblem.CreatesImportCycle files) error_
                         |> Err
 
                 Err (InvalidProjectError.SomeModulesFailedToParse files) ->

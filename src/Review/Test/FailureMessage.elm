@@ -4,7 +4,7 @@ module Review.Test.FailureMessage exposing
     , underMismatch, expectedMoreErrors, tooManyErrors, locationNotFound, underMayNotBeEmpty, locationIsAmbiguousInSourceCode
     , needToUsedExpectErrorsForModules, missingSources, duplicateModuleName, unknownModulesInExpectedErrors
     , missingFixes, unexpectedFixes, unexpectedAdditionalFixes, fixedCodeMismatch, fixProblem
-    , fileWasEditedInsteadOfRemoved, fileWasRemovedInsteadOfEdited, importCycleAfterFix
+    , fileWasEditedInsteadOfRemoved, fileWasRemovedInsteadOfEdited
     , didNotExpectGlobalErrors, expectedMoreGlobalErrors, fixedCodeWhitespaceMismatch, messageMismatchForConfigurationError
     , missingConfigurationError, tooManyGlobalErrors
     , unexpectedConfigurationError, unexpectedConfigurationErrorDetails, unexpectedGlobalErrorDetails
@@ -23,7 +23,7 @@ module Review.Test.FailureMessage exposing
 @docs underMismatch, expectedMoreErrors, tooManyErrors, locationNotFound, underMayNotBeEmpty, locationIsAmbiguousInSourceCode
 @docs needToUsedExpectErrorsForModules, missingSources, duplicateModuleName, unknownModulesInExpectedErrors
 @docs missingFixes, unexpectedFixes, unexpectedAdditionalFixes, fixedCodeMismatch, fixProblem
-@docs fileWasEditedInsteadOfRemoved, fileWasRemovedInsteadOfEdited, importCycleAfterFix
+@docs fileWasEditedInsteadOfRemoved, fileWasRemovedInsteadOfEdited
 @docs didNotExpectGlobalErrors, expectedMoreGlobalErrors, fixedCodeWhitespaceMismatch, messageMismatchForConfigurationError
 @docs missingConfigurationError, tooManyGlobalErrors
 @docs unexpectedConfigurationError, unexpectedConfigurationErrorDetails, unexpectedGlobalErrorDetails
@@ -66,13 +66,6 @@ didNotExpectGlobalErrors errors =
         ("""I expected no global errors but found:
 
 """ ++ quotedBulletList errors)
-
-
-bulletList : List String -> String
-bulletList strings =
-    strings
-        |> List.map (\string -> "  - " ++ string)
-        |> String.join "\n"
 
 
 quotedBulletList : List String -> String
@@ -657,7 +650,7 @@ fixProblem target problem error_ =
             hasCollisionsInEditRanges target filePath error_ edit1 edit2
 
         FixProblem.CreatesImportCycle importCycleModuleNames ->
-            foundImportCycleAfterFix importCycleModuleNames error_
+            importCycleAfterFix target importCycleModuleNames error_
 
 
 unchangedSourceAfterFix : Target -> ReviewError -> String
@@ -754,19 +747,6 @@ wrapInDoubleOrTripleQuotes string =
 
     else
         "\"" ++ string ++ "\""
-
-
-foundImportCycleAfterFix : List String -> ReviewError -> String
-foundImportCycleAfterFix importCycleModuleNames error =
-    failureMessage "FOUND IMPORT CYCLE AFTER FIX"
-        ("""I got something unexpected when applying the fixes provided by the error
-with the following message:
-
-  """ ++ wrapInQuotes (Rule.errorMessage error) ++ """
-
-I found that introducing this fix creates a new import cycle:
-
-""" ++ bulletList importCycleModuleNames)
 
 
 unexpectedConfigurationError : { message : String, details : List String } -> String
