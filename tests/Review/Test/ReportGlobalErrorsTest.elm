@@ -166,18 +166,17 @@ If this fix was expected, update the test by using
 change the rule's implementation to not provide a fix for this situation."""
         , test "test should fail if fix is incorrect" <|
             \_ ->
-                """
-module A exposing (..)
-a = 1
-"""
+                """module A exposing (..)
+
+a = 1"""
                     |> Review.Test.run rule
                     |> Review.Test.expectGlobalErrorsWithFixes
                         [ { message = "Oh no"
                           , details = [ "I'll fix all modules now" ]
                           , fixes = [ ( "A", Review.Test.edited """-- Hi!!!
 module A exposing (..)
-a = 1
-""" ) ]
+
+a = 1""" ) ]
                           }
                         ]
                     |> expectFailure """FIXED CODE MISMATCH
@@ -192,6 +191,7 @@ I expected the following result after the fixes have been applied:
   ```
     -- Hi!!!
     module A exposing (..)
+
     a = 1
   ```
 
@@ -200,6 +200,7 @@ but I found:
   ```
     -- Hi
     module A exposing (..)
+
     a = 1
   ```"""
         ]

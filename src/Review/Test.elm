@@ -2195,7 +2195,7 @@ fixOneError target fileFixes source expectedFixedSource error_ =
                 Err <| FailureMessage.fixedCodeWhitespaceMismatch trimmedFixed expectedFixed error_
 
             else
-                Err <| FailureMessage.fixedCodeMismatch trimmedFixed expectedFixed error_
+                Err <| FailureMessage.fixedCodeMismatch fixedSource expectedFixedSource error_
 
         Err fixProblem ->
             Err <| FailureMessage.fixProblem target fixProblem error_
