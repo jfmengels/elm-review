@@ -6,7 +6,7 @@ module Review.Error.ReviewError exposing
     )
 
 import Elm.Syntax.Range exposing (Range)
-import Review.Error.FileTarget exposing (FileTarget)
+import Review.Error.FileTarget as FileTarget exposing (FileTarget)
 import Review.Error.Fixes as ErrorFixes exposing (ErrorFixes)
 import Review.Error.Target as Target
 import Review.Fix.FixProblem exposing (FixProblem)
@@ -71,7 +71,7 @@ compileFixesHelp fixes acc =
                 fix =
                     case fixKind of
                         ErrorFixes.Edit edits ->
-                            Review.Fix.Internal.compileEdits edits
+                            Review.Fix.Internal.compileEdits (FileTarget.filePath target) edits
                                 |> Result.map ErrorFixes.Edit
 
                         ErrorFixes.Remove ->

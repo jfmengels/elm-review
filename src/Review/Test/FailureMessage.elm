@@ -653,8 +653,8 @@ fixProblem problem error_ =
         FixProblem.SourceCodeIsNotValid sourceCode ->
             invalidSourceAfterFix error_ sourceCode
 
-        FixProblem.HasCollisionsInEditRanges edit1 edit2 ->
-            hasCollisionsInEditRanges error_ edit1 edit2
+        FixProblem.HasCollisionsInEditRanges filePath edit1 edit2 ->
+            hasCollisionsInEditRanges filePath error_ edit1 edit2
 
         FixProblem.CreatesImportCycle importCycleModuleNames ->
             foundImportCycleAfterFix importCycleModuleNames error_
@@ -711,14 +711,15 @@ project:
 """ ++ ImportCycle.printCycle cycle)
 
 
-hasCollisionsInEditRanges : ReviewError -> { range : Range, replacement : String } -> { range : Range, replacement : String } -> String
-hasCollisionsInEditRanges error edit1 edit2 =
+hasCollisionsInEditRanges : String -> ReviewError -> { range : Range, replacement : String } -> { range : Range, replacement : String } -> String
+hasCollisionsInEditRanges fileWithFixIssues error edit1 edit2 =
     failureMessage "FOUND COLLISIONS IN EDIT RANGES"
         ("""I got something unexpected when applying the fixes provided by the error
 with the following message:
 
   """ ++ wrapInQuotes (Rule.errorMessage error) ++ """
 
+When evaluating the edits for """ ++ fileWithFixIssues ++ """
 I found that some edits were targeting (partially or completely) the same
 section of code, among which the following two:
 

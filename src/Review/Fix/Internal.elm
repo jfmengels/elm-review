@@ -33,8 +33,8 @@ type alias Fix =
     Edit
 
 
-compileEdits : List Edit -> Result FixProblem (List Edit)
-compileEdits edits =
+compileEdits : String -> List Edit -> Result FixProblem (List Edit)
+compileEdits filePath edits =
     compileEditsHelp
         (List.sortWith (\a b -> compareRanges2 (getEditRange b) (getEditRange a)) edits)
         { row = infinity, column = infinity }
@@ -43,7 +43,7 @@ compileEdits edits =
         []
         |> Result.mapError
             (\( edit1, edit2 ) ->
-                FixProblem.HasCollisionsInEditRanges (toRecord edit1) (toRecord edit2)
+                FixProblem.HasCollisionsInEditRanges filePath (toRecord edit1) (toRecord edit2)
             )
 
 
