@@ -6025,10 +6025,10 @@ findFixHelp project supportsFileDeletion fixablePredicate errors accErrors maybe
 
         err :: restOfErrors ->
             case isFixable supportsFileDeletion fixablePredicate err of
-                Nothing ->
-                    findFixHelp project supportsFileDeletion fixablePredicate restOfErrors (err :: accErrors) maybeModuleZipper
+                Err updatedError ->
+                    findFixHelp project supportsFileDeletion fixablePredicate restOfErrors (updatedError :: accErrors) maybeModuleZipper
 
-                Just fixes ->
+                Ok fixes ->
                     case fixes of
                         [] ->
                             findFixHelp project supportsFileDeletion fixablePredicate restOfErrors (err :: accErrors) maybeModuleZipper
@@ -6149,11 +6149,11 @@ markFixesAsProblem fixProblem error_ =
     { error_ | fixProblem = Just fixProblem }
 
 
-isFixable : Bool -> ({ ruleName : String, filePath : String, message : String, details : List String, range : Range } -> Bool) -> Error {} -> Maybe (List ( FileTarget, FixKind ))
-isFixable supportsFileDeletion predicate (Error err) =
+isFixable : Bool -> ({ ruleName : String, filePath : String, message : String, details : List String, range : Range } -> Bool) -> Error {} -> Result (Error {}) (List ( FileTarget, FixKind ))
+isFixable supportsFileDeletion predicate ((Error err) as untouchedError) =
     case err.fixProblem of
         Just _ ->
-            Nothing
+            Err untouchedError
 
         Nothing ->
             -- It's cheaper to check for fixes first and also quite likely to return Nothing
@@ -6162,19 +6162,19 @@ isFixable supportsFileDeletion predicate (Error err) =
                 case Review.Error.ReviewError.compileFixes err.fixes err.fixProblem of
                     Ok (Just list) ->
                         if not supportsFileDeletion && fixTriesToDeleteFiles list then
-                            Nothing
+                            Err untouchedError
 
                         else
-                            Just list
+                            Ok list
 
                     Ok Nothing ->
-                        Nothing
+                        Err untouchedError
 
-                    Err _ ->
-                        Nothing
+                    Err fixProblem ->
+                        Err (Error (markFixesAsProblem fixProblem err))
 
             else
-                Nothing
+                Err untouchedError
 
 
 fixTriesToDeleteFiles : List ( a, FixKind ) -> Bool
