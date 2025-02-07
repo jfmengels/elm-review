@@ -641,7 +641,7 @@ fixProblem : Target -> FixProblem.FixProblem -> ReviewError -> String
 fixProblem target problem error_ =
     case problem of
         FixProblem.Unchanged ->
-            unchangedSourceAfterFix target error_
+            unchangedSourceAfterEdit target error_
 
         FixProblem.SourceCodeIsNotValid sourceCode ->
             invalidSourceAfterFix target error_ sourceCode
@@ -653,9 +653,9 @@ fixProblem target problem error_ =
             importCycleAfterFix target importCycleModuleNames error_
 
 
-unchangedSourceAfterFix : Target -> ReviewError -> String
-unchangedSourceAfterFix target error =
-    failureMessage "UNCHANGED SOURCE AFTER FIX"
+unchangedSourceAfterEdit : Target -> ReviewError -> String
+unchangedSourceAfterEdit target error =
+    failureMessage "UNCHANGED SOURCE AFTER EDIT"
         ("""I got something unexpected when applying the fixes provided by the """ ++ describeTarget target ++ """ with the following message:
 
   """ ++ wrapInQuotes (Rule.errorMessage error) ++ """

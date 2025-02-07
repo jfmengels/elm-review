@@ -1256,7 +1256,7 @@ a = "abc"
 """ ) ]
                       }
                     ]
-                |> expectFailureNoLengthCheck """UNCHANGED SOURCE AFTER FIX
+                |> expectFailureNoLengthCheck """UNCHANGED SOURCE AFTER EDIT
 
 I got something unexpected when applying the fixes provided by the global error with the following message:
 
