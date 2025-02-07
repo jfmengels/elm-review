@@ -4644,6 +4644,9 @@ errorFixFailure (Review.Error.ReviewError.ReviewError err) =
                 FixProblem.CreatesImportCycle _ ->
                     Just Fix.Unchanged
 
+                FixProblem.RemovesUnknownFile _ ->
+                    Just Fix.Unchanged
+
         Nothing ->
             Nothing
 

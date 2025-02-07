@@ -652,6 +652,9 @@ fixProblem target problem error_ =
         FixProblem.CreatesImportCycle importCycleModuleNames ->
             importCycleAfterFix target importCycleModuleNames error_
 
+        FixProblem.RemovesUnknownFile filePath ->
+            removesUnknownFile target filePath error_
+
 
 unchangedSourceAfterEdit : Target -> ReviewError -> String
 unchangedSourceAfterEdit target error =
@@ -668,6 +671,20 @@ automatic fix, but I will have to disappoint them when I later find out it
 doesn't do anything.
 
 Hint: Maybe you inserted an empty string into the source code.""")
+
+
+removesUnknownFile : Target -> String -> ReviewError -> String
+removesUnknownFile target filePath error =
+    failureMessage "FIX REMOVES UNKNOWN FILE"
+        ("""I got something unexpected when applying the fixes provided by the """ ++ describeTarget target ++ """ with the following message:
+
+  """ ++ wrapInQuotes (Rule.errorMessage error) ++ """
+
+This fix attempts to remove the file """ ++ filePath ++ """
+but I don't know this file.
+
+This should not be possible in theory, so please open an issue so this
+can be fixed.""")
 
 
 invalidSourceAfterFix : Target -> ReviewError -> SourceCode -> String

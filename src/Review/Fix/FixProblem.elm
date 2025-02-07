@@ -10,3 +10,4 @@ type
     | SourceCodeIsNotValid String
     | HasCollisionsInEditRanges String { range : Range, replacement : String } { range : Range, replacement : String }
     | CreatesImportCycle (List String)
+    | RemovesUnknownFile String

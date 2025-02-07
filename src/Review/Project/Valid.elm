@@ -522,7 +522,8 @@ removeModule path (ValidProject project) =
 
     else
         -- File should always exist.
-        Err FixProblem.Unchanged
+        FixProblem.RemovesUnknownFile path
+            |> Err
 
 
 importedModulesSet : Elm.Syntax.File.File -> Set ModuleName -> Set ModuleName
