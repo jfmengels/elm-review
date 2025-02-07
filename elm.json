@@ -23,7 +23,7 @@
         "elm/project-metadata-utils": "1.0.0 <= v < 2.0.0",
         "elm/regex": "1.0.0 <= v < 2.0.0",
         "elm-explorations/test": "2.0.1 <= v < 3.0.0",
-        "stil4m/elm-syntax": "7.3.2 <= v < 8.0.0"
+        "stil4m/elm-syntax": "7.3.8 <= v < 8.0.0"
     },
     "test-dependencies": {
         "pzp1997/assoc-list": "1.0.0 <= v < 2.0.0"
