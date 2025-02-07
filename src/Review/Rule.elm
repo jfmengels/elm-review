@@ -6159,16 +6159,19 @@ isFixable supportsFileDeletion predicate (Error err) =
             -- It's cheaper to check for fixes first and also quite likely to return Nothing
             -- so we do the fixes check first.
             if predicate { ruleName = err.ruleName, filePath = err.filePath, message = err.message, details = err.details, range = err.range } then
-                let
-                    list : List ( FileTarget, FixKind )
-                    list =
-                        ErrorFixes.toList err.fixes
-                in
-                if not supportsFileDeletion && fixTriesToDeleteFiles list then
-                    Nothing
+                case Review.Error.ReviewError.compileFixes err.fixes err.fixProblem of
+                    Ok (Just list) ->
+                        if not supportsFileDeletion && fixTriesToDeleteFiles list then
+                            Nothing
 
-                else
-                    Just list
+                        else
+                            Just list
+
+                    Ok Nothing ->
+                        Nothing
+
+                    Err _ ->
+                        Nothing
 
             else
                 Nothing

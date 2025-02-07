@@ -1,6 +1,7 @@
 module Review.Error.ReviewError exposing
     ( InternalError
     , ReviewError(..)
+    , compileFixes
     , error
     , fromBaseError
     )
