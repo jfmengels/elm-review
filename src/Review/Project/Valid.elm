@@ -510,9 +510,11 @@ removeModule path (ValidProject project) =
                 buildModuleGraph modulesByPath
         in
         case Graph.checkAcyclic graph |> Result.map Graph.topologicalSort of
-            Err _ ->
+            Err edge ->
                 -- Removing a module should never be able to introduce an import cycle
-                Err FixProblem.Unchanged
+                ImportCycle.findCycle project.modulesByPath graph edge
+                    |> FixProblem.CreatesImportCycle
+                    |> Err
 
             Ok sortedModules ->
                 ValidProject { project | modulesByPath = modulesByPath, moduleGraph = graph, sortedModules = sortedModules }
