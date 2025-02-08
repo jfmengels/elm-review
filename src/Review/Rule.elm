@@ -4639,7 +4639,7 @@ errorFixFailure (Review.Error.ReviewError.ReviewError err) =
                 FixProblem.SourceCodeIsNotValid { source } ->
                     Just (Fix.SourceCodeIsNotValid source)
 
-                FixProblem.HasCollisionsInEditRanges _ _ _ ->
+                FixProblem.HasCollisionsInEditRanges _ ->
                     Just Fix.HasCollisionsInFixRanges
 
                 FixProblem.CreatesImportCycle _ ->

@@ -250,15 +250,15 @@ I got something unexpected when applying the fixes provided by the global error 
 
 When evaluating the edits for src/A.elm
 I found that some edits were targeting (partially or completely) the same
-section of code, among which the following two:
+section of code:
 
-  1. Review.Fix.replaceRangeBy
-         { start = { row = 2, column = 12 }, end = { row = 20, column = 15 } }
-         "321"
+  Review.Fix.replaceRangeBy
+    { start = { row = 2, column = 12 }, end = { row = 20, column = 15 } }
+    "321"
 
-  2. Review.Fix.replaceRangeBy
-         { start = { row = 2, column = 13 }, end = { row = 20, column = 14 } }
-         "432"
+  Review.Fix.replaceRangeBy
+    { start = { row = 2, column = 13 }, end = { row = 20, column = 14 } }
+    "432"
 
 The problem is that I can't determine which fix to apply first, and the
 result will be different and potentially invalid based on the order in
@@ -300,14 +300,14 @@ I got something unexpected when applying the fixes provided by the global error 
 
 When evaluating the edits for src/A.elm
 I found that some edits were targeting (partially or completely) the same
-section of code, among which the following two:
+section of code:
 
-  1. Review.Fix.removeRange
-         { start = { row = 10, column = 1 }, end = { row = 20, column = 1 } }
+  Review.Fix.removeRange
+    { start = { row = 10, column = 1 }, end = { row = 20, column = 1 } }
 
-  2. Review.Fix.insertAt
-         { row = 15, column = 1 }
-         "foo"
+  Review.Fix.insertAt
+    { row = 15, column = 1 }
+    "foo"
 
 The problem is that I can't determine which fix to apply first, and the
 result will be different and potentially invalid based on the order in

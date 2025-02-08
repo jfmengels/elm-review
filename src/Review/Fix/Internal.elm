@@ -26,7 +26,7 @@ compileEdits filePath edits =
         []
         |> Result.mapError
             (\( edit1, edit2 ) ->
-                FixProblem.HasCollisionsInEditRanges filePath edit1 edit2
+                FixProblem.HasCollisionsInEditRanges { filePath = filePath, edits = [ edit1, edit2 ] }
             )
 
 

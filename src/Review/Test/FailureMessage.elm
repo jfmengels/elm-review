@@ -647,8 +647,8 @@ fixProblem target fixProblem_ error_ =
         FixProblem.SourceCodeIsNotValid problem ->
             invalidSourceAfterFix target error_ problem
 
-        FixProblem.HasCollisionsInEditRanges filePath edit1 edit2 ->
-            hasCollisionsInEditRanges target filePath error_ edit1 edit2
+        FixProblem.HasCollisionsInEditRanges { filePath, edits } ->
+            hasCollisionsInEditRanges target filePath error_ edits
 
         FixProblem.CreatesImportCycle importCycleModuleNames ->
             importCycleAfterFix target importCycleModuleNames error_
@@ -725,8 +725,8 @@ project:
 """ ++ ImportCycle.printCycle cycle)
 
 
-hasCollisionsInEditRanges : Target -> String -> ReviewError -> Edit -> Edit -> String
-hasCollisionsInEditRanges target fileWithFixIssues error edit1 edit2 =
+hasCollisionsInEditRanges : Target -> String -> ReviewError -> List Edit -> String
+hasCollisionsInEditRanges target fileWithFixIssues error edits =
     failureMessage "FOUND COLLISIONS IN EDIT RANGES"
         ("""I got something unexpected when applying the fixes provided by the """ ++ describeTarget target ++ """ with the following message:
 
@@ -734,11 +734,9 @@ hasCollisionsInEditRanges target fileWithFixIssues error edit1 edit2 =
 
 When evaluating the edits for """ ++ fileWithFixIssues ++ """
 I found that some edits were targeting (partially or completely) the same
-section of code, among which the following two:
+section of code:
 
-  1. """ ++ editToCode "         " edit1 ++ """
-
-  2. """ ++ editToCode "         " edit2 ++ """
+  """ ++ String.join "\n\n  " (List.map (editToCode "    ") edits) ++ """
 
 The problem is that I can't determine which fix to apply first, and the
 result will be different and potentially invalid based on the order in
