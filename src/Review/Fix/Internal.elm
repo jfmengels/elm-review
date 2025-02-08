@@ -26,7 +26,7 @@ compileEdits filePath edits =
         []
         |> Result.mapError
             (\( edit1, edit2 ) ->
-                FixProblem.HasCollisionsInEditRanges filePath (toRecord edit1) (toRecord edit2)
+                FixProblem.HasCollisionsInEditRanges filePath edit1 edit2
             )
 
 
@@ -252,19 +252,6 @@ getEditRange edit =
 
         InsertAt position _ ->
             { start = position, end = position }
-
-
-toRecord : Edit -> { range : Range, replacement : String }
-toRecord edit =
-    case edit of
-        Replacement range replacement ->
-            { range = range, replacement = replacement }
-
-        Removal range ->
-            { range = range, replacement = "" }
-
-        InsertAt position replacement ->
-            { range = { start = position, end = position }, replacement = replacement }
 
 
 compareRanges2 : Range -> Range -> Order

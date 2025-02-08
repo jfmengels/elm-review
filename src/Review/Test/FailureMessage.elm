@@ -37,6 +37,7 @@ import Ansi
 import Elm.Syntax.Range exposing (Location, Range)
 import Json.Decode as Decode
 import Json.Encode as Encode
+import Review.Fix.Edit exposing (Edit)
 import Review.Fix.FixProblem as FixProblem
 import Review.ImportCycle as ImportCycle
 import Review.Rule as Rule exposing (ReviewError)
@@ -719,7 +720,7 @@ project:
 """ ++ ImportCycle.printCycle cycle)
 
 
-hasCollisionsInEditRanges : Target -> String -> ReviewError -> { range : Range, replacement : String } -> { range : Range, replacement : String } -> String
+hasCollisionsInEditRanges : Target -> String -> ReviewError -> Edit -> Edit -> String
 hasCollisionsInEditRanges target fileWithFixIssues error edit1 edit2 =
     failureMessage "FOUND COLLISIONS IN EDIT RANGES"
         ("""I got something unexpected when applying the fixes provided by the """ ++ describeTarget target ++ """ with the following message:
@@ -730,9 +731,9 @@ When evaluating the edits for """ ++ fileWithFixIssues ++ """
 I found that some edits were targeting (partially or completely) the same
 section of code, among which the following two:
 
-  1. """ ++ editToFix edit1 ++ """
+  1. """ ++ editToCode edit1 ++ """
 
-  2. """ ++ editToFix edit2 ++ """
+  2. """ ++ editToCode edit2 ++ """
 
 The problem is that I can't determine which fix to apply first, and the
 result will be different and potentially invalid based on the order in
@@ -745,16 +746,17 @@ Hint: Maybe you duplicated a fix, or you targeted the wrong node for one
 of your fixes.""")
 
 
-editToFix : { range : Range, replacement : String } -> String
-editToFix { range, replacement } =
-    if replacement == "" then
-        "Review.Fix.removeRange\n         " ++ rangeAsString range
+editToCode : Edit -> String
+editToCode edit =
+    case edit of
+        Review.Fix.Edit.Removal range ->
+            "Review.Fix.removeRange\n         " ++ rangeAsString range
 
-    else if range.start == range.end then
-        "Review.Fix.insertAt\n         " ++ locationAsString range.start ++ "\n         " ++ wrapInDoubleOrTripleQuotes replacement
+        Review.Fix.Edit.Replacement range replacement ->
+            "Review.Fix.replaceRangeBy\n         " ++ rangeAsString range ++ "\n         " ++ wrapInDoubleOrTripleQuotes replacement
 
-    else
-        "Review.Fix.replaceRangeBy\n         " ++ rangeAsString range ++ "\n         " ++ wrapInDoubleOrTripleQuotes replacement
+        Review.Fix.Edit.InsertAt location replacement ->
+            "Review.Fix.insertAt\n         " ++ locationAsString location ++ "\n         " ++ wrapInDoubleOrTripleQuotes replacement
 
 
 wrapInDoubleOrTripleQuotes : String -> String

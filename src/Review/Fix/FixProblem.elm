@@ -1,6 +1,6 @@
 module Review.Fix.FixProblem exposing (FixProblem(..))
 
-import Elm.Syntax.Range exposing (Range)
+import Review.Fix.Edit exposing (Edit)
 
 
 type
@@ -8,6 +8,6 @@ type
     -- TODO Breaking change: Merge with Fix.Problem
     = Unchanged
     | SourceCodeIsNotValid String
-    | HasCollisionsInEditRanges String { range : Range, replacement : String } { range : Range, replacement : String }
+    | HasCollisionsInEditRanges String Edit Edit
     | CreatesImportCycle (List String)
     | RemovesUnknownFile String
