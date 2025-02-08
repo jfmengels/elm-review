@@ -133,7 +133,7 @@ in the context of your rule.
 
 import Elm.Syntax.Range exposing (Range)
 import Review.Error as Error
-import Review.Fix.Internal as Internal
+import Review.Fix.Edit as Edit
 
 
 
@@ -147,7 +147,7 @@ This is the new name for [`Fix`](#Fix), prefer this one. The two types are inter
 
 -}
 type alias Edit =
-    Internal.Edit
+    Edit.Edit
 
 
 {-| Represents (part of a) fix that will be applied to a file's source code in order to
@@ -158,7 +158,7 @@ The two types are interchangeable.
 
 -}
 type alias Fix =
-    Internal.Fix
+    Edit.Fix
 
 
 
@@ -169,7 +169,7 @@ type alias Fix =
 -}
 removeRange : Range -> Fix
 removeRange =
-    Internal.Removal
+    Edit.Removal
 
 
 {-| Replace the code in between a range by some other code.
@@ -177,17 +177,17 @@ removeRange =
 replaceRangeBy : Range -> String -> Fix
 replaceRangeBy range replacement =
     if replacement == "" then
-        Internal.Removal range
+        Edit.Removal range
 
     else
-        Internal.Replacement range replacement
+        Edit.Replacement range replacement
 
 
 {-| Insert some code at the given position.
 -}
 insertAt : { row : Int, column : Int } -> String -> Fix
 insertAt =
-    Internal.InsertAt
+    Edit.InsertAt
 
 
 
@@ -230,17 +230,17 @@ This is meant for external tooling. You shouldn't have to care about this
 toRecord : Fix -> { range : Range, replacement : String }
 toRecord fix_ =
     case fix_ of
-        Internal.Replacement range replacement ->
+        Edit.Replacement range replacement ->
             { range = range
             , replacement = replacement
             }
 
-        Internal.Removal range ->
+        Edit.Removal range ->
             { range = range
             , replacement = ""
             }
 
-        Internal.InsertAt position replacement ->
+        Edit.InsertAt position replacement ->
             { range = { start = position, end = position }
             , replacement = replacement
             }

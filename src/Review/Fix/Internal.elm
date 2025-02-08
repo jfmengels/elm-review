@@ -1,7 +1,5 @@
 module Review.Fix.Internal exposing
-    ( Edit(..)
-    , Fix
-    , applyEdits
+    ( applyEdits
     , compileEdits
     , editElmJson
     , editModule
@@ -13,24 +11,9 @@ import Elm.Syntax.File exposing (File)
 import Elm.Syntax.Range exposing (Location, Range)
 import Json.Decode as Decode
 import Review.FileParser as FileParser
+import Review.Fix.Edit exposing (Edit(..))
 import Review.Fix.FixProblem as FixProblem exposing (FixProblem)
 import Unicode
-
-
-{-| Represents (part of a) fix that will be applied to a file's source code in order to
-automatically fix a review error.
--}
-type Edit
-    = Removal Range
-    | Replacement Range String
-    | InsertAt { row : Int, column : Int } String
-
-
-{-| Represents (part of a) fix that will be applied to a file's source code in order to
-automatically fix a review error.
--}
-type alias Fix =
-    Edit
 
 
 compileEdits : String -> List Edit -> Result FixProblem (List Edit)

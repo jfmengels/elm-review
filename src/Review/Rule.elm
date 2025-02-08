@@ -355,6 +355,7 @@ import Review.Exceptions as Exceptions exposing (Exceptions)
 import Review.FilePath exposing (FilePath)
 import Review.FilePattern as FilePattern exposing (FilePattern)
 import Review.Fix as Fix exposing (Fix)
+import Review.Fix.Edit exposing (Edit)
 import Review.Fix.FixProblem as FixProblem exposing (FixProblem)
 import Review.Fix.FixedErrors as FixedErrors exposing (FixedErrors)
 import Review.Fix.Internal as InternalFix
@@ -6191,7 +6192,7 @@ fixTriesToDeleteFiles list =
         list
 
 
-applySingleModuleFix : ValidProject -> Maybe (Zipper (Graph.NodeContext FilePath ())) -> Error {} -> String -> List InternalFix.Edit -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
+applySingleModuleFix : ValidProject -> Maybe (Zipper (Graph.NodeContext FilePath ())) -> Error {} -> String -> List Edit -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
 applySingleModuleFix project maybeModuleZipper ((Error headError) as err) targetPath fixes =
     case ValidProject.getModuleByPath targetPath project of
         Nothing ->
@@ -6218,7 +6219,7 @@ applySingleModuleFix project maybeModuleZipper ((Error headError) as err) target
                     Ok fixResult
 
 
-applyElmJsonFix : ValidProject -> Error {} -> List InternalFix.Edit -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
+applyElmJsonFix : ValidProject -> Error {} -> List Edit -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
 applyElmJsonFix project ((Error headError) as err) fixes =
     case ValidProject.elmJson project of
         Nothing ->
@@ -6242,7 +6243,7 @@ applyElmJsonFix project ((Error headError) as err) fixes =
                         }
 
 
-applyReadmeFix : ValidProject -> Error {} -> List InternalFix.Edit -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
+applyReadmeFix : ValidProject -> Error {} -> List Edit -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
 applyReadmeFix project ((Error headError) as err) fixes =
     case ValidProject.readme project of
         Nothing ->
@@ -6260,7 +6261,7 @@ applyReadmeFix project ((Error headError) as err) fixes =
                         }
 
 
-applyExtraFileFix : ValidProject -> Error {} -> String -> List InternalFix.Edit -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
+applyExtraFileFix : ValidProject -> Error {} -> String -> List Edit -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
 applyExtraFileFix project ((Error headError) as err) targetPath fixes =
     case Dict.get targetPath (ValidProject.extraFilesWithoutKeys project) of
         Nothing ->

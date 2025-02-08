@@ -15,7 +15,7 @@ import Review.Error.Fixes as ErrorFixes exposing (ErrorFixes)
 import Review.Error.ReviewError as ReviewError
 import Review.Error.Target as Target
 import Review.Fix as Fix
-import Review.Fix.Internal exposing (Edit)
+import Review.Fix.Edit exposing (Edit)
 import Review.Options
 import Review.Project as Project exposing (Project)
 import Review.Rule as Rule exposing (Rule)
