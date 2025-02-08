@@ -204,7 +204,9 @@ type FixResult
 {-| Represents a problem that may have occurred when attempting to apply a list
 of fixes.
 -}
-type Problem
+type
+    Problem
+    -- TODO Breaking change: Merge with Fix.Problem
     = Unchanged
     | SourceCodeIsNotValid String
     | HasCollisionsInFixRanges
