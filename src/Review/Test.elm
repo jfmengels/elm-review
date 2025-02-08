@@ -2043,17 +2043,17 @@ checkFixesMatch project target error_ expectedFixed fixes =
                     }
                     |> Err
 
-        ( fixTarget, ErrorFixes.Edit fileFixes ) :: rest ->
+        ( fixTarget, ErrorFixes.Edit fileEdits ) :: rest ->
             case getTargetFileFromProject fixTarget project of
                 Just targetInformation ->
                     case getExpectedFixedCodeThroughFilePathOrModuleName (FileTarget.filePath fixTarget) targetInformation.moduleName expectedFixed of
                         Just ( key, ExpectEdited expectedResult ) ->
-                            case fixOneError target fileFixes targetInformation.source expectedResult error_ of
+                            case fixOneError target fileEdits targetInformation.source expectedResult error_ of
                                 Err failureMessage ->
                                     Err failureMessage
 
                                 Ok () ->
-                                    case addFileToProject fixTarget expectedResult (Review.Project.Internal.Project project) of
+                                    case addFileToProject fixTarget fileEdits expectedResult (Review.Project.Internal.Project project) of
                                         Ok (Review.Project.Internal.Project newProject) ->
                                             checkFixesMatch
                                                 newProject
@@ -2121,8 +2121,8 @@ checkFixesMatch project target error_ expectedFixed fixes =
                         |> Err
 
 
-addFileToProject : FileTarget -> String -> Project -> Result FixProblem Project
-addFileToProject target source project =
+addFileToProject : FileTarget -> List Review.Fix.Edit -> String -> Project -> Result FixProblem Project
+addFileToProject target edits source project =
     case target of
         FileTarget.Module filePath ->
             case FileParser.parse source of
@@ -2131,7 +2131,7 @@ addFileToProject target source project =
                         |> Ok
 
                 Err _ ->
-                    Err (FixProblem.SourceCodeIsNotValid source)
+                    Err (FixProblem.SourceCodeIsNotValid { filePath = filePath, source = source, edits = edits })
 
         FileTarget.ElmJson ->
             case Decode.decodeString Elm.Project.decoder source of
@@ -2140,7 +2140,7 @@ addFileToProject target source project =
                         |> Ok
 
                 Err _ ->
-                    Err (FixProblem.SourceCodeIsNotValid source)
+                    Err (FixProblem.SourceCodeIsNotValid { filePath = "elm.json", source = source, edits = edits })
 
         FileTarget.Readme ->
             Project.addReadme { path = "README.md", content = source } project

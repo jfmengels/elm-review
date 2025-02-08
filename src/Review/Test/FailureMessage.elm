@@ -639,13 +639,13 @@ replaceWhitespace lines =
 
 
 fixProblem : Target -> FixProblem.FixProblem -> ReviewError -> String
-fixProblem target problem error_ =
-    case problem of
+fixProblem target fixProblem_ error_ =
+    case fixProblem_ of
         FixProblem.Unchanged ->
             unchangedSourceAfterEdit target error_
 
-        FixProblem.SourceCodeIsNotValid sourceCode ->
-            invalidSourceAfterFix target error_ sourceCode
+        FixProblem.SourceCodeIsNotValid problem ->
+            invalidSourceAfterFix target error_ problem
 
         FixProblem.HasCollisionsInEditRanges filePath edit1 edit2 ->
             hasCollisionsInEditRanges target filePath error_ edit1 edit2
@@ -688,17 +688,22 @@ This should not be possible in theory, so please open an issue so this
 can be fixed.""")
 
 
-invalidSourceAfterFix : Target -> ReviewError -> SourceCode -> String
-invalidSourceAfterFix target error resultingSourceCode =
+invalidSourceAfterFix : Target -> ReviewError -> { filePath : String, source : SourceCode, edits : List Edit } -> String
+invalidSourceAfterFix target error { filePath, source, edits } =
     failureMessage "INVALID SOURCE AFTER FIX"
         ("""I got something unexpected when applying the fixes provided by the """ ++ describeTarget target ++ """ with the following message:
 
   """ ++ wrapInQuotes (Rule.errorMessage error) ++ """
 
-I was unable to parse the source code after applying the fixes. Here is
-the result of the automatic fixing:
+I was unable to parse the source code for """ ++ filePath ++ """ after applying the fixes.
+Here is the result of the automatic fixing:
 
-  """ ++ formatSourceCode resultingSourceCode ++ """
+  """ ++ formatSourceCode source ++ """
+
+Here are the individual edits for the file:
+
+  [ """ ++ String.join "\n  , " (List.map (editToCode "      ") edits) ++ """
+  ]
 
 This is problematic because fixes are meant to help the user, and applying
 this fix will give them more work to do. After the fix has been applied,
@@ -731,9 +736,9 @@ When evaluating the edits for """ ++ fileWithFixIssues ++ """
 I found that some edits were targeting (partially or completely) the same
 section of code, among which the following two:
 
-  1. """ ++ editToCode edit1 ++ """
+  1. """ ++ editToCode "         " edit1 ++ """
 
-  2. """ ++ editToCode edit2 ++ """
+  2. """ ++ editToCode "         " edit2 ++ """
 
 The problem is that I can't determine which fix to apply first, and the
 result will be different and potentially invalid based on the order in
@@ -746,17 +751,17 @@ Hint: Maybe you duplicated a fix, or you targeted the wrong node for one
 of your fixes.""")
 
 
-editToCode : Edit -> String
-editToCode edit =
+editToCode : String -> Edit -> String
+editToCode indentation edit =
     case edit of
         Review.Fix.Edit.Removal range ->
-            "Review.Fix.removeRange\n         " ++ rangeAsString range
+            "Review.Fix.removeRange\n" ++ indentation ++ rangeAsString range
 
         Review.Fix.Edit.Replacement range replacement ->
-            "Review.Fix.replaceRangeBy\n         " ++ rangeAsString range ++ "\n         " ++ wrapInDoubleOrTripleQuotes replacement
+            "Review.Fix.replaceRangeBy\n" ++ indentation ++ rangeAsString range ++ "\n" ++ indentation ++ wrapInDoubleOrTripleQuotes replacement
 
         Review.Fix.Edit.InsertAt location replacement ->
-            "Review.Fix.insertAt\n         " ++ locationAsString location ++ "\n         " ++ wrapInDoubleOrTripleQuotes replacement
+            "Review.Fix.insertAt\n" ++ indentation ++ locationAsString location ++ "\n" ++ indentation ++ wrapInDoubleOrTripleQuotes replacement
 
 
 wrapInDoubleOrTripleQuotes : String -> String

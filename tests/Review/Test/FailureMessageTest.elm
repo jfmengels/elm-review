@@ -1301,14 +1301,20 @@ I got something unexpected when applying the fixes provided by the global error 
 
   `Message`
 
-I was unable to parse the source code after applying the fixes. Here is
-the result of the automatic fixing:
+I was unable to parse the source code for src/A.elm after applying the fixes.
+Here is the result of the automatic fixing:
 
   ```
     ule A exposing (..)
     a = "abc"
 
   ```
+
+Here are the individual edits for the file:
+
+  [ Review.Fix.removeRange
+      { start = { row = 1, column = 1 }, end = { row = 1, column = 4 } }
+  ]
 
 This is problematic because fixes are meant to help the user, and applying
 this fix will give them more work to do. After the fix has been applied,

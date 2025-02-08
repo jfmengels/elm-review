@@ -4636,8 +4636,8 @@ errorFixFailure (Review.Error.ReviewError.ReviewError err) =
                 FixProblem.Unchanged ->
                     Just Fix.Unchanged
 
-                FixProblem.SourceCodeIsNotValid string ->
-                    Just (Fix.SourceCodeIsNotValid string)
+                FixProblem.SourceCodeIsNotValid { source } ->
+                    Just (Fix.SourceCodeIsNotValid source)
 
                 FixProblem.HasCollisionsInEditRanges _ _ _ ->
                     Just Fix.HasCollisionsInFixRanges
@@ -6193,14 +6193,14 @@ fixTriesToDeleteFiles list =
 
 
 applySingleModuleFix : ValidProject -> Maybe (Zipper (Graph.NodeContext FilePath ())) -> Error {} -> String -> List Edit -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
-applySingleModuleFix project maybeModuleZipper ((Error headError) as err) targetPath fixes =
+applySingleModuleFix project maybeModuleZipper ((Error headError) as err) targetPath edits =
     case ValidProject.getModuleByPath targetPath project of
         Nothing ->
             Err err
 
         Just file ->
             case
-                InternalFix.editModule fixes (ProjectModule.source file)
+                InternalFix.editModule edits (ProjectModule.path file) (ProjectModule.source file)
                     |> Result.andThen
                         (\fixResult ->
                             ValidProject.addParsedModule { path = targetPath, source = fixResult.source, ast = fixResult.ast } maybeModuleZipper project

@@ -137,16 +137,16 @@ applyEdits fixes sourceCode =
 
 {-| Apply the changes on the source code.
 -}
-editModule : List Edit -> String -> Result FixProblem.FixProblem { source : String, ast : File }
-editModule fixes originalSourceCode =
-    case applyEdits fixes originalSourceCode of
+editModule : List Edit -> String -> String -> Result FixProblem.FixProblem { source : String, ast : File }
+editModule edits filePath originalSourceCode =
+    case applyEdits edits originalSourceCode of
         Ok fixedSourceCode ->
             case FileParser.parse fixedSourceCode of
                 Ok ast ->
                     Ok { source = fixedSourceCode, ast = ast }
 
                 Err _ ->
-                    Err (FixProblem.SourceCodeIsNotValid fixedSourceCode)
+                    Err (FixProblem.SourceCodeIsNotValid { filePath = filePath, source = fixedSourceCode, edits = edits })
 
         Err err ->
             Err err
@@ -180,15 +180,15 @@ applyIndividualEdits lines linesAfter edits =
 {-| Apply the changes on the elm.json file.
 -}
 editElmJson : List Edit -> String -> Result FixProblem.FixProblem { raw : String, project : Elm.Project.Project }
-editElmJson fixes originalSourceCode =
-    case applyEdits fixes originalSourceCode of
+editElmJson edits originalSourceCode =
+    case applyEdits edits originalSourceCode of
         Ok resultAfterFix ->
             case Decode.decodeString Elm.Project.decoder resultAfterFix of
                 Ok project ->
                     Ok { raw = resultAfterFix, project = project }
 
                 Err _ ->
-                    Err (FixProblem.SourceCodeIsNotValid resultAfterFix)
+                    Err (FixProblem.SourceCodeIsNotValid { filePath = "elm.json", source = resultAfterFix, edits = edits })
 
         Err err ->
             Err err
