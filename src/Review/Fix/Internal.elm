@@ -156,7 +156,7 @@ editModule edits filePath originalSourceCode =
                     Ok { source = fixedSourceCode, ast = ast }
 
                 Err parsingErrors ->
-                    Err (FixProblem.InvalidElmFile { filePath = filePath, source = fixedSourceCode, edits = edits, parsingErrors = parsingErrors })
+                    Err (FixProblem.InvalidElm { filePath = filePath, source = fixedSourceCode, edits = edits, parsingErrors = parsingErrors })
 
         Err err ->
             Err err

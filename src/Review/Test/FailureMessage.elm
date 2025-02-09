@@ -645,7 +645,7 @@ fixProblem target fixProblem_ error_ =
         FixProblem.Unchanged ->
             unchangedSourceAfterEdit target error_
 
-        FixProblem.InvalidElmFile problem ->
+        FixProblem.InvalidElm problem ->
             invalidElmFileAfterFix target error_ problem
 
         FixProblem.InvalidJson problem ->

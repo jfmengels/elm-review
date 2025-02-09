@@ -4637,7 +4637,7 @@ errorFixFailure (Review.Error.ReviewError.ReviewError err) =
                 FixProblem.Unchanged ->
                     Just Fix.Unchanged
 
-                FixProblem.InvalidElmFile { source } ->
+                FixProblem.InvalidElm { source } ->
                     Just (Fix.SourceCodeIsNotValid source)
 
                 FixProblem.InvalidJson { source } ->

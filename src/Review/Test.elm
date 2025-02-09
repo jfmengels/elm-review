@@ -2133,7 +2133,7 @@ addFileToProject target edits source project =
                         |> Ok
 
                 Err parsingErrors ->
-                    Err (FixProblem.InvalidElmFile { filePath = filePath, source = source, edits = edits, parsingErrors = parsingErrors })
+                    Err (FixProblem.InvalidElm { filePath = filePath, source = source, edits = edits, parsingErrors = parsingErrors })
 
         FileTarget.ElmJson ->
             case Decode.decodeString Elm.Project.decoder source of
@@ -2194,7 +2194,7 @@ fixOneError fileTarget target edits source expectedFixedSource error_ =
                     Err parsingErrors ->
                         FailureMessage.fixProblem
                             target
-                            (FixProblem.InvalidElmFile { filePath = FileTarget.filePath fileTarget, edits = edits, source = fixedSource, parsingErrors = parsingErrors })
+                            (FixProblem.InvalidElm { filePath = FileTarget.filePath fileTarget, edits = edits, source = fixedSource, parsingErrors = parsingErrors })
                             error_
                             |> Err
 
