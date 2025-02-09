@@ -663,6 +663,9 @@ fixProblem target fixProblem_ error_ =
         FixProblem.RemovesUnknownFile filePath ->
             removesUnknownFile target filePath error_
 
+        FixProblem.Other problem ->
+            otherProblem target problem error_
+
 
 unchangedSourceAfterEdit : Target -> ReviewError -> { filePath : String, edits : List Edit } -> String
 unchangedSourceAfterEdit target error problem =
@@ -700,6 +703,16 @@ but I don't know this file.
 
 This should not be possible in theory, so please open an issue so this
 can be fixed.""")
+
+
+otherProblem : Target -> String -> ReviewError -> String
+otherProblem target problem error =
+    failureMessage "PROBLEM OCCURRED WHEN APPLYING FIX"
+        ("""I got something unexpected when applying the fixes provided by the """ ++ describeTarget target ++ """ with the following message:
+
+  """ ++ wrapInQuotes (Rule.errorMessage error) ++ """
+
+""" ++ problem)
 
 
 invalidElmFileAfterFix : Target -> ReviewError -> { filePath : String, source : SourceCode, edits : List Edit, parsingErrors : List Parser.DeadEnd } -> String

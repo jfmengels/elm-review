@@ -13,3 +13,4 @@ type FixProblem
     | HasCollisionsInEditRanges { filePath : String, edits : List Edit }
     | CreatesImportCycle (List String)
     | RemovesUnknownFile String
+    | Other String

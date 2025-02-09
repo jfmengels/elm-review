@@ -4655,6 +4655,9 @@ errorFixFailure (Review.Error.ReviewError.ReviewError err) =
                 FixProblem.RemovesUnknownFile _ ->
                     Just Fix.Unchanged
 
+                FixProblem.Other _ ->
+                    Just Fix.Unchanged
+
         Nothing ->
             Nothing
 
