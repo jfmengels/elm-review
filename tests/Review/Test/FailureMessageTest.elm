@@ -1282,7 +1282,9 @@ invalidSourceAfterFixTest =
                 testRule =
                     ArbitraryFixRule.rule
                         "src/A.elm"
-                        [ Fix.removeRange { start = { row = 1, column = 1 }, end = { row = 1, column = 4 } } ]
+                        [ Fix.replaceRangeBy { start = { row = 1, column = 1 }, end = { row = 1, column = 4 } } "#"
+                        , Fix.replaceRangeBy { start = { row = 2, column = 1 }, end = { row = 2, column = 4 } } "1\n2"
+                        ]
             in
             """module A exposing (..)
 a = "abc"
@@ -1291,8 +1293,9 @@ a = "abc"
                 |> Review.Test.expectGlobalErrorsWithFixes
                     [ { message = ArbitraryFixRule.message
                       , details = ArbitraryFixRule.details
-                      , fixes = [ ( "A", Review.Test.edited """ule A exposing (..)
-a = "abc"
+                      , fixes = [ ( "A", Review.Test.edited """#module A exposing (..)
+1
+2a = "abc"
 """ ) ]
                       }
                     ]
@@ -1306,15 +1309,21 @@ I was unable to parse the source code for src/A.elm after applying the fixes.
 Here is the result of the automatic fixing:
 
   ```
-    ule A exposing (..)
-    a = "abc"
+    #ule A exposing (..)
+    1
+    2 "abc"
 
   ```
 
 Here are the individual edits for the file:
 
-  [ Review.Fix.removeRange
+  [ Review.Fix.replaceRangeBy
+      { start = { row = 2, column = 1 }, end = { row = 2, column = 4 } }
+      \"\"\"1
+2\"\"\"
+  , Review.Fix.replaceRangeBy
       { start = { row = 1, column = 1 }, end = { row = 1, column = 4 } }
+      "#"
   ]
 
 This is problematic because fixes are meant to help the user, and applying

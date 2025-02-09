@@ -782,7 +782,7 @@ editToCode indentation edit =
 
 wrapInDoubleOrTripleQuotes : String -> String
 wrapInDoubleOrTripleQuotes string =
-    if String.contains "\"" string then
+    if String.contains "\n" string then
         "\"\"\"" ++ string ++ "\"\"\""
 
     else
