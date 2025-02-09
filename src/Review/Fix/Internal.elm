@@ -6,11 +6,11 @@ module Review.Fix.Internal exposing
     )
 
 import Array
+import Elm.Parser as Parser
 import Elm.Project
 import Elm.Syntax.File exposing (File)
 import Elm.Syntax.Range exposing (Location, Range)
 import Json.Decode as Decode
-import Review.FileParser as FileParser
 import Review.Fix.Edit exposing (Edit(..))
 import Review.Fix.FixProblem as FixProblem exposing (FixProblem)
 import Unicode
@@ -151,12 +151,12 @@ editModule : List Edit -> String -> String -> Result FixProblem.FixProblem { sou
 editModule edits filePath originalSourceCode =
     case applyEdits edits originalSourceCode of
         Ok fixedSourceCode ->
-            case FileParser.parse fixedSourceCode of
+            case Parser.parseToFile fixedSourceCode of
                 Ok ast ->
                     Ok { source = fixedSourceCode, ast = ast }
 
-                Err _ ->
-                    Err (FixProblem.InvalidElmFile { filePath = filePath, source = fixedSourceCode, edits = edits })
+                Err parsingErrors ->
+                    Err (FixProblem.InvalidElmFile { filePath = filePath, source = fixedSourceCode, edits = edits, parsingErrors = parsingErrors })
 
         Err err ->
             Err err

@@ -1305,7 +1305,12 @@ I got something unexpected when applying the fixes provided by the global error 
 
   `Message`
 
-I was unable to parse the source code for src/A.elm after applying the fixes.
+I was unable to parse the source code for src/A.elm after applying the fixes:
+
+Expecting keyword 'module' at row 1, column 1
+Expecting keyword 'port' at row 1, column 1
+Expecting keyword 'effect' at row 1, column 1
+
 Here is the result of the automatic fixing:
 
   ```

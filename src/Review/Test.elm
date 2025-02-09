@@ -2127,13 +2127,13 @@ addFileToProject : FileTarget -> List Review.Fix.Edit -> String -> Project -> Re
 addFileToProject target edits source project =
     case target of
         FileTarget.Module filePath ->
-            case FileParser.parse source of
+            case Parser.parseToFile source of
                 Ok ast ->
                     Project.addParsedModule { path = filePath, source = source, ast = ast } project
                         |> Ok
 
-                Err _ ->
-                    Err (FixProblem.InvalidElmFile { filePath = filePath, source = source, edits = edits })
+                Err parsingErrors ->
+                    Err (FixProblem.InvalidElmFile { filePath = filePath, source = source, edits = edits, parsingErrors = parsingErrors })
 
         FileTarget.ElmJson ->
             case Decode.decodeString Elm.Project.decoder source of
@@ -2202,10 +2202,10 @@ fixOneError fileTarget target edits source expectedFixedSource error_ =
                     Ok _ ->
                         checkSourceIsAsExpected expectedFixedSource fixedSource error_
 
-                    Err _ ->
+                    Err parsingErrors ->
                         FailureMessage.fixProblem
                             target
-                            (FixProblem.InvalidElmFile { filePath = FileTarget.filePath fileTarget, edits = edits, source = fixedSource })
+                            (FixProblem.InvalidElmFile { filePath = FileTarget.filePath fileTarget, edits = edits, source = fixedSource, parsingErrors = parsingErrors })
                             error_
                             |> Err
 

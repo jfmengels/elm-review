@@ -37,6 +37,7 @@ import Ansi
 import Elm.Syntax.Range exposing (Location, Range)
 import Json.Decode as Decode
 import Json.Encode as Encode
+import Parser
 import Review.Fix.Edit exposing (Edit)
 import Review.Fix.FixProblem as FixProblem
 import Review.ImportCycle as ImportCycle
@@ -694,14 +695,17 @@ This should not be possible in theory, so please open an issue so this
 can be fixed.""")
 
 
-invalidElmFileAfterFix : Target -> ReviewError -> { filePath : String, source : SourceCode, edits : List Edit } -> String
-invalidElmFileAfterFix target error { filePath, source, edits } =
+invalidElmFileAfterFix : Target -> ReviewError -> { filePath : String, source : SourceCode, edits : List Edit, parsingErrors : List Parser.DeadEnd } -> String
+invalidElmFileAfterFix target error { filePath, source, edits, parsingErrors } =
     failureMessage "INVALID SOURCE AFTER FIX"
         ("""I got something unexpected when applying the fixes provided by the """ ++ describeTarget target ++ """ with the following message:
 
   """ ++ wrapInQuotes (Rule.errorMessage error) ++ """
 
-I was unable to parse the source code for """ ++ filePath ++ """ after applying the fixes.
+I was unable to parse the source code for """ ++ filePath ++ """ after applying the fixes:
+
+""" ++ deadEndsToString parsingErrors ++ """
+
 Here is the result of the automatic fixing:
 
   """ ++ formatSourceCode source ++ """
@@ -1156,3 +1160,59 @@ pluralizeErrors n =
 formatJson : Encode.Value -> String
 formatJson value =
     Encode.encode 2 value
+
+
+deadEndsToString : List Parser.DeadEnd -> String
+deadEndsToString deadEnds =
+    String.concat (List.intersperse "\n" (List.map deadEndToString deadEnds))
+
+
+deadEndToString : Parser.DeadEnd -> String
+deadEndToString deadend =
+    problemToString deadend.problem ++ " at row " ++ String.fromInt deadend.row ++ ", column " ++ String.fromInt deadend.col
+
+
+problemToString : Parser.Problem -> String
+problemToString p =
+    case p of
+        Parser.Expecting s ->
+            "Expecting '" ++ s ++ "'"
+
+        Parser.ExpectingInt ->
+            "Expecting int"
+
+        Parser.ExpectingHex ->
+            "Expecting hex"
+
+        Parser.ExpectingOctal ->
+            "Expecting octal"
+
+        Parser.ExpectingBinary ->
+            "Expecting binary"
+
+        Parser.ExpectingFloat ->
+            "Expecting float"
+
+        Parser.ExpectingNumber ->
+            "Expecting number"
+
+        Parser.ExpectingVariable ->
+            "Expecting variable"
+
+        Parser.ExpectingSymbol s ->
+            "Expecting symbol '" ++ s ++ "'"
+
+        Parser.ExpectingKeyword s ->
+            "Expecting keyword '" ++ s ++ "'"
+
+        Parser.ExpectingEnd ->
+            "Expecting end"
+
+        Parser.UnexpectedChar ->
+            "Unexpected char"
+
+        Parser.Problem s ->
+            s
+
+        Parser.BadRepeat ->
+            "Bad repeat"
