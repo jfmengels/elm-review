@@ -1263,6 +1263,15 @@ I got something unexpected when applying the fixes provided by the global error 
 
   `Message`
 
+After applying the fixes, src/A.elm was left unchanged.
+
+Here are the individual edits for the file:
+
+  [ Review.Fix.replaceRangeBy
+      { start = { row = 1, column = 1 }, end = { row = 1, column = 7 } }
+      "module"
+  ]
+
 I expected the fix to make some changes to the source code, but it resulted
 in the same source code as before the fixes.
 

@@ -2179,7 +2179,7 @@ getExpectedFixedCodeThroughFilePathOrModuleName filePath moduleName expectedFixe
 
 fixOneError : FileTarget -> FailureMessage.Target -> List Edit -> String -> String -> ReviewError -> Result String ()
 fixOneError fileTarget target edits source expectedFixedSource error_ =
-    case FixInternal.applyEdits edits source of
+    case FixInternal.applyEdits (FileTarget.filePath fileTarget) edits source of
         Ok fixedSource ->
             let
                 filePath : String

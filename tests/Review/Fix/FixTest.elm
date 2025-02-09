@@ -23,15 +23,15 @@ all =
 a = Debug.log "foo" 1
 """
 
-                    fixes : List Fix
-                    fixes =
+                    edits : List Fix
+                    edits =
                         [ Fix.removeRange
                             { start = { row = 2, column = 5 }
                             , end = { row = 2, column = 20 }
                             }
                         ]
                 in
-                FixInternal.applyEdits fixes source
+                FixInternal.applyEdits "src/A.elm" edits source
                     |> Expect.equal (Ok """module A exposing (a)
 a =  1
 """)
@@ -44,8 +44,8 @@ a =  1
 some_var = 1
 """
 
-                    fixes : List Fix
-                    fixes =
+                    edits : List Fix
+                    edits =
                         [ Fix.replaceRangeBy
                             { start = { row = 2, column = 1 }
                             , end = { row = 2, column = 9 }
@@ -53,7 +53,7 @@ some_var = 1
                             "someVar"
                         ]
                 in
-                FixInternal.applyEdits fixes source
+                FixInternal.applyEdits "src/A.elm" edits source
                     |> Expect.equal (Ok """module A exposing (a)
 someVar = 1
 """)
@@ -66,14 +66,14 @@ someVar = 1
 a = 1
 """
 
-                    fixes : List Fix
-                    fixes =
+                    edits : List Fix
+                    edits =
                         [ Fix.insertAt
                             { row = 2, column = 5 }
                             """Debug.log "foo" """
                         ]
                 in
-                FixInternal.applyEdits fixes source
+                FixInternal.applyEdits "src/A.elm" edits source
                     |> Expect.equal (Ok """module A exposing (a)
 a = Debug.log "foo" 1
 """)
@@ -89,15 +89,15 @@ a : Int
 a = 1
 """
 
-                    fixes : List Fix
-                    fixes =
+                    edits : List Fix
+                    edits =
                         [ Fix.removeRange
                             { start = { row = 4, column = 1 }
                             , end = { row = 5, column = 6 }
                             }
                         ]
                 in
-                FixInternal.applyEdits fixes source
+                FixInternal.applyEdits "src/A.elm" edits source
                     |> Expect.equal (Ok """module A exposing (someCode)
 someCode = 2
 
@@ -112,8 +112,8 @@ someCode = 2
 some_var = 1
 """
 
-                    fixes : List Fix
-                    fixes =
+                    edits : List Fix
+                    edits =
                         [ Fix.replaceRangeBy
                             { start = { row = 2, column = 1 }
                             , end = { row = 2, column = 13 }
@@ -121,7 +121,7 @@ some_var = 1
                             "someVar =\n  1"
                         ]
                 in
-                FixInternal.applyEdits fixes source
+                FixInternal.applyEdits "src/A.elm" edits source
                     |> Expect.equal (Ok """module A exposing (a)
 someVar =
   1
@@ -136,8 +136,8 @@ some_var =
   1
 """
 
-                    fixes : List Fix
-                    fixes =
+                    edits : List Fix
+                    edits =
                         [ Fix.replaceRangeBy
                             { start = { row = 2, column = 1 }
                             , end = { row = 3, column = 4 }
@@ -145,7 +145,7 @@ some_var =
                             "someVar = 1"
                         ]
                 in
-                FixInternal.applyEdits fixes source
+                FixInternal.applyEdits "src/A.elm" edits source
                     |> Expect.equal (Ok """module A exposing (a)
 someVar = 1
 """)
@@ -159,8 +159,8 @@ some_var =
   1
 """
 
-                    fixes : List Fix
-                    fixes =
+                    edits : List Fix
+                    edits =
                         [ Fix.replaceRangeBy
                             { start = { row = 2, column = 1 }
                             , end = { row = 3, column = 4 }
@@ -168,7 +168,7 @@ some_var =
                             "foo =\n  2"
                         ]
                 in
-                FixInternal.applyEdits fixes source
+                FixInternal.applyEdits "src/A.elm" edits source
                     |> Expect.equal (Ok """module A exposing (a)
 foo =
   2
@@ -185,14 +185,14 @@ a : Int
 a = 1
 """
 
-                    fixes : List Fix
-                    fixes =
+                    edits : List Fix
+                    edits =
                         [ Fix.insertAt
                             { row = 4, column = 1 }
                             "b =\n  2\n"
                         ]
                 in
-                FixInternal.applyEdits fixes source
+                FixInternal.applyEdits "src/A.elm" edits source
                     |> Expect.equal (Ok """module A exposing (someCode)
 someCode = 2
 
@@ -213,12 +213,12 @@ a : Int
 a = 1
 """
 
-                    fixes : List Fix.Fix
-                    fixes =
+                    edits : List Fix.Fix
+                    edits =
                         [ Fix.insertAt { row = 4, column = 1 } "" ]
                 in
-                FixInternal.applyEdits fixes source
-                    |> Expect.equal (Err Unchanged)
+                FixInternal.applyEdits "src/A.elm" edits source
+                    |> Expect.equal (Err (Unchanged { filePath = "src/A.elm", edits = edits }))
         , test "should fail if the fixes' range overlap" <|
             \() ->
                 let

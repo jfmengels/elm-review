@@ -129,8 +129,8 @@ addMaybeRemovalEdit previousRemoval acc =
 
 {-| Apply the edits on the source code.
 -}
-applyEdits : List Edit -> String -> Result FixProblem String
-applyEdits edits sourceCode =
+applyEdits : String -> List Edit -> String -> Result FixProblem String
+applyEdits filePath edits sourceCode =
     let
         resultAfterEdit : String
         resultAfterEdit =
@@ -139,7 +139,7 @@ applyEdits edits sourceCode =
                 |> String.join "\n"
     in
     if sourceCode == resultAfterEdit then
-        Err FixProblem.Unchanged
+        Err (FixProblem.Unchanged { filePath = filePath, edits = edits })
 
     else
         Ok resultAfterEdit
@@ -149,7 +149,7 @@ applyEdits edits sourceCode =
 -}
 editModule : List Edit -> String -> String -> Result FixProblem.FixProblem { source : String, ast : File }
 editModule edits filePath originalSourceCode =
-    case applyEdits edits originalSourceCode of
+    case applyEdits filePath edits originalSourceCode of
         Ok fixedSourceCode ->
             case Parser.parseToFile fixedSourceCode of
                 Ok ast ->
@@ -191,7 +191,7 @@ applyIndividualEdits lines linesAfter edits =
 -}
 editElmJson : List Edit -> String -> Result FixProblem.FixProblem { raw : String, project : Elm.Project.Project }
 editElmJson edits originalSourceCode =
-    case applyEdits edits originalSourceCode of
+    case applyEdits "elm.json" edits originalSourceCode of
         Ok resultAfterFix ->
             case Decode.decodeString Elm.Project.decoder resultAfterFix of
                 Ok project ->

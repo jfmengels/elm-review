@@ -489,7 +489,7 @@ addParsedModule { path, source, ast } maybeModuleZipper (ValidProject project) =
         Nothing ->
             -- We don't support adding new files at the moment.
             -- TODO Support creating a new file (only in known source-directories?)
-            Err FixProblem.Unchanged
+            Err (FixProblem.Unchanged { filePath = path, edits = [] })
 
 
 {-| Add an already parsed module to the project. This module will then be analyzed by the rules.

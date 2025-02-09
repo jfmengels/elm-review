@@ -4634,7 +4634,7 @@ errorFixFailure (Review.Error.ReviewError.ReviewError err) =
     case err.fixProblem of
         Just fixProblem ->
             case fixProblem of
-                FixProblem.Unchanged ->
+                FixProblem.Unchanged _ ->
                     Just Fix.Unchanged
 
                 FixProblem.InvalidElm { source } ->
@@ -6257,7 +6257,7 @@ applyReadmeFix project ((Error headError) as err) fixes =
             Err err
 
         Just readme ->
-            case InternalFix.applyEdits fixes readme.content of
+            case InternalFix.applyEdits "README.md" fixes readme.content of
                 Err fixProblem ->
                     Err (Error (markFixesAsProblem fixProblem headError))
 
@@ -6275,7 +6275,7 @@ applyExtraFileFix project ((Error headError) as err) targetPath edits =
             Err err
 
         Just content ->
-            case InternalFix.applyEdits edits content of
+            case InternalFix.applyEdits targetPath edits content of
                 Err fixProblem ->
                     Err (Error (markFixesAsProblem fixProblem headError))
 

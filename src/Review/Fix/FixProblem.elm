@@ -6,7 +6,7 @@ import Review.Fix.Edit exposing (Edit)
 
 
 type FixProblem
-    = Unchanged
+    = Unchanged { filePath : String, edits : List Edit }
     | InvalidElm { filePath : String, source : String, edits : List Edit, parsingErrors : List Parser.DeadEnd }
     | InvalidJson { filePath : String, source : String, edits : List Edit, decodingError : Json.Decode.Error }
     | EditWithNegativeRange { filePath : String, edit : Edit }

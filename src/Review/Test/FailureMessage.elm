@@ -642,8 +642,8 @@ replaceWhitespace lines =
 fixProblem : Target -> FixProblem.FixProblem -> ReviewError -> String
 fixProblem target fixProblem_ error_ =
     case fixProblem_ of
-        FixProblem.Unchanged ->
-            unchangedSourceAfterEdit target error_
+        FixProblem.Unchanged problem ->
+            unchangedSourceAfterEdit target error_ problem
 
         FixProblem.InvalidElm problem ->
             invalidElmFileAfterFix target error_ problem
@@ -664,12 +664,19 @@ fixProblem target fixProblem_ error_ =
             removesUnknownFile target filePath error_
 
 
-unchangedSourceAfterEdit : Target -> ReviewError -> String
-unchangedSourceAfterEdit target error =
+unchangedSourceAfterEdit : Target -> ReviewError -> { filePath : String, edits : List Edit } -> String
+unchangedSourceAfterEdit target error problem =
     failureMessage "UNCHANGED SOURCE AFTER EDIT"
         ("""I got something unexpected when applying the fixes provided by the """ ++ describeTarget target ++ """ with the following message:
 
   """ ++ wrapInQuotes (Rule.errorMessage error) ++ """
+
+After applying the fixes, """ ++ problem.filePath ++ """ was left unchanged.
+
+Here are the individual edits for the file:
+
+  [ """ ++ String.join "\n  , " (List.map (editToCode "      ") problem.edits) ++ """
+  ]
 
 I expected the fix to make some changes to the source code, but it resulted
 in the same source code as before the fixes.
