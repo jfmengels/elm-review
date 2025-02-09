@@ -2180,26 +2180,31 @@ fixOneError : FailureMessage.Target -> List Edit -> String -> String -> ReviewEr
 fixOneError target edits source expectedFixedSource error_ =
     case FixInternal.applyEdits edits source of
         Ok fixedSource ->
-            let
-                trimmedFixed : String
-                trimmedFixed =
-                    trimRightOnEveryLine fixedSource
-
-                expectedFixed : String
-                expectedFixed =
-                    trimRightOnEveryLine expectedFixedSource
-            in
-            if trimmedFixed == expectedFixed then
-                Ok ()
-
-            else if removeWhitespace trimmedFixed == removeWhitespace expectedFixed then
-                Err <| FailureMessage.fixedCodeWhitespaceMismatch trimmedFixed expectedFixed error_
-
-            else
-                Err <| FailureMessage.fixedCodeMismatch fixedSource expectedFixedSource error_
+            checkSourceIsAsExpected expectedFixedSource fixedSource error_
 
         Err fixProblem ->
             Err <| FailureMessage.fixProblem target fixProblem error_
+
+
+checkSourceIsAsExpected : String -> String -> ReviewError -> Result String ()
+checkSourceIsAsExpected expectedFixedSource fixedSource error_ =
+    let
+        trimmedFixed : String
+        trimmedFixed =
+            trimRightOnEveryLine fixedSource
+
+        expectedFixed : String
+        expectedFixed =
+            trimRightOnEveryLine expectedFixedSource
+    in
+    if trimmedFixed == expectedFixed then
+        Ok ()
+
+    else if removeWhitespace trimmedFixed == removeWhitespace expectedFixed then
+        Err <| FailureMessage.fixedCodeWhitespaceMismatch trimmedFixed expectedFixed error_
+
+    else
+        Err <| FailureMessage.fixedCodeMismatch fixedSource expectedFixedSource error_
 
 
 trimRightOnEveryLine : String -> String
