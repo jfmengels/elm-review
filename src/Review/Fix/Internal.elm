@@ -19,7 +19,7 @@ import Unicode
 compileEdits : String -> List Edit -> Result FixProblem (List Edit)
 compileEdits filePath edits =
     compileEditsHelp
-        (List.sortWith (\a b -> compareRanges2 (getEditRange b) (getEditRange a)) edits)
+        (List.sortWith (\a b -> compareRanges (getEditRange b) (getEditRange a)) edits)
         { row = infinity, column = infinity }
         (InsertAt { row = infinity, column = infinity } "")
         Nothing
@@ -254,8 +254,8 @@ getEditRange edit =
             { start = position, end = position }
 
 
-compareRanges2 : Range -> Range -> Order
-compareRanges2 a b =
+compareRanges : Range -> Range -> Order
+compareRanges a b =
     case comparePosition a.start b.start of
         EQ ->
             comparePosition a.end b.end
