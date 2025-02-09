@@ -8,7 +8,7 @@ module Review.Fix.FixProblem exposing (FixProblem(..))
 
 import Json.Decode
 import Parser
-import Review.Fix.Edit exposing (Edit)
+import Review.Fix exposing (Edit)
 
 
 {-| Represents a problem that may have occurred when attempting to apply an automatic fix.
