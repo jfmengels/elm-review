@@ -19,15 +19,12 @@ import Unicode
 compileEdits : String -> List Edit -> Result FixProblem (List Edit)
 compileEdits filePath edits =
     compileEditsHelp
+        filePath
         (List.sortWith (\a b -> compareRanges (getEditRange b) (getEditRange a)) edits)
         { row = infinity, column = infinity }
         (InsertAt { row = infinity, column = infinity } "")
         Nothing
         []
-        |> Result.mapError
-            (\( edit1, edit2 ) ->
-                FixProblem.HasCollisionsInEditRanges { filePath = filePath, edits = [ edit1, edit2 ] }
-            )
 
 
 infinity : Int
@@ -35,8 +32,8 @@ infinity =
     round (1 / 0)
 
 
-compileEditsHelp : List Edit -> Location -> Edit -> Maybe Range -> List Edit -> Result ( Edit, Edit ) (List Edit)
-compileEditsHelp edits previousStart previousEdit previousRemoval acc =
+compileEditsHelp : String -> List Edit -> Location -> Edit -> Maybe Range -> List Edit -> Result FixProblem (List Edit)
+compileEditsHelp filePath edits previousStart previousEdit previousRemoval acc =
     case edits of
         [] ->
             addMaybeRemovalEdit previousRemoval acc
@@ -46,61 +43,74 @@ compileEditsHelp edits previousStart previousEdit previousRemoval acc =
         edit :: rest ->
             case edit of
                 InsertAt _ "" ->
-                    compileEditsHelp rest previousStart previousEdit previousRemoval acc
+                    compileEditsHelp filePath rest previousStart previousEdit previousRemoval acc
 
                 InsertAt position _ ->
                     case comparePosition position previousStart of
                         GT ->
-                            ( edit, previousEdit )
+                            FixProblem.HasCollisionsInEditRanges { filePath = filePath, edits = [ edit, previousEdit ] }
                                 |> Err
 
                         _ ->
-                            compileEditsHelp rest position edit Nothing (edit :: addMaybeRemovalEdit previousRemoval acc)
+                            compileEditsHelp filePath rest position edit Nothing (edit :: addMaybeRemovalEdit previousRemoval acc)
 
                 Removal range ->
-                    if range.start == range.end then
-                        compileEditsHelp rest previousStart previousEdit previousRemoval acc
+                    case comparePosition range.start range.end of
+                        EQ ->
+                            compileEditsHelp filePath rest previousStart previousEdit previousRemoval acc
 
-                    else
-                        case comparePosition range.end previousStart of
-                            GT ->
-                                case previousRemoval of
-                                    Just { end } ->
-                                        compileEditsHelp
-                                            rest
-                                            range.start
-                                            edit
-                                            (Just { start = range.start, end = end })
-                                            acc
+                        GT ->
+                            FixProblem.EditWithNegativeRange { filePath = filePath, edit = edit }
+                                |> Err
 
-                                    Nothing ->
-                                        ( edit, previousEdit )
-                                            |> Err
+                        LT ->
+                            case comparePosition range.end previousStart of
+                                GT ->
+                                    case previousRemoval of
+                                        Just { end } ->
+                                            compileEditsHelp
+                                                filePath
+                                                rest
+                                                range.start
+                                                edit
+                                                (Just { start = range.start, end = end })
+                                                acc
 
-                            EQ ->
-                                case previousRemoval of
-                                    Just { end } ->
-                                        compileEditsHelp
-                                            rest
-                                            range.start
-                                            edit
-                                            (Just { start = range.start, end = end })
-                                            acc
+                                        Nothing ->
+                                            FixProblem.HasCollisionsInEditRanges { filePath = filePath, edits = [ edit, previousEdit ] }
+                                                |> Err
 
-                                    Nothing ->
-                                        compileEditsHelp rest range.start edit (Just range) (addMaybeRemovalEdit previousRemoval acc)
+                                EQ ->
+                                    case previousRemoval of
+                                        Just { end } ->
+                                            compileEditsHelp
+                                                filePath
+                                                rest
+                                                range.start
+                                                edit
+                                                (Just { start = range.start, end = end })
+                                                acc
 
-                            LT ->
-                                compileEditsHelp rest range.start edit (Just range) (addMaybeRemovalEdit previousRemoval acc)
+                                        Nothing ->
+                                            compileEditsHelp filePath rest range.start edit (Just range) (addMaybeRemovalEdit previousRemoval acc)
+
+                                LT ->
+                                    compileEditsHelp filePath rest range.start edit (Just range) (addMaybeRemovalEdit previousRemoval acc)
 
                 Replacement range _ ->
-                    case comparePosition range.end previousStart of
+                    case comparePosition range.start range.end of
                         GT ->
-                            ( edit, previousEdit )
+                            FixProblem.EditWithNegativeRange { filePath = filePath, edit = edit }
                                 |> Err
 
                         _ ->
-                            compileEditsHelp rest range.start edit Nothing (edit :: addMaybeRemovalEdit previousRemoval acc)
+                            case comparePosition range.end previousStart of
+                                GT ->
+                                    FixProblem.HasCollisionsInEditRanges { filePath = filePath, edits = [ edit, previousEdit ] }
+                                        |> Err
+
+                                _ ->
+                                    compileEditsHelp filePath rest range.start edit Nothing (edit :: addMaybeRemovalEdit previousRemoval acc)
 
 
 addMaybeRemovalEdit : Maybe Range -> List Edit -> List Edit

@@ -54,6 +54,7 @@ all =
         , unchangedSourceAfterFixTest
         , invalidSourceAfterFixTest
         , importCycleAfterFixTest
+        , editWithNegativeRangeTest
         , unexpectedExtractTest
         , invalidJsonForExpectedDataExtractTest
         , extractMismatchTest
@@ -1364,6 +1365,93 @@ project:
     │     ↓
     │    \u{001B}[33mB\u{001B}[39m
     └─────┘"""
+
+
+editWithNegativeRangeTest : Test
+editWithNegativeRangeTest =
+    describe "editWithNegativeRange"
+        [ test "removeRange" <|
+            \() ->
+                let
+                    testRule : Rule
+                    testRule =
+                        ArbitraryFixRule.rule
+                            "src/A.elm"
+                            [ Fix.removeRange
+                                { start = { row = 2, column = 1 }
+                                , end = { row = 1, column = 1 }
+                                }
+                            ]
+                in
+                """module A exposing (..)
+-- TEST
+a = "abc"
+"""
+                    |> Review.Test.run testRule
+                    |> Review.Test.expectGlobalErrorsWithFixes
+                        [ { message = ArbitraryFixRule.message
+                          , details = ArbitraryFixRule.details
+                          , fixes = [ ( "A", Review.Test.edited """module A exposing (..)
+a = "abc"
+""" ) ]
+                          }
+                        ]
+                    |> expectFailureNoLengthCheck """FOUND NEGATIVE RANGE IN EDIT
+
+I got something unexpected when applying the fixes provided by the global error with the following message:
+
+  `Message`
+
+When evaluating the edits for src/A.elm
+I found an edit where the start is positioned after the end:
+
+  Review.Fix.removeRange
+    { start = { row = 2, column = 1 }, end = { row = 1, column = 1 } }
+
+I don't know what to do with this edit."""
+        , test "replaceRangeBy" <|
+            \() ->
+                let
+                    testRule : Rule
+                    testRule =
+                        ArbitraryFixRule.rule
+                            "src/A.elm"
+                            [ Fix.replaceRangeBy
+                                { start = { row = 2, column = 1 }
+                                , end = { row = 1, column = 1 }
+                                }
+                                "-- ok"
+                            ]
+                in
+                """module A exposing (..)
+-- TEST
+a = "abc"
+"""
+                    |> Review.Test.run testRule
+                    |> Review.Test.expectGlobalErrorsWithFixes
+                        [ { message = ArbitraryFixRule.message
+                          , details = ArbitraryFixRule.details
+                          , fixes = [ ( "A", Review.Test.edited """module A exposing (..)
+-- ok
+a = "abc"
+""" ) ]
+                          }
+                        ]
+                    |> expectFailureNoLengthCheck """FOUND NEGATIVE RANGE IN EDIT
+
+I got something unexpected when applying the fixes provided by the global error with the following message:
+
+  `Message`
+
+When evaluating the edits for src/A.elm
+I found an edit where the start is positioned after the end:
+
+  Review.Fix.replaceRangeBy
+    { start = { row = 2, column = 1 }, end = { row = 1, column = 1 } }
+    "-- ok"
+
+I don't know what to do with this edit."""
+        ]
 
 
 unexpectedExtractTest : Test

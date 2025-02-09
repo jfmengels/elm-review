@@ -647,6 +647,9 @@ fixProblem target fixProblem_ error_ =
         FixProblem.SourceCodeIsNotValid problem ->
             invalidSourceAfterFix target error_ problem
 
+        FixProblem.EditWithNegativeRange { filePath, edit } ->
+            editWithNegativeRange target filePath error_ edit
+
         FixProblem.HasCollisionsInEditRanges { filePath, edits } ->
             hasCollisionsInEditRanges target filePath error_ edits
 
@@ -723,6 +726,21 @@ would provide some fixes, but they introduced an import cycle in the
 project:
 
 """ ++ ImportCycle.printCycle cycle)
+
+
+editWithNegativeRange : Target -> String -> ReviewError -> Edit -> String
+editWithNegativeRange target fileWithFixIssues error edit =
+    failureMessage "FOUND NEGATIVE RANGE IN EDIT"
+        ("""I got something unexpected when applying the fixes provided by the """ ++ describeTarget target ++ """ with the following message:
+
+  """ ++ wrapInQuotes (Rule.errorMessage error) ++ """
+
+When evaluating the edits for """ ++ fileWithFixIssues ++ """
+I found an edit where the start is positioned after the end:
+
+  """ ++ editToCode "    " edit ++ """
+
+I don't know what to do with this edit.""")
 
 
 hasCollisionsInEditRanges : Target -> String -> ReviewError -> List Edit -> String

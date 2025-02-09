@@ -4642,6 +4642,9 @@ errorFixFailure (Review.Error.ReviewError.ReviewError err) =
                 FixProblem.HasCollisionsInEditRanges _ ->
                     Just Fix.HasCollisionsInFixRanges
 
+                FixProblem.EditWithNegativeRange _ ->
+                    Just Fix.Unchanged
+
                 FixProblem.CreatesImportCycle _ ->
                     Just Fix.Unchanged
 
