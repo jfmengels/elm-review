@@ -11,6 +11,7 @@
         "Review.Project.Dependency",
         "Review.FilePattern",
         "Review.Fix",
+        "Review.Fix.FixProblem",
         "Review.Test",
         "Review.Test.Dependencies",
         "Review.Options"

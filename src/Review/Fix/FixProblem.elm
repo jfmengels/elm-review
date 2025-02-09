@@ -1,10 +1,18 @@
 module Review.Fix.FixProblem exposing (FixProblem(..))
 
+{-|
+
+@docs FixProblem
+
+-}
+
 import Json.Decode
 import Parser
 import Review.Fix.Edit exposing (Edit)
 
 
+{-| Represents a problem that may have occurred when attempting to apply an automatic fix.
+-}
 type FixProblem
     = Unchanged { filePath : String, edits : List Edit }
     | InvalidElm { filePath : String, source : String, edits : List Edit, parsingErrors : List Parser.DeadEnd }
