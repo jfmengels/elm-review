@@ -4636,7 +4636,7 @@ errorFixFailure (Review.Error.ReviewError.ReviewError err) =
                 FixProblem.Unchanged ->
                     Just Fix.Unchanged
 
-                FixProblem.SourceCodeIsNotValid { source } ->
+                FixProblem.InvalidElmFile { source } ->
                     Just (Fix.SourceCodeIsNotValid source)
 
                 FixProblem.HasCollisionsInEditRanges _ ->

@@ -644,7 +644,7 @@ fixProblem target fixProblem_ error_ =
         FixProblem.Unchanged ->
             unchangedSourceAfterEdit target error_
 
-        FixProblem.SourceCodeIsNotValid problem ->
+        FixProblem.InvalidElmFile problem ->
             invalidSourceAfterFix target error_ problem
 
         FixProblem.EditWithNegativeRange { filePath, edit } ->

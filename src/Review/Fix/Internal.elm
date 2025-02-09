@@ -156,7 +156,7 @@ editModule edits filePath originalSourceCode =
                     Ok { source = fixedSourceCode, ast = ast }
 
                 Err _ ->
-                    Err (FixProblem.SourceCodeIsNotValid { filePath = filePath, source = fixedSourceCode, edits = edits })
+                    Err (FixProblem.InvalidElmFile { filePath = filePath, source = fixedSourceCode, edits = edits })
 
         Err err ->
             Err err
@@ -198,7 +198,7 @@ editElmJson edits originalSourceCode =
                     Ok { raw = resultAfterFix, project = project }
 
                 Err _ ->
-                    Err (FixProblem.SourceCodeIsNotValid { filePath = "elm.json", source = resultAfterFix, edits = edits })
+                    Err (FixProblem.InvalidElmFile { filePath = "elm.json", source = resultAfterFix, edits = edits })
 
         Err err ->
             Err err

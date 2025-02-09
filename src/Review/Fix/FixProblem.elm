@@ -5,7 +5,7 @@ import Review.Fix.Edit exposing (Edit)
 
 type FixProblem
     = Unchanged
-    | SourceCodeIsNotValid { filePath : String, source : String, edits : List Edit }
+    | InvalidElmFile { filePath : String, source : String, edits : List Edit }
     | EditWithNegativeRange { filePath : String, edit : Edit }
     | HasCollisionsInEditRanges { filePath : String, edits : List Edit }
     | CreatesImportCycle (List String)

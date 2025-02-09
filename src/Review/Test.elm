@@ -144,7 +144,7 @@ import Review.Error.Fixes as ErrorFixes
 import Review.Error.ReviewError exposing (ReviewError(..))
 import Review.Error.Target as Target
 import Review.FileParser as FileParser
-import Review.Fix exposing (Fix)
+import Review.Fix
 import Review.Fix.Edit exposing (Edit)
 import Review.Fix.FixProblem as FixProblem exposing (FixProblem)
 import Review.Fix.Internal as FixInternal
@@ -2133,7 +2133,7 @@ addFileToProject target edits source project =
                         |> Ok
 
                 Err _ ->
-                    Err (FixProblem.SourceCodeIsNotValid { filePath = filePath, source = source, edits = edits })
+                    Err (FixProblem.InvalidElmFile { filePath = filePath, source = source, edits = edits })
 
         FileTarget.ElmJson ->
             case Decode.decodeString Elm.Project.decoder source of
@@ -2142,7 +2142,7 @@ addFileToProject target edits source project =
                         |> Ok
 
                 Err _ ->
-                    Err (FixProblem.SourceCodeIsNotValid { filePath = "elm.json", source = source, edits = edits })
+                    Err (FixProblem.InvalidElmFile { filePath = "elm.json", source = source, edits = edits })
 
         FileTarget.Readme ->
             Project.addReadme { path = "README.md", content = source } project
@@ -2205,7 +2205,7 @@ fixOneError fileTarget target edits source expectedFixedSource error_ =
                     Err _ ->
                         FailureMessage.fixProblem
                             target
-                            (FixProblem.SourceCodeIsNotValid { filePath = FileTarget.filePath fileTarget, edits = edits, source = fixedSource })
+                            (FixProblem.InvalidElmFile { filePath = FileTarget.filePath fileTarget, edits = edits, source = fixedSource })
                             error_
                             |> Err
 
