@@ -130,6 +130,7 @@ for this module.
 
 import Array exposing (Array)
 import Dict exposing (Dict)
+import Elm.Parser as Parser
 import Elm.Project
 import Elm.Syntax.Module as Module
 import Elm.Syntax.Node as Node
@@ -2049,7 +2050,7 @@ checkFixesMatch project target error_ expectedFixed fixes =
                 Just targetInformation ->
                     case getExpectedFixedCodeThroughFilePathOrModuleName (FileTarget.filePath fixTarget) targetInformation.moduleName expectedFixed of
                         Just ( key, ExpectEdited expectedResult ) ->
-                            case fixOneError target fileEdits targetInformation.source expectedResult error_ of
+                            case fixOneError fixTarget target fileEdits targetInformation.source expectedResult error_ of
                                 Err failureMessage ->
                                     Err failureMessage
 
@@ -2176,11 +2177,40 @@ getExpectedFixedCodeThroughFilePathOrModuleName filePath moduleName expectedFixe
                     )
 
 
-fixOneError : FailureMessage.Target -> List Edit -> String -> String -> ReviewError -> Result String ()
-fixOneError target edits source expectedFixedSource error_ =
+fixOneError : FileTarget -> FailureMessage.Target -> List Edit -> String -> String -> ReviewError -> Result String ()
+fixOneError fileTarget target edits source expectedFixedSource error_ =
     case FixInternal.applyEdits edits source of
         Ok fixedSource ->
-            checkSourceIsAsExpected expectedFixedSource fixedSource error_
+            let
+                shouldParseSourceAfterFix : Bool
+                shouldParseSourceAfterFix =
+                    case fileTarget of
+                        FileTarget.Module _ ->
+                            True
+
+                        FileTarget.ElmJson ->
+                            False
+
+                        FileTarget.Readme ->
+                            False
+
+                        FileTarget.ExtraFile _ ->
+                            False
+            in
+            if shouldParseSourceAfterFix then
+                case Parser.parseToFile fixedSource of
+                    Ok _ ->
+                        checkSourceIsAsExpected expectedFixedSource fixedSource error_
+
+                    Err _ ->
+                        FailureMessage.fixProblem
+                            target
+                            (FixProblem.SourceCodeIsNotValid { filePath = FileTarget.filePath fileTarget, edits = edits, source = fixedSource })
+                            error_
+                            |> Err
+
+            else
+                checkSourceIsAsExpected expectedFixedSource fixedSource error_
 
         Err fixProblem ->
             Err <| FailureMessage.fixProblem target fixProblem error_
