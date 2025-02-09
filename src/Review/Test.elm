@@ -144,6 +144,7 @@ import Review.Error.ReviewError exposing (ReviewError(..))
 import Review.Error.Target as Target
 import Review.FileParser as FileParser
 import Review.Fix exposing (Fix)
+import Review.Fix.Edit exposing (Edit)
 import Review.Fix.FixProblem as FixProblem exposing (FixProblem)
 import Review.Fix.Internal as FixInternal
 import Review.Options as ReviewOptions
@@ -2175,9 +2176,9 @@ getExpectedFixedCodeThroughFilePathOrModuleName filePath moduleName expectedFixe
                     )
 
 
-fixOneError : FailureMessage.Target -> List Fix -> String -> String -> ReviewError -> Result String ()
-fixOneError target fileFixes source expectedFixedSource error_ =
-    case FixInternal.applyEdits fileFixes source of
+fixOneError : FailureMessage.Target -> List Edit -> String -> String -> ReviewError -> Result String ()
+fixOneError target edits source expectedFixedSource error_ =
+    case FixInternal.applyEdits edits source of
         Ok fixedSource ->
             let
                 trimmedFixed : String

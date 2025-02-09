@@ -130,11 +130,11 @@ addMaybeRemovalEdit previousRemoval acc =
 {-| Apply the edits on the source code.
 -}
 applyEdits : List Edit -> String -> Result FixProblem String
-applyEdits fixes sourceCode =
+applyEdits edits sourceCode =
     let
         resultAfterEdit : String
         resultAfterEdit =
-            fixes
+            edits
                 |> applyIndividualEdits (String.lines sourceCode) []
                 |> String.join "\n"
     in
