@@ -197,8 +197,8 @@ editElmJson edits originalSourceCode =
                 Ok project ->
                     Ok { raw = resultAfterFix, project = project }
 
-                Err _ ->
-                    Err (FixProblem.InvalidElmFile { filePath = "elm.json", source = resultAfterFix, edits = edits })
+                Err decodingError ->
+                    Err (FixProblem.InvalidJson { filePath = "elm.json", source = resultAfterFix, edits = edits, decodingError = decodingError })
 
         Err err ->
             Err err

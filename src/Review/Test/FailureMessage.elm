@@ -645,7 +645,10 @@ fixProblem target fixProblem_ error_ =
             unchangedSourceAfterEdit target error_
 
         FixProblem.InvalidElmFile problem ->
-            invalidSourceAfterFix target error_ problem
+            invalidElmFileAfterFix target error_ problem
+
+        FixProblem.InvalidJson problem ->
+            invalidJsonAfterFix target error_ problem
 
         FixProblem.EditWithNegativeRange { filePath, edit } ->
             editWithNegativeRange target filePath error_ edit
@@ -691,14 +694,41 @@ This should not be possible in theory, so please open an issue so this
 can be fixed.""")
 
 
-invalidSourceAfterFix : Target -> ReviewError -> { filePath : String, source : SourceCode, edits : List Edit } -> String
-invalidSourceAfterFix target error { filePath, source, edits } =
+invalidElmFileAfterFix : Target -> ReviewError -> { filePath : String, source : SourceCode, edits : List Edit } -> String
+invalidElmFileAfterFix target error { filePath, source, edits } =
     failureMessage "INVALID SOURCE AFTER FIX"
         ("""I got something unexpected when applying the fixes provided by the """ ++ describeTarget target ++ """ with the following message:
 
   """ ++ wrapInQuotes (Rule.errorMessage error) ++ """
 
 I was unable to parse the source code for """ ++ filePath ++ """ after applying the fixes.
+Here is the result of the automatic fixing:
+
+  """ ++ formatSourceCode source ++ """
+
+Here are the individual edits for the file:
+
+  [ """ ++ String.join "\n  , " (List.map (editToCode "      ") edits) ++ """
+  ]
+
+This is problematic because fixes are meant to help the user, and applying
+this fix will give them more work to do. After the fix has been applied,
+the problem should be solved and the user should not have to think about it
+anymore. If a fix can not be applied fully, it should not be applied at
+all.""")
+
+
+invalidJsonAfterFix : Target -> ReviewError -> { filePath : String, source : SourceCode, edits : List Edit, decodingError : Decode.Error } -> String
+invalidJsonAfterFix target error { filePath, source, edits, decodingError } =
+    failureMessage "INVALID JSON AFTER FIX"
+        ("""I got something unexpected when applying the fixes provided by the """ ++ describeTarget target ++ """ with the following message:
+
+  """ ++ wrapInQuotes (Rule.errorMessage error) ++ """
+
+I was unable to parse/decode """ ++ filePath ++ """ after applying the fixes.
+
+  """ ++ Decode.errorToString decodingError ++ """
+
 Here is the result of the automatic fixing:
 
   """ ++ formatSourceCode source ++ """

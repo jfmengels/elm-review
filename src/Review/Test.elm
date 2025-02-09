@@ -2141,8 +2141,8 @@ addFileToProject target edits source project =
                     Project.addElmJson { path = "elm.json", raw = source, project = elmJson } project
                         |> Ok
 
-                Err _ ->
-                    Err (FixProblem.InvalidElmFile { filePath = "elm.json", source = source, edits = edits })
+                Err decodingError ->
+                    Err (FixProblem.InvalidJson { filePath = "elm.json", source = source, edits = edits, decodingError = decodingError })
 
         FileTarget.Readme ->
             Project.addReadme { path = "README.md", content = source } project
