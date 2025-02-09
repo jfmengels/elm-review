@@ -2182,22 +2182,11 @@ fixOneError fileTarget target edits source expectedFixedSource error_ =
     case FixInternal.applyEdits edits source of
         Ok fixedSource ->
             let
-                shouldParseSourceAfterFix : Bool
-                shouldParseSourceAfterFix =
-                    case fileTarget of
-                        FileTarget.Module _ ->
-                            True
-
-                        FileTarget.ElmJson ->
-                            False
-
-                        FileTarget.Readme ->
-                            False
-
-                        FileTarget.ExtraFile _ ->
-                            False
+                filePath : String
+                filePath =
+                    FileTarget.filePath fileTarget
             in
-            if shouldParseSourceAfterFix then
+            if String.endsWith ".elm" filePath then
                 case Parser.parseToFile fixedSource of
                     Ok _ ->
                         checkSourceIsAsExpected expectedFixedSource fixedSource error_
@@ -2206,6 +2195,18 @@ fixOneError fileTarget target edits source expectedFixedSource error_ =
                         FailureMessage.fixProblem
                             target
                             (FixProblem.InvalidElmFile { filePath = FileTarget.filePath fileTarget, edits = edits, source = fixedSource, parsingErrors = parsingErrors })
+                            error_
+                            |> Err
+
+            else if String.endsWith ".json" filePath then
+                case Decode.decodeString Decode.value fixedSource of
+                    Ok _ ->
+                        checkSourceIsAsExpected expectedFixedSource fixedSource error_
+
+                    Err decodingError ->
+                        FailureMessage.fixProblem
+                            target
+                            (FixProblem.InvalidJson { filePath = FileTarget.filePath fileTarget, edits = edits, source = fixedSource, decodingError = decodingError })
                             error_
                             |> Err
 

@@ -339,6 +339,7 @@ import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern exposing (Pattern)
 import Elm.Syntax.Range as Range exposing (Range)
+import Json.Decode as Decode
 import Json.Encode as Encode
 import Review.Cache.ContentHash exposing (ContentHash)
 import Review.Cache.ContextHash as ContextHash exposing (ComparableContextHash, ContextHash)
@@ -6268,21 +6269,43 @@ applyReadmeFix project ((Error headError) as err) fixes =
 
 
 applyExtraFileFix : ValidProject -> Error {} -> String -> List Edit -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
-applyExtraFileFix project ((Error headError) as err) targetPath fixes =
+applyExtraFileFix project ((Error headError) as err) targetPath edits =
     case Dict.get targetPath (ValidProject.extraFilesWithoutKeys project) of
         Nothing ->
             Err err
 
         Just content ->
-            case InternalFix.applyEdits fixes content of
+            case InternalFix.applyEdits edits content of
                 Err fixProblem ->
                     Err (Error (markFixesAsProblem fixProblem headError))
 
                 Ok newFileContent ->
-                    Ok
-                        { project = ValidProject.addExtraFile { path = targetPath, content = newFileContent } project
-                        , fixedFile = FixedExtraFile
-                        }
+                    if String.endsWith ".json" targetPath then
+                        case Decode.decodeString Decode.value newFileContent of
+                            Ok _ ->
+                                Ok
+                                    { project = ValidProject.addExtraFile { path = targetPath, content = newFileContent } project
+                                    , fixedFile = FixedExtraFile
+                                    }
+
+                            Err decodingError ->
+                                let
+                                    fixProblem : FixProblem
+                                    fixProblem =
+                                        FixProblem.InvalidJson
+                                            { filePath = targetPath
+                                            , source = newFileContent
+                                            , edits = edits
+                                            , decodingError = decodingError
+                                            }
+                                in
+                                Err (Error (markFixesAsProblem fixProblem headError))
+
+                    else
+                        Ok
+                            { project = ValidProject.addExtraFile { path = targetPath, content = newFileContent } project
+                            , fixedFile = FixedExtraFile
+                            }
 
 
 visitModuleForProjectRule : AvailableData -> List (AvailableData -> RuleModuleVisitor) -> List RuleModuleVisitor
