@@ -4618,7 +4618,12 @@ Note that if the review process was not run in fix mode previously, then this ma
 -}
 errorFixProblem : ReviewError -> Maybe FixProblem
 errorFixProblem (Review.Error.ReviewError.ReviewError err) =
-    err.fixProblem
+    case err.fixes of
+        Ok _ ->
+            Nothing
+
+        Err fixProblem ->
+            Just fixProblem
 
 
 {-| Get the reason why the fix for an error failed when its available automatic fix was attempted and deemed incorrect.
@@ -4630,8 +4635,8 @@ describes fixing problems that have been checked for.
 
 -}
 errorFixFailure : ReviewError -> Maybe Fix.Problem
-errorFixFailure (Review.Error.ReviewError.ReviewError err) =
-    case err.fixProblem of
+errorFixFailure err =
+    case errorFixProblem err of
         Just fixProblem ->
             case fixProblem of
                 FixProblem.Unchanged _ ->
