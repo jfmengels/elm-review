@@ -4380,7 +4380,7 @@ withFixes fixes error_ =
         error_
 
 
-{-| Represents (part of a) fix that will be edit files and/or remove modules.
+{-| Represents (part of a) fix that will edit files and/or remove modules.
 -}
 type alias FixV2 =
     ErrorFixes.FixV2
