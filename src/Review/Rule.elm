@@ -265,7 +265,7 @@ I highly recommend reading at the guidelines in [`Review.Fix`](./Review-Fix) to 
 **NOTE**: The type names are a bit confusing, and will be improved in the next major version.
 The [`Review.Fix.Fix`](./Review-Fix#Fix) type will likely be renamed to `Edit` as it represents edits inside of a specific file,
 and [`FixV2`](#FixV2) will likely be renamed to `Fix` and moved to another module.
-In the meantime, some functions still refer to edits as "fixes", sorry about the confusion!
+In the meantime, some functions still refer to edits as "fixes". Sorry for the confusion!
 
 @docs FixV2, withFixesV2, editModule, removeModule, editElmJson, editReadme, editExtraFile, removeExtraFile
 
@@ -4424,7 +4424,7 @@ withFixesV2 providedFixes error_ =
         error_
 
 
-{-| Provide an automatic fix for a specific Elm module, by using edit functions from [`Review.Fix`](./Review-Fix) module.
+{-| Provide an automatic fix for a specific Elm module, by using edit functions from the [`Review.Fix`](./Review-Fix) module.
 
 You will need a [`ModuleKey`](#ModuleKey), which you can get from the `fromProjectToModule` and `fromModuleToProject`
 functions that you define when using [`newProjectRuleSchema`](#newProjectRuleSchema).
@@ -4449,7 +4449,7 @@ removeModule (ModuleKey path) =
     ErrorFixes.FixV2 (FileTarget.Module path) ErrorFixes.Remove
 
 
-{-| Provide an automatic fix for a specific extra file, by using edit functions from [`Review.Fix`](./Review-Fix) module.
+{-| Provide an automatic fix for a specific extra file, by using edit functions from the [`Review.Fix`](./Review-Fix) module.
 
 You will need a [`ExtraFileKey`](#ExtraFileKey), which you can get from the [`withExtraFilesProjectVisitor`](#withExtraFilesProjectVisitor).
 
@@ -4472,7 +4472,7 @@ removeExtraFile (ExtraFileKey { path }) =
     ErrorFixes.FixV2 (FileTarget.ExtraFile path) ErrorFixes.Remove
 
 
-{-| Provide an automatic fix for the `README.md` file, by using edit functions from [`Review.Fix`](./Review-Fix) module.
+{-| Provide an automatic fix for the `README.md` file, by using edit functions from the [`Review.Fix`](./Review-Fix) module.
 
 You will need an [`ReadmeKey`](#ReadmeKey), which you can get from the [`withReadmeProjectVisitor`](#withReadmeProjectVisitor)
 function.

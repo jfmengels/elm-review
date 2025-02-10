@@ -2,9 +2,57 @@
 
 ## [Unreleased]
 
-- [`Review.Rule.providesFixesForModuleRule`](https://package.elm-lang.org/packages/jfmengels/elm-review/2.14.1/Review-Rule#providesFixesForModuleRule)
-  and [`Review.Rule.providesFixesForProjectRule`](https://package.elm-lang.org/packages/jfmengels/elm-review/2.14.1/Review-Rule#providesFixesForProjectRule) are now unnecessary and are marked as deprecated. This information was used in the past to speed up fixes, but ended up not being useful later on.
-- In the rule tester, trailing whitespace at the end of a line is now ignored (no need to force these to be present trough `String.replace`)   
+## [2.15.0] - 2025-02-11
+
+The project now supports multi-file fixes as well as fixes that remove files through the following functions and types:
+
+- [`Review.Rule.withFixesV2`](https://package.elm-lang.org/packages/jfmengels/elm-review/2.15.0/Review-Rule#withFixesV2)
+- [`Review.Rule.FixV2`](https://package.elm-lang.org/packages/jfmengels/elm-review/2.15.0/Review-Rule#FixV2)
+- [`Review.Rule.editModule`](https://package.elm-lang.org/packages/jfmengels/elm-review/2.15.0/Review-Rule#editModule)
+- [`Review.Rule.removeModule`](https://package.elm-lang.org/packages/jfmengels/elm-review/2.15.0/Review-Rule#removeModule)
+- [`Review.Rule.editElmJson`](https://package.elm-lang.org/packages/jfmengels/elm-review/2.15.0/Review-Rule#editElmJson)
+- [`Review.Rule.editReadme`](https://package.elm-lang.org/packages/jfmengels/elm-review/2.15.0/Review-Rule#editReadme)
+- [`Review.Rule.editExtraFile`](https://package.elm-lang.org/packages/jfmengels/elm-review/2.15.0/Review-Rule#editExtraFile)
+- [`Review.Rule.removeExtraFile`](https://package.elm-lang.org/packages/jfmengels/elm-review/2.15.0/Review-Rule#removeExtraFile)
+
+In some places, `Fix` has been renamed to `Edit` (and a new `Edit` type has been added as well) as that is a more apt name.
+The types/functions will be renamed or removed to make the naming consistent and simpler in the next major version. 
+
+We are also adding a new convenience function [`Review.Rule.withModuleContextWithErrors`](https://package.elm-lang.org/packages/jfmengels/elm-review/2.15.0/Review-Rule#withModuleContextWithErrors)
+to report errors while in the `fromModuleToProject` function. This can help avoid duplicate work that would otherwise be done in both the final module evaluation and in `fromModuleToProject`. 
+
+Also adds (provided for the CLI):
+
+- [`Review.Rule.errorFixesV2`](https://package.elm-lang.org/packages/jfmengels/elm-review/2.15.0/Review-Rule#errorFixesV2) (replaces `errorFixes`)
+- [`Review.Rule.errorFixProblem`](https://package.elm-lang.org/packages/jfmengels/elm-review/2.15.0/Review-Rule#errorFixProblem) (replaces `errorFixFailure`)
+- [`Review.Options.withFileRemovalFixes`](https://package.elm-lang.org/packages/jfmengels/elm-review/2.15.0/Review-Options#withFileRemovalFixes)
+- [`Review.Fix.FixProblem`](https://package.elm-lang.org/packages/jfmengels/elm-review/2.15.0/Review.Fix.FixProblem) (replaces [`Review.Fix.Problem`](https://package.elm-lang.org/packages/jfmengels/elm-review/2.15.0/Review-Fix#Problem))
+- [`Review.Project.diffV2`](https://package.elm-lang.org/packages/jfmengels/elm-review/2.15.0/Review-Project#diffV2) (replaces [`Review.Project.diff`](https://package.elm-lang.org/packages/jfmengels/elm-review/2.15.0/Review-Project#diff))
+
+
+### Tests
+
+New functions and types have been added to help test the new fix APIs.
+
+- [`Review.Test.shouldFixFiles`](https://package.elm-lang.org/packages/jfmengels/elm-review/2.15.0/Review-Test#shouldFixFiles)
+- [`Review.Test.shouldFixFilesWithFileRemoval`](https://package.elm-lang.org/packages/jfmengels/elm-review/2.15.0/Review-Test#shouldFixFilesWithFileRemoval)
+- [`Review.Test.expectGlobalErrorsWithFixes`](https://package.elm-lang.org/packages/jfmengels/elm-review/2.15.0/Review-Test#expectGlobalErrorsWithFixes)
+- [`Review.Test.globalErrorsWithFixes`](https://package.elm-lang.org/packages/jfmengels/elm-review/2.15.0/Review-Test#globalErrorsWithFixes)
+- [`Review.Test.ExpectedFix`](https://package.elm-lang.org/packages/jfmengels/elm-review/2.15.0/Review-Test#ExpectedFix)
+- [`Review.Test.edited`](https://package.elm-lang.org/packages/jfmengels/elm-review/2.15.0/Review-Test#edited)
+- [`Review.Test.removed`](https://package.elm-lang.org/packages/jfmengels/elm-review/2.15.0/Review-Test#removed)
+
+Test failure messages around fixes have been improved significantly. It should now be much easier to figure out why a test failed.
+
+Additionally, trailing whitespace at the end of a line in a provided source code is now ignored (no need to force these to be present trough `String.replace` shenanigans).
+
+### Marked as deprecated
+
+- [`Review.Rule.errorFixes`](https://package.elm-lang.org/packages/jfmengels/elm-review/2.15.0/Review-Rule#errorFixes) (replaced by `errorFixesV2`)
+- [`Review.Rule.errorFixFailure`](https://package.elm-lang.org/packages/jfmengels/elm-review/2.15.0/Review-Rule#errorFixFailure) (replaced by `errorFixProblem`)
+- [`Review.Fix.Problem`](https://package.elm-lang.org/packages/jfmengels/elm-review/2.15.0/Review.Fix.FixProblem) (replaced by [`Review.Fix.FixProblem`](https://package.elm-lang.org/packages/jfmengels/elm-review/2.15.0/Review-Fix-FixProblem))
+- [`Review.Rule.providesFixesForModuleRule`](https://package.elm-lang.org/packages/jfmengels/elm-review/2.15.0/Review-Rule#providesFixesForModuleRule)
+  and [`Review.Rule.providesFixesForProjectRule`](https://package.elm-lang.org/packages/jfmengels/elm-review/2.15.0/Review-Rule#providesFixesForProjectRule) are now unnecessary. This information was used in the past to speed up fixes, but ended up not being useful later on.
 
 ## [2.14.1] - 2024-10-08
 
