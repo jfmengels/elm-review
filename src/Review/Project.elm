@@ -3,7 +3,6 @@ module Review.Project exposing
     , ProjectModule, addModule, addParsedModule
     , removeModule
     , modules, modulesThatFailedToParse
-    , precomputeModuleGraph
     , addElmJson, elmJson
     , addReadme, readme
     , addExtraFiles, addExtraFile, updateFile
@@ -13,6 +12,7 @@ module Review.Project exposing
     , removeDependency, removeDependencies
     , directDependencies, dependencies
     , Diff(..), diffV2, diff
+    , precomputeModuleGraph
     )
 
 {-| Represents the contents of the project to be analyzed. This information will
@@ -34,7 +34,6 @@ does not look at project information (like the `elm.json`, dependencies, ...).
 @docs ProjectModule, addModule, addParsedModule
 @docs removeModule
 @docs modules, modulesThatFailedToParse
-@docs precomputeModuleGraph
 
 
 # `elm.json`
@@ -67,6 +66,11 @@ that rules can then visit.
 # Diffing
 
 @docs Diff, diffV2, diff
+
+
+## Deprecated
+
+@docs precomputeModuleGraph
 
 -}
 
