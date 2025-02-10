@@ -272,7 +272,7 @@ top of the file (like `module A exposing (..)`) and one declaration (like `a = 1
 You can't just have an expression like `1 + 2`.
 
 Note: This is a simpler version of [`runWithProjectData`](#runWithProjectData).
-If your rule is interested in project related details, then you should use
+If your rule is interested in project-related details, then you should use
 [`runWithProjectData`](#runWithProjectData) instead.
 
 -}
@@ -312,7 +312,7 @@ top of the file (like `module A exposing (..)`) and one declaration (like `a = 1
 You can't just have an expression like `1 + 2`.
 
 Note: This is a more complex version of [`run`](#run). If your rule is not
-interested in project related details, then you should use [`run`](#run) instead.
+interested in project-related details, then you should use [`run`](#run) instead.
 
 -}
 runWithProjectData : Project -> Rule -> String -> ReviewResult
@@ -353,7 +353,7 @@ top of each file (like `module A exposing (..)`) and one declaration (like `a = 
 You can't just have an expression like `1 + 2`.
 
 Note: This is a simpler version of [`runOnModulesWithProjectData`](#runOnModulesWithProjectData).
-If your rule is interested in project related details, then you should use
+If your rule is interested in project-related details, then you should use
 [`runOnModulesWithProjectData`](#runOnModulesWithProjectData) instead.
 
 -}
@@ -402,7 +402,7 @@ top of each file (like `module A exposing (..)`) and one declaration (like `a = 
 You can't just have an expression like `1 + 2`.
 
 Note: This is a more complex version of [`runOnModules`](#runOnModules). If your rule is not
-interested in project related details, then you should use [`runOnModules`](#runOnModules) instead.
+interested in project-related details, then you should use [`runOnModules`](#runOnModules) instead.
 
 -}
 runOnModulesWithProjectData : Project -> Rule -> List String -> ReviewResult
@@ -790,7 +790,7 @@ expectErrors expectedErrors reviewResult =
 module for which they were reported.
 
 This is the same as [`expectErrors`](#expectErrors), but for when you used
-[`runOnModules`](#runOnModules) or [`runOnModulesWithProjectData`](#runOnModulesWithProjectData).
+[`runOnModules`](#runOnModules) or [`runOnModulesWithProjectData`](#runOnModulesWithProjectData)
 to create the test. When using those, the errors you expect need to be associated
 with a module. If we don't specify this, your tests might pass because you
 expected the right errors, but they may be reported for the wrong module!
@@ -1315,7 +1315,7 @@ error input =
         }
 
 
-{-| Precise the exact position where the error should be shown to the user. This
+{-| Specify the exact position where the error should be shown to the user. This
 is only necessary when the `under` field is ambiguous.
 
 `atExactly` takes a record with start and end positions.
@@ -1346,7 +1346,7 @@ is only necessary when the `under` field is ambiguous.
 
 Tip: By default, do not use this function. If the test fails because there is some
 ambiguity, the test error will give you a recommendation of what to use as a parameter
-of `atExactly`, so you do not have to bother writing this hard-to-write argument yourself.
+of `atExactly` which you can then copy-paste into the test code.
 
 -}
 atExactly : { start : { row : Int, column : Int }, end : { row : Int, column : Int } } -> ExpectedError -> ExpectedError
@@ -1382,21 +1382,25 @@ In other words, you only need to use this function if the error provides a fix.
     """
                         ]
 
+Note: If multiple files get edited by a single fix, you will need to
+use [`shouldFixFiles`](#shouldFixFiles) instead.
+
 -}
 whenFixed : String -> ExpectedError -> ExpectedError
 whenFixed fixedSource (ExpectedError expectedError) =
     ExpectedError { expectedError | expectedFixes = ComesFromWhenFixed fixedSource }
 
 
-{-| Create an expectation that the error provides automatic fixes for one or several files, meaning that it used
+{-| Create an expectation that the error provides automatic fixes for multiple files, meaning that it used
 functions like [`withFixesV2`](./Review-Rule#withFixesV2), and an expectation of what the source
 code should be after the error's fix has been applied.
 
 In the absence of `whenFixed` or `shouldFixFiles`, the test will fail if the error provides a fix.
 In other words, you only need to use this function if the error provides a fix.
 
-The first element in the tuples is the file to be fixed, which can be either the module name or the file path.
-The second element in the tuples is the expected source code.
+The first element in the tuples identifies the file to be fixed, which can be
+identified by either its module name or its file path. The second element in
+the tuple is the expected source code.
 
     tests : Test
     tests =
@@ -1436,6 +1440,9 @@ The second element in the tuples is the expected source code.
                             ]
                           )
                         ]
+
+Note: If the fix is expected to remove files, then you will need
+to use [`shouldFixFilesWithFileRemoval`](#shouldFixFilesWithFileRemoval) instead.
 
 -}
 shouldFixFiles : List ( String, String ) -> ExpectedError -> ExpectedError
@@ -2558,7 +2565,7 @@ globalErrors expected =
 
 This is the same as [`globalErrors`](#globalErrors) with the difference that you can specify the results of the automatic fixes provided by the global error.
 
-If you expect only global errors, then you may want to use [`expectGlobalErrors`](#expectGlobalErrors) which is simpler.
+If you expect only global errors, then you may want to use [`expectGlobalErrorsWithFixes`](#expectGlobalErrorsWithFixes) which is simpler.
 
 Assert which errors are reported using records with the expected message and details. The test will fail if
 a different number of errors than expected are reported, or if the message or details is incorrect.
