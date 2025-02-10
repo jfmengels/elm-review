@@ -7521,6 +7521,7 @@ doing it yourself.
 type or value comes from.
 
     import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
+    import Review.Rule as Rule exposing (Rule)
 
     type alias Context =
         { lookupTable : ModuleNameLookupTable }

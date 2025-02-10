@@ -12,15 +12,15 @@ a different import, or it can be empty, meaning that it refers to a local value 
 or implicitly. Resolving which module the type or function comes from can be a bit tricky sometimes, and I recommend against
 doing it yourself.
 
-`elm-review` computes this for you already. Store this value inside your module context, then use
+`elm-review` computes this for you already. Request the `ModuleNameLookupTable` using
+[`Review.Rule.withModuleNameLookupTable`](./Review-Rule#withModuleNameLookupTable)
+and store it inside the module context, then use
 [`ModuleNameLookupTable.moduleNameFor`](./Review-ModuleNameLookupTable#moduleNameFor) or
 [`ModuleNameLookupTable.moduleNameAt`](./Review-ModuleNameLookupTable#moduleNameAt) to get the name of the module the
 type or value comes from.
 
 @docs ModuleNameLookupTable, moduleNameFor, moduleNameAt
 @docs fullModuleNameFor, fullModuleNameAt
-
-Note: If you have been using [`elm-review-scope`](https://github.com/jfmengels/elm-review-scope) before, you should use this instead.
 
 
 ## Testing
@@ -43,7 +43,7 @@ type alias ModuleNameLookupTable =
     Internal.ModuleNameLookupTable
 
 
-{-| Returns the name of the module the type, value, or operator referred to by this [`Node`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.2.1/Elm-Syntax-Node#Node) was defined in.
+{-| Returns the name of the module that defined the type, value, or operator referred to by this [`Node`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.2.1/Elm-Syntax-Node#Node).
 
 The function returns `Just []` if the type or value was defined in this module. It returns `Just moduleName` if the Node is among these kinds of AST nodes (and `Nothing` for all the others):
 
@@ -97,7 +97,7 @@ fullModuleNameFor (Internal.ModuleNameLookupTable currentModuleName dict) (Node 
             res
 
 
-{-| Returns the name of the module the type, value, or operator referred to by this [`Range`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.2.1/Elm-Syntax-Range#Range).
+{-| Returns the name of the module that defined the type, value, or operator referred to by this [`Range`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.2.1/Elm-Syntax-Range#Range).
 
 The function returns `Just []` if the type or value was defined in this module. It returns `Just moduleName` if the Node is among these kinds of AST nodes (and `Nothing` for all the others):
 
@@ -152,7 +152,9 @@ module in which this lookup table would be used.
 
 This can be useful if you want to test individual functions that take a `ModuleNameLookupTable` as an argument.
 
-    ModuleNameLookupTable.createForTests [ "My", "Module" ] []
+    ModuleNameLookupTable.createForTests
+        [ "My", "Module" ]
+        []
 
 -}
 createForTests : ModuleName -> List ( Range, ModuleName ) -> ModuleNameLookupTable
