@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Fixed an issue where the global error reporting duplicate module names would not have a name.
+
 ## [2.15.0] - 2025-02-11
 
 The project now supports multi-file fixes as well as fixes that remove files through the following functions and types:

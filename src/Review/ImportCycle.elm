@@ -7,9 +7,10 @@ import Vendor.Graph as Graph exposing (Graph)
 import Vendor.IntDict as IntDict
 
 
-error : List String -> { message : String, details : List String }
-error cycle =
-    { message = "Your module imports form a cycle"
+error : String -> List String -> { ruleName : String, message : String, details : List String }
+error ruleName cycle =
+    { ruleName = ruleName
+    , message = "Your module imports form a cycle"
     , details =
         [ printCycle cycle
         , "Learn more about why this is disallowed and how to break cycles here:<https://elm-lang.org/0.19.1/import-cycles>"

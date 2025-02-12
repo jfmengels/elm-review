@@ -505,10 +505,10 @@ review rules project =
 
         Err InvalidProjectError.NoModulesError ->
             ( [ elmReviewGlobalError
-                    { message = "This project does not contain any Elm modules"
+                    { ruleName = "Incorrect project"
+                    , message = "This project does not contain any Elm modules"
                     , details = [ "I need to look at some Elm modules. Maybe you have specified folders that do not exist?" ]
                     }
-                    |> setRuleName "Incorrect project"
                     |> errorToReviewError
               ]
             , rules
@@ -724,10 +724,10 @@ getModulesSortedByImport project =
         Err InvalidProjectError.NoModulesError ->
             Err
                 [ elmReviewGlobalError
-                    { message = "This project does not contain any Elm modules"
+                    { ruleName = "Incorrect project"
+                    , message = "This project does not contain any Elm modules"
                     , details = [ "I need to look at some Elm modules. Maybe you have specified folders that do not exist?" ]
                     }
-                    |> setRuleName "Incorrect project"
                     |> errorToReviewError
                 ]
 
@@ -737,9 +737,8 @@ getModulesSortedByImport project =
 
 importCycleError : List String -> ReviewError
 importCycleError cycle =
-    ImportCycle.error cycle
+    ImportCycle.error "Incorrect project" cycle
         |> elmReviewGlobalError
-        |> setRuleName "Incorrect project"
         |> errorToReviewError
 
 
@@ -779,7 +778,8 @@ duplicateModulesGlobalError duplicate =
                 |> String.concat
     in
     elmReviewGlobalError
-        { message = "Found several modules named `" ++ String.join "." duplicate.moduleName ++ "`"
+        { ruleName = "Incorrect project"
+        , message = "Found several modules named `" ++ String.join "." duplicate.moduleName ++ "`"
         , details =
             [ "I found several modules with the name `" ++ String.join "." duplicate.moduleName ++ "`. Depending on how I choose to resolve this, I might give you different reports. Since this is a compiler error anyway, I require this problem to be solved. Please fix this then try running `elm-review` again."
             , "Here are the paths to some of the files that share a module name:" ++ paths
@@ -4252,13 +4252,13 @@ errorForExtraFileWithFix extraFileKey info range fixes =
         |> withFixes fixes
 
 
-elmReviewGlobalError : { message : String, details : List String } -> Error scope
-elmReviewGlobalError { message, details } =
+elmReviewGlobalError : { ruleName : String, message : String, details : List String } -> Error scope
+elmReviewGlobalError params =
     Error
         { filePath = "GLOBAL ERROR"
-        , ruleName = ""
-        , message = message
-        , details = details
+        , ruleName = params.ruleName
+        , message = params.message
+        , details = params.details
         , range = Range.emptyRange
         , fixes = ErrorFixes.none
         , fixProblem = Nothing
