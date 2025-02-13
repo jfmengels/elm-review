@@ -4391,6 +4391,7 @@ type alias FixV2 =
 To be used along with functions listed below, such as [`editModule`](#editModule).
 
     import Review.Fix as Fix
+    import Review.Rule as Rule
 
     error : Rule.ModuleKey -> Node a -> Error {}
     error moduleKey node =
@@ -4399,10 +4400,11 @@ To be used along with functions listed below, such as [`editModule`](#editModule
             , details = [ "The `Debug` module is useful when developing, but is not meant to be shipped to production or published in a package. I suggest removing its use before committing and attempting to push to production." ]
             }
             (Node.range node)
-            [ Fix.editModule
-                moduleKey
-                [ Fix.removeRange (Node.range node) ]
-            ]
+            |> Rule.withFixesV2
+                [ Rule.editModule
+                    moduleKey
+                    [ Fix.removeRange (Node.range node) ]
+                ]
 
 Take a look at [`Review.Fix`](./Review-Fix) to know more on how to makes fixes.
 
