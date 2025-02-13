@@ -20,6 +20,9 @@ The project now supports multi-file fixes as well as fixes that remove files thr
 In some places, `Fix` has been renamed to `Edit` (and a new `Edit` type has been added as well) as that is a more apt name.
 The types/functions will be renamed or removed to make the naming consistent and simpler in the next major version. 
 
+Edits where the start appears after the end now cause the fix to fail.
+Removal edits that overlap are now merged together and don't cause the fix to fail.
+
 We are also adding a new convenience function [`Review.Rule.withModuleContextWithErrors`](https://package.elm-lang.org/packages/jfmengels/elm-review/2.15.0/Review-Rule#withModuleContextWithErrors)
 to report errors while in the `fromModuleToProject` function. This can help avoid duplicate work that would otherwise be done in both the final module evaluation and in `fromModuleToProject`. 
 
