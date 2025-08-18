@@ -39,8 +39,8 @@ edit target edits =
         |> ErrorFixes
 
 
-add : ( FileTarget, FixKind ) -> ErrorFixes -> ErrorFixes
-add ( target, fixes ) (ErrorFixes initialFixes) =
+add : FileTarget -> FixKind -> ErrorFixes -> ErrorFixes
+add target fixes (ErrorFixes initialFixes) =
     SimpleAssocList.update target
         (\maybePreviousFixes ->
             case fixes of
