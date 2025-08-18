@@ -4418,9 +4418,9 @@ withFixesV2 providedFixes error_ =
             { err
                 | fixes =
                     List.foldl
-                        ErrorFixes.add
+                        (\(ErrorFixes.FixV2 target fixes) acc -> ErrorFixes.add ( target, fixes ) acc)
                         err.fixes
-                        (List.map (\(ErrorFixes.FixV2 target fixes) -> ( target, fixes )) providedFixes)
+                        providedFixes
             }
         )
         error_
