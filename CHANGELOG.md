@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [2.15.2] - 2025-08-19
+
 - Fixed an issue overlapping removal edits are fused would incorrectly.
 
 ## [2.15.1] - 2025-02-13
@@ -244,7 +246,8 @@ Help would be appreciated to fill the blanks!
 [`Review.Rule.errorFixFailure`]: https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule#errorFixFailure
 [`Review.Test.ignoredFilesImpactResults`]: https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule-Test#ignoredFilesImpactResults
 
-[Unreleased]: https://github.com/jfmengels/elm-review/compare/v2.15.1...HEAD
+[Unreleased]: https://github.com/jfmengels/elm-review/compare/v2.15.2...HEAD
+[2.15.2]: https://github.com/jfmengels/elm-review/releases/tag/2.15.2
 [2.15.1]: https://github.com/jfmengels/elm-review/releases/tag/2.15.1
 [2.15.0]: https://github.com/jfmengels/elm-review/releases/tag/2.15.0
 [2.14.1]: https://github.com/jfmengels/elm-review/releases/tag/2.14.1
