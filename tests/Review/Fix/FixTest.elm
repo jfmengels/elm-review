@@ -2,6 +2,7 @@ module Review.Fix.FixTest exposing (all)
 
 import Expect
 import Review.Fix as Fix exposing (Fix)
+import Review.Fix.Edit exposing (Edit)
 import Review.Fix.FixProblem exposing (FixProblem(..))
 import Review.Fix.Internal as FixInternal
 import Review.Rule exposing (Rule)
@@ -31,7 +32,7 @@ a = Debug.log "foo" 1
                             }
                         ]
                 in
-                FixInternal.applyEdits "src/A.elm" edits source
+                applyEdits edits source
                     |> Expect.equal (Ok """module A exposing (a)
 a =  1
 """)
@@ -53,7 +54,7 @@ some_var = 1
                             "someVar"
                         ]
                 in
-                FixInternal.applyEdits "src/A.elm" edits source
+                applyEdits edits source
                     |> Expect.equal (Ok """module A exposing (a)
 someVar = 1
 """)
@@ -73,7 +74,7 @@ a = 1
                             """Debug.log "foo" """
                         ]
                 in
-                FixInternal.applyEdits "src/A.elm" edits source
+                applyEdits edits source
                     |> Expect.equal (Ok """module A exposing (a)
 a = Debug.log "foo" 1
 """)
@@ -97,11 +98,123 @@ a = 1
                             }
                         ]
                 in
-                FixInternal.applyEdits "src/A.elm" edits source
+                applyEdits edits source
                     |> Expect.equal (Ok """module A exposing (someCode)
 someCode = 2
 
 
+""")
+        , test "should support multiple removals" <|
+            \() ->
+                let
+                    source : String
+                    source =
+                        """module A exposing (a)
+a = "0123456789"
+"""
+
+                    edits : List Fix
+                    edits =
+                        [ Fix.removeRange
+                            { start = { row = 2, column = 7 }
+                            , end = { row = 2, column = 8 }
+                            }
+                        , Fix.removeRange
+                            { start = { row = 2, column = 14 }
+                            , end = { row = 2, column = 15 }
+                            }
+                        ]
+                in
+                applyEdits edits source
+                    |> Expect.equal (Ok """module A exposing (a)
+a = "02345679"
+""")
+        , test "should support multiple removals that overlap" <|
+            \() ->
+                let
+                    source : String
+                    source =
+                        """module A exposing (a)
+--1:  ---
+--2:    ---
+a = "0123456789"
+"""
+
+                    edits : List Fix
+                    edits =
+                        [ Fix.removeRange
+                            { start = { row = 4, column = 7 }
+                            , end = { row = 4, column = 10 }
+                            }
+                        , Fix.removeRange
+                            { start = { row = 4, column = 9 }
+                            , end = { row = 4, column = 12 }
+                            }
+                        ]
+                in
+                applyEdits edits source
+                    |> Expect.equal (Ok """module A exposing (a)
+--1:  ---
+--2:    ---
+a = "06789"
+""")
+        , test "should support multiple removals that overlap (first included in the second)" <|
+            \() ->
+                let
+                    source : String
+                    source =
+                        """module A exposing (a)
+--1:    ---
+--2:  --------
+a = "0123456789"
+"""
+
+                    edits : List Fix
+                    edits =
+                        [ Fix.removeRange
+                            { start = { row = 4, column = 9 }
+                            , end = { row = 4, column = 12 }
+                            }
+                        , Fix.removeRange
+                            { start = { row = 4, column = 7 }
+                            , end = { row = 4, column = 15 }
+                            }
+                        ]
+                in
+                applyEdits edits source
+                    |> Expect.equal (Ok """module A exposing (a)
+--1:    ---
+--2:  --------
+a = "09"
+""")
+        , test "should support multiple removals that overlap (second included in the first)" <|
+            \() ->
+                let
+                    source : String
+                    source =
+                        """module A exposing (a)
+--1:  --------
+--2:    ---
+a = "0123456789"
+"""
+
+                    edits : List Fix
+                    edits =
+                        [ Fix.removeRange
+                            { start = { row = 4, column = 7 }
+                            , end = { row = 4, column = 15 }
+                            }
+                        , Fix.removeRange
+                            { start = { row = 4, column = 9 }
+                            , end = { row = 4, column = 12 }
+                            }
+                        ]
+                in
+                applyEdits edits source
+                    |> Expect.equal (Ok """module A exposing (a)
+--1:  --------
+--2:    ---
+a = "09"
 """)
         , test "should apply a replacement whose content is on multiple lines" <|
             \() ->
@@ -121,7 +234,7 @@ some_var = 1
                             "someVar =\n  1"
                         ]
                 in
-                FixInternal.applyEdits "src/A.elm" edits source
+                applyEdits edits source
                     |> Expect.equal (Ok """module A exposing (a)
 someVar =
   1
@@ -145,7 +258,7 @@ some_var =
                             "someVar = 1"
                         ]
                 in
-                FixInternal.applyEdits "src/A.elm" edits source
+                applyEdits edits source
                     |> Expect.equal (Ok """module A exposing (a)
 someVar = 1
 """)
@@ -168,7 +281,7 @@ some_var =
                             "foo =\n  2"
                         ]
                 in
-                FixInternal.applyEdits "src/A.elm" edits source
+                applyEdits edits source
                     |> Expect.equal (Ok """module A exposing (a)
 foo =
   2
@@ -192,7 +305,7 @@ a = 1
                             "b =\n  2\n"
                         ]
                 in
-                FixInternal.applyEdits "src/A.elm" edits source
+                applyEdits edits source
                     |> Expect.equal (Ok """module A exposing (someCode)
 someCode = 2
 
@@ -319,3 +432,9 @@ the positions (for inserting) of every fix to be mutually exclusive.
 Hint: Maybe you duplicated a fix, or you targeted the wrong node for one
 of your fixes."""
         ]
+
+
+applyEdits : List Edit -> String -> Result FixProblem String
+applyEdits edits source =
+    FixInternal.compileEdits "src/A.elm" edits
+        |> Result.andThen (\edits_ -> FixInternal.applyEdits "src/A.elm" edits_ source)

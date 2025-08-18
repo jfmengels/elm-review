@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Fixed an issue overlapping removal edits are fused would incorrectly.
+
 ## [2.15.1] - 2025-02-13
 
 - Fixed an issue where the global error reporting duplicate module names would not have a name.

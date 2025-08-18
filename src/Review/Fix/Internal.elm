@@ -73,7 +73,7 @@ compileEditsHelp filePath edits previousStart previousEdit previousRemoval acc =
                                                 rest
                                                 range.start
                                                 edit
-                                                (Just { start = range.start, end = end })
+                                                (Just { start = range.start, end = latterOf range.end end })
                                                 acc
 
                                         Nothing ->
@@ -284,5 +284,11 @@ comparePosition a b =
             order
 
 
+latterOf : Location -> Location -> Location
+latterOf a b =
+    case comparePosition a b of
+        GT ->
+            a
 
--- RANGE POSITION
+        _ ->
+            b
