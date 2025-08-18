@@ -39,34 +39,29 @@ edit target edits =
         |> ErrorFixes
 
 
-add : List ( FileTarget, FixKind ) -> ErrorFixes -> ErrorFixes
-add providedFixes (ErrorFixes initialFixes) =
-    List.foldl
-        (\( target, fixes ) acc ->
-            SimpleAssocList.update target
-                (\maybePreviousFixes ->
-                    case fixes of
-                        Remove ->
-                            Just fixes
+add : ( FileTarget, FixKind ) -> ErrorFixes -> ErrorFixes
+add ( target, fixes ) (ErrorFixes initialFixes) =
+    SimpleAssocList.update target
+        (\maybePreviousFixes ->
+            case fixes of
+                Remove ->
+                    Just fixes
 
-                        Edit [] ->
+                Edit [] ->
+                    maybePreviousFixes
+
+                Edit newFixes ->
+                    case maybePreviousFixes of
+                        Just Remove ->
                             maybePreviousFixes
 
-                        Edit newFixes ->
-                            case maybePreviousFixes of
-                                Just Remove ->
-                                    maybePreviousFixes
+                        Just (Edit previousFixes_) ->
+                            Just (Edit (newFixes ++ previousFixes_))
 
-                                Just (Edit previousFixes_) ->
-                                    Just (Edit (newFixes ++ previousFixes_))
-
-                                Nothing ->
-                                    Just fixes
-                )
-                acc
+                        Nothing ->
+                            Just fixes
         )
         initialFixes
-        providedFixes
         |> ErrorFixes
 
 

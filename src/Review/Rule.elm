@@ -4418,7 +4418,7 @@ withFixesV2 providedFixes error_ =
             { err
                 | fixes =
                     List.foldl
-                        (List.singleton >> ErrorFixes.add)
+                        ErrorFixes.add
                         err.fixes
                         (List.map (\(ErrorFixes.FixV2 target fixes) -> ( target, fixes )) providedFixes)
             }
