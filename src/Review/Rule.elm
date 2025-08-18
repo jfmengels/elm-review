@@ -6123,20 +6123,20 @@ applyFix project maybeModuleZipper err ( target, fixes ) =
             applyFileDeletionFix project err target
 
 
-applyEditFix : ValidProject -> Maybe (Zipper (Graph.NodeContext FilePath ())) -> Error {} -> FileTarget -> List Fix -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
-applyEditFix project maybeModuleZipper err target fixes =
+applyEditFix : ValidProject -> Maybe (Zipper (Graph.NodeContext FilePath ())) -> Error {} -> FileTarget -> List Edit -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
+applyEditFix project maybeModuleZipper err target edits =
     case target of
         FileTarget.Module targetPath ->
-            applySingleModuleFix project maybeModuleZipper err targetPath fixes
+            applySingleModuleFix project maybeModuleZipper err targetPath edits
 
         FileTarget.ElmJson ->
-            applyElmJsonFix project err fixes
+            applyElmJsonFix project err edits
 
         FileTarget.Readme ->
-            applyReadmeFix project err fixes
+            applyReadmeFix project err edits
 
         FileTarget.ExtraFile targetPath ->
-            applyExtraFileFix project err targetPath fixes
+            applyExtraFileFix project err targetPath edits
 
 
 applyFileDeletionFix : ValidProject -> Error {} -> FileTarget -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
