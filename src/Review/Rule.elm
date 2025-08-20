@@ -4406,18 +4406,16 @@ If the list of fixes is empty, then the error will be considered as not providin
 
 -}
 withFixesV2 : List FixV2 -> Error scope -> Error scope
-withFixesV2 providedFixes error_ =
-    mapInternalError
-        (\err ->
-            { err
-                | fixes =
-                    List.foldl
-                        (\(ErrorFixes.FixV2 target fixes) acc -> ErrorFixes.add target fixes acc)
-                        err.fixes
-                        providedFixes
-            }
-        )
-        error_
+withFixesV2 providedFixes (Error err) =
+    let
+        fixes : ErrorFixes
+        fixes =
+            List.foldl
+                (\(ErrorFixes.FixV2 target fixes_) acc -> ErrorFixes.add target fixes_ acc)
+                err.fixes
+                providedFixes
+    in
+    Error { err | fixes = fixes }
 
 
 {-| Provide an automatic fix for a specific Elm module, by using edit functions from the [`Review.Fix`](./Review-Fix) module.
