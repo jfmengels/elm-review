@@ -1,9 +1,9 @@
 module MiscRules.NoHtmlButtonTest exposing (all)
 
-import Fixtures.Dependencies as Dependencies
 import MiscRules.NoHtmlButton exposing (rule)
 import Review.Project as Project exposing (Project)
 import Review.Test exposing (ReviewResult)
+import Review.Test.Dependencies
 import Test exposing (Test, describe, test)
 
 
@@ -17,7 +17,7 @@ testRule string =
 projectWithHtmlDependency : Project
 projectWithHtmlDependency =
     Project.new
-        |> Project.addDependency Dependencies.elmHtml
+        |> Project.addDependency Review.Test.Dependencies.elmHtml
 
 
 testRuleWithHtmlDependency : String -> ReviewResult

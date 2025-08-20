@@ -12,7 +12,6 @@ import Elm.Syntax.Pattern as Pattern
 import Elm.Syntax.Range exposing (Range)
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
 import Elm.Version
-import Fixtures.Dependencies as Dependencies
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Project as Project exposing (Project)
 import Review.Project.Dependency as Dependency exposing (Dependency)
@@ -510,10 +509,9 @@ type alias ModuleContext =
 
 project : Project
 project =
-    Project.new
+    Review.Test.Dependencies.projectWithElmCore
         |> Project.addElmJson applicationElmJson
-        |> Project.addDependency Dependencies.elmCore
-        |> Project.addDependency Dependencies.elmHtml
+        |> Project.addDependency Review.Test.Dependencies.elmHtml
         |> Project.addDependency Review.Test.Dependencies.elmParser
         |> Project.addDependency Review.Test.Dependencies.elmUrl
         |> Project.addDependency xyz2dependency
