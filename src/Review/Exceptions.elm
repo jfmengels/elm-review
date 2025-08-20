@@ -2,8 +2,8 @@ module Review.Exceptions exposing
     ( Exceptions
     , init
     , addDirectories, addFiles
-    , addFilter
-    , isFileWeWantReportsFor
+    , addFilter, isFileWeWantReportsFor
+    , avoidFixing, filesNotToFix
     )
 
 {-| Configuration for elements that should be ignored from the review rules.
@@ -11,27 +11,51 @@ module Review.Exceptions exposing
 @docs Exceptions
 @docs init
 @docs addDirectories, addFiles
-@docs addFilter
-@docs isFileWeWantReportsFor
+@docs addFilter, isFileWeWantReportsFor
+@docs avoidFixing, filesNotToFix
 
 -}
 
 import Path
+import Review.FilePattern as FilePattern exposing (FilePattern)
 import Set exposing (Set)
 
 
 type Exceptions
-    = Exceptions (List (String -> Bool))
+    = Exceptions
+        { ignored : List (String -> Bool)
+        , filesNotToFix : FilePattern.Summary
+        }
 
 
 init : Exceptions
 init =
-    Exceptions []
+    Exceptions { ignored = [], filesNotToFix = FilePattern.empty }
 
 
 addFilter : (String -> Bool) -> Exceptions -> Exceptions
-addFilter condition (Exceptions conditions) =
-    Exceptions (condition :: conditions)
+addFilter condition (Exceptions exceptions) =
+    Exceptions
+        { ignored = condition :: exceptions.ignored
+        , filesNotToFix = exceptions.filesNotToFix
+        }
+
+
+avoidFixing : List FilePattern -> Exceptions -> Result (List String) Exceptions
+avoidFixing filePatterns (Exceptions exceptions) =
+    FilePattern.compact filePatterns
+        |> Result.map
+            (\filePatternSummary ->
+                Exceptions
+                    { ignored = exceptions.ignored
+                    , filesNotToFix = filePatternSummary
+                    }
+            )
+
+
+filesNotToFix : Exceptions -> FilePattern.Summary
+filesNotToFix (Exceptions exceptions) =
+    exceptions.filesNotToFix
 
 
 addDirectories : List String -> Exceptions -> Exceptions
@@ -67,11 +91,11 @@ addFiles files exceptions =
 
 
 isFileWeWantReportsFor : Exceptions -> String -> Bool
-isFileWeWantReportsFor (Exceptions conditions) filePath =
+isFileWeWantReportsFor (Exceptions exceptions) filePath =
     let
         allConditions : String -> Bool
         allConditions path =
-            List.all (\condition -> condition path) conditions
+            List.all (\condition -> condition path) exceptions.ignored
     in
     filePath
         |> Path.makeOSAgnostic
