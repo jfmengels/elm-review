@@ -5571,10 +5571,14 @@ computeModuleWithRuleVisitors project module_ inputRuleModuleVisitors (Requested
         ast =
             ProjectModule.ast module_
 
+        filePath : String
+        filePath =
+            ProjectModule.path module_
+
         availableData : AvailableData
         availableData =
             { ast = ast
-            , moduleKey = ModuleKey (ProjectModule.path module_)
+            , moduleKey = ModuleKey filePath
             , moduleNameLookupTable = moduleNameLookupTable
             , moduleDocumentation = findModuleDocumentation ast
             , extractSourceCode =
@@ -5588,7 +5592,7 @@ computeModuleWithRuleVisitors project module_ inputRuleModuleVisitors (Requested
 
                 else
                     always ""
-            , filePath = ProjectModule.path module_
+            , filePath = filePath
             , isInSourceDirectories = ProjectModule.isInSourceDirectories module_
             }
 
