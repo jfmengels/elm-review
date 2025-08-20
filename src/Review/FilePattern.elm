@@ -1,7 +1,7 @@
 module Review.FilePattern exposing
     ( FilePattern
     , include, exclude, excludeDirectory
-    , Summary, compact, match
+    , Summary, empty, compact, match
     , toStrings
     )
 
@@ -44,7 +44,7 @@ The supported patterns are the following:
 
 ## Using FilePattern
 
-@docs Summary, compact, match
+@docs Summary, empty, compact, match
 @docs toStrings
 
 [`glob`]: https://en.wikipedia.org/wiki/Glob_%28programming%29
@@ -120,6 +120,13 @@ type alias SummaryInfo =
     , strings : List { pattern : String, included : Bool }
     , excludedDirectoriesStrings : List String
     }
+
+
+{-| Equivalent to using `compact []`, but without the `Result`.
+-}
+empty : Summary
+empty =
+    Summary emptySummaryInfo
 
 
 emptySummaryInfo : SummaryInfo

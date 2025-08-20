@@ -25,6 +25,7 @@ module Review.Rule exposing
     , globalError, configurationError
     , FixV2, withFixesV2, editModule, removeModule, editElmJson, editReadme, editExtraFile, removeExtraFile
     , ignoreErrorsForDirectories, ignoreErrorsForFiles, filterErrorsForFiles
+    , ignoreFixesFor
     , withDataExtractor, preventExtract
     , reviewV3, reviewV2, review, ProjectData, ruleName, ruleProvidesFixes, ruleKnowsAboutIgnoredFiles, ruleRequestedFiles, withRuleId, getConfigurationError
     , ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFilePath, errorTarget, errorFixesV2, errorFixProblem
@@ -289,6 +290,7 @@ communicate with your colleagues if you see them adding exceptions without
 reason or seemingly inappropriately.
 
 @docs ignoreErrorsForDirectories, ignoreErrorsForFiles, filterErrorsForFiles
+@docs ignoreFixesFor
 
 
 ## Extract information
@@ -4823,6 +4825,53 @@ ignoreErrorsForFiles files (Rule rule) =
         }
 
 
+{-| Ignore automatic fixes that touch files matching the given file patterns.
+The error will still be reported but will be stripped of its automatic fix.
+
+Note that fixes that touch files ignored by [`ignoreErrorsForFiles`](#ignoreErrorsForFiles)/[`ignoreErrorsForDirectories`](#ignoreErrorsForDirectories)
+(and related functions) are already being ignored.
+
+    config : List Rule
+    config =
+        [ Some.Rule.rule
+        , Some.Other.Rule.rule
+        ]
+            |> List.map
+                (Rule.ignoreFixesFor
+                    [ FilePattern.exclude "src/Some/File.elm"
+                    , FilePattern.exclude "src/Folder/**/*.elm"
+                    ]
+                )
+
+The paths should be relative to the `elm.json` file, just like the ones for the
+`elm.json`'s `source-directories`.
+
+-}
+ignoreFixesFor : List FilePattern -> Rule -> Rule
+ignoreFixesFor filePatterns (Rule rule) =
+    case Exceptions.avoidFixing filePatterns rule.exceptions of
+        Ok exceptions ->
+            Rule
+                { name = rule.name
+                , id = rule.id
+                , exceptions = exceptions
+                , requestedData = rule.requestedData
+                , providesFixes = rule.providesFixes
+                , ruleProjectVisitor = rule.ruleProjectVisitor
+                }
+
+        Err faultyGlobs ->
+            configurationError rule.name
+                { message = "Invalid globs provided when using `ignoreFixesFor` for " ++ rule.name
+                , details =
+                    [ "This rule indicated files to not have fixes for, but did so by specifying globs that I could not make sense of:"
+                    , faultyGlobs
+                        |> List.indexedMap (\index glob -> "  " ++ String.fromInt (index + 1) ++ ". " ++ glob)
+                        |> String.join "\n"
+                    ]
+                }
+
+
 {-| Filter the files to report errors for.
 
 Use it to control precisely which files the rule applies or does not apply to. For example, you
@@ -4963,17 +5012,32 @@ qualifyError params (Error err) acc =
                     { err
                         | filePath = params.filePath
                         , target = Target.setCurrentFilePathOnTargetIfNeeded params.filePath err.target
-                        , fixes =
-                            ErrorFixes.qualify params.filePath err.fixes
+                        , fixes = ErrorFixes.qualify params.filePath err.fixes
                     }
 
                 else
                     err
         in
-        setRuleName params.ruleName (Error newError) :: acc
+        newError
+            |> removeFixesIfTargetsShouldNotBeFixed params.exceptions
+            |> setRuleName params.ruleName
+            |> (\err_ -> err_ :: acc)
 
     else
         acc
+
+
+removeFixesIfTargetsShouldNotBeFixed : Exceptions -> BaseError -> BaseError
+removeFixesIfTargetsShouldNotBeFixed exceptions err =
+    if
+        ErrorFixes.any
+            (\( target, _ ) -> not (Exceptions.isFileFixable exceptions (FileTarget.filePath target)))
+            err.fixes
+    then
+        { err | fixes = ErrorFixes.none }
+
+    else
+        err
 
 
 runProjectVisitor :
@@ -5063,9 +5127,9 @@ computeFinalContext schema cache =
             projectContext
 
 
-setRuleName : String -> Error scope -> Error scope
-setRuleName ruleName_ error_ =
-    mapInternalError (\err -> { err | ruleName = ruleName_ }) error_
+setRuleName : String -> BaseError -> Error scope
+setRuleName ruleName_ err =
+    Error { err | ruleName = ruleName_ }
 
 
 errorsFromCache : ProjectRuleCache projectContext -> List (Error {})
@@ -5473,8 +5537,8 @@ reuseProjectRuleCache predicate getter cache =
 filterExceptionsAndSetName : Exceptions -> String -> List (Error scope) -> List (Error scope)
 filterExceptionsAndSetName exceptions name errors =
     List.foldl
-        (\error_ acc ->
-            if Exceptions.isFileWeWantReportsFor exceptions (errorFilePathInternal error_) then
+        (\(Error error_) acc ->
+            if Exceptions.isFileWeWantReportsFor exceptions error_.filePath then
                 setRuleName name error_ :: acc
 
             else
@@ -5482,11 +5546,6 @@ filterExceptionsAndSetName exceptions name errors =
         )
         []
         errors
-
-
-errorFilePathInternal : Error scope -> String
-errorFilePathInternal (Error err) =
-    err.filePath
 
 
 
