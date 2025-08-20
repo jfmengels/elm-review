@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [2.15.3] - 2025-08-20
+
 - Fixed an issue where `ModuleNameLookupTable` would indicate that an anonymous function argument would be imported from another module.
 
 ## [2.15.2] - 2025-08-19
@@ -248,7 +250,8 @@ Help would be appreciated to fill the blanks!
 [`Review.Rule.errorFixFailure`]: https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule#errorFixFailure
 [`Review.Test.ignoredFilesImpactResults`]: https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule-Test#ignoredFilesImpactResults
 
-[Unreleased]: https://github.com/jfmengels/elm-review/compare/v2.15.2...HEAD
+[Unreleased]: https://github.com/jfmengels/elm-review/compare/v2.15.3...HEAD
+[2.15.3]: https://github.com/jfmengels/elm-review/releases/tag/2.15.3
 [2.15.2]: https://github.com/jfmengels/elm-review/releases/tag/2.15.2
 [2.15.1]: https://github.com/jfmengels/elm-review/releases/tag/2.15.1
 [2.15.0]: https://github.com/jfmengels/elm-review/releases/tag/2.15.0
