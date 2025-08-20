@@ -25,6 +25,7 @@ module Review.Rule exposing
     , globalError, configurationError
     , FixV2, withFixesV2, editModule, removeModule, editElmJson, editReadme, editExtraFile, removeExtraFile
     , ignoreErrorsForDirectories, ignoreErrorsForFiles, filterErrorsForFiles
+    , avoidFixesIn
     , withDataExtractor, preventExtract
     , reviewV3, reviewV2, review, ProjectData, ruleName, ruleProvidesFixes, ruleKnowsAboutIgnoredFiles, ruleRequestedFiles, withRuleId, getConfigurationError
     , ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFilePath, errorTarget, errorFixesV2, errorFixProblem
@@ -289,6 +290,7 @@ communicate with your colleagues if you see them adding exceptions without
 reason or seemingly inappropriately.
 
 @docs ignoreErrorsForDirectories, ignoreErrorsForFiles, filterErrorsForFiles
+@docs avoidFixesIn
 
 
 ## Extract information
@@ -4821,6 +4823,31 @@ ignoreErrorsForFiles files (Rule rule) =
         , providesFixes = rule.providesFixes
         , ruleProjectVisitor = rule.ruleProjectVisitor
         }
+
+
+avoidFixesIn : List FilePattern -> Rule -> Rule
+avoidFixesIn filePatterns (Rule rule) =
+    case Exceptions.avoidFixing filePatterns rule.exceptions of
+        Ok exceptions ->
+            Rule
+                { name = rule.name
+                , id = rule.id
+                , exceptions = exceptions
+                , requestedData = rule.requestedData
+                , providesFixes = rule.providesFixes
+                , ruleProjectVisitor = rule.ruleProjectVisitor
+                }
+
+        Err faultyGlobs ->
+            configurationError rule.name
+                { message = "Invalid globs provided when using `avoidFixesIn`"
+                , details =
+                    [ "This rule indicated files to not have fixes for, but did so by specifying globs that I could not make sense of:"
+                    , faultyGlobs
+                        |> List.indexedMap (\index glob -> "  " ++ String.fromInt (index + 1) ++ ". " ++ glob)
+                        |> String.join "\n"
+                    ]
+                }
 
 
 {-| Filter the files to report errors for.
