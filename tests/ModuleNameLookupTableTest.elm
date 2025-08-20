@@ -111,6 +111,8 @@ b = case () of
 someFunction Something.B.Bar =
     let Something.B.Bar = ()
     in ()
+lambda1 = \\x -> x
+lambda2 = \\e -> e -- Not to be confused with Basics.e
 """, """module ExposesSomeThings exposing (SomeOtherTypeAlias, exposedElement)
 type NonExposedCustomType = Variant
 type alias SomeOtherTypeAlias = {}
@@ -174,6 +176,8 @@ ExposesEverythingAlias.VariantA -> ExposesEverything.VariantA
 <nothing>.foo -> <nothing>.foo
 Something.B.Bar -> Something.B.Bar
 Something.B.Bar -> Something.B.Bar
+<nothing>.x -> <nothing>.x
+<nothing>.e -> <nothing>.e
 """
                                 , details = [ "details" ]
                                 , under = "module"

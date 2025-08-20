@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Fixed an issue where `ModuleNameLookupTable` would indicate that an anonymous function argument would be imported from another module.
+
 ## [2.15.2] - 2025-08-19
 
 - Fixed an issue overlapping removal edits are fused would incorrectly.

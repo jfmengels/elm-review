@@ -1324,8 +1324,23 @@ expressionEnterVisitor node context =
                         context.lookupTable
             }
 
-        Expression.LambdaExpression { args } ->
-            { context | lookupTable = collectModuleNamesFromPattern context args context.lookupTable }
+        Expression.LambdaExpression { args, expression } ->
+            let
+                names : Dict String VariableInfo
+                names =
+                    collectNamesFromPattern PatternVariable args Dict.empty
+
+                newScope : Scope
+                newScope =
+                    { names = Dict.empty
+                    , cases = [ ( expression, names ) ]
+                    , caseToExit = expression
+                    }
+            in
+            { context
+                | lookupTable = collectModuleNamesFromPattern context args context.lookupTable
+                , scopes = NonEmpty.cons newScope context.scopes
+            }
 
         Expression.PrefixOperator op ->
             { context
@@ -1402,6 +1417,9 @@ expressionExitVisitor node context =
 
         Expression.CaseExpression _ ->
             { context | scopes = NonEmpty.mapHead (\scope -> { scope | cases = [] }) context.scopes }
+
+        Expression.LambdaExpression _ ->
+            { context | scopes = NonEmpty.pop context.scopes }
 
         _ ->
             context
