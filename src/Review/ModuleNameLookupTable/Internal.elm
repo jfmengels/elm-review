@@ -1,4 +1,4 @@
-module Review.ModuleNameLookupTable.Internal exposing (ModuleNameLookupTable(..), add, empty, fromList, toRangeLike)
+module Review.ModuleNameLookupTable.Internal exposing (ModuleNameLookupTable(..), empty, fromList, toRangeLike)
 
 import Bitwise
 import Dict exposing (Dict)
@@ -24,11 +24,6 @@ fromList fileModuleName list =
         Dict.empty
         list
         |> ModuleNameLookupTable fileModuleName
-
-
-add : Range -> ModuleName -> ModuleNameLookupTable -> ModuleNameLookupTable
-add range moduleName (ModuleNameLookupTable currentModuleName moduleNameLookupTable) =
-    ModuleNameLookupTable currentModuleName (Dict.insert (toRangeLike range) moduleName moduleNameLookupTable)
 
 
 type alias RangeLike =

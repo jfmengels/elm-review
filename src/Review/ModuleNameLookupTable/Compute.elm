@@ -19,7 +19,8 @@ import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
 import Elm.Type
 import NonEmpty exposing (NonEmpty)
 import Review.Cache.ContentHash exposing (ContentHash)
-import Review.ModuleNameLookupTable.Internal as ModuleNameLookupTableInternal exposing (ModuleNameLookupTable)
+import Review.ModuleNameLookupTable.Builder as Builder exposing (ModuleNameLookupTableBuilder)
+import Review.ModuleNameLookupTable.Internal exposing (ModuleNameLookupTable)
 import Review.Project.Dependency
 import Review.Project.ProjectCache as ProjectCache exposing (ProjectCache)
 import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModule)
@@ -40,7 +41,7 @@ type alias Context =
     , exposedUnions : List Elm.Docs.Union
     , exposedAliases : List Elm.Docs.Alias
     , exposedValues : List Elm.Docs.Value
-    , lookupTable : ModuleNameLookupTable
+    , lookupTable : ModuleNameLookupTableBuilder
     }
 
 
@@ -165,11 +166,11 @@ computeHelp cacheKey moduleName module_ project =
             let
                 moduleContext : Context
                 moduleContext =
-                    fromProjectToModule moduleName imported
+                    fromProjectToModule imported
                         |> collectModuleDocs moduleAst
                         |> collectLookupTable moduleAst.declarations
             in
-            ( moduleContext.lookupTable
+            ( Builder.finalize moduleName moduleContext.lookupTable
             , Dict.insert moduleName
                 { name = String.join "." moduleName
                 , comment = ""
@@ -217,7 +218,7 @@ computeOnlyModuleDocs moduleName module_ modulesByModuleName deps projectCache =
 
         moduleContext : Context
         moduleContext =
-            fromProjectToModule moduleName imported
+            fromProjectToModule imported
                 |> collectModuleDocs moduleAst
 
         moduleDocs : Elm.Docs.Module
@@ -388,8 +389,8 @@ computeDependencies project =
         |> List.foldl (\dependencyModule acc -> Dict.insert (String.split "." dependencyModule.name) dependencyModule acc) Dict.empty
 
 
-fromProjectToModule : ModuleName -> Dict ModuleName Elm.Docs.Module -> Context
-fromProjectToModule moduleName modules =
+fromProjectToModule : Dict ModuleName Elm.Docs.Module -> Context
+fromProjectToModule modules =
     { scopes = NonEmpty.fromElement emptyScope
     , localTypes = Set.empty
     , importAliases = Dict.empty
@@ -401,7 +402,7 @@ fromProjectToModule moduleName modules =
     , exposedUnions = []
     , exposedAliases = []
     , exposedValues = []
-    , lookupTable = ModuleNameLookupTableInternal.empty moduleName
+    , lookupTable = Builder.empty
     }
 
 
@@ -1029,11 +1030,11 @@ declarationEnterVisitor node context =
                         |> NonEmpty.cons newScope
                         |> updateScope context
 
-                lookupTableAfterArguments : ModuleNameLookupTable
+                lookupTableAfterArguments : ModuleNameLookupTableBuilder
                 lookupTableAfterArguments =
                     collectModuleNamesFromPattern newContext (Node.value function.declaration).arguments newContext.lookupTable
 
-                finalLookupTable : ModuleNameLookupTable
+                finalLookupTable : ModuleNameLookupTableBuilder
                 finalLookupTable =
                     case function.signature of
                         Just signature ->
@@ -1148,7 +1149,7 @@ collectNamesFromPattern variableType patternsToVisit acc =
             acc
 
 
-collectModuleNamesFromPattern : Context -> List (Node Pattern) -> ModuleNameLookupTable -> ModuleNameLookupTable
+collectModuleNamesFromPattern : Context -> List (Node Pattern) -> ModuleNameLookupTableBuilder -> ModuleNameLookupTableBuilder
 collectModuleNamesFromPattern context patternsToVisit acc =
     case patternsToVisit of
         pattern :: restOfPatternsToVisit ->
@@ -1157,7 +1158,7 @@ collectModuleNamesFromPattern context patternsToVisit acc =
                     collectModuleNamesFromPattern
                         context
                         (List.append subPatterns restOfPatternsToVisit)
-                        (ModuleNameLookupTableInternal.add (Node.range pattern) (moduleNameForValue context name moduleName) acc)
+                        (Builder.add (Node.range pattern) (moduleNameForValue context name moduleName) acc)
 
                 Pattern.UnConsPattern left right ->
                     collectModuleNamesFromPattern context (left :: right :: restOfPatternsToVisit) acc
@@ -1255,14 +1256,14 @@ expressionEnterVisitor node context =
                         letExpression.declarations
                         |> updateScope context
 
-                lookupTable : ModuleNameLookupTable
+                lookupTable : ModuleNameLookupTableBuilder
                 lookupTable =
                     List.foldl
                         (\declaration acc ->
                             case Node.value declaration of
                                 Expression.LetFunction function ->
                                     let
-                                        withDeclarationModuleName : ModuleNameLookupTable
+                                        withDeclarationModuleName : ModuleNameLookupTableBuilder
                                         withDeclarationModuleName =
                                             collectModuleNamesFromPattern newContext
                                                 (Node.value function.declaration).arguments
@@ -1309,7 +1310,7 @@ expressionEnterVisitor node context =
         Expression.FunctionOrValue moduleName name ->
             { context
                 | lookupTable =
-                    ModuleNameLookupTableInternal.add
+                    Builder.add
                         (Node.range node)
                         (moduleNameForValue context name moduleName)
                         context.lookupTable
@@ -1318,7 +1319,7 @@ expressionEnterVisitor node context =
         Expression.RecordUpdateExpression (Node range name) _ ->
             { context
                 | lookupTable =
-                    ModuleNameLookupTableInternal.add
+                    Builder.add
                         range
                         (moduleNameForValue context name [])
                         context.lookupTable
@@ -1345,7 +1346,7 @@ expressionEnterVisitor node context =
         Expression.PrefixOperator op ->
             { context
                 | lookupTable =
-                    ModuleNameLookupTableInternal.add
+                    Builder.add
                         (Node.range node)
                         (moduleNameForValue context op [])
                         context.lookupTable
@@ -1354,7 +1355,7 @@ expressionEnterVisitor node context =
         Expression.OperatorApplication op _ _ _ ->
             { context
                 | lookupTable =
-                    ModuleNameLookupTableInternal.add
+                    Builder.add
                         (Node.range node)
                         (moduleNameForValue context op [])
                         context.lookupTable
@@ -1364,7 +1365,7 @@ expressionEnterVisitor node context =
             context
 
 
-collectModuleNamesFromTypeAnnotation : Context -> List (Node TypeAnnotation) -> ModuleNameLookupTable -> ModuleNameLookupTable
+collectModuleNamesFromTypeAnnotation : Context -> List (Node TypeAnnotation) -> ModuleNameLookupTableBuilder -> ModuleNameLookupTableBuilder
 collectModuleNamesFromTypeAnnotation context typeAnnotationsToVisit acc =
     case typeAnnotationsToVisit of
         typeAnnotationNode :: remainingTypeAnnotationsToVisit ->
@@ -1373,7 +1374,7 @@ collectModuleNamesFromTypeAnnotation context typeAnnotationsToVisit acc =
                     collectModuleNamesFromTypeAnnotation
                         context
                         (List.append args remainingTypeAnnotationsToVisit)
-                        (ModuleNameLookupTableInternal.add range (moduleNameForType context name moduleName) acc)
+                        (Builder.add range (moduleNameForType context name moduleName) acc)
 
                 TypeAnnotation.Tupled nodes ->
                     collectModuleNamesFromTypeAnnotation
