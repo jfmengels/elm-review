@@ -10,10 +10,6 @@ type ModuleNameLookupTable
     = ModuleNameLookupTable ModuleName (Dict RangeLike ModuleName)
 
 
-type alias RangeLike =
-    Int
-
-
 empty : ModuleName -> ModuleNameLookupTable
 empty currentModuleName =
     ModuleNameLookupTable currentModuleName Dict.empty
@@ -35,10 +31,24 @@ add range moduleName (ModuleNameLookupTable currentModuleName moduleNameLookupTa
     ModuleNameLookupTable currentModuleName (Dict.insert (toRangeLike range) moduleName moduleNameLookupTable)
 
 
+type alias RangeLike =
+    ( Int, Int )
+
+
 toRangeLike : Range -> RangeLike
-toRangeLike { start } =
-    -- We are able to only take a look the start because the lookup table because it is not possible for 2 nodes
-    -- that can have a module name to have the same start position. This does have the tradeoff that when a lookup
-    -- is done on a node that can't have a module name (like `A.a + B.b`) that a module name will be returned, but
-    -- that would be a misuse of the API.
-    Bitwise.shiftLeftBy 16 start.row + start.column
+toRangeLike { start, end } =
+    -- TODO Optimization with elm-syntax v8
+    -- They We could only look the at the start because it is not possible for 2 nodes to have the same position.
+    --
+    --   type alias RangeLike =
+    --       Int
+    --
+    --   toRangeLike { start } =
+    --       Bitwise.shiftLeftBy 16 start.row + start.colum
+    --
+    -- Unfortunately with v7 this is not possible, because we do not have the position of the
+    -- operator with `Expression.OperatorApplication`, creating a collision when looking for the
+    -- module name for `+` in `a + b`, as that conflicts with the position for `a`.
+    ( Bitwise.shiftLeftBy 16 start.row + start.column
+    , Bitwise.shiftLeftBy 16 end.row + end.column
+    )

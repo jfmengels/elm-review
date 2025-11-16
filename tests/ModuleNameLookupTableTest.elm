@@ -107,6 +107,7 @@ b = case () of
   VariantA -> ()
   (ExposesEverything.VariantA as foo) -> foo
   ExposesEverythingAlias.VariantA -> ()
+c = a <?> b
 
 someFunction Something.B.Bar =
     let Something.B.Bar = ()
@@ -174,6 +175,9 @@ Cmd.none -> Platform.Cmd.none
 ExposesEverything.VariantA -> ExposesEverything.VariantA
 ExposesEverythingAlias.VariantA -> ExposesEverything.VariantA
 <nothing>.foo -> <nothing>.foo
+<nothing>.<?> -> Url.Parser.<?>
+<nothing>.a -> <nothing>.a
+<nothing>.b -> <nothing>.b
 Something.B.Bar -> Something.B.Bar
 Something.B.Bar -> Something.B.Bar
 <nothing>.x -> <nothing>.x

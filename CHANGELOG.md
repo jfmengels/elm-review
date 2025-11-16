@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Fixed an issue where `ModuleNameLookupTable` would sometimes yield an incorrect result for binary expressions (`a + b`).
+
 ## [2.15.3] - 2025-08-20
 
 - Fixed an issue where `ModuleNameLookupTable` would indicate that an anonymous function argument would be imported from another module.
