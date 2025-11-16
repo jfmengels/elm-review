@@ -22,9 +22,12 @@ empty currentModuleName =
 fromList : ModuleName -> List ( Range, ModuleName ) -> ModuleNameLookupTable
 fromList fileModuleName list =
     List.foldl
-        (\( range, moduleName ) acc -> add range moduleName acc)
-        (empty fileModuleName)
+        (\( range, moduleName ) dict ->
+            Dict.insert (toRangeLike range) moduleName dict
+        )
+        Dict.empty
         list
+        |> ModuleNameLookupTable fileModuleName
 
 
 add : Range -> ModuleName -> ModuleNameLookupTable -> ModuleNameLookupTable
