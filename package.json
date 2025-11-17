@@ -15,7 +15,7 @@
     "postinstall": "elm-tooling install"
   },
   "dependencies": {
-    "elm-review": "^2.13.1",
+    "elm-review": "^2.13.4",
     "elm-test": "^0.19.1-revision10",
     "elm-tooling": "^1.10.0"
   },
