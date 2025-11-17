@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [2.15.4] - 2025-11-17
+
 - Fixed an issue where `ModuleNameLookupTable` would sometimes yield an incorrect result for binary expressions (`a + b`).
 
 ## [2.15.3] - 2025-08-20
@@ -252,7 +254,8 @@ Help would be appreciated to fill the blanks!
 [`Review.Rule.errorFixFailure`]: https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule#errorFixFailure
 [`Review.Test.ignoredFilesImpactResults`]: https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule-Test#ignoredFilesImpactResults
 
-[Unreleased]: https://github.com/jfmengels/elm-review/compare/v2.15.3...HEAD
+[Unreleased]: https://github.com/jfmengels/elm-review/compare/v2.15.4...HEAD
+[2.15.4]: https://github.com/jfmengels/elm-review/releases/tag/2.15.4
 [2.15.3]: https://github.com/jfmengels/elm-review/releases/tag/2.15.3
 [2.15.2]: https://github.com/jfmengels/elm-review/releases/tag/2.15.2
 [2.15.1]: https://github.com/jfmengels/elm-review/releases/tag/2.15.1
