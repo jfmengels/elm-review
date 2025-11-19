@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [2.15.5] - 2025-11-19
+
 - Fixed an issue where `ModuleNameLookupTable` would sometimes yield an incorrect result for expressions located after nested let/case expressions.
 
 ## [2.15.4] - 2025-11-17
@@ -256,7 +258,8 @@ Help would be appreciated to fill the blanks!
 [`Review.Rule.errorFixFailure`]: https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule#errorFixFailure
 [`Review.Test.ignoredFilesImpactResults`]: https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule-Test#ignoredFilesImpactResults
 
-[Unreleased]: https://github.com/jfmengels/elm-review/compare/v2.15.4...HEAD
+[Unreleased]: https://github.com/jfmengels/elm-review/compare/v2.15.5...HEAD
+[2.15.5]: https://github.com/jfmengels/elm-review/releases/tag/2.15.5
 [2.15.4]: https://github.com/jfmengels/elm-review/releases/tag/2.15.4
 [2.15.3]: https://github.com/jfmengels/elm-review/releases/tag/2.15.3
 [2.15.2]: https://github.com/jfmengels/elm-review/releases/tag/2.15.2
