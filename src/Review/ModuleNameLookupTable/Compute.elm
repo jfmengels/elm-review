@@ -12,7 +12,7 @@ import Elm.Syntax.Module as Module exposing (Module)
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern as Pattern exposing (Pattern)
-import Elm.Syntax.Range as Range
+import Elm.Syntax.Range as Range exposing (Range)
 import Elm.Syntax.Signature exposing (Signature)
 import Elm.Syntax.Type
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
@@ -48,7 +48,7 @@ type alias Context =
 type alias Scope =
     { names : Dict String VariableInfo
     , cases : List ( Node Expression, Dict String VariableInfo )
-    , caseToExit : Node Expression
+    , caseToExit : Range
     }
 
 
@@ -71,7 +71,7 @@ emptyScope : Scope
 emptyScope =
     { names = Dict.empty
     , cases = []
-    , caseToExit = Node Range.emptyRange (Expression.Literal "root")
+    , caseToExit = Range.empty
     }
 
 
@@ -1198,7 +1198,7 @@ popScopeEnter node context =
             context
 
         Just ( _, names ) ->
-            { context | scopes = NonEmpty.cons { emptyScope | names = names, caseToExit = node } context.scopes }
+            { context | scopes = NonEmpty.cons { emptyScope | names = names, caseToExit = Node.range node } context.scopes }
 
 
 popScopeExit : Node Expression -> Context -> Context
@@ -1208,7 +1208,7 @@ popScopeExit node context =
         currentScope =
             NonEmpty.head context.scopes
     in
-    if node == currentScope.caseToExit then
+    if Node.range node == currentScope.caseToExit then
         { context | scopes = NonEmpty.pop context.scopes }
 
     else
@@ -1335,7 +1335,7 @@ expressionEnterVisitor node context =
                 newScope =
                     { names = Dict.empty
                     , cases = [ ( expression, names ) ]
-                    , caseToExit = expression
+                    , caseToExit = Node.range expression
                     }
             in
             { context
