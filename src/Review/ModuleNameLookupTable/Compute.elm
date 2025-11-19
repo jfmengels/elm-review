@@ -47,7 +47,7 @@ type alias Context =
 
 type alias Scope =
     { names : Dict String VariableInfo
-    , cases : List ( Node Expression, Dict String VariableInfo )
+    , cases : List ( Range, Dict String VariableInfo )
     , caseToExit : Range
     }
 
@@ -1183,32 +1183,32 @@ collectModuleNamesFromPattern context patternsToVisit acc =
 
 
 popScopeEnter : Node Expression -> Context -> Context
-popScopeEnter node context =
+popScopeEnter (Node range _) context =
     let
         currentScope : Scope
         currentScope =
             NonEmpty.head context.scopes
 
-        caseExpression : Maybe ( Node Expression, Dict String VariableInfo )
+        caseExpression : Maybe ( Range, Dict String VariableInfo )
         caseExpression =
-            ListExtra.find (\( expressionNode, _ ) -> node == expressionNode) currentScope.cases
+            ListExtra.find (\( branchRange, _ ) -> range == branchRange) currentScope.cases
     in
     case caseExpression of
         Nothing ->
             context
 
         Just ( _, names ) ->
-            { context | scopes = NonEmpty.cons { emptyScope | names = names, caseToExit = Node.range node } context.scopes }
+            { context | scopes = NonEmpty.cons { emptyScope | names = names, caseToExit = range } context.scopes }
 
 
 popScopeExit : Node Expression -> Context -> Context
-popScopeExit node context =
+popScopeExit (Node range _) context =
     let
         currentScope : Scope
         currentScope =
             NonEmpty.head context.scopes
     in
-    if Node.range node == currentScope.caseToExit then
+    if range == currentScope.caseToExit then
         { context | scopes = NonEmpty.pop context.scopes }
 
     else
@@ -1247,7 +1247,7 @@ expressionEnterVisitor node context =
                                             names =
                                                 collectNamesFromPattern PatternVariable arguments Dict.empty
                                         in
-                                        NonEmpty.mapHead (\scope -> { scope | cases = ( expression, names ) :: scope.cases }) withLetVariable
+                                        NonEmpty.mapHead (\scope -> { scope | cases = ( Node.range expression, names ) :: scope.cases }) withLetVariable
 
                                 Expression.LetDestructuring pattern _ ->
                                     NonEmpty.mapHead (\scope -> { scope | names = collectNamesFromPattern LetVariable [ pattern ] scope.names }) scopes
@@ -1291,8 +1291,8 @@ expressionEnterVisitor node context =
             let
                 ( cases, lookupTable ) =
                     List.foldl
-                        (\( pattern, expression ) ( casesAcc, lookupTableAcc ) ->
-                            ( ( expression
+                        (\( pattern, Node expressionRange _ ) ( casesAcc, lookupTableAcc ) ->
+                            ( ( expressionRange
                               , collectNamesFromPattern PatternVariable [ pattern ] Dict.empty
                               )
                                 :: casesAcc
@@ -1334,7 +1334,7 @@ expressionEnterVisitor node context =
                 newScope : Scope
                 newScope =
                     { names = Dict.empty
-                    , cases = [ ( expression, names ) ]
+                    , cases = [ ( Node.range expression, names ) ]
                     , caseToExit = Node.range expression
                     }
             in
