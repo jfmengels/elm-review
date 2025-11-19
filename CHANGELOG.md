@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Fixed an issue where `ModuleNameLookupTable` would sometimes yield an incorrect result for expressions located after nested let/case expressions.
+
 ## [2.15.4] - 2025-11-17
 
 - Fixed an issue where `ModuleNameLookupTable` would sometimes yield an incorrect result for binary expressions (`a + b`).

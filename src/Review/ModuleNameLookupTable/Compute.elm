@@ -445,8 +445,8 @@ visitExpressions node context =
         visitExpressions
         newContext
         (expressionChildren node)
-        |> popScopeExit node
         |> expressionExitVisitor node
+        |> popScopeExit node
 
 
 preludeModuleDocs : Dict ModuleName Elm.Docs.Module -> Dict ModuleName Elm.Docs.Module

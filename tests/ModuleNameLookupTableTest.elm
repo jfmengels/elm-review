@@ -255,6 +255,47 @@ type alias BAlias = {}
                             ]
                           )
                         ]
+        , test "should not get confused by deep nesting" <|
+            \() ->
+                let
+                    lookupFunction : ModuleNameLookupTable -> Range -> Maybe ModuleName
+                    lookupFunction =
+                        ModuleNameLookupTable.moduleNameAt
+
+                    rule : Rule
+                    rule =
+                        createRule
+                            (Rule.withExpressionEnterVisitor (expressionVisitor lookupFunction)
+                                >> Rule.withDeclarationEnterVisitor (declarationVisitor lookupFunction)
+                            )
+                in
+                """module A exposing (..)
+import Html exposing (..)
+
+update msg =
+    case msg of
+        input ->
+            case () of
+                _ ->
+                    case () of
+                        _ ->
+                            let _ = ()
+                            in input
+view =
+    input
+"""
+                    |> Review.Test.runWithProjectData project rule
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = """
+<nothing>.msg -> <nothing>.msg
+<nothing>.input -> <nothing>.input
+<nothing>.input -> Html.input
+"""
+                            , details = [ "details" ]
+                            , under = "module"
+                            }
+                        ]
         ]
 
 
