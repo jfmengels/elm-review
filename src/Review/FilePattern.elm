@@ -38,8 +38,8 @@ The supported patterns are the following:
   - `**` matches any number of sub-directories. "projects/\*\*/README.md" would match "projects/README.md", "projects/a/README.md" and "projects/a/b/README.md". If you desire to include all files in a folder, then you need to end the pattern with `/**/*` (eg "projects/\*\*/\*" or "projects/\*\*/\*.md").
   - `[characters]` matches one of the specified characters. `a[bc]d` would match "abc" and "acd", but not "axd".
   - `[^characters]` matches anything that is not one of the specified characters. `a[^bc]d` would match "axc", but not "abd" or "acd".
-  - `[character1-character2]` matches a range of characters. `a[a-z]d` would match "aac" and "azd", but not "a5d".
-  - `{string1|string2}` matches one of the provided strings. "file.{js|ts}" would match "file.js" and "file.ts" but not "file.md".
+  - `[character1-character2]` matches a range of characters. `a[a-z]d` would match "aac" and "ayd", but not "a5d".
+  - `{string1|string2}` matches one of the provided strings. `file.{js|ts}` would match "file.js" and "file.ts" but not "file.md".
 
 
 ## Using FilePattern
