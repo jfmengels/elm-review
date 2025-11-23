@@ -329,9 +329,9 @@ type alias ExtraFileData fileKey =
     }
 
 
-extraFiles : ({ path : String, content : String } -> fileKey) -> ValidProject -> ExtraFileData fileKey
+extraFiles : (String -> fileKey) -> ValidProject -> ExtraFileData fileKey
 extraFiles toFileKey (ValidProject project) =
-    { withFileKeys = Dict.map (\path content -> { fileKey = toFileKey { path = path, content = content }, content = content }) project.extraFiles
+    { withFileKeys = Dict.map (\path content -> { fileKey = toFileKey path, content = content }) project.extraFiles
     , withoutFileKeys = project.extraFiles
     }
 

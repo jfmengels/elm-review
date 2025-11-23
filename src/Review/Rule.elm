@@ -4199,10 +4199,7 @@ You can get a `ExtraFileKey` using the [`withExtraFilesProjectVisitor`](#withExt
 
 -}
 type ExtraFileKey
-    = ExtraFileKey
-        { path : String
-        , content : String
-        }
+    = ExtraFileKey String
 
 
 type alias ExtraFileData =
@@ -4216,7 +4213,7 @@ function.
 
 -}
 errorForExtraFile : ExtraFileKey -> { message : String, details : List String } -> Range -> Error scope
-errorForExtraFile (ExtraFileKey { path }) { message, details } range =
+errorForExtraFile (ExtraFileKey path) { message, details } range =
     Error
         { message = message
         , ruleName = ""
@@ -4454,7 +4451,7 @@ You will need a [`ExtraFileKey`](#ExtraFileKey), which you can get from the [`wi
 
 -}
 editExtraFile : ExtraFileKey -> List Fix -> FixV2
-editExtraFile (ExtraFileKey { path }) fixes =
+editExtraFile (ExtraFileKey path) fixes =
     ErrorFixes.FixV2 (FileTarget.ExtraFile path) (ErrorFixes.Edit fixes)
 
 
@@ -4467,7 +4464,7 @@ then the entire fix will be ignored.
 
 -}
 removeExtraFile : ExtraFileKey -> FixV2
-removeExtraFile (ExtraFileKey { path }) =
+removeExtraFile (ExtraFileKey path) =
     ErrorFixes.FixV2 (FileTarget.ExtraFile path) ErrorFixes.Remove
 
 
