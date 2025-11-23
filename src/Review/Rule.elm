@@ -4148,10 +4148,7 @@ You can get a `ReadmeKey` using the [`withReadmeProjectVisitor`](#withReadmeProj
 
 -}
 type ReadmeKey
-    = ReadmeKey
-        { path : String
-        , content : String
-        }
+    = ReadmeKey String
 
 
 {-| Create an [`Error`](#Error) for the `README.md` file.
@@ -4161,7 +4158,7 @@ function.
 
 -}
 errorForReadme : ReadmeKey -> { message : String, details : List String } -> Range -> Error scope
-errorForReadme (ReadmeKey { path }) { message, details } range =
+errorForReadme (ReadmeKey path) { message, details } range =
     Error
         { message = message
         , ruleName = ""
@@ -5130,7 +5127,7 @@ computeStepsForProject reviewOptions { project, ruleProjectVisitors, fixedErrors
                 readmeData =
                     Maybe.map
                         (\readme ->
-                            { readmeKey = ReadmeKey { path = readme.path, content = readme.content }
+                            { readmeKey = ReadmeKey readme.path
                             , content = readme.content
                             }
                         )
