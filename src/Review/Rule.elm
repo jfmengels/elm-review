@@ -4969,7 +4969,7 @@ qualifyError params (Error err) acc =
                 err
     in
     if Exceptions.isFileWeWantReportsFor params.exceptions newError.filePath then
-        setRuleName params.ruleName (Error newError) :: acc
+        setRuleName params.ruleName newError :: acc
 
     else
         acc
@@ -5062,9 +5062,9 @@ computeFinalContext schema cache =
             projectContext
 
 
-setRuleName : String -> Error scope -> Error scope
-setRuleName ruleName_ error_ =
-    mapInternalError (\err -> { err | ruleName = ruleName_ }) error_
+setRuleName : String -> BaseError -> Error scope
+setRuleName ruleName_ err =
+    Error { err | ruleName = ruleName_ }
 
 
 errorsFromCache : ProjectRuleCache projectContext -> List (Error {})
@@ -5472,8 +5472,8 @@ reuseProjectRuleCache predicate getter cache =
 filterExceptionsAndSetName : Exceptions -> String -> List (Error scope) -> List (Error scope)
 filterExceptionsAndSetName exceptions name errors =
     List.foldl
-        (\error_ acc ->
-            if Exceptions.isFileWeWantReportsFor exceptions (errorFilePathInternal error_) then
+        (\(Error error_) acc ->
+            if Exceptions.isFileWeWantReportsFor exceptions error_.filePath then
                 setRuleName name error_ :: acc
 
             else
@@ -5481,11 +5481,6 @@ filterExceptionsAndSetName exceptions name errors =
         )
         []
         errors
-
-
-errorFilePathInternal : Error scope -> String
-errorFilePathInternal (Error err) =
-    err.filePath
 
 
 
