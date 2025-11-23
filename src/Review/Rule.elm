@@ -4955,20 +4955,21 @@ qualifyErrors params errors acc =
 
 qualifyError : { ruleName : String, exceptions : Exceptions, filePath : String } -> Error {} -> List (Error {}) -> List (Error {})
 qualifyError params (Error err) acc =
-    let
-        newError : BaseError
-        newError =
-            if err.filePath == "" then
-                { err
-                    | filePath = params.filePath
-                    , target = Target.setCurrentFilePathOnTargetIfNeeded params.filePath err.target
-                    , fixes = ErrorFixes.qualify params.filePath err.fixes
-                }
+    if Exceptions.isFileWeWantReportsFor params.exceptions params.filePath then
+        let
+            newError : BaseError
+            newError =
+                if err.filePath == "" then
+                    { err
+                        | filePath = params.filePath
+                        , target = Target.setCurrentFilePathOnTargetIfNeeded params.filePath err.target
+                        , fixes =
+                            ErrorFixes.qualify params.filePath err.fixes
+                    }
 
-            else
-                err
-    in
-    if Exceptions.isFileWeWantReportsFor params.exceptions newError.filePath then
+                else
+                    err
+        in
         setRuleName params.ruleName newError :: acc
 
     else
