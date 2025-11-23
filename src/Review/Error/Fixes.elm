@@ -3,6 +3,7 @@ module Review.Error.Fixes exposing
     , FixKind(..)
     , FixV2(..)
     , add
+    , any
     , edit
     , isEmpty
     , none
@@ -78,6 +79,12 @@ qualify filePath (ErrorFixes dict) =
 toList : ErrorFixes -> List ( FileTarget, FixKind )
 toList (ErrorFixes dict) =
     SimpleAssocList.toList dict
+
+
+any : (( FileTarget, FixKind ) -> Bool) -> ErrorFixes -> Bool
+any isOkay (ErrorFixes dict) =
+    SimpleAssocList.toList dict
+        |> List.any isOkay
 
 
 isEmpty : ErrorFixes -> Bool

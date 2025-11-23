@@ -4963,17 +4963,37 @@ qualifyError params (Error err) acc =
                     { err
                         | filePath = params.filePath
                         , target = Target.setCurrentFilePathOnTargetIfNeeded params.filePath err.target
-                        , fixes =
-                            ErrorFixes.qualify params.filePath err.fixes
+                        , fixes = ErrorFixes.qualify params.filePath err.fixes
                     }
 
                 else
                     err
         in
-        setRuleName params.ruleName newError :: acc
+        newError
+            |> removeFixesIfTargetsShouldNotBeFixed (Exceptions.filesNotToFix params.exceptions)
+            |> setRuleName params.ruleName
+            |> (\err_ -> err_ :: acc)
 
     else
         acc
+
+
+removeFixesIfTargetsShouldNotBeFixed : FilePattern.Summary -> BaseError -> BaseError
+removeFixesIfTargetsShouldNotBeFixed filesNotToFix err =
+    let
+        matchParams : { includeByDefault : Bool }
+        matchParams =
+            { includeByDefault = True }
+    in
+    if
+        ErrorFixes.any
+            (\( target, _ ) -> not (FilePattern.match matchParams filesNotToFix (FileTarget.filePath target)))
+            err.fixes
+    then
+        { err | fixes = ErrorFixes.none }
+
+    else
+        err
 
 
 runProjectVisitor :
