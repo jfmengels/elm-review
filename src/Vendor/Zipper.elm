@@ -46,7 +46,7 @@ internal invariants.
 
 -}
 type Zipper a
-    = Zipper (List a) a (List a)
+    = Zipper Int (List a) a (List a)
 
 
 {-| Init `Zipper` from `NonEmpty` list type.
@@ -62,7 +62,7 @@ type Zipper a
 -}
 fromNonEmpty : NonEmpty a -> Zipper a
 fromNonEmpty ( h, t ) =
-    Zipper [] h t
+    Zipper 0 [] h t
 
 
 {-| Init `Zipper` from `List`.
@@ -92,13 +92,13 @@ fromList =
 
 -}
 current : Zipper a -> a
-current (Zipper _ f _) =
+current (Zipper _ _ f _) =
     f
 
 
 position : Zipper a -> Int
-position (Zipper previous _ _) =
-    List.length previous
+position (Zipper pos _ _ _) =
+    pos
 
 
 
@@ -118,13 +118,13 @@ position (Zipper previous _ _) =
 
 -}
 next : Zipper a -> Maybe (Zipper a)
-next (Zipper p f n) =
+next (Zipper pos p f n) =
     case n of
         [] ->
             Nothing
 
         h :: t ->
-            Just <| Zipper (f :: p) h t
+            Just <| Zipper (pos + 1) (f :: p) h t
 
 
 {-| Move focus to next value.
@@ -140,13 +140,13 @@ next (Zipper p f n) =
 
 -}
 prev : Zipper a -> Maybe (Zipper a)
-prev (Zipper p f n) =
+prev (Zipper pos p f n) =
     case p of
         [] ->
             Nothing
 
         h :: t ->
-            Just <| Zipper t h <| f :: n
+            Just <| Zipper (pos - 1) t h <| f :: n
 
 
 
