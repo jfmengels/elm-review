@@ -17,7 +17,7 @@ module Review.Rule exposing
     , withExtraFilesModuleVisitor
     , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitor, withModuleContext, withModuleContextUsingContextCreator, withModuleContextWithErrors, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDirectDependenciesProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withExtraFilesProjectVisitor, withContextFromImportedModules
     , providesFixesForProjectRule
-    , ContextCreator, initContextCreator, withModuleName, withModuleNameNode, withIsInSourceDirectories, withFilePath, withIsFileIgnored, withModuleNameLookupTable, withModuleKey, withSourceCodeExtractor, withFullAst, withModuleDocumentation
+    , ContextCreator, initContextCreator, withModuleName, withModuleNameNode, withIsInSourceDirectories, withFilePath, withIsFileIgnored, withIsFileFixable, withModuleNameLookupTable, withModuleKey, withSourceCodeExtractor, withFullAst, withModuleDocumentation
     , Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix
     , ElmJsonKey, errorForElmJson, errorForElmJsonWithFix
     , ReadmeKey, errorForReadme, errorForReadmeWithFix
@@ -241,7 +241,7 @@ first, as they are in practice a simpler version of project rules.
 
 ## Requesting more information
 
-@docs ContextCreator, initContextCreator, withModuleName, withModuleNameNode, withIsInSourceDirectories, withFilePath, withIsFileIgnored, withModuleNameLookupTable, withModuleKey, withSourceCodeExtractor, withFullAst, withModuleDocumentation
+@docs ContextCreator, initContextCreator, withModuleName, withModuleNameNode, withIsInSourceDirectories, withFilePath, withIsFileIgnored, withIsFileFixable, withModuleNameLookupTable, withModuleKey, withSourceCodeExtractor, withFullAst, withModuleDocumentation
 
 
 ## Errors
@@ -1444,7 +1444,7 @@ mergeModuleVisitorsHelp ruleName_ initialProjectContext moduleContextCreator vis
 
         initialModuleContext : moduleContext
         initialModuleContext =
-            applyContextCreator dummyAvailableData False moduleContextCreator initialProjectContext
+            applyContextCreator dummyAvailableData False False moduleContextCreator initialProjectContext
 
         emptyModuleVisitor : ModuleRuleSchema schemaState moduleContext
         emptyModuleVisitor =
@@ -7039,6 +7039,10 @@ createModuleVisitorFromProjectVisitorHelp schema raise hidden traversalAndFolder
             isFileIgnored =
                 not (Exceptions.isFileWeWantReportsFor hidden.ruleData.exceptions filePath)
 
+            isFileFixable : Bool
+            isFileFixable =
+                Exceptions.isFileFixable hidden.ruleData.exceptions filePath
+
             shouldReuseCache : ModuleCacheEntry projectContext -> Bool
             shouldReuseCache cacheEntry =
                 ModuleCache.match
@@ -7046,6 +7050,7 @@ createModuleVisitorFromProjectVisitorHelp schema raise hidden traversalAndFolder
                     inputContextHashes
                     cacheEntry
                     { isFileIgnored = isFileIgnored
+                    , isFileFixable = isFileFixable
                     , requestedData = hidden.ruleData.requestedData
                     }
 
@@ -7068,7 +7073,7 @@ createModuleVisitorFromProjectVisitorHelp schema raise hidden traversalAndFolder
                         let
                             initialContext : moduleContext
                             initialContext =
-                                applyContextCreator availableData isFileIgnored moduleContextCreator inputProjectContext
+                                applyContextCreator availableData isFileIgnored isFileFixable moduleContextCreator inputProjectContext
 
                             ruleData : { ruleName : String, exceptions : Exceptions, filePath : String }
                             ruleData =
@@ -7080,7 +7085,7 @@ createModuleVisitorFromProjectVisitorHelp schema raise hidden traversalAndFolder
                                     ( fromModuleToProjectErrors, outputProjectContext ) =
                                         case getFolderFromTraversal traversalAndFolder of
                                             Just { fromModuleToProject } ->
-                                                applyContextCreator availableData isFileIgnored fromModuleToProject resultModuleContext
+                                                applyContextCreator availableData isFileIgnored isFileFixable fromModuleToProject resultModuleContext
 
                                             Nothing ->
                                                 ( [], schema.initialProjectContext )
@@ -7092,6 +7097,7 @@ createModuleVisitorFromProjectVisitorHelp schema raise hidden traversalAndFolder
                                             , errors = qualifyErrors ruleData fromModuleToProjectErrors errors
                                             , inputContextHashes = inputContextHashes
                                             , isFileIgnored = isFileIgnored
+                                            , isFileFixable = isFileFixable
                                             , outputContext = outputProjectContext
                                             }
 
@@ -7414,7 +7420,7 @@ accumulate params visitor ( previousErrors, previousContext ) =
 Use functions like [`withModuleName`](#withModuleName) to request more information.
 -}
 type ContextCreator from to
-    = ContextCreator (AvailableData -> Bool -> from -> to) RequestedData
+    = ContextCreator (AvailableData -> Bool -> Bool -> from -> to) RequestedData
 
 
 requestedDataFromContextCreator : ContextCreator from to -> RequestedData
@@ -7439,18 +7445,18 @@ requestedDataFromContextCreator (ContextCreator _ requestedData) =
 initContextCreator : (from -> to) -> ContextCreator from to
 initContextCreator fn =
     ContextCreator
-        (\_ _ -> fn)
+        (\_ _ _ -> fn)
         RequestedData.none
 
 
 mapContextCreator : (a -> b) -> ContextCreator from a -> ContextCreator from b
 mapContextCreator mapper (ContextCreator fn requestedData) =
-    ContextCreator (\availableData bool from -> mapper (fn availableData bool from)) requestedData
+    ContextCreator (\availableData isFileIgnored isFileFixable from -> mapper (fn availableData isFileIgnored isFileFixable from)) requestedData
 
 
-applyContextCreator : AvailableData -> Bool -> ContextCreator from to -> from -> to
-applyContextCreator data isFileIgnored (ContextCreator fn _) from =
-    fn data isFileIgnored from
+applyContextCreator : AvailableData -> Bool -> Bool -> ContextCreator from to -> from -> to
+applyContextCreator data isFileIgnored isFileFixable (ContextCreator fn _) from =
+    fn data isFileIgnored isFileFixable from
 
 
 {-| Request metadata about the module.
@@ -7465,9 +7471,10 @@ applyContextCreator data isFileIgnored (ContextCreator fn _) from =
 withMetadata : ContextCreator Metadata (from -> to) -> ContextCreator from to
 withMetadata (ContextCreator fn requestedData) =
     ContextCreator
-        (\data isFileIgnored ->
+        (\data isFileIgnored isFileFixable ->
             fn data
                 isFileIgnored
+                isFileFixable
                 (createMetadata
                     { moduleNameNode = moduleNameNode data.ast.moduleDefinition
                     , isInSourceDirectories = data.isInSourceDirectories
@@ -7494,7 +7501,7 @@ withMetadata (ContextCreator fn requestedData) =
 withModuleName : ContextCreator ModuleName (from -> to) -> ContextCreator from to
 withModuleName (ContextCreator fn requestedData) =
     ContextCreator
-        (\data isFileIgnored -> fn data isFileIgnored (moduleNameNode data.ast.moduleDefinition |> Node.value))
+        (\data isFileIgnored isFileFixable -> fn data isFileIgnored isFileFixable (moduleNameNode data.ast.moduleDefinition |> Node.value))
         requestedData
 
 
@@ -7514,7 +7521,7 @@ withModuleName (ContextCreator fn requestedData) =
 -}
 withModuleNameNode : ContextCreator (Node ModuleName) (from -> to) -> ContextCreator from to
 withModuleNameNode (ContextCreator fn requestedData) =
-    ContextCreator (\data isFileIgnored -> fn data isFileIgnored (moduleNameNode data.ast.moduleDefinition))
+    ContextCreator (\data isFileIgnored isFileFixable -> fn data isFileIgnored isFileFixable (moduleNameNode data.ast.moduleDefinition))
         requestedData
 
 
@@ -7536,7 +7543,7 @@ know whether the module is part of the tests or of the production code.
 withIsInSourceDirectories : ContextCreator Bool (from -> to) -> ContextCreator from to
 withIsInSourceDirectories (ContextCreator fn requestedData) =
     ContextCreator
-        (\data isFileIgnored -> fn data isFileIgnored data.isInSourceDirectories)
+        (\data isFileIgnored isFileFixable -> fn data isFileIgnored isFileFixable data.isInSourceDirectories)
         requestedData
 
 
@@ -7561,8 +7568,34 @@ Note that for module rules, ignored files will be skipped automatically anyway.
 withIsFileIgnored : ContextCreator Bool (from -> to) -> ContextCreator from to
 withIsFileIgnored (ContextCreator fn (RequestedData requested)) =
     ContextCreator
-        (\data isFileIgnored -> fn data isFileIgnored isFileIgnored)
+        (\data isFileIgnored isFileFixable -> fn data isFileIgnored isFileFixable isFileIgnored)
         (RequestedData { requested | ignoredFiles = True })
+
+
+{-| Request to know whether the rule was configured to forbid the current file from being fixed,
+through the use of [`ignoreFixesFor`](#ignoreFixesFor) or because it's ignored ([`ignoreErrorsForFiles`](#ignoreErrorsForFiles), [`ignoreErrorsForDirectories`](#ignoreErrorsForDirectories), ...).
+
+Fixes that target files that shouldn't will be removed automatically, therefore you do not need to manually handle this information.
+
+However, you can use this information to alter the behavior of the rule (e.g. avoid reporting an error that the rule can't automatically fix).
+
+    contextCreator : Rule.ContextCreator () Context
+    contextCreator =
+        Rule.initContextCreator
+            (\isFileFixable () ->
+                { isFileFixable = isFileFixable
+
+                -- ...other fields
+                }
+            )
+            |> Rule.withIsFileFixable
+
+-}
+withIsFileFixable : ContextCreator Bool (from -> to) -> ContextCreator from to
+withIsFileFixable (ContextCreator fn (RequestedData requested)) =
+    ContextCreator
+        (\data isFileIgnored isFileFixable -> fn data isFileIgnored isFileFixable isFileIgnored)
+        (RequestedData { requested | ignoredFixes = True })
 
 
 {-| Requests the module name lookup table for the types and functions inside a module.
@@ -7623,7 +7656,7 @@ Note: If you have been using [`elm-review-scope`](https://github.com/jfmengels/e
 withModuleNameLookupTable : ContextCreator ModuleNameLookupTable (from -> to) -> ContextCreator from to
 withModuleNameLookupTable (ContextCreator fn (RequestedData requested)) =
     ContextCreator
-        (\data isFileIgnored -> fn data isFileIgnored data.moduleNameLookupTable)
+        (\data isFileIgnored isFileFixable -> fn data isFileIgnored isFileFixable data.moduleNameLookupTable)
         (RequestedData { requested | moduleNameLookupTable = True })
 
 
@@ -7652,7 +7685,7 @@ Using the full AST, you can simplify the implementation by computing the data in
 withFullAst : ContextCreator Elm.Syntax.File.File (from -> to) -> ContextCreator from to
 withFullAst (ContextCreator fn requested) =
     ContextCreator
-        (\data isFileIgnored -> fn data isFileIgnored data.ast)
+        (\data isFileIgnored isFileFixable -> fn data isFileIgnored isFileFixable data.ast)
         requested
 
 
@@ -7674,7 +7707,7 @@ When that is the case, the module documentation will be `Nothing`.
 withModuleDocumentation : ContextCreator (Maybe (Node String)) (from -> to) -> ContextCreator from to
 withModuleDocumentation (ContextCreator fn requested) =
     ContextCreator
-        (\data isFileIgnored -> fn data isFileIgnored data.moduleDocumentation)
+        (\data isFileIgnored isFileFixable -> fn data isFileIgnored isFileFixable data.moduleDocumentation)
         requested
 
 
@@ -7700,7 +7733,7 @@ withModuleDocumentation (ContextCreator fn requested) =
 withModuleKey : ContextCreator ModuleKey (from -> to) -> ContextCreator from to
 withModuleKey (ContextCreator fn requestedData) =
     ContextCreator
-        (\data isFileIgnored -> fn data isFileIgnored data.moduleKey)
+        (\data isFileIgnored isFileFixable -> fn data isFileIgnored isFileFixable data.moduleKey)
         requestedData
 
 
@@ -7742,7 +7775,7 @@ Using [`withModuleContextUsingContextCreator`](#withModuleContextUsingContextCre
 withFilePath : ContextCreator String (from -> to) -> ContextCreator from to
 withFilePath (ContextCreator fn requestedData) =
     ContextCreator
-        (\data isFileIgnored -> fn data isFileIgnored data.filePath)
+        (\data isFileIgnored isFileFixable -> fn data isFileIgnored isFileFixable data.filePath)
         requestedData
 
 
@@ -7774,7 +7807,7 @@ experience.
 withSourceCodeExtractor : ContextCreator (Range -> String) (from -> to) -> ContextCreator from to
 withSourceCodeExtractor (ContextCreator fn (RequestedData requested)) =
     ContextCreator
-        (\data isFileIgnored -> fn data isFileIgnored data.extractSourceCode)
+        (\data isFileIgnored isFileFixable -> fn data isFileIgnored isFileFixable data.extractSourceCode)
         (RequestedData { requested | sourceCodeExtractor = True })
 
 

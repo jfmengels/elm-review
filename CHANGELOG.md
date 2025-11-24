@@ -2,8 +2,10 @@
 
 ## [Unreleased]
 
-- Add [`Review.Rule.ignoreFixesFor`](https://package.elm-lang.org/packages/jfmengels/elm-review/2.16.0/Review-Rule#ignoreFixesFor) to make files unfixable in the review configuration: Automatic fixes touching those files will be entirely ignored.
-  Files that are ignored have their fixes ignored automatically.
+- Add [`Review.Rule.ignoreFixesFor`](https://package.elm-lang.org/packages/jfmengels/elm-review/2.16.0/Review-Rule#ignoreFixesFor)
+to make files unfixable in the review configuration: Automatic fixes touching those files will be entirely ignored. Files that are ignored have their fixes ignored automatically.
+- Add [`Review.Rule.withIsFileFixable`](https://package.elm-lang.org/packages/jfmengels/elm-review/2.16.0/Review-Rule#withIsFileFixable)
+which allows rules to know whether the current Elm module is fixable or not.
 - Improved test failure message when one of the source files can't be parsed, it now includes the parser's error messages. 
 
 ## [2.15.5] - 2025-11-19

@@ -24,6 +24,7 @@ type Entry error context
         { contentHash : ContentHash
         , inputContextHashes : ComparableContextHash context
         , isFileIgnored : Bool
+        , isFileFixable : Bool
         , errors : List error
         , outputContext : context
         , outputContextHash : ContextHash context
@@ -34,6 +35,7 @@ create :
     { contentHash : ContentHash
     , inputContextHashes : ComparableContextHash context
     , isFileIgnored : Bool
+    , isFileFixable : Bool
     , errors : List error
     , outputContext : context
     }
@@ -43,22 +45,29 @@ create entry =
         { contentHash = entry.contentHash
         , inputContextHashes = entry.inputContextHashes
         , isFileIgnored = entry.isFileIgnored
+        , isFileFixable = entry.isFileFixable
         , errors = entry.errors
         , outputContext = entry.outputContext
         , outputContextHash = ContextHash.create entry.outputContext
         }
 
 
-match : ContentHash -> ComparableContextHash context -> Entry error context -> { isFileIgnored : Bool, requestedData : RequestedData } -> Bool
-match contentHash inputContexts (Entry entry) { isFileIgnored, requestedData } =
+match : ContentHash -> ComparableContextHash context -> Entry error context -> { isFileIgnored : Bool, isFileFixable : Bool, requestedData : RequestedData } -> Bool
+match contentHash inputContexts (Entry entry) { isFileIgnored, isFileFixable, requestedData } =
     (contentHash == entry.contentHash)
         && (inputContexts == entry.inputContextHashes)
-        && (not (ruleCaresAboutIgnoredFiles requestedData) || isFileIgnored == entry.isFileIgnored)
+        && (isFileIgnored == entry.isFileIgnored || not (ruleCaresAboutIgnoredFiles requestedData))
+        && (isFileFixable == entry.isFileFixable || not (ruleCaresAboutFixableFiles requestedData))
 
 
 ruleCaresAboutIgnoredFiles : RequestedData -> Bool
 ruleCaresAboutIgnoredFiles (RequestedData { ignoredFiles }) =
     ignoredFiles
+
+
+ruleCaresAboutFixableFiles : RequestedData -> Bool
+ruleCaresAboutFixableFiles (RequestedData { ignoredFixes }) =
+    ignoredFixes
 
 
 errors : Entry error context -> List error
