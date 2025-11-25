@@ -1,14 +1,15 @@
 module Review.Fix.FixTest exposing (all)
 
+import Elm.Syntax.Node as Node
 import Expect
 import Review.Fix as Fix exposing (Fix)
 import Review.Fix.Edit exposing (Edit)
 import Review.Fix.FixProblem exposing (FixProblem(..))
 import Review.Fix.Internal as FixInternal
-import Review.Rule exposing (Rule)
+import Review.Rule as Rule exposing (Rule)
 import Review.Test
 import Review.Test.ArbitraryFixRule as ArbitraryFixRule
-import Review.Test.FailureMessageHelper exposing (expectFailureNoLengthCheck)
+import Review.Test.FailureMessageHelper exposing (expectFailure, expectFailureNoLengthCheck)
 import Test exposing (Test, describe, test)
 
 
@@ -332,6 +333,49 @@ a = 1
                 in
                 FixInternal.applyEdits "src/A.elm" edits source
                     |> Expect.equal (Err (Unchanged { filePath = "src/A.elm", edits = edits }))
+        , test "should fail if a fix is expected but none can't be found" <|
+            \() ->
+                let
+                    testRule : Rule
+                    testRule =
+                        Rule.newModuleRuleSchema "TestRule" ()
+                            |> Rule.withSimpleExpressionVisitor
+                                (\node ->
+                                    [ Rule.error
+                                        { message = ArbitraryFixRule.message
+                                        , details = ArbitraryFixRule.details
+                                        }
+                                        (Node.range node)
+                                    ]
+                                )
+                            |> Rule.fromModuleRuleSchema
+                in
+                """module A exposing (someCode)
+someCode = 200
+"""
+                    |> Review.Test.run testRule
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = ArbitraryFixRule.message
+                            , details = ArbitraryFixRule.details
+                            , under = "200"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (someCode)
+someCode = 1
+"""
+                        ]
+                    |> expectFailure """MISSING FIXES
+
+I expected that the error for module `A` with the following message:
+
+  `Message`
+
+would provide some fixes for `module A exposing (someCode)
+someCode = 1
+`, but I didn't find any.
+
+Hint: Maybe you forgot to call a function like `Rule.errorWithFix` or maybe
+the list of provided fixes was empty."""
         , test "should fail if the fixes' range overlap" <|
             \() ->
                 let
