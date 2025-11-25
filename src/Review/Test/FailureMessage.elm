@@ -477,7 +477,7 @@ would not have any fixes, but it provided some.
 
 Because the error provides fixes, I require providing the expected result
 of the automatic fix. Otherwise, there is no way to know whether the fix
-will result in a correct and in the intended result.
+will result in the intended result.
 
 To fix this, you can call `Review.Test.whenFixed` on your error:
 
