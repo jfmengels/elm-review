@@ -134,10 +134,7 @@ unsafePackageName packageName =
             name
 
         Nothing ->
-            -- unsafe, but if the generation went well, it should all be good.
-            unsafePackageName packageName
-                -- Disables the tail-call optimization, so that the test crashes if we enter this case
-                |> identity
+            Debug.todo ("Could not parse " ++ packageName ++ " as a package name")
 
 
 unsafeModuleName : String -> Elm.Module.Name
@@ -147,10 +144,7 @@ unsafeModuleName moduleName =
             name
 
         Nothing ->
-            -- unsafe, but if the generation went well, it should all be good.
-            unsafeModuleName moduleName
-                -- Disables the tail-call optimization, so that the test crashes if we enter this case
-                |> identity
+            Debug.todo ("Could not parse " ++ moduleName ++ " as a module name")
 
 
 unsafeConstraint : String -> Elm.Constraint.Constraint
@@ -160,10 +154,7 @@ unsafeConstraint constraint =
             constr
 
         Nothing ->
-            -- unsafe, but if the generation went well, it should all be good.
-            unsafeConstraint constraint
-                -- Disables the tail-call optimization, so that the test crashes if we enter this case
-                |> identity
+            Debug.todo ("Could not parse " ++ constraint ++ " as a package constraint")
 """
     )
 
