@@ -8,9 +8,10 @@ module Simplify.Infer exposing
     , falseExpr
     , fromList
     , get
+    , getAsExpression
+    , getBoolean
     , infer
     , inferForIfCondition
-    , isBoolean
     , trueExpr
     )
 
@@ -151,8 +152,13 @@ fromList list =
         }
 
 
-get : Expression -> Inferred -> Maybe Expression
+get : Expression -> Inferred -> Maybe DeducedValue
 get expr (Inferred inferred) =
+    AssocList.get expr inferred.deduced
+
+
+getAsExpression : Expression -> Inferred -> Maybe Expression
+getAsExpression expr (Inferred inferred) =
     AssocList.get expr inferred.deduced
         |> Maybe.map
             (\value ->
@@ -171,8 +177,8 @@ get expr (Inferred inferred) =
             )
 
 
-isBoolean : Expression -> Inferred -> Maybe Bool
-isBoolean expr (Inferred inferred) =
+getBoolean : Expression -> Inferred -> Maybe Bool
+getBoolean expr (Inferred inferred) =
     AssocList.get expr inferred.deduced
         |> Maybe.andThen
             (\value ->
@@ -193,8 +199,8 @@ isBoolean expr (Inferred inferred) =
 
 inferForIfCondition : Expression -> { trueBranchRange : Range, falseBranchRange : Range } -> Inferred -> List ( Range, Inferred )
 inferForIfCondition condition { trueBranchRange, falseBranchRange } inferred =
-    [ ( trueBranchRange, infer [ condition ] True inferred )
-    , ( falseBranchRange, infer [ condition ] False inferred )
+    [ ( trueBranchRange, inferHelp True condition inferred )
+    , ( falseBranchRange, inferHelp False condition inferred )
     ]
 
 
@@ -219,7 +225,12 @@ convertToFact expr shouldBe =
 
 infer : List Expression -> Bool -> Inferred -> Inferred
 infer nodes shouldBe acc =
-    List.foldl (inferHelp shouldBe) acc nodes
+    List.foldl (\node soFar -> inferHelp shouldBe node soFar) acc nodes
+
+
+infer2 : Expression -> Expression -> Bool -> Inferred -> Inferred
+infer2 a b shouldBe soFar =
+    inferHelp shouldBe b (inferHelp shouldBe a soFar)
 
 
 inferHelp : Bool -> Expression -> Inferred -> Inferred
@@ -235,47 +246,45 @@ inferHelp shouldBe node acc =
 
         Expression.OperatorApplication "&&" _ (Node _ left) (Node _ right) ->
             if shouldBe then
-                infer [ left, right ] shouldBe dict
+                infer2 left right shouldBe dict
 
             else
-                injectFacts
-                    [ Or
+                injectFact
+                    (Or
                         (convertToFact left False)
                         (convertToFact right False)
-                    ]
+                    )
                     dict
 
         Expression.OperatorApplication "||" _ (Node _ left) (Node _ right) ->
             if shouldBe then
-                injectFacts
-                    [ Or
+                injectFact
+                    (Or
                         (convertToFact left True)
                         (convertToFact right True)
-                    ]
+                    )
                     dict
 
             else
-                infer [ left, right ] shouldBe dict
+                infer2 left right shouldBe dict
 
         Expression.OperatorApplication "==" inf left right ->
-            dict
-                |> (if shouldBe then
-                        injectFacts [ NotEquals (Expression.OperatorApplication "/=" inf left right) trueExpr ]
+            (if shouldBe then
+                injectFact (NotEquals (Expression.OperatorApplication "/=" inf left right) trueExpr) dict
 
-                    else
-                        identity
-                   )
+             else
+                dict
+            )
                 |> inferOnEquality left right shouldBe
                 |> inferOnEquality right left shouldBe
 
         Expression.OperatorApplication "/=" inf left right ->
-            dict
-                |> (if shouldBe then
-                        injectFacts [ NotEquals (Expression.OperatorApplication "==" inf left right) trueExpr ]
+            (if shouldBe then
+                injectFact (NotEquals (Expression.OperatorApplication "==" inf left right) trueExpr) dict
 
-                    else
-                        identity
-                   )
+             else
+                dict
+            )
                 |> inferOnEquality left right (not shouldBe)
                 |> inferOnEquality right left (not shouldBe)
 
@@ -291,43 +300,51 @@ injectFacts newFacts (Inferred inferred) =
 
         newFact :: restOfFacts ->
             if List.member newFact inferred.facts then
-                injectFacts
-                    restOfFacts
-                    (Inferred inferred)
+                injectFacts restOfFacts (Inferred inferred)
 
             else
-                let
-                    newFactsToVisit : List Fact
-                    newFactsToVisit =
-                        deduceNewFacts newFact inferred.facts
-
-                    deducedFromNewFact : Maybe ( Expression, DeducedValue )
-                    deducedFromNewFact =
-                        case newFact of
-                            Equals a b ->
-                                equalsFact a b
-
-                            NotEquals a b ->
-                                equalsFact a b
-                                    |> Maybe.andThen notDeduced
-
-                            Or _ _ ->
-                                -- TODO Add "a || b || ..."?
-                                Nothing
-                in
                 injectFacts
-                    (newFactsToVisit ++ restOfFacts)
-                    (Inferred
-                        { facts = newFact :: inferred.facts
-                        , deduced =
-                            case deducedFromNewFact of
-                                Just ( a, b ) ->
-                                    AssocList.insert a b inferred.deduced
+                    (deduceNewFacts newFact inferred.facts ++ restOfFacts)
+                    (inferredAddFact newFact (Inferred inferred))
 
-                                Nothing ->
-                                    inferred.deduced
-                        }
-                    )
+
+injectFact : Fact -> Inferred -> Inferred
+injectFact newFact (Inferred inferred) =
+    if List.member newFact inferred.facts then
+        Inferred inferred
+
+    else
+        injectFacts
+            (deduceNewFacts newFact inferred.facts)
+            (inferredAddFact newFact (Inferred inferred))
+
+
+inferredAddFact : Fact -> Inferred -> Inferred
+inferredAddFact newFact (Inferred inferred) =
+    Inferred
+        { facts = newFact :: inferred.facts
+        , deduced =
+            case newFact of
+                Equals equalsA equalsB ->
+                    case equalsFact equalsA equalsB of
+                        Just ( toInsertA, toInsertB ) ->
+                            AssocList.insert toInsertA toInsertB inferred.deduced
+
+                        Nothing ->
+                            inferred.deduced
+
+                NotEquals notEqualsA notEqualsB ->
+                    case equalsFact notEqualsA notEqualsB |> Maybe.andThen notDeduced of
+                        Just ( toInsertA, toInsertB ) ->
+                            AssocList.insert toInsertA toInsertB inferred.deduced
+
+                        Nothing ->
+                            inferred.deduced
+
+                Or _ _ ->
+                    -- TODO Add "a || b || ..."?
+                    inferred.deduced
+        }
 
 
 deduceNewFacts : Fact -> List Fact -> List Fact
@@ -336,7 +353,7 @@ deduceNewFacts newFact facts =
         Equals factTarget factValue ->
             case expressionToDeduced factValue of
                 Just value ->
-                    List.concatMap (mergeEqualFacts ( factTarget, value )) facts
+                    List.concatMap (\fact -> mergeEqualFacts ( factTarget, value ) fact) facts
 
                 Nothing ->
                     [ Equals factValue factTarget ]
@@ -399,11 +416,23 @@ mergeEqualFacts : ( Expression, DeducedValue ) -> Fact -> List Fact
 mergeEqualFacts equalFact fact =
     case fact of
         Or left right ->
-            List.filterMap (ifSatisfy equalFact)
-                (List.map (\cond -> ( cond, right )) left
-                    ++ List.map (\cond -> ( cond, left )) right
-                )
-                |> List.concat
+            left
+                |> List.foldl
+                    (\cond rightSoFar ->
+                        case ifSatisfy equalFact ( cond, right ) of
+                            Nothing ->
+                                rightSoFar
+
+                            Just satisfied ->
+                                satisfied ++ rightSoFar
+                    )
+                    (right
+                        |> List.concatMap
+                            (\cond ->
+                                ifSatisfy equalFact ( cond, left )
+                                    |> Maybe.withDefault []
+                            )
+                    )
 
         _ ->
             []
@@ -432,40 +461,74 @@ ifSatisfy ( target, value ) ( targetFact, otherFact ) =
 
 areIncompatible : DeducedValue -> Expression -> Bool
 areIncompatible value factValue =
-    case ( value, factValue ) of
-        ( DTrue, Expression.FunctionOrValue [ "Basics" ] "False" ) ->
-            True
+    case value of
+        DTrue ->
+            case factValue of
+                Expression.FunctionOrValue [ "Basics" ] "False" ->
+                    True
 
-        ( DFalse, Expression.FunctionOrValue [ "Basics" ] "True" ) ->
-            True
+                _ ->
+                    False
 
-        ( DNumber valueFloat, Expression.Floatable factFloat ) ->
-            valueFloat /= factFloat
+        DFalse ->
+            case factValue of
+                Expression.FunctionOrValue [ "Basics" ] "True" ->
+                    True
 
-        ( DString valueString, Expression.Literal factString ) ->
-            valueString /= factString
+                _ ->
+                    False
 
-        _ ->
-            False
+        DNumber valueFloat ->
+            case factValue of
+                Expression.Floatable factFloat ->
+                    valueFloat /= factFloat
+
+                _ ->
+                    False
+
+        DString valueString ->
+            case factValue of
+                Expression.Literal factString ->
+                    valueString /= factString
+
+                _ ->
+                    False
 
 
 areCompatible : DeducedValue -> Expression -> Bool
 areCompatible value factValue =
-    case ( value, factValue ) of
-        ( DTrue, Expression.FunctionOrValue [ "Basics" ] "True" ) ->
-            True
+    case value of
+        DTrue ->
+            case factValue of
+                Expression.FunctionOrValue [ "Basics" ] "True" ->
+                    True
 
-        ( DFalse, Expression.FunctionOrValue [ "Basics" ] "False" ) ->
-            True
+                _ ->
+                    False
 
-        ( DNumber valueFloat, Expression.Floatable factFloat ) ->
-            valueFloat == factFloat
+        DFalse ->
+            case factValue of
+                Expression.FunctionOrValue [ "Basics" ] "False" ->
+                    True
 
-        ( DString valueString, Expression.Literal factString ) ->
-            valueString == factString
+                _ ->
+                    False
 
-        _ ->
-            False
+        DNumber valueFloat ->
+            case factValue of
+                Expression.Floatable factFloat ->
+                    valueFloat == factFloat
+
+                _ ->
+                    False
+
+        DString valueString ->
+            case factValue of
+                Expression.Literal factString ->
+                    valueString == factString
+
+                _ ->
+                    False
 
 
 inferOnEquality : Node Expression -> Node Expression -> Bool -> Inferred -> Inferred
@@ -473,59 +536,59 @@ inferOnEquality (Node _ expr) (Node _ other) shouldBe dict =
     case expr of
         Expression.Integer int ->
             if shouldBe then
-                injectFacts
-                    [ Equals other (Expression.Floatable (Basics.toFloat int)) ]
+                injectFact
+                    (Equals other (Expression.Floatable (Basics.toFloat int)))
                     dict
 
             else
-                injectFacts
-                    [ NotEquals other (Expression.Floatable (Basics.toFloat int)) ]
+                injectFact
+                    (NotEquals other (Expression.Floatable (Basics.toFloat int)))
                     dict
 
         Expression.Floatable float ->
             if shouldBe then
-                injectFacts
-                    [ Equals other (Expression.Floatable float) ]
+                injectFact
+                    (Equals other (Expression.Floatable float))
                     dict
 
             else
-                injectFacts
-                    [ NotEquals other (Expression.Floatable float) ]
+                injectFact
+                    (NotEquals other (Expression.Floatable float))
                     dict
 
         Expression.Literal str ->
             if shouldBe then
-                injectFacts
-                    [ Equals other (Expression.Literal str) ]
+                injectFact
+                    (Equals other (Expression.Literal str))
                     dict
 
             else
-                injectFacts
-                    [ NotEquals other (Expression.Literal str) ]
+                injectFact
+                    (NotEquals other (Expression.Literal str))
                     dict
 
         Expression.FunctionOrValue [ "Basics" ] "True" ->
-            injectFacts
-                [ Equals other
+            injectFact
+                (Equals other
                     (if shouldBe then
                         trueExpr
 
                      else
                         falseExpr
                     )
-                ]
+                )
                 dict
 
         Expression.FunctionOrValue [ "Basics" ] "False" ->
-            injectFacts
-                [ Equals other
+            injectFact
+                (Equals other
                     (if shouldBe then
                         falseExpr
 
                      else
                         trueExpr
                     )
-                ]
+                )
                 dict
 
         _ ->

@@ -10,7 +10,7 @@ import Elm.Syntax.Expression exposing (Expression(..), LetDeclaration(..))
 import Elm.Syntax.File exposing (File)
 import Elm.Syntax.Infix as Infix exposing (InfixDirection(..))
 import Elm.Syntax.ModuleName exposing (ModuleName)
-import Elm.Syntax.Node as Node exposing (Node(..))
+import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Pattern exposing (Pattern(..))
 import Elm.Syntax.Range as Range exposing (Range)
 import Expect
@@ -626,7 +626,7 @@ inferTests =
 
 n : a -> Node a
 n =
-    Node Range.emptyRange
+    Node.empty
 
 
 normalizeAndExpect : Expression -> String -> Expect.Expectation

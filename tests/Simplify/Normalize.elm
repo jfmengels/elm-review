@@ -1,6 +1,6 @@
-module Simplify.Normalize exposing (Comparison(..), areAllTheSame, compare, compareWithoutNormalization, getNumberValue, normalize)
+module Simplify.Normalize exposing (Comparison(..), areAllTheSameAs, areTheSame, compare, compareWithoutNormalization, normalize, normalizeButKeepRange)
 
-import Dict
+import Dict exposing (Dict)
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Infix as Infix
 import Elm.Syntax.Node as Node exposing (Node(..))
@@ -11,14 +11,24 @@ import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNam
 import Simplify.Infer as Infer
 
 
-areAllTheSame : Infer.Resources a -> Node Expression -> List (Node Expression) -> Bool
-areAllTheSame resources first rest =
+areTheSame : Infer.Resources a -> Node Expression -> Node Expression -> Bool
+areTheSame resources a b =
+    normalize resources a == normalize resources b
+
+
+areAllTheSameAs : Infer.Resources res -> Node Expression -> (a -> Node Expression) -> List a -> Bool
+areAllTheSameAs resources first restElementToExpressionNode rest =
     let
         normalizedFirst : Node Expression
         normalizedFirst =
             normalize resources first
     in
-    List.all (\node -> normalize resources node == normalizedFirst) rest
+    List.all
+        (\node ->
+            normalize resources (restElementToExpressionNode node)
+                == normalizedFirst
+        )
+        rest
 
 
 normalize : Infer.Resources a -> Node Expression -> Node Expression
@@ -29,32 +39,38 @@ normalize resources node =
 
         Expression.Application nodes ->
             case nodes of
-                fn :: arg1 :: restOrArgs ->
+                fn :: firstArg :: afterFirstArg ->
                     let
                         normalizedArg1 : Node Expression
                         normalizedArg1 =
-                            normalize resources arg1
+                            normalize resources firstArg
                     in
-                    case normalize resources fn of
-                        Node _ (Expression.RecordAccessFunction fieldAccess) ->
-                            let
-                                recordAccess : Node Expression
-                                recordAccess =
-                                    Expression.RecordAccess normalizedArg1 (toNode (String.dropLeft 1 fieldAccess))
-                                        |> toNode
-                            in
-                            if List.isEmpty restOrArgs then
-                                recordAccess
+                    toNode
+                        (case normalize resources fn of
+                            Node _ (Expression.RecordAccessFunction fieldAccess) ->
+                                let
+                                    recordAccess : Expression
+                                    recordAccess =
+                                        Expression.RecordAccess normalizedArg1 (toNode (String.dropLeft 1 fieldAccess))
+                                in
+                                case afterFirstArg of
+                                    [] ->
+                                        recordAccess
 
-                            else
-                                (recordAccess :: List.map (normalize resources) restOrArgs)
-                                    |> Expression.Application
-                                    |> toNode
+                                    secondArg :: argsAfterSecond ->
+                                        Expression.Application
+                                            (toNode recordAccess
+                                                :: normalize resources secondArg
+                                                :: List.map (\arg -> normalize resources arg) argsAfterSecond
+                                            )
 
-                        normalizedFn ->
-                            (normalizedFn :: normalizedArg1 :: List.map (normalize resources) restOrArgs)
-                                |> Expression.Application
-                                |> toNode
+                            normalizedFn ->
+                                Expression.Application
+                                    (normalizedFn
+                                        :: normalizedArg1
+                                        :: List.map (\arg -> normalize resources arg) afterFirstArg
+                                    )
+                        )
 
                 _ ->
                     node
@@ -72,22 +88,24 @@ normalize resources node =
         Expression.OperatorApplication "<<" _ left right ->
             toNode (Expression.OperatorApplication ">>" Infix.Right (normalize resources right) (normalize resources left))
 
-        Expression.OperatorApplication "::" infixDirection element list ->
+        Expression.OperatorApplication "::" infixDirection head tail ->
             let
-                normalizedElement : Node Expression
-                normalizedElement =
-                    normalize resources element
+                normalizedHead : Node Expression
+                normalizedHead =
+                    normalize resources head
 
-                normalizedList : Node Expression
-                normalizedList =
-                    normalize resources list
+                normalizedTail : Node Expression
+                normalizedTail =
+                    normalize resources tail
             in
-            case Node.value normalizedList of
-                Expression.ListExpr elements ->
-                    toNode (Expression.ListExpr (normalizedElement :: elements))
+            toNode
+                (case Node.value normalizedTail of
+                    Expression.ListExpr tailElements ->
+                        Expression.ListExpr (normalizedHead :: tailElements)
 
-                _ ->
-                    toNode (Expression.OperatorApplication "::" infixDirection normalizedElement normalizedList)
+                    _ ->
+                        Expression.OperatorApplication "::" infixDirection normalizedHead normalizedTail
+                )
 
         Expression.OperatorApplication ">" infixDirection left right ->
             toNode (Expression.OperatorApplication "<" infixDirection (normalize resources right) (normalize resources left))
@@ -105,11 +123,16 @@ normalize resources node =
                 right =
                     normalize resources r
             in
-            if List.member operator [ "+", "*", "||", "&&", "==", "/=" ] && toComparable left > toComparable right then
-                toNode (Expression.OperatorApplication operator infixDirection right left)
+            toNode
+                (if
+                    operatorIsSymmetrical operator
+                        && (toComparable left > toComparable right)
+                 then
+                    Expression.OperatorApplication operator infixDirection right left
 
-            else
-                toNode (Expression.OperatorApplication operator infixDirection left right)
+                 else
+                    Expression.OperatorApplication operator infixDirection left right
+                )
 
         Expression.FunctionOrValue rawModuleName string ->
             Expression.FunctionOrValue
@@ -155,7 +178,7 @@ normalize resources node =
                     toNode (Expression.Negation normalized)
 
         Expression.TupledExpression nodes ->
-            toNode (Expression.TupledExpression (List.map (normalize resources) nodes))
+            toNode (Expression.TupledExpression (List.map (\part -> normalize resources part) nodes))
 
         Expression.LetExpression letBlock ->
             toNode
@@ -177,7 +200,7 @@ normalize resources node =
                                                 , declaration =
                                                     toNode
                                                         { name = toNode (Node.value declaration.name)
-                                                        , arguments = List.map (normalizePattern resources.lookupTable) declaration.arguments
+                                                        , arguments = List.map (\param -> normalizePattern resources.lookupTable param) declaration.arguments
                                                         , expression = normalize resources declaration.expression
                                                         }
                                                 }
@@ -202,19 +225,20 @@ normalize resources node =
         Expression.LambdaExpression lambda ->
             toNode
                 (Expression.LambdaExpression
-                    { args = List.map (normalizePattern resources.lookupTable) lambda.args
+                    { args = List.map (\arg -> normalizePattern resources.lookupTable arg) lambda.args
                     , expression = normalize resources lambda.expression
                     }
                 )
 
-        Expression.ListExpr nodes ->
-            toNode (Expression.ListExpr (List.map (normalize resources) nodes))
+        Expression.ListExpr elements ->
+            toNode (Expression.ListExpr (List.map (\element -> normalize resources element) elements))
 
         Expression.RecordAccess expr (Node _ field) ->
-            toNode (Expression.RecordAccess (normalize resources expr) (toNode field))
+            toNodeAndInfer resources
+                (Expression.RecordAccess (normalize resources expr) (toNode field))
 
-        Expression.RecordExpr nodes ->
-            nodes
+        Expression.RecordExpr fields ->
+            fields
                 |> List.sortBy (\(Node _ ( Node _ fieldName, _ )) -> fieldName)
                 |> List.map (\(Node _ ( Node _ fieldName, expr )) -> toNode ( toNode fieldName, normalize resources expr ))
                 |> Expression.RecordExpr
@@ -228,21 +252,52 @@ normalize resources node =
                 |> toNode
 
         Expression.Hex int ->
-            Expression.Integer int
-                |> toNode
+            toNode (Expression.Integer int)
 
         expr ->
             toNode expr
 
 
+operatorIsSymmetrical : String -> Bool
+operatorIsSymmetrical operator =
+    case operator of
+        "+" ->
+            True
+
+        "*" ->
+            True
+
+        "||" ->
+            True
+
+        "&&" ->
+            True
+
+        "==" ->
+            True
+
+        "/=" ->
+            True
+
+        _ ->
+            False
+
+
+normalizeButKeepRange : Infer.Resources a -> Node Expression -> Node Expression
+normalizeButKeepRange checkInfo node =
+    Node (Node.range node) (Node.value (normalize checkInfo node))
+
+
 toNodeAndInfer : Infer.Resources a -> Expression -> Node Expression
 toNodeAndInfer resources element =
-    case Infer.get element (Tuple.first resources.inferredConstants) of
-        Just value ->
-            toNode value
+    toNode
+        (case Infer.getAsExpression element (Tuple.first resources.inferredConstants) of
+            Just value ->
+                value
 
-        Nothing ->
-            toNode element
+            Nothing ->
+                element
+        )
 
 
 toComparable : Node Expression -> String
@@ -284,8 +339,11 @@ addToFunctionCall functionCall extraArgument =
 normalizePattern : ModuleNameLookupTable -> Node Pattern -> Node Pattern
 normalizePattern lookupTable node =
     case Node.value node of
+        Pattern.ParenthesizedPattern pattern ->
+            normalizePattern lookupTable pattern
+
         Pattern.TuplePattern patterns ->
-            toNode (Pattern.TuplePattern (List.map (normalizePattern lookupTable) patterns))
+            toNode (Pattern.TuplePattern (List.map (\part -> normalizePattern lookupTable part) patterns))
 
         Pattern.RecordPattern fields ->
             toNode
@@ -297,17 +355,19 @@ normalizePattern lookupTable node =
                 )
 
         Pattern.UnConsPattern element list ->
-            case normalizePattern lookupTable list of
-                Node _ (Pattern.ListPattern elements) ->
-                    toNode (Pattern.ListPattern (normalizePattern lookupTable element :: elements))
+            toNode
+                (case normalizePattern lookupTable list of
+                    Node _ (Pattern.ListPattern elements) ->
+                        Pattern.ListPattern (normalizePattern lookupTable element :: elements)
 
-                normalizedList ->
-                    toNode (Pattern.UnConsPattern (normalizePattern lookupTable element) normalizedList)
+                    normalizedList ->
+                        Pattern.UnConsPattern (normalizePattern lookupTable element) normalizedList
+                )
 
-        Pattern.ListPattern patterns ->
-            toNode (Pattern.ListPattern (List.map (normalizePattern lookupTable) patterns))
+        Pattern.ListPattern elements ->
+            toNode (Pattern.ListPattern (List.map (\element -> normalizePattern lookupTable element) elements))
 
-        Pattern.NamedPattern qualifiedNameRef patterns ->
+        Pattern.NamedPattern qualifiedNameRef values ->
             let
                 nameRef : Pattern.QualifiedNameRef
                 nameRef =
@@ -317,13 +377,10 @@ normalizePattern lookupTable node =
                     , name = qualifiedNameRef.name
                     }
             in
-            toNode (Pattern.NamedPattern nameRef (List.map (normalizePattern lookupTable) patterns))
+            toNode (Pattern.NamedPattern nameRef (List.map (\value -> normalizePattern lookupTable value) values))
 
         Pattern.AsPattern pattern (Node _ asName) ->
             toNode (Pattern.AsPattern (normalizePattern lookupTable pattern) (toNode asName))
-
-        Pattern.ParenthesizedPattern pattern ->
-            normalizePattern lookupTable pattern
 
         Pattern.HexPattern int ->
             toNode (Pattern.IntPattern int)
@@ -333,8 +390,8 @@ normalizePattern lookupTable node =
 
 
 toNode : a -> Node a
-toNode =
-    Node Range.emptyRange
+toNode value =
+    Node Range.emptyRange value
 
 
 
@@ -390,7 +447,7 @@ compareHelp leftNode right canFlip =
                     fallback ()
 
         Expression.OperatorApplication leftOp _ leftLeft leftRight ->
-            if List.member leftOp [ "+", "-", "*", "/" ] then
+            if isNumberOperator leftOp then
                 case getNumberValue leftNode of
                     Just leftValue ->
                         case getNumberValue right of
@@ -407,9 +464,7 @@ compareHelp leftNode right canFlip =
                 case Node.value (removeParens right) of
                     Expression.OperatorApplication rightOp _ rightLeft rightRight ->
                         if leftOp == rightOp then
-                            compareEqualityOfAll
-                                [ leftLeft, leftRight ]
-                                [ rightLeft, rightRight ]
+                            compareAll2Help leftLeft rightLeft leftRight rightRight
 
                         else
                             fallback ()
@@ -448,11 +503,7 @@ compareHelp leftNode right canFlip =
         Expression.ListExpr leftList ->
             case Node.value (removeParens right) of
                 Expression.ListExpr rightList ->
-                    if List.length leftList /= List.length rightList then
-                        ConfirmedInequality
-
-                    else
-                        compareLists leftList rightList ConfirmedEquality
+                    compareLists leftList rightList ConfirmedEquality
 
                 _ ->
                     fallback ()
@@ -476,19 +527,27 @@ compareHelp leftNode right canFlip =
         Expression.RecordUpdateExpression leftBaseValue leftList ->
             case Node.value (removeParens right) of
                 Expression.RecordUpdateExpression rightBaseValue rightList ->
-                    if Node.value leftBaseValue == Node.value rightBaseValue then
-                        compareRecords leftList rightList ConfirmedEquality
+                    compareRecords leftList
+                        rightList
+                        (if Node.value leftBaseValue == Node.value rightBaseValue then
+                            ConfirmedEquality
 
-                    else
-                        compareRecords leftList rightList Unconfirmed
+                         else
+                            Unconfirmed
+                        )
 
                 _ ->
                     fallback ()
 
-        Expression.Application leftArgs ->
+        Expression.Application (leftCalled :: leftArg0 :: leftArg1Up) ->
             case Node.value (removeParens right) of
-                Expression.Application rightArgs ->
-                    compareEqualityOfAll leftArgs rightArgs
+                Expression.Application (rightCalled :: rightArg0 :: rightArg1Up) ->
+                    case compareAll2Help leftCalled rightCalled leftArg0 rightArg0 of
+                        ConfirmedEquality ->
+                            compareAllConfirmedEqualityElseUnconfirmedHelp leftArg1Up rightArg1Up
+
+                        _ ->
+                            Unconfirmed
 
                 _ ->
                     fallback ()
@@ -511,15 +570,151 @@ compareHelp leftNode right canFlip =
         Expression.IfBlock leftCond leftThen leftElse ->
             case Node.value (removeParens right) of
                 Expression.IfBlock rightCond rightThen rightElse ->
-                    compareEqualityOfAll
-                        [ leftCond, leftThen, leftElse ]
-                        [ rightCond, rightThen, rightElse ]
+                    case compareHelp leftCond rightCond True of
+                        ConfirmedEquality ->
+                            case compareHelp leftThen rightThen True of
+                                ConfirmedInequality ->
+                                    case compareHelp leftElse rightElse True of
+                                        ConfirmedInequality ->
+                                            ConfirmedInequality
+
+                                        _ ->
+                                            Unconfirmed
+
+                                ConfirmedEquality ->
+                                    case compareHelp leftElse rightElse True of
+                                        ConfirmedEquality ->
+                                            ConfirmedEquality
+
+                                        _ ->
+                                            Unconfirmed
+
+                                Unconfirmed ->
+                                    Unconfirmed
+
+                        ConfirmedInequality ->
+                            -- notice that we instead compare the then with else branches
+                            case compareHelp leftThen rightElse True of
+                                ConfirmedInequality ->
+                                    case compareHelp leftElse rightThen True of
+                                        ConfirmedInequality ->
+                                            ConfirmedInequality
+
+                                        _ ->
+                                            Unconfirmed
+
+                                ConfirmedEquality ->
+                                    case compareHelp leftElse rightThen True of
+                                        ConfirmedEquality ->
+                                            ConfirmedEquality
+
+                                        _ ->
+                                            Unconfirmed
+
+                                Unconfirmed ->
+                                    Unconfirmed
+
+                        Unconfirmed ->
+                            Unconfirmed
 
                 _ ->
                     fallback ()
 
         _ ->
             fallback ()
+
+
+{-| For consistency with `getNumberValue`, this does not
+(yet?) include `//`
+-}
+isNumberOperator : String -> Bool
+isNumberOperator operator =
+    case operator of
+        "+" ->
+            True
+
+        "-" ->
+            True
+
+        "*" ->
+            True
+
+        "/" ->
+            True
+
+        _ ->
+            False
+
+
+compareAll2Help : Node Expression -> Node Expression -> Node Expression -> Node Expression -> Comparison
+compareAll2Help left0 right0 left1 right1 =
+    case compareHelp left0 right0 True of
+        ConfirmedInequality ->
+            ConfirmedInequality
+
+        ConfirmedEquality ->
+            compareHelp left1 right1 True
+
+        Unconfirmed ->
+            case compareHelp left1 right1 True of
+                ConfirmedInequality ->
+                    ConfirmedInequality
+
+                _ ->
+                    Unconfirmed
+
+
+compareLists : List (Node Expression) -> List (Node Expression) -> Comparison -> Comparison
+compareLists leftList rightList soFar =
+    case leftList of
+        [] ->
+            case rightList of
+                [] ->
+                    soFar
+
+                _ :: _ ->
+                    ConfirmedInequality
+
+        left :: restOfLeft ->
+            case rightList of
+                [] ->
+                    ConfirmedInequality
+
+                right :: restOfRight ->
+                    case compareWithoutNormalization left right of
+                        ConfirmedInequality ->
+                            ConfirmedInequality
+
+                        ConfirmedEquality ->
+                            compareLists restOfLeft restOfRight soFar
+
+                        Unconfirmed ->
+                            compareLists restOfLeft restOfRight Unconfirmed
+
+
+compareAllConfirmedEqualityElseUnconfirmedHelp : List (Node Expression) -> List (Node Expression) -> Comparison
+compareAllConfirmedEqualityElseUnconfirmedHelp leftList rightList =
+    case leftList of
+        [] ->
+            case rightList of
+                [] ->
+                    ConfirmedEquality
+
+                _ :: _ ->
+                    Unconfirmed
+
+        left :: restOfLeft ->
+            case rightList of
+                [] ->
+                    Unconfirmed
+
+                right :: restOfRight ->
+                    case compareHelp left right True of
+                        ConfirmedEquality ->
+                            compareAllConfirmedEqualityElseUnconfirmedHelp restOfLeft restOfRight
+
+                        _ ->
+                            Unconfirmed
 
 
 compareNumbers : Float -> Node Expression -> Comparison
@@ -551,24 +746,40 @@ getNumberValue node =
             getNumberValue expression
 
         Expression.OperatorApplication "+" _ left right ->
-            Maybe.map2 (+)
-                (getNumberValue left)
-                (getNumberValue right)
+            case getNumberValue left of
+                Nothing ->
+                    Nothing
+
+                Just leftNumber ->
+                    Maybe.map (\rightNumber -> leftNumber + rightNumber)
+                        (getNumberValue right)
 
         Expression.OperatorApplication "-" _ left right ->
-            Maybe.map2 (-)
-                (getNumberValue left)
-                (getNumberValue right)
+            case getNumberValue left of
+                Nothing ->
+                    Nothing
+
+                Just leftNumber ->
+                    Maybe.map (\rightNumber -> leftNumber - rightNumber)
+                        (getNumberValue right)
 
         Expression.OperatorApplication "*" _ left right ->
-            Maybe.map2 (*)
-                (getNumberValue left)
-                (getNumberValue right)
+            case getNumberValue left of
+                Nothing ->
+                    Nothing
+
+                Just leftNumber ->
+                    Maybe.map (\rightNumber -> leftNumber * rightNumber)
+                        (getNumberValue right)
 
         Expression.OperatorApplication "/" _ left right ->
-            Maybe.map2 (/)
-                (getNumberValue left)
-                (getNumberValue right)
+            case getNumberValue left of
+                Nothing ->
+                    Nothing
+
+                Just leftNumber ->
+                    Maybe.map (\rightNumber -> leftNumber / rightNumber)
+                        (getNumberValue right)
 
         Expression.Negation expr ->
             getNumberValue expr
@@ -576,42 +787,6 @@ getNumberValue node =
 
         _ ->
             Nothing
-
-
-compareLists : List (Node Expression) -> List (Node Expression) -> Comparison -> Comparison
-compareLists leftList rightList acc =
-    case ( leftList, rightList ) of
-        ( left :: restOfLeft, right :: restOfRight ) ->
-            case compareWithoutNormalization left right of
-                ConfirmedEquality ->
-                    compareLists restOfLeft restOfRight acc
-
-                ConfirmedInequality ->
-                    ConfirmedInequality
-
-                Unconfirmed ->
-                    compareLists restOfLeft restOfRight Unconfirmed
-
-        _ ->
-            acc
-
-
-compareEqualityOfAll : List (Node Expression) -> List (Node Expression) -> Comparison
-compareEqualityOfAll leftList rightList =
-    case ( leftList, rightList ) of
-        ( left :: restOfLeft, right :: restOfRight ) ->
-            case compareHelp left right True of
-                ConfirmedEquality ->
-                    compareEqualityOfAll restOfLeft restOfRight
-
-                ConfirmedInequality ->
-                    Unconfirmed
-
-                Unconfirmed ->
-                    Unconfirmed
-
-        _ ->
-            ConfirmedEquality
 
 
 type RecordFieldComparison
@@ -622,13 +797,23 @@ type RecordFieldComparison
 compareRecords : List (Node Expression.RecordSetter) -> List (Node Expression.RecordSetter) -> Comparison -> Comparison
 compareRecords leftList rightList acc =
     let
-        leftFields : List ( String, Node Expression )
+        leftFields : Dict String (Node Expression)
         leftFields =
-            List.map (Node.value >> Tuple.mapFirst Node.value) leftList
+            List.foldl
+                (\(Node _ ( Node _ fieldName, fieldValue )) soFar ->
+                    Dict.insert fieldName fieldValue soFar
+                )
+                Dict.empty
+                leftList
 
-        rightFields : List ( String, Node Expression )
+        rightFields : Dict String (Node Expression)
         rightFields =
-            List.map (Node.value >> Tuple.mapFirst Node.value) rightList
+            List.foldl
+                (\(Node _ ( Node _ fieldName, fieldValue )) soFar ->
+                    Dict.insert fieldName fieldValue soFar
+                )
+                Dict.empty
+                rightList
 
         recordFieldComparisons : List RecordFieldComparison
         recordFieldComparisons =
@@ -636,8 +821,8 @@ compareRecords leftList rightList acc =
                 (\key _ -> Dict.insert key MissingOtherValue)
                 (\key a b -> Dict.insert key (HasBothValues a b))
                 (\key _ -> Dict.insert key MissingOtherValue)
-                (Dict.fromList leftFields)
-                (Dict.fromList rightFields)
+                leftFields
+                rightFields
                 Dict.empty
                 |> Dict.values
     in

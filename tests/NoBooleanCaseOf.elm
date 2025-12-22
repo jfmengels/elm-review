@@ -106,7 +106,7 @@ isBoolConstructor node =
     case Node.value node of
         Pattern.NamedPattern { moduleName, name } _ ->
             (name == "True" || name == "False")
-                && (moduleName == [] || moduleName == [ "Basics" ])
+                && (List.isEmpty moduleName || moduleName == [ "Basics" ])
 
         _ ->
             False

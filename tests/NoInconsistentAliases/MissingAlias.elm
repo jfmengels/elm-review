@@ -31,7 +31,7 @@ withModuleUse moduleUse (MissingAlias alias) =
 
 hasUses : MissingAlias -> Bool
 hasUses (MissingAlias { uses }) =
-    uses /= []
+    not (List.isEmpty uses)
 
 
 mapModuleName : (ModuleName -> a) -> MissingAlias -> a
