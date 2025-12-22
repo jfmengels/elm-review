@@ -471,7 +471,7 @@ nodeIdRange graph =
         |> Maybe.andThen
             (\( min, _ ) ->
                 IntDict.findMax (unGraph graph)
-                    |> Maybe.andThen (\( max, _ ) -> Just ( min, max ))
+                    |> Maybe.map (\( max, _ ) -> ( min, max ))
             )
 
 
