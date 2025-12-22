@@ -272,7 +272,7 @@ recordErrors context { fields, recordRange } =
 
                             _ ->
                                 ( Range.combine (List.map Node.range unused)
-                                , Node Range.emptyRange (Pattern.RecordPattern used)
+                                , Node.empty (Pattern.RecordPattern used)
                                     |> writePattern
                                     |> Fix.replaceRangeBy recordRange
                                 )
@@ -581,7 +581,7 @@ errorsForRecordValueList recordRange list context =
 
                         _ ->
                             ( Range.combine (List.map Node.range unused)
-                            , Node Range.emptyRange (Pattern.RecordPattern used)
+                            , Node.empty (Pattern.RecordPattern used)
                                 |> writePattern
                                 |> Fix.replaceRangeBy recordRange
                             )

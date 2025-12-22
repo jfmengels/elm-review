@@ -12,6 +12,12 @@ unusedExposedElementDetails =
     ]
 
 
+unusedExposedElementWhenExposingAllDetails : List String
+unusedExposedElementWhenExposingAllDetails =
+    [ "This exposed element is never used, neither inside its module nor outside. You may want to remove it to keep your project clean, and maybe detect some unused code in your project."
+    ]
+
+
 unusedModuleDetails : List String
 unusedModuleDetails =
     [ "This module is never used. You may want to remove it to keep your project clean, and maybe detect some unused code in your project."
@@ -29,8 +35,8 @@ all =
         , lamderaTests
         , unusedModuleTests
         , reportUnusedProductionExportsTest
-
-        -- TODO Add tests that report exposing the type's variants if they are never used.
+        , exposingTypeVariantsTests
+        , exposingAllTests
         ]
 
 
@@ -49,7 +55,7 @@ a = 1""" ]
                     |> Review.Test.expectErrorsForModules
                         [ ( "A"
                           , [ Review.Test.error
-                                { message = "Exposed function or value `a` is never used outside this module."
+                                { message = "Exposed function or value `a` is never used outside this module"
                                 , details = unusedExposedElementDetails
                                 , under = "a"
                                 }
@@ -144,7 +150,7 @@ a = 1""" ]
                     |> Review.Test.expectErrorsForModules
                         [ ( "A"
                           , [ Review.Test.error
-                                { message = "Exposed function or value `exposed` is never used outside this module."
+                                { message = "Exposed function or value `exposed` is never used outside this module"
                                 , details = unusedExposedElementDetails
                                 , under = "exposed"
                                 }
@@ -165,7 +171,7 @@ a = 1""" ]
                     |> Review.Test.expectErrorsForModules
                         [ ( "A"
                           , [ Review.Test.error
-                                { message = "Exposed function or value `exposed1` is never used outside this module."
+                                { message = "Exposed function or value `exposed1` is never used outside this module"
                                 , details = unusedExposedElementDetails
                                 , under = "exposed1"
                                 }
@@ -176,7 +182,7 @@ exposed1 = 1
 exposed2 = 2
 """
                             , Review.Test.error
-                                { message = "Exposed function or value `exposed2` is never used outside this module."
+                                { message = "Exposed function or value `exposed2` is never used outside this module"
                                 , details = unusedExposedElementDetails
                                 , under = "exposed2"
                                 }
@@ -208,7 +214,7 @@ a = 1""" ]
                     |> Review.Test.expectErrorsForModules
                         [ ( "A"
                           , [ Review.Test.error
-                                { message = "Exposed function or value `exposed1` is never used outside this module."
+                                { message = "Exposed function or value `exposed1` is never used outside this module"
                                 , details = unusedExposedElementDetails
                                 , under = "exposed1"
                                 }
@@ -225,7 +231,7 @@ exposed2 = 2
 exposed3 = 3
 """
                             , Review.Test.error
-                                { message = "Exposed function or value `exposed2` is never used outside this module."
+                                { message = "Exposed function or value `exposed2` is never used outside this module"
                                 , details = unusedExposedElementDetails
                                 , under = "exposed2"
                                 }
@@ -242,7 +248,7 @@ exposed2 = 2
 exposed3 = 3
 """
                             , Review.Test.error
-                                { message = "Exposed function or value `exposed3` is never used outside this module."
+                                { message = "Exposed function or value `exposed3` is never used outside this module"
                                 , details = unusedExposedElementDetails
                                 , under = "exposed3"
                                 }
@@ -260,16 +266,6 @@ exposed3 = 3
                             ]
                           )
                         ]
-        , test "should not report anything for modules that expose everything" <|
-            \() ->
-                [ """
-module A exposing (..)
-a = 1
-""", """module Exposed exposing (..)
-import A
-a = 1""" ]
-                    |> Review.Test.runOnModulesWithProjectData package rule
-                    |> Review.Test.expectNoErrors
         , test "should not report the `main` function for an application even if it is unused" <|
             \() ->
                 """
@@ -289,7 +285,7 @@ a = 1""" ]
                     |> Review.Test.expectErrorsForModules
                         [ ( "A"
                           , [ Review.Test.error
-                                { message = "Exposed function or value `main` is never used outside this module."
+                                { message = "Exposed function or value `main` is never used outside this module"
                                 , details = unusedExposedElementDetails
                                 , under = "main"
                                 }
@@ -370,7 +366,7 @@ main = text ""
                     |> Review.Test.expectErrorsForModules
                         [ ( "A"
                           , [ Review.Test.error
-                                { message = "Exposed type or type alias `Exposed` is never used outside this module."
+                                { message = "Exposed type or type alias `Exposed` is never used outside this module"
                                 , details = unusedExposedElementDetails
                                 , under = "Exposed"
                                 }
@@ -472,6 +468,57 @@ type Variant = A String
 """ ]
                     |> Review.Test.runOnModulesWithProjectData application rule
                     |> Review.Test.expectNoErrors
+        , test "should report an unused custom type even if one of its variants is named the same as another type (top-level declaration)" <|
+            \() ->
+                [ """
+module Main exposing (main)
+import M
+main = x
+x : M.T
+x = M.t
+""", """
+module M exposing (Unused(..), T, t)
+type alias T = ()
+t = ()
+type Unused = T
+""" ]
+                    |> Review.Test.runOnModulesWithProjectData application rule
+                    |> Review.Test.expectErrorsForModules
+                        [ ( "M"
+                          , [ Review.Test.error
+                                { message = "Exposed type `Unused` is never used outside this module"
+                                , details = unusedExposedElementDetails
+                                , under = "Unused(..)"
+                                }
+                            ]
+                          )
+                        ]
+        , test "should report an unused custom type even if one of its variants is named the same as another type (let function usage)" <|
+            \() ->
+                [ """
+module Main exposing (main)
+import M
+main =
+    let x : M.T
+        x = M.t
+    in x
+""", """
+module M exposing (Unused(..), T, t)
+type alias T = ()
+t = ()
+type Unused = T
+""" ]
+                    |> Review.Test.runOnModulesWithProjectData application rule
+                    |> Review.Test.expectErrorsForModules
+                        [ ( "M"
+                          , [ Review.Test.error
+                                { message = "Exposed type `Unused` is never used outside this module"
+                                , details = unusedExposedElementDetails
+                                , under = "Unused(..)"
+                                }
+                            ]
+                          )
+                        ]
         , test "should not report a used exposed custom type (used in type alias)" <|
             \() ->
                 [ """
@@ -553,6 +600,7 @@ type OtherType = Thing MyType
 module Exposed exposing (..)
 import A
 type alias B = A.OtherType
+b = A.Thing A.VariantB
 """ ]
                     |> Review.Test.runOnModulesWithProjectData package rule
                     |> Review.Test.expectNoErrors
@@ -571,7 +619,7 @@ type alias B = A.OtherType
                     |> Review.Test.expectErrorsForModules
                         [ ( "A"
                           , [ Review.Test.error
-                                { message = "Exposed type or type alias `MyType` is never used outside this module."
+                                { message = "Exposed type or type alias `MyType` is never used outside this module"
                                 , details = unusedExposedElementDetails
                                 , under = "MyType"
                                 }
@@ -594,6 +642,7 @@ type OtherType = OtherThing | SomeThing ((), List MyType)
 module Exposed exposing (..)
 import A
 type alias B = A.OtherType
+b = A.OtherThing
 """ ]
                     |> Review.Test.runOnModulesWithProjectData package rule
                     |> Review.Test.expectNoErrors
@@ -612,7 +661,7 @@ type alias B = A.OtherType
                     |> Review.Test.expectErrorsForModules
                         [ ( "A"
                           , [ Review.Test.error
-                                { message = "Exposed type or type alias `MyType` is never used outside this module."
+                                { message = "Exposed type or type alias `MyType` is never used outside this module"
                                 , details = unusedExposedElementDetails
                                 , under = "MyType"
                                 }
@@ -661,7 +710,7 @@ main = text ""
                     |> Review.Test.expectErrorsForModules
                         [ ( "A"
                           , [ Review.Test.error
-                                { message = "Exposed type or type alias `Exposed` is never used outside this module."
+                                { message = "Exposed type or type alias `Exposed` is never used outside this module"
                                 , details = unusedExposedElementDetails
                                 , under = "Exposed"
                                 }
@@ -789,6 +838,7 @@ type OtherType = OtherType MyType
 module Exposed exposing (..)
 import A
 type alias B = A.OtherType
+b = A.OtherType {}
 """ ]
                     |> Review.Test.runOnModulesWithProjectData package rule
                     |> Review.Test.expectNoErrors
@@ -807,7 +857,7 @@ type alias B = A.OtherType
                     |> Review.Test.expectErrorsForModules
                         [ ( "A"
                           , [ Review.Test.error
-                                { message = "Exposed type or type alias `MyType` is never used outside this module."
+                                { message = "Exposed type or type alias `MyType` is never used outside this module"
                                 , details = unusedExposedElementDetails
                                 , under = "MyType"
                                 }
@@ -830,6 +880,7 @@ type OtherType = OtherThing | SomeThing ((), List MyType)
 module Exposed exposing (..)
 import A
 type alias B = A.OtherType
+b = A.OtherThing
 """ ]
                     |> Review.Test.runOnModulesWithProjectData package rule
                     |> Review.Test.expectNoErrors
@@ -848,7 +899,7 @@ type alias B = A.OtherType
                     |> Review.Test.expectErrorsForModules
                         [ ( "A"
                           , [ Review.Test.error
-                                { message = "Exposed type or type alias `MyType` is never used outside this module."
+                                { message = "Exposed type or type alias `MyType` is never used outside this module"
                                 , details = unusedExposedElementDetails
                                 , under = "MyType"
                                 }
@@ -864,7 +915,7 @@ type OtherType = OtherThing | SomeThing ((), List MyType)
         , test "should report the correct range when exports are on multiple lines" <|
             \() ->
                 [ """module A
-             exposing ( Card
+             exposing ( Card(..)
     , Link
     , init
     , toElement
@@ -881,13 +932,13 @@ a = A.Card A.init A.toElement
                     |> Review.Test.expectErrorsForModules
                         [ ( "A"
                           , [ Review.Test.error
-                                { message = "Exposed type or type alias `Link` is never used outside this module."
+                                { message = "Exposed type or type alias `Link` is never used outside this module"
                                 , details = unusedExposedElementDetails
                                 , under = "Link"
                                 }
                                 |> Review.Test.atExactly { start = { row = 3, column = 7 }, end = { row = 3, column = 11 } }
                                 |> Review.Test.whenFixed """module A
-             exposing ( Card
+             exposing ( Card(..)
     , init
     , toElement
     )
@@ -976,7 +1027,7 @@ a = 1
                     |> Review.Test.expectErrorsForModules
                         [ ( "NotExposed"
                           , [ Review.Test.error
-                                { message = "Exposed function or value `app` is never used outside this module."
+                                { message = "Exposed function or value `app` is never used outside this module"
                                 , details = unusedExposedElementDetails
                                 , under = "app"
                                 }
@@ -993,7 +1044,7 @@ app = foo
                     |> Review.Test.runWithProjectData application rule
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "Exposed function or value `app` is never used outside this module."
+                            { message = "Exposed function or value `app` is never used outside this module"
                             , details = unusedExposedElementDetails
                             , under = "app"
                             }
@@ -1006,6 +1057,25 @@ app = foo
 """
                     |> Review.Test.runWithProjectData lamderaApplication rule
                     |> Review.Test.expectNoErrors
+        , test "should not special types from module Types" <|
+            \() ->
+                [ """
+module Types exposing (..)
+type alias FrontendModel = {}
+type alias BackendModel = {}
+type FrontendMsg = NoOpFrontendMsg
+type ToBackend = NoOpToBackend
+type BackendMsg = NoOpBackendMsg
+type ToFrontend = NoOpToFrontend
+"""
+                , """
+module Backend exposing (..)
+import Types
+app = Debug.todo "app"
+"""
+                ]
+                    |> Review.Test.runOnModulesWithProjectData lamderaApplication rule
+                    |> Review.Test.expectNoErrors
         ]
 
 
@@ -1017,7 +1087,7 @@ unusedModuleTests =
                 [ """
 module NotReported exposing (..)
 import OtherModule
-main = text ""
+main = OtherModule.a
 """
                 , """
 module OtherModule exposing (..)
@@ -1045,7 +1115,7 @@ a = 1
                     |> Review.Test.expectErrorsForModules
                         [ ( "Reported"
                           , [ Review.Test.error
-                                { message = "Module `Reported` is never used."
+                                { message = "Module `Reported` is never used"
                                 , details = unusedModuleDetails
                                 , under = "Reported"
                                 }
@@ -1054,7 +1124,7 @@ a = 1
                           )
                         , ( "Other.Reported"
                           , [ Review.Test.error
-                                { message = "Module `Other.Reported` is never used."
+                                { message = "Module `Other.Reported` is never used"
                                 , details = unusedModuleDetails
                                 , under = "Other.Reported"
                                 }
@@ -1072,7 +1142,7 @@ a = 1
                     |> Review.Test.runWithProjectData application rule
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "Module `Reported` is never used."
+                            { message = "Module `Reported` is never used"
                             , details = unusedModuleDetails
                             , under = "Reported"
                             }
@@ -1096,7 +1166,7 @@ a = 1
                     |> Review.Test.runWithProjectData application rule
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "Exposed function or value `a` is never used outside this module."
+                            { message = "Exposed function or value `a` is never used outside this module"
                             , details = unusedExposedElementDetails
                             , under = "a"
                             }
@@ -1115,6 +1185,7 @@ main = text ""
                 """
 module NotReported exposing (..)
 import Test
+a : Test.Test
 a = 1
 """
                     |> Review.Test.runWithProjectData application rule
@@ -1144,7 +1215,7 @@ a = 1
                     |> Review.Test.runWithProjectData package rule
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "Module `NotExposed` is never used."
+                            { message = "Module `NotExposed` is never used"
                             , details = unusedModuleDetails
                             , under = "NotExposed"
                             }
@@ -1159,7 +1230,7 @@ main = text ""
                     |> Review.Test.runWithProjectData package rule
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "Module `Reported` is never used."
+                            { message = "Module `Reported` is never used"
                             , details = unusedModuleDetails
                             , under = "Reported"
                             }
@@ -1175,7 +1246,7 @@ a = 1
                     |> Review.Test.runWithProjectData package rule
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "Module `Reported` is never used."
+                            { message = "Module `Reported` is never used"
                             , details = unusedModuleDetails
                             , under = "Reported"
                             }
@@ -1190,7 +1261,7 @@ app = text ""
                     |> Review.Test.runWithProjectData package rule
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "Module `Reported` is never used."
+                            { message = "Module `Reported` is never used"
                             , details = unusedModuleDetails
                             , under = "Reported"
                             }
@@ -1205,7 +1276,7 @@ app = text ""
                     |> Review.Test.runWithProjectData application rule
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "Module `Reported` is never used."
+                            { message = "Module `Reported` is never used"
                             , details = unusedModuleDetails
                             , under = "Reported"
                             }
@@ -1247,6 +1318,7 @@ unusedInProductionCode = 2
 module ATest exposing (..)
 import A
 import Test
+a : Test.Test
 a = A.unusedInProductionCode
 """ ]
                     |> Review.Test.runOnModules
@@ -1260,7 +1332,7 @@ a = A.unusedInProductionCode
                     |> Review.Test.expectErrorsForModules
                         [ ( "A"
                           , [ Review.Test.error
-                                { message = "Exposed function or value `unusedInProductionCode` is never used in production code."
+                                { message = "Exposed function or value `unusedInProductionCode` is never used in production code"
                                 , details =
                                     [ "This exposed element is only used in files you have marked as non-production code (e.g. the tests folder), and should therefore be removed along with the places it's used in. This will help reduce the amount of code you will need to maintain."
                                     , "It is possible that this element is meant to enable work in your ignored folder (test helpers for instance), in which case you should keep it. To avoid this problem being reported again, please read the documentation on how to configure the rule."
@@ -1285,6 +1357,7 @@ unusedInProductionCode = 2
 module ATest exposing (..)
 import A
 import Test
+a : Test.Test
 a = A.unusedInProductionCode
 """ ]
                     |> Review.Test.runOnModules
@@ -1303,7 +1376,7 @@ a = A.unusedInProductionCode
                     |> Review.Test.expectErrorsForModules
                         [ ( "A"
                           , [ Review.Test.error
-                                { message = "Exposed function or value `unusedInProductionCode` is never used in production code."
+                                { message = "Exposed function or value `unusedInProductionCode` is never used in production code"
                                 , details =
                                     [ "This exposed element is only used in files you have marked as non-production code (e.g. the tests folder), and should therefore be removed along with the places it's used in. This will help reduce the amount of code you will need to maintain."
                                     , "It is possible that this element is meant to enable work in your ignored folder (test helpers for instance), in which case you should keep it. To avoid this problem being reported again, you can:"
@@ -1369,9 +1442,9 @@ tests : Test
 tests = Test.describe "thing" B.helper
 """, """
 module B exposing (helper)
-{-| Module docs -}
+import Basics
 {-| @ignore-helper -}
-helper = 1
+helper = Basics.min
 """ ]
                     |> Review.Test.runOnModules
                         (defaults
@@ -1418,6 +1491,7 @@ tests : Test
 tests = Test.describe "thing" []
 """, """
 module B exposing (helper)
+{-| Module docs -}
 {-| @ignore-helper -}
 helper = 1
 """ ]
@@ -1432,7 +1506,7 @@ helper = 1
                     |> Review.Test.expectErrorsForModules
                         [ ( "B"
                           , [ Review.Test.error
-                                { message = "Exposed function or value `helper` is never used outside this module."
+                                { message = "Exposed function or value `helper` is never used outside this module"
                                 , details = unusedExposedElementDetails
                                 , under = "helper"
                                 }
@@ -1542,7 +1616,7 @@ unused = 1
                     |> Review.Test.expectErrorsForModules
                         [ ( "ATest"
                           , [ Review.Test.error
-                                { message = "Exposed function or value `unused` is never used outside this module."
+                                { message = "Exposed function or value `unused` is never used outside this module"
                                 , details = unusedExposedElementDetails
                                 , under = "unused"
                                 }
@@ -1557,4 +1631,454 @@ unused = 1
                             ]
                           )
                         ]
+        ]
+
+
+exposingTypeVariantsTests : Test
+exposingTypeVariantsTests =
+    describe "Reporting unused exposing of type variants"
+        [ test "should report and remove the exposing of variants if the variants are only used inside the module" <|
+            \() ->
+                [ """
+module A exposing (Exposed(..), value)
+type Exposed = VariantA | VariantB
+value = VariantA
+"""
+                , """
+module Main exposing (main)
+import A
+main : A.Exposed
+main = A.value
+"""
+                ]
+                    |> Review.Test.runOnModulesWithProjectData application rule
+                    |> Review.Test.expectErrorsForModules
+                        [ ( "A"
+                          , [ Review.Test.error
+                                { message = "The constructors for type `Exposed` are never used outside this module"
+                                , details = [ "You should stop exposing the variants by removing the (..) at this location. You can re-expose them if necessary later." ]
+                                , under = "Exposed(..)"
+                                }
+                                |> Review.Test.whenFixed """
+module A exposing (Exposed, value)
+type Exposed = VariantA | VariantB
+value = VariantA
+"""
+                            ]
+                          )
+                        ]
+        , test "should not report the exposing of the variants of a custom type exposed as part of a package's public API" <|
+            \() ->
+                """
+module Exposed exposing (Exposed(..), value)
+type Exposed = VariantA | VariantB
+value = VariantA
+"""
+                    |> Review.Test.runWithProjectData package rule
+                    |> Review.Test.expectNoErrors
+        ]
+
+
+exposingAllTests : Test
+exposingAllTests =
+    describe "When exposing all"
+        [ test "reports an unused function" <|
+            \() ->
+                [ """
+module Main exposing (main)
+import Reported
+main = Reported.used
+"""
+                , """
+module Reported exposing (..)
+unused = ()
+used = 1
+"""
+                ]
+                    |> Review.Test.runOnModulesWithProjectData application rule
+                    |> Review.Test.expectErrorsForModules
+                        [ ( "Reported"
+                          , [ Review.Test.error
+                                { message = "Exposed function or value `unused` is never used in the project"
+                                , details = unusedExposedElementWhenExposingAllDetails
+                                , under = "unused"
+                                }
+                                |> Review.Test.whenFixed """
+module Reported exposing (..)
+used = 1
+"""
+                            ]
+                          )
+                        ]
+        , test "reports an unused function (no fix because single declaration)" <|
+            \() ->
+                [ """
+module Main exposing (main)
+import Reported
+main = ()
+"""
+                , """
+module Reported exposing (..)
+unused = ()
+"""
+                ]
+                    |> Review.Test.runOnModulesWithProjectData application rule
+                    |> Review.Test.expectErrorsForModules
+                        [ ( "Reported"
+                          , [ Review.Test.error
+                                { message = "Exposed function or value `unused` is never used in the project"
+                                , details = unusedExposedElementWhenExposingAllDetails
+                                , under = "unused"
+                                }
+                            ]
+                          )
+                        ]
+        , test "reports an unused function (followed by a type declaration)" <|
+            \() ->
+                [ """
+module Main exposing (main)
+import Reported
+main : Reported.Type
+main = Reported.Constructor
+"""
+                , """
+module Reported exposing (..)
+unused = ()
+type Type = Constructor
+"""
+                ]
+                    |> Review.Test.runOnModulesWithProjectData application rule
+                    |> Review.Test.expectErrorsForModules
+                        [ ( "Reported"
+                          , [ Review.Test.error
+                                { message = "Exposed function or value `unused` is never used in the project"
+                                , details = unusedExposedElementWhenExposingAllDetails
+                                , under = "unused"
+                                }
+                                |> Review.Test.whenFixed """
+module Reported exposing (..)
+type Type = Constructor
+"""
+                            ]
+                          )
+                        ]
+        , test "reports an unused recursive function" <|
+            \() ->
+                [ """
+module Main exposing (main)
+import Reported
+main = Reported.used
+"""
+                , """
+module Reported exposing (..)
+fib n = fib (n - 1) + fib (n - 2)
+used = ()
+"""
+                ]
+                    |> Review.Test.runOnModulesWithProjectData application rule
+                    |> Review.Test.expectErrorsForModules
+                        [ ( "Reported"
+                          , [ Review.Test.error
+                                { message = "Exposed function or value `fib` is never used in the project"
+                                , details = unusedExposedElementWhenExposingAllDetails
+                                , under = "fib"
+                                }
+                                |> Review.Test.atExactly { start = { row = 3, column = 1 }, end = { row = 3, column = 4 } }
+                                |> Review.Test.whenFixed """
+module Reported exposing (..)
+used = ()
+"""
+                            ]
+                          )
+                        ]
+        , test "reports an unused type alias" <|
+            \() ->
+                [ """
+module Main exposing (main)
+import Reported
+main = ()
+"""
+                , """
+module Reported exposing (..)
+type alias Unused = ()
+"""
+                ]
+                    |> Review.Test.runOnModulesWithProjectData application rule
+                    |> Review.Test.expectErrorsForModules
+                        [ ( "Reported"
+                          , [ Review.Test.error
+                                { message = "Exposed type or type alias `Unused` is never used in the project"
+                                , details = unusedExposedElementWhenExposingAllDetails
+                                , under = "Unused"
+                                }
+                            ]
+                          )
+                        ]
+        , test "reports an unused custom type" <|
+            \() ->
+                [ """
+module Main exposing (main)
+import Reported
+main = ()
+"""
+                , """
+module Reported exposing (..)
+type UnusedT = UnusedC
+"""
+                ]
+                    |> Review.Test.runOnModulesWithProjectData application rule
+                    |> Review.Test.expectErrorsForModules
+                        [ ( "Reported"
+                          , [ Review.Test.error
+                                { message = "Exposed type `UnusedT` is never used in the project"
+                                , details = unusedExposedElementWhenExposingAllDetails
+                                , under = "UnusedT"
+                                }
+                            ]
+                          )
+                        ]
+        , test "reports an unused port" <|
+            \() ->
+                [ """
+module Main exposing (main)
+import Reported
+main = ()
+"""
+                , """
+port module Reported exposing (..)
+port unused : ()
+"""
+                ]
+                    |> Review.Test.runOnModulesWithProjectData application rule
+                    |> Review.Test.expectErrorsForModules
+                        [ ( "Reported"
+                          , [ Review.Test.error
+                                { message = "Exposed function or value `unused` is never used in the project"
+                                , details = unusedExposedElementWhenExposingAllDetails
+                                , under = "unused"
+                                }
+                            ]
+                          )
+                        ]
+        , test "should not report a function that's used internally" <|
+            \() ->
+                [ """
+module Main exposing (main)
+import NotReported
+main = NotReported.external
+"""
+                , """
+module NotReported exposing (..)
+internal = ()
+external = internal
+"""
+                ]
+                    |> Review.Test.runOnModulesWithProjectData application rule
+                    |> Review.Test.expectNoErrors
+        , test "should not report a type alias that's used internally" <|
+            \() ->
+                [ """
+module Main exposing (main)
+import NotReported
+main : NotReported.External
+main = ()
+"""
+                , """
+module NotReported exposing (..)
+type alias Internal = ()
+type alias External = Internal
+"""
+                ]
+                    |> Review.Test.runOnModulesWithProjectData application rule
+                    |> Review.Test.expectNoErrors
+        , test "should not report a custom type that's used internally" <|
+            \() ->
+                [ """
+module Main exposing (main)
+import NotReported
+main = NotReported.external
+"""
+                , """
+module NotReported exposing (..)
+type InternalT = InternalC
+external : InternalT
+external = InternalC
+"""
+                ]
+                    |> Review.Test.runOnModulesWithProjectData application rule
+                    |> Review.Test.expectNoErrors
+        , test "should not report a custom type whose constructor is used" <|
+            \() ->
+                [ """
+module Main exposing (main)
+import NotReported
+main = NotReported.Constructor
+"""
+                , """
+module NotReported exposing (..)
+type Type = Constructor
+"""
+                ]
+                    |> Review.Test.runOnModulesWithProjectData application rule
+                    |> Review.Test.expectNoErrors
+        , test "should not report a custom type whose constructor is used internally" <|
+            \() ->
+                [ """
+module Main exposing (main)
+import NotReported
+main = NotReported.external
+"""
+                , """
+module NotReported exposing (..)
+external = Constructor
+type Type = Constructor
+"""
+                ]
+                    |> Review.Test.runOnModulesWithProjectData application rule
+                    |> Review.Test.expectNoErrors
+        , test "does not report a port that's used internally" <|
+            \() ->
+                [ """
+module Main exposing (main)
+import NotReported
+main = NotReported.external
+"""
+                , """
+port module NotReported exposing (..)
+port internal : ()
+external = internal
+"""
+                ]
+                    |> Review.Test.runOnModulesWithProjectData application rule
+                    |> Review.Test.expectNoErrors
+        , test "should not report a function that's used externally" <|
+            \() ->
+                [ """
+module Main exposing (main)
+import NotReported
+main = NotReported.used
+"""
+                , """
+module NotReported exposing (..)
+used = ()
+"""
+                ]
+                    |> Review.Test.runOnModulesWithProjectData application rule
+                    |> Review.Test.expectNoErrors
+        , test "should not report a type alias that's used externally" <|
+            \() ->
+                [ """
+module Main exposing (main)
+import NotReported
+main : NotReported.Used
+main = ()
+"""
+                , """
+module NotReported exposing (..)
+type alias Used = ()
+"""
+                ]
+                    |> Review.Test.runOnModulesWithProjectData application rule
+                    |> Review.Test.expectNoErrors
+        , test "should not report a custom type that's used externally" <|
+            \() ->
+                [ """
+module Main exposing (main)
+import NotReported
+main : NotReported.UsedT
+main = NotReported.UsedC
+"""
+                , """
+module NotReported exposing (..)
+type UsedT = UsedC
+"""
+                ]
+                    |> Review.Test.runOnModulesWithProjectData application rule
+                    |> Review.Test.expectNoErrors
+        , test "should not report a port that's used externally" <|
+            \() ->
+                [ """
+module Main exposing (main)
+import NotReported
+main = NotReported.used
+"""
+                , """
+port module NotReported exposing (..)
+port used : ()
+"""
+                ]
+                    |> Review.Test.runOnModulesWithProjectData application rule
+                    |> Review.Test.expectNoErrors
+        , test "should not remove a type alias used in a local let binding type annotation" <|
+            \() ->
+                [ """
+module Main exposing (main)
+import Tertiary
+main = Tertiary.func 1 2
+"""
+                , """
+module Tertiary exposing (..)
+
+type alias Tertiary = {}
+
+func : Int -> Int -> Int
+func a b =
+    let
+        perhapsTertiary : Int -> Maybe Tertiary
+        perhapsTertiary a =
+            if a > 5 then
+                Just {}
+            else
+                Nothing
+    in
+    case perhapsTertiary 4 of
+        Just _ ->
+            a + b
+
+        Nothing ->
+            a - 4
+"""
+                ]
+                    |> Review.Test.runOnModulesWithProjectData application rule
+                    |> Review.Test.expectNoErrors
+        , test "should not remove a type used in a local let destructuring" <|
+            \() ->
+                [ """
+module Main exposing (main)
+import Tertiary
+main = Tertiary.func 1
+"""
+                , """
+module Tertiary exposing (..)
+
+type Wrapper = WrapperConstructor Int
+
+func foo =
+    let
+        (WrapperConstructor int) = foo
+    in
+    int
+"""
+                ]
+                    |> Review.Test.runOnModulesWithProjectData application rule
+                    |> Review.Test.expectNoErrors
+        , test "should not custom type that is being pattern matched on locally" <|
+            \() ->
+                [ """
+module Main exposing (main)
+import Tertiary
+main = Tertiary.func foo
+"""
+                , """
+module Tertiary exposing (..)
+
+type Used = X
+
+func foo =
+    case foo of
+        X -> 1
+"""
+                ]
+                    |> Review.Test.runOnModulesWithProjectData application rule
+                    |> Review.Test.expectNoErrors
         ]

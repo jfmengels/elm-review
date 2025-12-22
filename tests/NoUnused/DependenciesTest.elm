@@ -1,5 +1,6 @@
 module NoUnused.DependenciesTest exposing (all)
 
+import Dependencies.ElmJson
 import Elm.Docs
 import Elm.Project
 import Json.Decode as Decode
@@ -15,6 +16,7 @@ createProject : Maybe String -> String -> Project
 createProject maybeTestModule rawElmJson =
     Review.Test.Dependencies.projectWithElmCore
         |> Project.addElmJson (createElmJson rawElmJson)
+        |> Project.addDependency Dependencies.ElmJson.dependency
         |> Project.addDependency packageWithBar
         |> Project.addDependency packageWithFoo
         |> Project.addDependency packageWithTestBar
@@ -54,7 +56,8 @@ applicationElmJson =
         "direct": {
             "author/package-with-bar": "1.0.0",
             "author/package-with-foo": "1.0.0",
-            "elm/core": "1.0.0"
+            "elm/core": "1.0.0",
+            "elm/json": "1.0.0"
         },
         "indirect": {}
     },
@@ -80,7 +83,8 @@ applicationElmJsonWithoutBar =
     "dependencies": {
         "direct": {
             "author/package-with-foo": "1.0.0",
-            "elm/core": "1.0.0"
+            "elm/core": "1.0.0",
+            "elm/json": "1.0.0"
         },
         "indirect": {
             "author/package-with-bar": "1.0.0"
@@ -106,7 +110,8 @@ applicationElmJsonWithoutTestDeps =
         "direct": {
             "author/package-with-bar": "1.0.0",
             "author/package-with-foo": "1.0.0",
-            "elm/core": "1.0.0"
+            "elm/core": "1.0.0",
+            "elm/json": "1.0.0"
         },
         "indirect": {}
     },
@@ -130,7 +135,8 @@ applicationElmJsonWithIndirectOtherFooWithoutTestDeps =
         "direct": {
             "author/package-with-bar": "1.0.0",
             "author/package-with-foo": "1.0.0",
-            "elm/core": "1.0.0"
+            "elm/core": "1.0.0",
+            "elm/json": "1.0.0"
         },
         "indirect": {
             "author/package-with-other-foo": "1.0.0"
@@ -402,7 +408,8 @@ a = 1
     "dependencies": {
         "direct": {
             "author/package-with-foo": "1.0.0",
-            "elm/core": "1.0.0"
+            "elm/core": "1.0.0",
+            "elm/json": "1.0.0"
         },
         "indirect": {}
     },
@@ -432,7 +439,8 @@ a = 1
     "dependencies": {
         "direct": {
             "author/package-with-bar": "1.0.0",
-            "elm/core": "1.0.0"
+            "elm/core": "1.0.0",
+            "elm/json": "1.0.0"
         },
         "indirect": {}
     },
@@ -463,7 +471,8 @@ a = 1
         "direct": {
             "author/package-with-bar": "1.0.0",
             "author/package-with-foo": "1.0.0",
-            "elm/core": "1.0.0"
+            "elm/core": "1.0.0",
+            "elm/json": "1.0.0"
         },
         "indirect": {}
     },
@@ -493,7 +502,8 @@ a = 1
         "direct": {
             "author/package-with-bar": "1.0.0",
             "author/package-with-foo": "1.0.0",
-            "elm/core": "1.0.0"
+            "elm/core": "1.0.0",
+            "elm/json": "1.0.0"
         },
         "indirect": {}
     },
@@ -742,7 +752,8 @@ a = 1
     "dependencies": {
         "direct": {
             "author/package-with-bar": "1.0.0",
-            "elm/core": "1.0.0"
+            "elm/core": "1.0.0",
+            "elm/json": "1.0.0"
         },
         "indirect": {}
     },
@@ -788,7 +799,8 @@ a = 1
     "dependencies": {
         "direct": {
             "author/package-with-foo": "1.0.0",
-            "elm/core": "1.0.0"
+            "elm/core": "1.0.0",
+            "elm/json": "1.0.0"
         },
         "indirect": {
             "author/package-with-bar": "1.0.0"
@@ -846,7 +858,8 @@ a = 1
     "dependencies": {
         "direct": {
             "author/package-with-foo": "1.0.0",
-            "elm/core": "1.0.0"
+            "elm/core": "1.0.0",
+            "elm/json": "1.0.0"
         },
         "indirect": {
             "author/package-with-bar": "1.0.0"
@@ -917,7 +930,8 @@ a = 1
     "elm-version": "0.19.1",
     "dependencies": {
         "direct": {
-            "elm/core": "1.0.0"
+            "elm/core": "1.0.0",
+            "elm/json": "1.0.0"
         },
         "indirect": {}
     },

@@ -2,9 +2,7 @@ module Review.FixAll exposing (..)
 
 import Dict exposing (Dict)
 import Docs.UpToDateReadmeLinks
-import Elm.Package
 import Elm.Project
-import Elm.Version
 import Expect
 import Json.Decode as Decode
 import Json.Encode as Encode
@@ -281,7 +279,7 @@ a = 1
                     expectedElmJson =
                         applicationElmJson
                             """ "elm/core": "1.0.0",
-            "other/unused": "1.0.0\""""
+            "something/unused": "1.0.0\""""
 
                     results : { errors : List Rule.ReviewError, fixedErrors : Dict String (List Rule.ReviewError), rules : List Rule.Rule, project : Project, extracts : Dict String Encode.Value }
                     results =
@@ -294,10 +292,10 @@ a = 1
                             |> Expect.equal
                                 (Dict.fromList
                                     [ ( "elm.json"
-                                      , [ { message = "Unused dependency `something/unused`"
+                                      , [ { message = "Unused dependency `other/unused`"
                                           , details =
                                                 [ "To remove it, I recommend running the following command:"
-                                                , "    elm-json uninstall something/unused"
+                                                , "    elm-json uninstall other/unused"
                                                 ]
                                           , filePath = "elm.json"
                                           , fixes = fixForElmJson (Fix.replaceRangeBy { end = { column = 1, row = 100000000 }, start = { column = 1, row = 1 } } """{
@@ -309,7 +307,7 @@ a = 1
     "dependencies": {
         "direct": {
             "elm/core": "1.0.0",
-            "other/unused": "1.0.0"
+            "something/unused": "1.0.0"
         },
         "indirect": {}
     },
@@ -321,7 +319,7 @@ a = 1
 """)
                                           , fixProblem = Nothing
                                           , preventsExtract = False
-                                          , range = { end = { column = 51, row = 9 }, start = { column = 35, row = 9 } }
+                                          , range = { start = { row = 9, column = 64 }, end = { row = 9, column = 76 } }
                                           , ruleName = "NoUnused.Dependencies"
                                           , target = Target.elmJson
                                           }
@@ -474,23 +472,3 @@ parseElmJson raw =
 
         Err err ->
             Debug.todo ("Could not decode elm.json: " ++ Debug.toString err)
-
-
-unsafePackageName : String -> Elm.Package.Name
-unsafePackageName packageName =
-    case Elm.Package.fromString packageName of
-        Just name ->
-            name
-
-        Nothing ->
-            Debug.todo ("Package name `" ++ packageName ++ "` was not valid.")
-
-
-unsafeElmVersion : String -> Elm.Version.Version
-unsafeElmVersion versionString =
-    case Elm.Version.fromString versionString of
-        Just version ->
-            version
-
-        Nothing ->
-            Debug.todo ("Package name `" ++ versionString ++ "` was not valid.")

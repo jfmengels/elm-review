@@ -14,6 +14,18 @@ It won't automatically remove unused modules though.
 If the project is a package and the module that declared the element is exposed,
 then nothing will be reported.
 
+The behavior of the rule also depends on whether the analyzed module is exposing elements explicitly (`module X exposing (A, b)`)
+or exposing everything (`module X exposing (..)`).
+
+When exposing elements explicitly, the rule will report and remove elements from the
+exposing clause (`exposing (used, unused)` to `exposing (used)`) when they're never used in other Elm files of the project.
+
+When exposing all, the rule will report and remove the declaration of elements
+if they're used neither in the file they're declared in nor in any other files,
+making it act somewhat like [`NoUnused.Variables`](./NoUnused-Variables),
+complementing it because [`NoUnused.Variables`](./NoUnused-Variables) doesn't report
+top-level declarations when the module is exposing everything.
+
 @docs rule
 
 
@@ -85,9 +97,6 @@ elm-review --template jfmengels/elm-review-unused/example-ignore-tests --rules N
 ```
 
 -}
-
--- TODO Don't report type or type aliases (still `A(..)` though) if they are
--- used in exposed function arguments/return values.
 
 import Dict exposing (Dict)
 import Elm.Module
@@ -456,15 +465,17 @@ type alias ProjectContext =
             ModuleNameStr
             { moduleKey : Rule.ModuleKey
             , exposed : Dict String ExposedElement
+            , isExposingAll : Bool
             , moduleNameLocation : Range
             , isProductionFile : Bool
             , isProductionFileNotToReport : Bool
             , ignoredElementsNotToReport : Set String
             }
     , usedModules : Set ModuleNameStr
-    , used : Set ( ModuleNameStr, String )
-    , usedInIgnoredModules : Set ( ModuleNameStr, String )
+    , used : Set ElementIdentifier
+    , usedInIgnoredModules : Set ElementIdentifier
     , constructors : Dict ( ModuleNameStr, String ) String
+    , typesImportedWithConstructors : Set ( ModuleNameStr, String )
     }
 
 
@@ -487,7 +498,7 @@ type ElmApplicationType
 
 type ExposedElementType
     = Function
-    | TypeOrTypeAlias
+    | TypeOrTypeAlias Bool
     | ExposedType (List String)
 
 
@@ -495,15 +506,39 @@ type alias ModuleNameStr =
     String
 
 
+type alias ElementIdentifier =
+    ( ModuleNameStr, String, Realm )
+
+
+type alias Realm =
+    -- valueRealm for values
+    -- | typeRealm for types
+    Int
+
+
+valueRealm : Realm
+valueRealm =
+    0
+
+
+typeRealm : Realm
+typeRealm =
+    1
+
+
 type alias ModuleContext =
     { lookupTable : ModuleNameLookupTable
     , exposed : Dict String ExposedElement
-    , used : Set ( ModuleNameStr, String )
-    , elementsNotToReport : Set String
+    , used : Set ElementIdentifier
+    , elementsNotToReport : Set ( String, Realm )
     , ignoredElementsNotToReport : Set String
     , importedModules : Set ModuleNameStr
     , containsMainFunction : Bool
+    , inTheDeclarationOf : String
     , projectType : ProjectType
+    , isExposingAll : Bool
+    , constructorNameToTypeName : Dict String String
+    , typesImportedWithConstructors : Set ( ModuleNameStr, String )
     }
 
 
@@ -515,6 +550,7 @@ initialProjectContext =
     , used = Set.empty
     , usedInIgnoredModules = Set.empty
     , constructors = Dict.empty
+    , typesImportedWithConstructors = Set.empty
     }
 
 
@@ -523,14 +559,31 @@ fromProjectToModule =
     Rule.initContextCreator
         (\lookupTable ast moduleDocumentation projectContext ->
             let
+                exposingList : Exposing
+                exposingList =
+                    Module.exposingList (Node.value ast.moduleDefinition)
+
+                isExposingAll : Bool
+                isExposingAll =
+                    case exposingList of
+                        Exposing.All _ ->
+                            True
+
+                        Exposing.Explicit _ ->
+                            False
+
+                docsReferences : List ( Int, String )
+                docsReferences =
+                    collectDocsReferences moduleDocumentation
+
                 exposed : Dict String ExposedElement
                 exposed =
-                    case Module.exposingList (Node.value ast.moduleDefinition) of
+                    case exposingList of
                         Exposing.All _ ->
-                            Dict.empty
+                            collectExposedElementsForAll docsReferences ast.declarations
 
                         Exposing.Explicit explicitlyExposed ->
-                            collectExposedElements moduleDocumentation explicitlyExposed ast.declarations
+                            collectExposedElements docsReferences explicitlyExposed ast.declarations
             in
             { lookupTable = lookupTable
             , exposed = exposed
@@ -538,13 +591,97 @@ fromProjectToModule =
             , elementsNotToReport = Set.empty
             , ignoredElementsNotToReport = Set.empty
             , importedModules = Set.empty
+            , constructorNameToTypeName = createConstructorNameToTypeNameDict exposingList ast.declarations
+            , typesImportedWithConstructors = Set.empty
             , containsMainFunction = False
+            , inTheDeclarationOf = ""
             , projectType = projectContext.projectType
+            , isExposingAll = isExposingAll
             }
         )
         |> Rule.withModuleNameLookupTable
         |> Rule.withFullAst
         |> Rule.withModuleDocumentation
+
+
+createConstructorNameToTypeNameDict : Exposing -> List (Node Declaration) -> Dict String String
+createConstructorNameToTypeNameDict exposingList declarations =
+    case exposingList of
+        Exposing.All _ ->
+            List.foldl
+                (\node acc ->
+                    case Node.value node of
+                        Declaration.CustomTypeDeclaration customType ->
+                            let
+                                typeName : String
+                                typeName =
+                                    Node.value customType.name
+                            in
+                            List.foldl
+                                (\(Node _ { name }) subAcc ->
+                                    Dict.insert (Node.value name) typeName subAcc
+                                )
+                                acc
+                                customType.constructors
+
+                        _ ->
+                            acc
+                )
+                Dict.empty
+                declarations
+
+        Exposing.Explicit _ ->
+            Dict.empty
+
+
+declarationToTopLevelExpose : Declaration -> Maybe (Node TopLevelExpose)
+declarationToTopLevelExpose declaration =
+    case declaration of
+        Declaration.FunctionDeclaration function ->
+            function.declaration
+                |> Node.value
+                |> .name
+                |> Node.map Exposing.FunctionExpose
+                |> Just
+
+        Declaration.AliasDeclaration typeAlias ->
+            typeAlias.name
+                |> Node.map Exposing.TypeOrAliasExpose
+                |> Just
+
+        Declaration.CustomTypeDeclaration type_ ->
+            type_.name
+                |> Node.map (\name -> Exposing.TypeExpose { name = name, open = Nothing })
+                |> Just
+
+        Declaration.PortDeclaration signature ->
+            signature.name
+                |> Node.map Exposing.FunctionExpose
+                |> Just
+
+        Declaration.InfixDeclaration infix_ ->
+            infix_.operator
+                |> Node.map Exposing.InfixExpose
+                |> Just
+
+        Declaration.Destructuring _ _ ->
+            Nothing
+
+
+topLevelExposeName : TopLevelExpose -> String
+topLevelExposeName topLevelExpose =
+    case topLevelExpose of
+        Exposing.InfixExpose name ->
+            name
+
+        Exposing.FunctionExpose name ->
+            name
+
+        Exposing.TypeOrAliasExpose name ->
+            name
+
+        Exposing.TypeExpose { name } ->
+            name
 
 
 fromModuleToProject : Config -> Rule.ContextCreator ModuleContext ProjectContext
@@ -556,10 +693,10 @@ fromModuleToProject config =
                 moduleNameStr =
                     String.join "." moduleName
 
-                used : Set ( ModuleNameStr, String )
+                used : Set ElementIdentifier
                 used =
                     Set.foldl
-                        (\element acc -> Set.insert ( moduleNameStr, element ) acc)
+                        (\( element, realm ) acc -> Set.insert ( moduleNameStr, element, realm ) acc)
                         moduleContext.used
                         moduleContext.elementsNotToReport
 
@@ -573,6 +710,7 @@ fromModuleToProject config =
                     moduleNameStr
                     { moduleKey = moduleKey
                     , exposed = moduleContext.exposed
+                    , isExposingAll = moduleContext.isExposingAll
                     , moduleNameLocation = moduleNameRange
                     , isProductionFile = isProductionFile
                     , isProductionFileNotToReport = any config.exceptionModules { moduleName = moduleName, filePath = filePath }
@@ -606,11 +744,15 @@ fromModuleToProject config =
                                     acc
                                     constructorNames
 
+                            TypeOrTypeAlias True ->
+                                Dict.insert ( moduleNameStr, name ) name acc
+
                             _ ->
                                 acc
                     )
                     Dict.empty
                     moduleContext.exposed
+            , typesImportedWithConstructors = moduleContext.typesImportedWithConstructors
             }
         )
         |> Rule.withModuleKey
@@ -641,10 +783,11 @@ foldProjectContexts newContext previousContext =
     , used = Set.union newContext.used previousContext.used
     , usedInIgnoredModules = Set.union newContext.usedInIgnoredModules previousContext.usedInIgnoredModules
     , constructors = Dict.union newContext.constructors previousContext.constructors
+    , typesImportedWithConstructors = Set.union newContext.typesImportedWithConstructors previousContext.typesImportedWithConstructors
     }
 
 
-registerAsUsed : ( ModuleNameStr, String ) -> ModuleContext -> ModuleContext
+registerAsUsed : ElementIdentifier -> ModuleContext -> ModuleContext
 registerAsUsed key moduleContext =
     { moduleContext | used = Set.insert key moduleContext.used }
 
@@ -670,7 +813,7 @@ elmJsonVisitor maybeProject projectContext =
             { projectContext
                 | projectType =
                     exposedModuleNames
-                        |> List.foldr
+                        |> List.foldl
                             (\moduleName acc ->
                                 Set.insert (Elm.Module.toString moduleName) acc
                             )
@@ -679,16 +822,27 @@ elmJsonVisitor maybeProject projectContext =
             }
 
         Just (Elm.Project.Application { depsDirect }) ->
-            let
-                elmApplicationType : ElmApplicationType
-                elmApplicationType =
-                    if LamderaSupport.isLamderaApplication depsDirect then
-                        LamderaApplication
+            if LamderaSupport.isLamderaApplication depsDirect then
+                let
+                    types : String
+                    types =
+                        "Types"
+                in
+                { projectContext
+                    | projectType = IsApplication LamderaApplication
+                    , used =
+                        Set.fromList
+                            [ ( types, "FrontendModel", typeRealm )
+                            , ( types, "FrontendMsg", typeRealm )
+                            , ( types, "BackendModel", typeRealm )
+                            , ( types, "BackendMsg", typeRealm )
+                            , ( types, "ToFrontend", typeRealm )
+                            , ( types, "ToBackend", typeRealm )
+                            ]
+                }
 
-                    else
-                        ElmApplication
-            in
-            { projectContext | projectType = IsApplication elmApplicationType }
+            else
+                { projectContext | projectType = IsApplication ElmApplication }
 
         Nothing ->
             { projectContext | projectType = IsApplication ElmApplication }
@@ -701,30 +855,39 @@ elmJsonVisitor maybeProject projectContext =
 finalEvaluationForProject : Maybe String -> ProjectContext -> List (Error { useErrorForModule : () })
 finalEvaluationForProject exceptionExplanation projectContext =
     let
-        used : Set ( ModuleNameStr, String )
-        used =
+        ( used, typesWithUsedConstructors ) =
             Set.foldl
-                (\(( moduleName, _ ) as key) acc ->
-                    case Dict.get key projectContext.constructors of
-                        Just typeName ->
-                            Set.insert ( moduleName, typeName ) acc
+                (\( moduleName, name, realm ) (( used_, typesWithUsedConstructors_ ) as acc) ->
+                    if realm == valueRealm then
+                        case Dict.get ( moduleName, name ) projectContext.constructors of
+                            Just typeName ->
+                                ( Set.insert ( moduleName, typeName, typeRealm ) used_
+                                , Set.insert ( moduleName, typeName ) typesWithUsedConstructors_
+                                )
 
-                        Nothing ->
-                            acc
+                            Nothing ->
+                                acc
+
+                    else
+                        acc
                 )
-                projectContext.used
+                ( projectContext.used, projectContext.typesImportedWithConstructors )
                 projectContext.used
 
-        usedInIgnoredModules : Set ( ModuleNameStr, String )
+        usedInIgnoredModules : Set ElementIdentifier
         usedInIgnoredModules =
             Set.foldl
-                (\(( moduleName, _ ) as key) acc ->
-                    case Dict.get key projectContext.constructors of
-                        Just typeName ->
-                            Set.insert ( moduleName, typeName ) acc
+                (\( moduleName, name, realm ) acc ->
+                    if realm == valueRealm then
+                        case Dict.get ( moduleName, name ) projectContext.constructors of
+                            Just typeName ->
+                                Set.insert ( moduleName, typeName, typeRealm ) acc
 
-                        Nothing ->
-                            acc
+                            Nothing ->
+                                acc
+
+                    else
+                        acc
                 )
                 projectContext.usedInIgnoredModules
                 projectContext.usedInIgnoredModules
@@ -735,11 +898,20 @@ finalEvaluationForProject exceptionExplanation projectContext =
     in
     Dict.foldl
         (\moduleName module_ acc ->
-            if not (filterExposedPackage_ moduleName) then
+            if not (filterExposedPackage_ moduleName) || moduleName == "ReviewConfig" then
                 acc
 
             else if Set.member moduleName projectContext.usedModules then
-                errorsForModule exceptionExplanation projectContext { used = used, usedInIgnoredModules = usedInIgnoredModules } moduleName module_ acc
+                errorsForModule
+                    { exceptionExplanation = exceptionExplanation
+                    , projectContext = projectContext
+                    , used = used
+                    , usedInIgnoredModules = usedInIgnoredModules
+                    , typesWithUsedConstructors = typesWithUsedConstructors
+                    , moduleName = moduleName
+                    }
+                    module_
+                    acc
 
             else
                 unusedModuleError moduleName module_ :: acc
@@ -751,7 +923,7 @@ finalEvaluationForProject exceptionExplanation projectContext =
 unusedModuleError : ModuleNameStr -> { a | moduleKey : Rule.ModuleKey, moduleNameLocation : Range } -> Error scope
 unusedModuleError moduleName { moduleKey, moduleNameLocation } =
     Rule.errorForModule moduleKey
-        { message = "Module `" ++ moduleName ++ "` is never used."
+        { message = "Module `" ++ moduleName ++ "` is never used"
         , details = [ "This module is never used. You may want to remove it to keep your project clean, and maybe detect some unused code in your project." ]
         }
         moduleNameLocation
@@ -759,60 +931,124 @@ unusedModuleError moduleName { moduleKey, moduleNameLocation } =
 
 
 errorsForModule :
-    Maybe String
-    -> ProjectContext
-    -> { used : Set ( ModuleNameStr, String ), usedInIgnoredModules : Set ( ModuleNameStr, String ) }
-    -> ModuleNameStr
+    { exceptionExplanation : Maybe String
+    , projectContext : ProjectContext
+    , used : Set ElementIdentifier
+    , usedInIgnoredModules : Set ElementIdentifier
+    , typesWithUsedConstructors : Set ( ModuleNameStr, String )
+    , moduleName : ModuleNameStr
+    }
     ->
         { a
             | moduleKey : Rule.ModuleKey
             , exposed : Dict String ExposedElement
+            , isExposingAll : Bool
             , isProductionFile : Bool
             , isProductionFileNotToReport : Bool
             , ignoredElementsNotToReport : Set String
         }
     -> List (Error scope)
     -> List (Error scope)
-errorsForModule exceptionExplanation projectContext { used, usedInIgnoredModules } moduleName { moduleKey, exposed, isProductionFile, isProductionFileNotToReport, ignoredElementsNotToReport } acc =
+errorsForModule { exceptionExplanation, projectContext, used, usedInIgnoredModules, typesWithUsedConstructors, moduleName } { moduleKey, exposed, isExposingAll, isProductionFile, isProductionFileNotToReport, ignoredElementsNotToReport } acc =
     Dict.foldl
         (\name element subAcc ->
-            if isUsedOrException projectContext used moduleName name then
+            if isApplicationException projectContext name then
                 subAcc
 
-            else if Set.member ( moduleName, name ) usedInIgnoredModules then
-                if not isProductionFile || isProductionFileNotToReport || Set.member name ignoredElementsNotToReport then
-                    subAcc
+            else
+                let
+                    isType : Realm
+                    isType =
+                        case element.elementType of
+                            Function ->
+                                valueRealm
 
-                else
-                    Rule.errorForModule moduleKey
-                        { message = what element.elementType ++ " `" ++ name ++ "` is never used in production code."
-                        , details =
-                            "This exposed element is only used in files you have marked as non-production code (e.g. the tests folder), and should therefore be removed along with the places it's used in. This will help reduce the amount of code you will need to maintain."
-                                :: (case exceptionExplanation of
-                                        Nothing ->
-                                            [ "It is possible that this element is meant to enable work in your ignored folder (test helpers for instance), in which case you should keep it. To avoid this problem being reported again, please read the documentation on how to configure the rule."
-                                            ]
+                            TypeOrTypeAlias _ ->
+                                typeRealm
 
-                                        Just explanation ->
-                                            [ "It is possible that this element is meant to enable work in your ignored folder (test helpers for instance), in which case you should keep it. To avoid this problem being reported again, you can:"
-                                            , explanation
-                                            ]
-                                   )
+                            ExposedType _ ->
+                                typeRealm
+
+                    key : ElementIdentifier
+                    key =
+                        ( moduleName, name, isType )
+                in
+                if Set.member key used then
+                    if not isExposingAll && isCustomTypeExposingUnusedVariants typesWithUsedConstructors moduleName name element then
+                        Rule.errorForModuleWithFix moduleKey
+                            { message = "The constructors for type `" ++ name ++ "` are never used outside this module"
+                            , details = [ "You should stop exposing the variants by removing the (..) at this location. You can re-expose them if necessary later." ]
+                            }
+                            element.range
+                            [ Fix.removeRange
+                                { start =
+                                    { row = element.range.start.row
+                                    , column = element.range.end.column - 4
+                                    }
+                                , end = element.range.end
+                                }
+                            ]
+                            :: subAcc
+
+                    else
+                        subAcc
+
+                else if Set.member key usedInIgnoredModules then
+                    if not isProductionFile || isProductionFileNotToReport || Set.member name ignoredElementsNotToReport then
+                        subAcc
+
+                    else
+                        Rule.errorForModule moduleKey
+                            { message = what element.elementType ++ " `" ++ name ++ "` is never used in production code"
+                            , details =
+                                "This exposed element is only used in files you have marked as non-production code (e.g. the tests folder), and should therefore be removed along with the places it's used in. This will help reduce the amount of code you will need to maintain."
+                                    :: (case exceptionExplanation of
+                                            Nothing ->
+                                                [ "It is possible that this element is meant to enable work in your ignored folder (test helpers for instance), in which case you should keep it. To avoid this problem being reported again, please read the documentation on how to configure the rule."
+                                                ]
+
+                                            Just explanation ->
+                                                [ "It is possible that this element is meant to enable work in your ignored folder (test helpers for instance), in which case you should keep it. To avoid this problem being reported again, you can:"
+                                                , explanation
+                                                ]
+                                       )
+                            }
+                            element.range
+                            :: subAcc
+
+                else if isExposingAll then
+                    Rule.errorForModuleWithFix moduleKey
+                        { message = what element.elementType ++ " `" ++ name ++ "` is never used in the project"
+                        , details = [ "This exposed element is never used, neither inside its module nor outside. You may want to remove it to keep your project clean, and maybe detect some unused code in your project." ]
                         }
                         element.range
+                        (List.map Fix.removeRange element.rangesToRemove)
                         :: subAcc
 
-            else
-                Rule.errorForModuleWithFix moduleKey
-                    { message = what element.elementType ++ " `" ++ name ++ "` is never used outside this module."
-                    , details = [ "This exposed element is never used. You may want to remove it to keep your project clean, and maybe detect some unused code in your project." ]
-                    }
-                    element.range
-                    (List.map Fix.removeRange element.rangesToRemove)
-                    :: subAcc
+                else
+                    Rule.errorForModuleWithFix moduleKey
+                        { message = what element.elementType ++ " `" ++ name ++ "` is never used outside this module"
+                        , details = [ "This exposed element is never used. You may want to remove it to keep your project clean, and maybe detect some unused code in your project." ]
+                        }
+                        element.range
+                        (List.map Fix.removeRange element.rangesToRemove)
+                        :: subAcc
         )
         acc
         exposed
+
+
+isCustomTypeExposingUnusedVariants : Set ( ModuleNameStr, String ) -> ModuleNameStr -> String -> ExposedElement -> Bool
+isCustomTypeExposingUnusedVariants typesWithUsedConstructors moduleName name element =
+    case element.elementType of
+        Function ->
+            False
+
+        TypeOrTypeAlias _ ->
+            False
+
+        ExposedType _ ->
+            not (Set.member ( moduleName, name ) typesWithUsedConstructors)
 
 
 what : ExposedElementType -> String
@@ -821,7 +1057,7 @@ what elementType =
         Function ->
             "Exposed function or value"
 
-        TypeOrTypeAlias ->
+        TypeOrTypeAlias _ ->
             "Exposed type or type alias"
 
         ExposedType _ ->
@@ -836,13 +1072,6 @@ filterExposedPackage projectContext =
 
         IsPackage exposedModuleNames ->
             \moduleName -> not <| Set.member moduleName exposedModuleNames
-
-
-isUsedOrException : ProjectContext -> Set ( ModuleNameStr, String ) -> ModuleNameStr -> String -> Bool
-isUsedOrException projectContext used moduleName name =
-    Set.member ( moduleName, name ) used
-        || isApplicationException projectContext name
-        || (moduleName == "ReviewConfig")
 
 
 isApplicationException : ProjectContext -> String -> Bool
@@ -877,7 +1106,7 @@ getRangesToRemove comments canRemoveExposed name index maybePreviousRange range 
         in
         List.filterMap identity
             [ Just exposeRemoval
-            , findMap (findDocsRangeToRemove name) comments
+            , List.Extra.findMap (findDocsRangeToRemove name) comments
             ]
 
     else
@@ -925,21 +1154,6 @@ findCommentAtEnd name ( row, comment ) =
                 )
 
 
-findMap : (a -> Maybe b) -> List a -> Maybe b
-findMap mapper list =
-    case list of
-        [] ->
-            Nothing
-
-        first :: rest ->
-            case mapper first of
-                Just value ->
-                    Just value
-
-                Nothing ->
-                    findMap mapper rest
-
-
 untilEndOfVariable : String -> Range -> Range
 untilEndOfVariable name range =
     if range.start.row == range.end.row then
@@ -964,10 +1178,11 @@ importVisitor (Node _ import_) moduleContext =
     { moduleContext
         | used = collectUsedFromImport moduleName import_.exposingList moduleContext.used
         , importedModules = Set.insert moduleName moduleContext.importedModules
+        , typesImportedWithConstructors = addTypesImportedWithConstructors moduleName import_.exposingList moduleContext.typesImportedWithConstructors
     }
 
 
-collectUsedFromImport : ModuleNameStr -> Maybe (Node Exposing) -> Set ( ModuleNameStr, String ) -> Set ( ModuleNameStr, String )
+collectUsedFromImport : ModuleNameStr -> Maybe (Node Exposing) -> Set ElementIdentifier -> Set ElementIdentifier
 collectUsedFromImport moduleName exposingList used =
     case Maybe.map Node.value exposingList of
         Just (Exposing.Explicit list) ->
@@ -975,13 +1190,13 @@ collectUsedFromImport moduleName exposingList used =
                 (\(Node _ element) acc ->
                     case element of
                         Exposing.FunctionExpose name ->
-                            Set.insert ( moduleName, name ) acc
+                            Set.insert ( moduleName, name, valueRealm ) acc
 
                         Exposing.TypeOrAliasExpose name ->
-                            Set.insert ( moduleName, name ) acc
+                            Set.insert ( moduleName, name, typeRealm ) acc
 
                         Exposing.TypeExpose { name } ->
-                            Set.insert ( moduleName, name ) acc
+                            Set.insert ( moduleName, name, typeRealm ) acc
 
                         Exposing.InfixExpose _ ->
                             acc
@@ -994,6 +1209,29 @@ collectUsedFromImport moduleName exposingList used =
 
         Nothing ->
             used
+
+
+addTypesImportedWithConstructors : ModuleNameStr -> Maybe (Node Exposing) -> Set ( ModuleNameStr, String ) -> Set ( ModuleNameStr, String )
+addTypesImportedWithConstructors moduleName exposingList typesImportedWithConstructors =
+    case Maybe.map Node.value exposingList of
+        Just (Exposing.Explicit list) ->
+            List.foldl
+                (\(Node _ element) acc ->
+                    case element of
+                        Exposing.TypeExpose { name } ->
+                            Set.insert ( moduleName, name ) acc
+
+                        _ ->
+                            acc
+                )
+                typesImportedWithConstructors
+                list
+
+        Just (Exposing.All _) ->
+            typesImportedWithConstructors
+
+        Nothing ->
+            typesImportedWithConstructors
 
 
 collectDocsReferences : Maybe (Node String) -> List ( Int, String )
@@ -1023,13 +1261,9 @@ collectDocsReferences maybeModuleDocumentation =
             []
 
 
-collectExposedElements : Maybe (Node String) -> List (Node Exposing.TopLevelExpose) -> List (Node Declaration) -> Dict String ExposedElement
-collectExposedElements moduleDocumentation exposingNodes declarations =
+collectExposedElements : List ( Int, String ) -> List (Node Exposing.TopLevelExpose) -> List (Node Declaration) -> Dict String ExposedElement
+collectExposedElements docsReferences exposingNodes declarations =
     let
-        docsReferences : List ( Int, String )
-        docsReferences =
-            collectDocsReferences moduleDocumentation
-
         declaredNames : Set String
         declaredNames =
             List.foldl
@@ -1043,12 +1277,40 @@ collectExposedElements moduleDocumentation exposingNodes declarations =
                 )
                 Set.empty
                 declarations
+
+        typesThatCanBeUsedAsValues : Set String
+        typesThatCanBeUsedAsValues =
+            List.foldl
+                (\(Node _ declaration) acc ->
+                    case declaration of
+                        Declaration.AliasDeclaration typeAlias ->
+                            case Node.value typeAlias.typeAnnotation of
+                                TypeAnnotation.Record _ ->
+                                    Set.insert (Node.value typeAlias.name) acc
+
+                                _ ->
+                                    acc
+
+                        _ ->
+                            acc
+                )
+                Set.empty
+                declarations
     in
-    collectExposedElementsHelp docsReferences declarations declaredNames (List.length exposingNodes /= 1) Nothing exposingNodes 0 Dict.empty
+    collectExposedElementsHelp
+        docsReferences
+        declarations
+        declaredNames
+        typesThatCanBeUsedAsValues
+        (List.length exposingNodes /= 1)
+        Nothing
+        exposingNodes
+        0
+        Dict.empty
 
 
-collectExposedElementsHelp : List ( Int, String ) -> List (Node Declaration) -> Set String -> Bool -> Maybe Range -> List (Node TopLevelExpose) -> Int -> Dict String ExposedElement -> Dict String ExposedElement
-collectExposedElementsHelp docsReferences declarations declaredNames canRemoveExposed maybePreviousRange exposingNodes index acc =
+collectExposedElementsHelp : List ( Int, String ) -> List (Node Declaration) -> Set String -> Set String -> Bool -> Maybe Range -> List (Node TopLevelExpose) -> Int -> Dict String ExposedElement -> Dict String ExposedElement
+collectExposedElementsHelp docsReferences declarations declaredNames typesThatCanBeUsedAsValues canRemoveExposed maybePreviousRange exposingNodes index acc =
     case exposingNodes of
         [] ->
             acc
@@ -1062,7 +1324,7 @@ collectExposedElementsHelp docsReferences declarations declaredNames canRemoveEx
                             Node.range nextNode
 
                         Nothing ->
-                            Range.emptyRange
+                            Range.empty
 
                 newAcc : Dict String ExposedElement
                 newAcc =
@@ -1084,7 +1346,7 @@ collectExposedElementsHelp docsReferences declarations declaredNames canRemoveEx
                                 Dict.insert name
                                     { range = untilEndOfVariable name range
                                     , rangesToRemove = getRangesToRemove docsReferences canRemoveExposed name index maybePreviousRange range nextRange
-                                    , elementType = TypeOrTypeAlias
+                                    , elementType = TypeOrTypeAlias (Set.member name typesThatCanBeUsedAsValues)
                                     }
                                     acc
 
@@ -1110,10 +1372,95 @@ collectExposedElementsHelp docsReferences declarations declaredNames canRemoveEx
                 docsReferences
                 declarations
                 declaredNames
+                typesThatCanBeUsedAsValues
                 canRemoveExposed
                 (Just range)
                 rest
                 (index + 1)
+                newAcc
+
+
+collectExposedElementsForAll : List ( Int, String ) -> List (Node Declaration) -> Dict String ExposedElement
+collectExposedElementsForAll docsReferences declarations =
+    collectExposedElementsForAllHelp docsReferences (List.length declarations /= 1) Nothing 0 declarations Dict.empty
+
+
+collectExposedElementsForAllHelp : List ( Int, String ) -> Bool -> Maybe Range -> Int -> List (Node Declaration) -> Dict String ExposedElement -> Dict String ExposedElement
+collectExposedElementsForAllHelp docsReferences canRemoveExposed maybePreviousRange index declarations acc =
+    case declarations of
+        [] ->
+            acc
+
+        (Node range value) :: rest ->
+            let
+                nextRange : Range
+                nextRange =
+                    case List.head rest of
+                        Just nextNode ->
+                            Node.range nextNode
+
+                        Nothing ->
+                            Range.emptyRange
+
+                newAcc : Dict String ExposedElement
+                newAcc =
+                    case value of
+                        Declaration.FunctionDeclaration { declaration } ->
+                            let
+                                (Node nameRange name) =
+                                    declaration |> Node.value |> .name
+                            in
+                            Dict.insert name
+                                { range = nameRange
+                                , rangesToRemove = getRangesToRemove docsReferences canRemoveExposed name index maybePreviousRange range nextRange
+                                , elementType = Function
+                                }
+                                acc
+
+                        Declaration.PortDeclaration { name } ->
+                            Dict.insert (Node.value name)
+                                { range = Node.range name
+                                , rangesToRemove = getRangesToRemove docsReferences canRemoveExposed (Node.value name) index maybePreviousRange range nextRange
+                                , elementType = Function
+                                }
+                                acc
+
+                        Declaration.AliasDeclaration { name, typeAnnotation } ->
+                            Dict.insert (Node.value name)
+                                { range = Node.range name
+                                , rangesToRemove = getRangesToRemove docsReferences canRemoveExposed (Node.value name) index maybePreviousRange range nextRange
+                                , elementType =
+                                    TypeOrTypeAlias
+                                        (case Node.value typeAnnotation of
+                                            TypeAnnotation.Record _ ->
+                                                True
+
+                                            _ ->
+                                                False
+                                        )
+                                }
+                                acc
+
+                        Declaration.CustomTypeDeclaration { name, constructors } ->
+                            Dict.insert (Node.value name)
+                                { range = Node.range name
+                                , rangesToRemove = []
+                                , elementType = ExposedType (List.map (\c -> c |> Node.value |> .name |> Node.value) constructors)
+                                }
+                                acc
+
+                        Declaration.InfixDeclaration _ ->
+                            acc
+
+                        Declaration.Destructuring _ _ ->
+                            acc
+            in
+            collectExposedElementsForAllHelp
+                docsReferences
+                canRemoveExposed
+                (Just range)
+                (index + 1)
+                rest
                 newAcc
 
 
@@ -1123,15 +1470,28 @@ declarationVisitor config node moduleContext =
         ( allUsedTypes, comesFromCustomTypeWithHiddenConstructors ) =
             typesUsedInDeclaration moduleContext node
 
-        elementsNotToReport : Set String
+        elementsNotToReport : Set ( String, Realm )
         elementsNotToReport =
             (if comesFromCustomTypeWithHiddenConstructors then
                 moduleContext.elementsNotToReport
 
              else
-                List.foldl (\( _, name ) acc -> Set.insert name acc) moduleContext.elementsNotToReport allUsedTypes
+                List.foldl (\( _, name, realm ) acc -> Set.insert ( name, realm ) acc) moduleContext.elementsNotToReport allUsedTypes
             )
                 |> maybeSetInsert (testFunctionName moduleContext node)
+
+        exposed : Dict String ExposedElement
+        exposed =
+            if moduleContext.isExposingAll then
+                List.foldl
+                    (\( _, name, _ ) acc ->
+                        Dict.remove name acc
+                    )
+                    moduleContext.exposed
+                    allUsedTypes
+
+            else
+                moduleContext.exposed
 
         ignoredElementsNotToReport : Set String
         ignoredElementsNotToReport =
@@ -1142,14 +1502,25 @@ declarationVisitor config node moduleContext =
                 Nothing ->
                     moduleContext.ignoredElementsNotToReport
 
-        used : Set ( ModuleNameStr, String )
+        used : Set ElementIdentifier
         used =
             List.foldl Set.insert moduleContext.used allUsedTypes
+
+        inTheDeclarationOf : String
+        inTheDeclarationOf =
+            case Node.value node of
+                Declaration.FunctionDeclaration { declaration } ->
+                    Node.value (Node.value declaration).name
+
+                _ ->
+                    moduleContext.inTheDeclarationOf
     in
     { moduleContext
         | elementsNotToReport = elementsNotToReport
         , ignoredElementsNotToReport = ignoredElementsNotToReport
         , used = used
+        , exposed = exposed
+        , inTheDeclarationOf = inTheDeclarationOf
         , containsMainFunction =
             moduleContext.containsMainFunction
                 || doesModuleContainMainFunction moduleContext.projectType node
@@ -1198,22 +1569,8 @@ isExceptionByAnnotation config name node =
 
 
 getDeclarationName : Node Declaration -> Maybe String
-getDeclarationName node =
-    case Node.value node of
-        Declaration.FunctionDeclaration { declaration } ->
-            Just (declaration |> Node.value |> .name |> Node.value)
-
-        Declaration.AliasDeclaration { name } ->
-            Just (Node.value name)
-
-        Declaration.CustomTypeDeclaration { name } ->
-            Just (Node.value name)
-
-        Declaration.PortDeclaration { name } ->
-            Just (Node.value name)
-
-        _ ->
-            Nothing
+getDeclarationName =
+    Node.value >> declarationName
 
 
 getDeclarationDocumentation : Node Declaration -> Maybe String
@@ -1288,7 +1645,7 @@ maybeSetInsert maybeValue set =
 
 findConstructorsForExposedCustomType : String -> List (Node Declaration) -> List String
 findConstructorsForExposedCustomType typeName declarations =
-    findMap
+    List.Extra.findMap
         (\node ->
             case Node.value node of
                 Declaration.CustomTypeDeclaration type_ ->
@@ -1307,32 +1664,11 @@ findConstructorsForExposedCustomType typeName declarations =
 
 
 declarationName : Declaration -> Maybe String
-declarationName declaration =
-    case declaration of
-        Declaration.FunctionDeclaration function ->
-            function.declaration
-                |> Node.value
-                |> .name
-                |> Node.value
-                |> Just
-
-        Declaration.CustomTypeDeclaration type_ ->
-            Just <| Node.value type_.name
-
-        Declaration.AliasDeclaration alias_ ->
-            Just <| Node.value alias_.name
-
-        Declaration.PortDeclaration port_ ->
-            Just <| Node.value port_.name
-
-        Declaration.InfixDeclaration { operator } ->
-            Just <| Node.value operator
-
-        Declaration.Destructuring _ _ ->
-            Nothing
+declarationName =
+    declarationToTopLevelExpose >> Maybe.map (Node.value >> topLevelExposeName)
 
 
-testFunctionName : ModuleContext -> Node Declaration -> Maybe String
+testFunctionName : ModuleContext -> Node Declaration -> Maybe ( String, Realm )
 testFunctionName moduleContext node =
     case Node.value node of
         Declaration.FunctionDeclaration function ->
@@ -1342,10 +1678,12 @@ testFunctionName moduleContext node =
                         (Tuple.second (Node.value typeNode) == "Test")
                             && (ModuleNameLookupTable.moduleNameFor moduleContext.lookupTable typeNode == Just [ "Test" ])
                     then
-                        function.declaration
+                        ( function.declaration
                             |> Node.value
                             |> .name
                             |> Node.value
+                        , valueRealm
+                        )
                             |> Just
 
                     else
@@ -1358,7 +1696,7 @@ testFunctionName moduleContext node =
             Nothing
 
 
-typesUsedInDeclaration : ModuleContext -> Node Declaration -> ( List ( ModuleNameStr, String ), Bool )
+typesUsedInDeclaration : ModuleContext -> Node Declaration -> ( List ElementIdentifier, Bool )
 typesUsedInDeclaration moduleContext declaration =
     case Node.value declaration of
         Declaration.FunctionDeclaration function ->
@@ -1375,7 +1713,7 @@ typesUsedInDeclaration moduleContext declaration =
 
         Declaration.CustomTypeDeclaration type_ ->
             let
-                typesUsedInArguments : List ( ModuleNameStr, String )
+                typesUsedInArguments : List ElementIdentifier
                 typesUsedInArguments =
                     List.foldl
                         (\constructor acc -> collectTypesFromTypeAnnotation moduleContext (Node.value constructor).arguments acc)
@@ -1404,7 +1742,7 @@ typesUsedInDeclaration moduleContext declaration =
             ( [], False )
 
 
-collectTypesFromTypeAnnotation : ModuleContext -> List (Node TypeAnnotation) -> List ( ModuleNameStr, String ) -> List ( ModuleNameStr, String )
+collectTypesFromTypeAnnotation : ModuleContext -> List (Node TypeAnnotation) -> List ElementIdentifier -> List ElementIdentifier
 collectTypesFromTypeAnnotation moduleContext nodes acc =
     case nodes of
         [] ->
@@ -1418,7 +1756,7 @@ collectTypesFromTypeAnnotation moduleContext nodes acc =
                 TypeAnnotation.Typed (Node range ( _, name )) params ->
                     case ModuleNameLookupTable.moduleNameAt moduleContext.lookupTable range of
                         Just moduleName ->
-                            collectTypesFromTypeAnnotation moduleContext (params ++ restOfNodes) (( String.join "." moduleName, name ) :: acc)
+                            collectTypesFromTypeAnnotation moduleContext (params ++ restOfNodes) (( String.join "." moduleName, name, typeRealm ) :: acc)
 
                         Nothing ->
                             collectTypesFromTypeAnnotation moduleContext (params ++ restOfNodes) acc
@@ -1461,7 +1799,7 @@ expressionVisitor node moduleContext =
 
         Expression.LetExpression { declarations } ->
             let
-                used : List ( ModuleNameStr, String )
+                used : List ElementIdentifier
                 used =
                     List.foldl
                         (\declaration acc ->
@@ -1482,18 +1820,24 @@ expressionVisitor node moduleContext =
                         []
                         declarations
             in
-            { moduleContext | used = List.foldl Set.insert moduleContext.used used }
+            List.foldl
+                registerLocalValueWithRealModuleName
+                moduleContext
+                used
 
         Expression.CaseExpression { cases } ->
             let
-                usedConstructors : List ( ModuleNameStr, String )
+                usedConstructors : List ElementIdentifier
                 usedConstructors =
                     findUsedConstructors
                         moduleContext.lookupTable
                         (List.map Tuple.first cases)
                         []
             in
-            { moduleContext | used = List.foldl Set.insert moduleContext.used usedConstructors }
+            List.foldl
+                registerLocalValueWithRealModuleName
+                moduleContext
+                usedConstructors
 
         _ ->
             moduleContext
@@ -1502,21 +1846,38 @@ expressionVisitor node moduleContext =
 registerLocalValue : Range -> String -> ModuleContext -> ModuleContext
 registerLocalValue range name moduleContext =
     case ModuleNameLookupTable.moduleNameAt moduleContext.lookupTable range of
-        Just [] ->
-            if Dict.member name moduleContext.exposed then
-                { moduleContext | ignoredElementsNotToReport = Set.insert name moduleContext.ignoredElementsNotToReport }
-
-            else
-                moduleContext
-
         Just moduleName ->
-            registerAsUsed ( String.join "." moduleName, name ) moduleContext
+            registerLocalValueWithRealModuleName ( String.join "." moduleName, name, valueRealm ) moduleContext
 
         Nothing ->
             moduleContext
 
 
-findUsedConstructors : ModuleNameLookupTable -> List (Node Pattern) -> List ( ModuleNameStr, String ) -> List ( ModuleNameStr, String )
+registerLocalValueWithRealModuleName : ElementIdentifier -> ModuleContext -> ModuleContext
+registerLocalValueWithRealModuleName (( realModuleName, name, _ ) as key) moduleContext =
+    if String.isEmpty realModuleName then
+        case Dict.get name moduleContext.constructorNameToTypeName of
+            Just typeName ->
+                { moduleContext | exposed = Dict.remove typeName moduleContext.exposed }
+
+            Nothing ->
+                if name == moduleContext.inTheDeclarationOf then
+                    moduleContext
+
+                else if moduleContext.isExposingAll then
+                    { moduleContext | exposed = Dict.remove name moduleContext.exposed }
+
+                else if Dict.member name moduleContext.exposed then
+                    { moduleContext | ignoredElementsNotToReport = Set.insert name moduleContext.ignoredElementsNotToReport }
+
+                else
+                    moduleContext
+
+    else
+        registerAsUsed key moduleContext
+
+
+findUsedConstructors : ModuleNameLookupTable -> List (Node Pattern) -> List ElementIdentifier -> List ElementIdentifier
 findUsedConstructors lookupTable patterns acc =
     case patterns of
         [] ->
@@ -1526,11 +1887,11 @@ findUsedConstructors lookupTable patterns acc =
             case Node.value pattern of
                 Pattern.NamedPattern qualifiedNameRef newPatterns ->
                     let
-                        newAcc : List ( ModuleNameStr, String )
+                        newAcc : List ElementIdentifier
                         newAcc =
                             case ModuleNameLookupTable.moduleNameFor lookupTable pattern of
                                 Just moduleName ->
-                                    ( String.join "." moduleName, qualifiedNameRef.name ) :: acc
+                                    ( String.join "." moduleName, qualifiedNameRef.name, valueRealm ) :: acc
 
                                 Nothing ->
                                     acc

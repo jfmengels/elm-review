@@ -28,6 +28,7 @@ all =
         , describe "Record updates" recordUpdateTests
         , describe "Function parameters" functionParameterTests
         , describe "Imports" importTests
+        , describe "Prelude imports" preludeImportTests
         , describe "Pattern matching variables" patternMatchingVariablesTests
         , describe "Defined types" typeTests
         , describe "Opaque Types" opaqueTypeTests
@@ -156,7 +157,7 @@ b = 2"""
     , test "should report unused top-level variables with documentation attached" <|
         \() ->
             """module SomeModule exposing (b)
-{-| Module docs -}
+{-| Module documentation -}
 {-| Documentation
 -}
 unusedVar = 1
@@ -169,15 +170,15 @@ b = 2"""
                         , under = "unusedVar"
                         }
                         |> Review.Test.whenFixed """module SomeModule exposing (b)
-{-| Module docs -}
+{-| Module documentation -}
 b = 2"""
                     ]
     , test "should report unused top-level variables with documentation attached even if they are annotated" <|
         \() ->
             """module SomeModule exposing (b)
-{-| Module docs -}
-{-| Documentation
+{-| Module documentation
 -}
+{-| Function documentation -}
 unusedVar : Int
 unusedVar = 1
 b = 2"""
@@ -190,7 +191,8 @@ b = 2"""
                         }
                         |> Review.Test.atExactly { start = { row = 6, column = 1 }, end = { row = 6, column = 10 } }
                         |> Review.Test.whenFixed """module SomeModule exposing (b)
-{-| Module docs -}
+{-| Module documentation
+-}
 b = 2"""
                     ]
     , test "should not report unused top-level variables if everything is exposed (functions)" <|
@@ -636,6 +638,18 @@ a = let ( Foo, (Bar _), _ ) = x
 type Foo = Foo
 a = 2"""
                     ]
+    , test "should not report unused let elements (tuple)" <|
+        \() ->
+            -- This use-case is handled by NoUnused.Patterns
+            """module SomeModule exposing (bar)
+bar : Int
+bar =
+    let
+        (a, unused) = (1, 3)
+    in
+    a"""
+                |> Review.Test.run rule
+                |> Review.Test.expectNoErrors
     ]
 
 
@@ -646,7 +660,9 @@ topLevelVariablesUsedInLetInTests =
             """module SomeModule exposing (a)
 b = 1
 a = let c = 1
-    in b + c"""
+    in
+    b + c
+"""
                 |> Review.Test.run rule
                 |> Review.Test.expectNoErrors
     , test "should not report top-level variables used inside let declarations" <|
@@ -654,7 +670,8 @@ a = let c = 1
             """module SomeModule exposing (a)
 b = 1
 a = let c = b
-    in c
+    in
+    c
 """
                 |> Review.Test.run rule
                 |> Review.Test.expectNoErrors
@@ -662,17 +679,14 @@ a = let c = b
         \() ->
             """module SomeModule exposing (a)
 b = 1
-a =
-    let
+a = let
         c = b
-        d =
-            let
+        d = let
                 e = 1
             in
             b + c + e
     in
-    d
-"""
+    d"""
                 |> Review.Test.run rule
                 |> Review.Test.expectNoErrors
     ]
@@ -760,8 +774,82 @@ import Foo exposing (a)"""
                         , under = "a"
                         }
                         |> Review.Test.whenFixed """module SomeModule exposing (b)
-import Foo """
+import Foo"""
                     ]
+    , test "should report unused imported functions shadowed in a let block tuple" <|
+        \() ->
+            """module SomeModule exposing (bar)
+import Foo exposing (a)
+
+bar : Int
+bar =
+    let
+        (a, c) = (1, 3)
+    in
+    a + c"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Imported variable `a` is not used"
+                        , details = details
+                        , under = "a"
+                        }
+                        |> Review.Test.atExactly { start = { row = 2, column = 22 }, end = { row = 2, column = 23 } }
+                        |> Review.Test.whenFixed """module SomeModule exposing (bar)
+import Foo
+
+bar : Int
+bar =
+    let
+        (a, c) = (1, 3)
+    in
+    a + c"""
+                    ]
+    , test "should report unused imported functions shadowed in a let block record" <|
+        \() ->
+            """module SomeModule exposing (bar)
+import Foo exposing (a)
+
+bar : Int
+bar =
+    let
+        {a, c} = something
+    in
+    a + c"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Imported variable `a` is not used"
+                        , details = details
+                        , under = "a"
+                        }
+                        |> Review.Test.atExactly { start = { row = 2, column = 22 }, end = { row = 2, column = 23 } }
+                        |> Review.Test.whenFixed """module SomeModule exposing (bar)
+import Foo
+
+bar : Int
+bar =
+    let
+        {a, c} = something
+    in
+    a + c"""
+                    ]
+    , test "should not report unused imported functions shadowed in a let block tuple but used elsewhere" <|
+        \() ->
+            """module SomeModule exposing (b, bar)
+import Foo exposing (a)
+
+bar : Int
+bar =
+    let
+        (a, c) = (1, 3)
+    in
+    a + c
+
+b = a
+"""
+                |> Review.Test.run rule
+                |> Review.Test.expectNoErrors
     , test "should report unused imported functions (multiple imports)" <|
         \() ->
             """module SomeModule exposing (d)
@@ -883,7 +971,7 @@ import Parser exposing ((</>))"""
                         , under = "(</>)"
                         }
                         |> Review.Test.whenFixed """module SomeModule exposing (a)
-import Parser """
+import Parser"""
                     ]
     , test "should report unused import" <|
         \() ->
@@ -1078,10 +1166,10 @@ type C = C_Value
                             , details = details
                             , under = "C(..)"
                             }
-                            |> Review.Test.whenFixed ("""module A exposing (a)
-import B$
+                            |> Review.Test.whenFixed """module A exposing (a)
+import B
 type alias C_Value = {}
-a = C_Value""" |> String.replace "$" " ")
+a = C_Value"""
                         ]
                       )
                     ]
@@ -1128,10 +1216,10 @@ type C = C
                             , details = details
                             , under = "C(..)"
                             }
-                            |> Review.Test.whenFixed ("""module A exposing (a)
-import B$
+                            |> Review.Test.whenFixed """module A exposing (a)
+import B
 type Type = C
-a = C""" |> String.replace "$" " ")
+a = C"""
                         ]
                       )
                     ]
@@ -1182,9 +1270,9 @@ a = 1"""
                         , details = details
                         , under = "C(..)"
                         }
-                        |> Review.Test.whenFixed ("""module A exposing (a)
-import Dependency$
-a = 1""" |> String.replace "$" " ")
+                        |> Review.Test.whenFixed """module A exposing (a)
+import Dependency
+a = 1"""
                     ]
     , test "should not report open type import when at least one of the exposed constructors are used as a value (imported dependency)" <|
         \() ->
@@ -1244,12 +1332,55 @@ type C = C_Value
                             , details = details
                             , under = "C(..)"
                             }
-                            |> Review.Test.whenFixed ("""module A exposing (a)
-import B$
+                            |> Review.Test.whenFixed """module A exposing (a)
+import B
 a = 1
-""" |> String.replace "$" " ")
+"""
                         ]
                       )
+                    ]
+    , test "should report open type import when the constructors are not exposed and therefore not used" <|
+        \() ->
+            [ """module A exposing (a)
+import B exposing (C(..))
+a = 1
+"""
+            , """module B exposing (C)
+type C = C_Value
+"""
+            ]
+                |> Review.Test.runOnModules rule
+                |> Review.Test.expectErrorsForModules
+                    [ ( "A"
+                      , [ Review.Test.error
+                            { message = "Imported type `C` is not used"
+                            , details = details
+                            , under = "C(..)"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (a)
+import B
+a = 1
+"""
+                        ]
+                      )
+                    ]
+    , test "should report open type import when the constructors are not exposed and therefore not used (for core type)" <|
+        \() ->
+            """module A exposing (a)
+import Array exposing (Array(..))
+a = 1
+"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Imported type `Array` is not used"
+                        , details = details
+                        , under = "Array(..)"
+                        }
+                        |> Review.Test.whenFixed """module A exposing (a)
+import Array
+a = 1
+"""
                     ]
     , test "should report open type import when none of the exposed constructors are used, because they have been shadowed" <|
         \() ->
@@ -1449,6 +1580,44 @@ c = 1"""
             ]
                 |> Review.Test.runOnModules rule
                 |> Review.Test.expectNoErrors
+    , test "should report unused import even if a local declaration shadows it" <|
+        \() ->
+            """module SomeModule exposing (a)
+import Html exposing (button, div)
+button = 1
+a = button + div"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Imported variable `button` is not used"
+                        , details = details
+                        , under = "button"
+                        }
+                        |> Review.Test.atExactly { start = { row = 2, column = 23 }, end = { row = 2, column = 29 } }
+                        |> Review.Test.whenFixed """module SomeModule exposing (a)
+import Html exposing (div)
+button = 1
+a = button + div"""
+                    ]
+    , test "should report unused import even if a local declaration shadows it but is declaration after other uses" <|
+        \() ->
+            """module SomeModule exposing (a)
+import Html exposing (button, div)
+a = button + div
+button = 1"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Imported variable `button` is not used"
+                        , details = details
+                        , under = "button"
+                        }
+                        |> Review.Test.atExactly { start = { row = 2, column = 23 }, end = { row = 2, column = 29 } }
+                        |> Review.Test.whenFixed """module SomeModule exposing (a)
+import Html exposing (div)
+a = button + div
+button = 1"""
+                    ]
     , test "should report unused import even if a used let..in variable is named the same way" <|
         \() ->
             """module SomeModule exposing (a)
@@ -1487,10 +1656,10 @@ shadowed = ""
                             , under = "shadowed"
                             }
                             |> Review.Test.atExactly { start = { row = 2, column = 23 }, end = { row = 2, column = 31 } }
-                            |> Review.Test.whenFixed ("""module A exposing (identity)
-import Used$
+                            |> Review.Test.whenFixed """module A exposing (identity)
+import Used
 identity shadowed = shadowed
-""" |> String.replace "$" " ")
+"""
                         ]
                       )
                     ]
@@ -1517,14 +1686,14 @@ shadowed = ""
                             , under = "shadowed"
                             }
                             |> Review.Test.atExactly { start = { row = 2, column = 23 }, end = { row = 2, column = 31 } }
-                            |> Review.Test.whenFixed ("""module A exposing (identity)
-import Used$
+                            |> Review.Test.whenFixed """module A exposing (identity)
+import Used
 identity x = 
     let
         identityHelp shadowed = shadowed
     in
     identityHelp x
-""" |> String.replace "$" " ")
+"""
                         ]
                       )
                     ]
@@ -1548,11 +1717,11 @@ shadowed = ""
                             , under = "shadowed"
                             }
                             |> Review.Test.atExactly { start = { row = 2, column = 23 }, end = { row = 2, column = 31 } }
-                            |> Review.Test.whenFixed ("""module A exposing (identity)
-import Used$
+                            |> Review.Test.whenFixed """module A exposing (identity)
+import Used
 identity x = 
     (\\shadowed -> shadowed) x
-""" |> String.replace "$" " ")
+"""
                         ]
                       )
                     ]
@@ -1621,13 +1790,13 @@ shadowed = ""
                             , under = "shadowed"
                             }
                             |> Review.Test.atExactly { start = { row = 2, column = 23 }, end = { row = 2, column = 31 } }
-                            |> Review.Test.whenFixed ("""module A exposing (identity)
-import Used$
+                            |> Review.Test.whenFixed """module A exposing (identity)
+import Used
 identity x = 
     case Just x of
         Nothing -> x
         Just shadowed -> shadowed
-""" |> String.replace "$" " ")
+"""
                         ]
                       )
                     ]
@@ -1750,9 +1919,9 @@ a = Dependency.C_Value"""
                         , details = details
                         , under = "exposing (..)"
                         }
-                        |> Review.Test.whenFixed ("""module SomeModule exposing (a)
-import Dependency$
-a = Dependency.C_Value""" |> String.replace "$" " ")
+                        |> Review.Test.whenFixed """module SomeModule exposing (a)
+import Dependency
+a = Dependency.C_Value"""
                     ]
     , test "should report unused exposing from aliased dependency that exposes everything when it is used with qualified imports" <|
         \() ->
@@ -1766,9 +1935,9 @@ a = D.C_Value"""
                         , details = details
                         , under = "exposing (..)"
                         }
-                        |> Review.Test.whenFixed ("""module SomeModule exposing (a)
-import Dependency as D$
-a = D.C_Value""" |> String.replace "$" " ")
+                        |> Review.Test.whenFixed """module SomeModule exposing (a)
+import Dependency as D
+a = D.C_Value"""
                     ]
     , test "should not report used exposing from dependency module that exposes everything" <|
         \() ->
@@ -1876,10 +2045,10 @@ shadowed = 1
                             , under = "shadowed"
                             }
                             |> Review.Test.atExactly { start = { row = 2, column = 23 }, end = { row = 2, column = 31 } }
-                            |> Review.Test.whenFixed ("""module A exposing (a)
-import Used$
+                            |> Review.Test.whenFixed """module A exposing (a)
+import Used
 shadowed = 1
-a = shadowed""" |> String.replace "$" " ")
+a = shadowed"""
                         ]
                       )
                     ]
@@ -1902,10 +2071,10 @@ shadowed = 1
                             , under = "shadowed"
                             }
                             |> Review.Test.atExactly { start = { row = 2, column = 23 }, end = { row = 2, column = 31 } }
-                            |> Review.Test.whenFixed ("""module A exposing (a)
-import Used$
+                            |> Review.Test.whenFixed """module A exposing (a)
+import Used
 a = shadowed
-shadowed = 1""" |> String.replace "$" " ")
+shadowed = 1"""
                         ]
                       )
                     ]
@@ -1928,6 +2097,197 @@ type Variants = A"""
             ]
                 |> Review.Test.runOnModules rule
                 |> Review.Test.expectNoErrors
+    ]
+
+
+preludeImportTests : List Test
+preludeImportTests =
+    [ test "should report import to implicitly imported Basics" <|
+        \() ->
+            """module SomeModule exposing (a)
+import Basics
+a = Basics.min"""
+                |> Review.Test.runWithProjectData packageProject rule
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Unnecessary import to implicitly imported `Basics`"
+                        , details = [ "This module is already imported by default in all Elm modules, you can therefore safely remove it." ]
+                        , under = "Basics"
+                        }
+                        |> Review.Test.atExactly { start = { row = 2, column = 8 }, end = { row = 2, column = 14 } }
+                        |> Review.Test.whenFixed """module SomeModule exposing (a)
+a = Basics.min"""
+                    ]
+    , test "should report import to implicitly imported Basics (with exposing)" <|
+        \() ->
+            """module SomeModule exposing (a)
+import Basics exposing (min)
+a = min"""
+                |> Review.Test.runWithProjectData packageProject rule
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Unnecessary import to implicitly imported `Basics`"
+                        , details = [ "This module is already imported by default in all Elm modules, you can therefore safely remove it." ]
+                        , under = "Basics"
+                        }
+                        |> Review.Test.atExactly { start = { row = 2, column = 8 }, end = { row = 2, column = 14 } }
+                        |> Review.Test.whenFixed """module SomeModule exposing (a)
+a = min"""
+                    ]
+    , test "should report import to implicitly imported Basics (with exposing all)" <|
+        \() ->
+            """module SomeModule exposing (a)
+import Basics exposing (..)
+a = min"""
+                |> Review.Test.runWithProjectData packageProject rule
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Unnecessary import to implicitly imported `Basics`"
+                        , details = [ "This module is already imported by default in all Elm modules, you can therefore safely remove it." ]
+                        , under = "Basics"
+                        }
+                        |> Review.Test.atExactly { start = { row = 2, column = 8 }, end = { row = 2, column = 14 } }
+                        |> Review.Test.whenFixed """module SomeModule exposing (a)
+a = min"""
+                    ]
+    , test "should report import to implicitly imported module (when no alias is used)" <|
+        \() ->
+            """module SomeModule exposing (a)
+import Result
+a = Result.map"""
+                |> Review.Test.runWithProjectData packageProject rule
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Unnecessary import to implicitly imported `Result`"
+                        , details = [ "This module is already imported by default in all Elm modules, you can therefore safely remove it." ]
+                        , under = "Result"
+                        }
+                        |> Review.Test.atExactly { start = { row = 2, column = 8 }, end = { row = 2, column = 14 } }
+                        |> Review.Test.whenFixed """module SomeModule exposing (a)
+a = Result.map"""
+                    ]
+    , test "should report import to implicitly imported prelude type (not exposing constructors)" <|
+        \() ->
+            """module SomeModule exposing (a)
+import Result exposing (Result)
+a : Result
+a = Ok"""
+                |> Review.Test.runWithProjectData packageProject rule
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Unnecessary import to implicitly imported `Result`"
+                        , details = [ "This element is already imported by default in all Elm modules, you can therefore safely remove it." ]
+                        , under = "Result"
+                        }
+                        |> Review.Test.atExactly { start = { row = 2, column = 25 }, end = { row = 2, column = 31 } }
+                        |> Review.Test.whenFixed """module SomeModule exposing (a)
+import Result
+a : Result
+a = Ok"""
+                    ]
+    , test "should report import to implicitly imported prelude type (exposing constructors)" <|
+        \() ->
+            """module SomeModule exposing (a)
+import Result exposing (Result(..))
+a = Ok"""
+                |> Review.Test.runWithProjectData packageProject rule
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Unnecessary import to implicitly imported `Result`"
+                        , details = [ "This element is already imported by default in all Elm modules, you can therefore safely remove it." ]
+                        , under = "Result(..)"
+                        }
+                        |> Review.Test.atExactly { start = { row = 2, column = 25 }, end = { row = 2, column = 35 } }
+                        |> Review.Test.whenFixed """module SomeModule exposing (a)
+import Result
+a = Ok"""
+                    ]
+    , test "should report import to implicitly imported operator" <|
+        \() ->
+            """module SomeModule exposing (a)
+import List exposing ((::))
+a = 1 :: []"""
+                |> Review.Test.runWithProjectData packageProject rule
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Unnecessary import to implicitly imported `::`"
+                        , details = [ "This element is already imported by default in all Elm modules, you can therefore safely remove it." ]
+                        , under = "(::)"
+                        }
+                        |> Review.Test.atExactly { start = { row = 2, column = 23 }, end = { row = 2, column = 27 } }
+                        |> Review.Test.whenFixed """module SomeModule exposing (a)
+import List
+a = 1 :: []"""
+                    ]
+    , test "should not report import to non-implicitly imported function from implicitly imported module" <|
+        \() ->
+            """module SomeModule exposing (a)
+import Result exposing (map)
+a = map"""
+                |> Review.Test.runWithProjectData packageProject rule
+                |> Review.Test.expectNoErrors
+    , test "should not report Basics import that is aliased" <|
+        \() ->
+            """module SomeModule exposing (a)
+import Basics as CoreBasics
+a = CoreBasics.min"""
+                |> Review.Test.runWithProjectData packageProject rule
+                |> Review.Test.expectNoErrors
+    , test "should not report prelude module import that is aliased" <|
+        \() ->
+            """module SomeModule exposing (a)
+import Result as CoreResult
+a = CoreResult.map"""
+                |> Review.Test.runWithProjectData packageProject rule
+                |> Review.Test.expectNoErrors
+    , test "should report Basics import when it exposes anything even when aliased (exposing all)" <|
+        \() ->
+            """module SomeModule exposing (a)
+import Basics as Alias exposing (..)
+a = ( min, Alias.max )"""
+                |> Review.Test.runWithProjectData packageProject rule
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Unnecessary import to elements from `Basics`"
+                        , details = [ "These are already imported by default in all Elm modules, you can therefore safely remove them." ]
+                        , under = "Basics"
+                        }
+                        |> Review.Test.whenFixed """module SomeModule exposing (a)
+import Basics as Alias
+a = ( min, Alias.max )"""
+                    ]
+    , test "should report Basics import when it exposes anything even when aliased (exposing explicitly)" <|
+        \() ->
+            """module SomeModule exposing (a)
+import Basics as Alias exposing (min)
+a = ( min, Alias.max )"""
+                |> Review.Test.runWithProjectData packageProject rule
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Unnecessary import to elements from `Basics`"
+                        , details = [ "These are already imported by default in all Elm modules, you can therefore safely remove them." ]
+                        , under = "Basics"
+                        }
+                        |> Review.Test.whenFixed """module SomeModule exposing (a)
+import Basics as Alias
+a = ( min, Alias.max )"""
+                    ]
+    , test "should report prelude import when its module alias is the same as the default one" <|
+        \() ->
+            """module SomeModule exposing (a)
+import Platform.Cmd as Cmd
+a = Cmd.none"""
+                |> Review.Test.runWithProjectData packageProject rule
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Unnecessary import to implicitly imported `Platform.Cmd`"
+                        , details = [ "This module is already imported by default in all Elm modules, you can therefore safely remove it." ]
+                        , under = "Platform.Cmd"
+                        }
+                        |> Review.Test.atExactly { start = { row = 2, column = 8 }, end = { row = 2, column = 20 } }
+                        |> Review.Test.whenFixed """module SomeModule exposing (a)
+a = Cmd.none"""
+                    ]
     ]
 
 
@@ -2024,8 +2384,8 @@ a = 1"""
     , test "should report unused custom type declarations with documentation" <|
         \() ->
             """module SomeModule exposing (a)
-{-| Module docs -}
-{-| Documentation -}
+{-| Module documentation -}
+{-| Function documentation -}
 type UnusedType = B | C
 a = 1"""
                 |> Review.Test.run rule
@@ -2036,7 +2396,7 @@ a = 1"""
                         , under = "UnusedType"
                         }
                         |> Review.Test.whenFixed """module SomeModule exposing (a)
-{-| Module docs -}
+{-| Module documentation -}
 a = 1"""
                     ]
     , test "should report unused custom type declaration even when it references itself" <|
@@ -2099,8 +2459,8 @@ a = 1"""
     , test "should report unused type aliases declarations with documentation" <|
         \() ->
             """module SomeModule exposing (a)
-{-| Module docs -}
-{-| Documentation -}
+{-| Module documentation -}
+{-| Function documentation -}
 type alias UnusedType = { a : B }
 a = 1"""
                 |> Review.Test.run rule
@@ -2111,7 +2471,7 @@ a = 1"""
                         , under = "UnusedType"
                         }
                         |> Review.Test.whenFixed """module SomeModule exposing (a)
-{-| Module docs -}
+{-| Module documentation -}
 a = 1"""
                     ]
     , test "should not report type alias used in a signature" <|
@@ -2285,7 +2645,7 @@ type alias ExposedType = { a : A }
 """
                 |> Review.Test.run rule
                 |> Review.Test.expectNoErrors
-    , test "should not report type alias used in a type alias field's arguments " <|
+    , test "should not report type alias used in a type alias field's arguments" <|
         \() ->
             """module SomeModule exposing (ExposedType)
 type alias A = { a : B }
@@ -2293,7 +2653,7 @@ type alias ExposedType = { a : Maybe A }
 """
                 |> Review.Test.run rule
                 |> Review.Test.expectNoErrors
-    , test "should not report custom type used in a type alias field's arguments " <|
+    , test "should not report custom type used in a type alias field's arguments" <|
         \() ->
             """module SomeModule exposing (ExposedType)
 type A = B | C

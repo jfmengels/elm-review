@@ -11,7 +11,7 @@ import Elm.Constraint
 import Elm.Package
 import Elm.Project exposing (Project)
 import Elm.Syntax.Import exposing (Import)
-import Elm.Syntax.Node as Node exposing (Node)
+import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Range exposing (Range)
 import Elm.Version
 import List.Extra
@@ -44,7 +44,7 @@ rule : Rule
 rule =
     Rule.newProjectRuleSchema "NoUnused.Dependencies" initialProjectContext
         |> Rule.withElmJsonProjectVisitor elmJsonVisitor
-        |> Rule.withDependenciesProjectVisitor dependenciesVisitor
+        |> Rule.withDirectDependenciesProjectVisitor dependenciesVisitor
         |> Rule.withModuleVisitor moduleVisitor
         |> Rule.withModuleContextUsingContextCreator
             { fromProjectToModule = fromProjectToModule
@@ -67,18 +67,17 @@ dependenciesVisitor dependencies projectContext =
     let
         moduleNameToDependency : Dict String String
         moduleNameToDependency =
-            dependencies
-                |> Dict.filter
-                    (\packageName _ ->
-                        Set.member packageName projectContext.directProjectDependencies
-                            || Set.member packageName projectContext.directTestDependencies
-                    )
-                |> Dict.toList
-                |> List.concatMap
-                    (\( packageName, dependency ) ->
-                        List.map (\{ name } -> ( name, packageName )) (Dependency.modules dependency)
-                    )
-                |> Dict.fromList
+            Dict.foldl
+                (\packageName dependency acc ->
+                    List.foldl
+                        (\{ name } subAcc ->
+                            Dict.insert name packageName subAcc
+                        )
+                        acc
+                        (Dependency.modules dependency)
+                )
+                Dict.empty
+                dependencies
     in
     ( []
     , { projectContext
@@ -119,7 +118,7 @@ initialProjectContext =
     , dependencies = Dict.empty
     , directProjectDependencies = Set.empty
     , directTestDependencies = Set.empty
-    , usedDependencies = Set.empty
+    , usedDependencies = Set.fromList [ "elm/core", "lamdera/core", "lamdera/codecs" ]
     , usedDependenciesFromTest = Set.empty
     , elmJsonKey = Nothing
     }
@@ -199,6 +198,13 @@ elmJsonVisitor maybeProject projectContext =
                 | elmJsonKey = Just elmJsonKey
                 , directProjectDependencies = directProjectDependencies
                 , directTestDependencies = directTestDependencies
+                , usedDependencies =
+                    case project of
+                        Elm.Project.Application _ ->
+                            Set.insert "elm/json" projectContext.usedDependencies
+
+                        Elm.Project.Package _ ->
+                            projectContext.usedDependencies
               }
             )
 
@@ -241,10 +247,8 @@ importVisitor node context =
 
 
 moduleNameForImport : Node Import -> String
-moduleNameForImport node =
-    node
-        |> Node.value
-        |> .moduleName
+moduleNameForImport (Node _ { moduleName }) =
+    moduleName
         |> Node.value
         |> String.join "."
 
@@ -266,31 +270,30 @@ finalEvaluationForProject projectContext =
                 depsNotUsedInSrcButUsedInTests =
                     Set.intersect depsNotUsedInSrc projectContext.usedDependenciesFromTest
 
-                depsNotUsedInSrcErrors : List String
+                depsNotUsedInSrcErrors : Set String
                 depsNotUsedInSrcErrors =
                     Set.diff
                         depsNotUsedInSrc
-                        (Set.union packagesNotToReport depsNotUsedInSrcButUsedInTests)
-                        |> Set.toList
+                        depsNotUsedInSrcButUsedInTests
 
-                testDepsNotUsed : List String
+                testDepsNotUsed : Set String
                 testDepsNotUsed =
                     Set.diff
                         projectContext.directTestDependencies
                         (Set.union projectContext.usedDependenciesFromTest projectContext.usedDependencies)
-                        |> Set.toList
             in
-            List.map (unusedProjectDependencyError elmJsonKey projectContext.dependencies) depsNotUsedInSrcErrors
-                ++ List.map (unusedTestDependencyError elmJsonKey projectContext.dependencies) testDepsNotUsed
-                ++ List.map (moveDependencyToTestError elmJsonKey projectContext.dependencies) (Set.toList depsNotUsedInSrcButUsedInTests)
+            []
+                |> add (\packageName -> unusedProjectDependencyError elmJsonKey projectContext.dependencies packageName) depsNotUsedInSrcErrors
+                |> add (\packageName -> unusedTestDependencyError elmJsonKey projectContext.dependencies packageName) testDepsNotUsed
+                |> add (\packageName -> moveDependencyToTestError elmJsonKey projectContext.dependencies packageName) depsNotUsedInSrcButUsedInTests
 
         Nothing ->
             []
 
 
-packagesNotToReport : Set String
-packagesNotToReport =
-    Set.fromList [ "elm/core", "lamdera/core", "lamdera/codecs" ]
+add : (a -> b) -> Set a -> List b -> List b
+add f set initial =
+    Set.foldl (\item acc -> f item :: acc) initial set
 
 
 
@@ -319,7 +322,7 @@ moveDependencyToTestError elmJsonKey dependencies packageName =
             { message = "`" ++ packageName ++ "` should be moved to test-dependencies"
             , details =
                 [ "This package is not used in the source code, but it is used in tests, and should therefore be moved to the test dependencies. To do so, I recommend running the following commands:"
-                , "    elm-json uninstall " ++ packageName ++ "\n" ++ "    elm-json install --test " ++ packageName
+                , "    elm-json uninstall " ++ packageName ++ "\n    elm-json install --test " ++ packageName
                 ]
             , range = findPackageNameInElmJson packageName elmJson
             }
@@ -353,9 +356,8 @@ findPackageNameInElmJson : String -> String -> Range
 findPackageNameInElmJson packageName elmJson =
     elmJson
         |> String.lines
-        |> List.indexedMap Tuple.pair
-        |> List.filterMap
-            (\( row, line ) ->
+        |> List.Extra.findMapWithIndex
+            (\row line ->
                 case String.indexes ("\"" ++ packageName ++ "\"") line of
                     [] ->
                         Nothing
@@ -372,8 +374,12 @@ findPackageNameInElmJson packageName elmJson =
                                 }
                             }
             )
-        |> List.head
-        |> Maybe.withDefault { start = { row = 1, column = 1 }, end = { row = 10000, column = 1 } }
+        |> Maybe.withDefault defaultPackageNamePosition
+
+
+defaultPackageNamePosition : Range
+defaultPackageNamePosition =
+    { start = { row = 1, column = 1 }, end = { row = 10000, column = 1 } }
 
 
 
@@ -436,16 +442,22 @@ fromApplication dependenciesDict dependencyLocation packageNameStr application =
                 InTestDeps ->
                     application.testDepsDirect
 
+        addDeps : List ( Elm.Package.Name, Elm.Version.Version ) -> Dict String Elm.Version.Version -> Dict String Elm.Version.Version
+        addDeps dep initial =
+            List.foldl
+                (\( name, version ) dict ->
+                    Dict.insert (Elm.Package.toString name) version dict
+                )
+                initial
+                dep
+
         dependencyVersionDict : Dict String Elm.Version.Version
         dependencyVersionDict =
-            [ application.depsDirect
-            , application.depsIndirect
-            , application.testDepsDirect
-            , application.testDepsIndirect
-            ]
-                |> List.concat
-                |> List.map (\( name, version ) -> ( Elm.Package.toString name, version ))
-                |> Dict.fromList
+            Dict.empty
+                |> addDeps application.depsDirect
+                |> addDeps application.depsIndirect
+                |> addDeps application.testDepsDirect
+                |> addDeps application.testDepsIndirect
 
         getDependenciesAndVersion : Elm.Package.Name -> Elm.Project.Deps Elm.Version.Version
         getDependenciesAndVersion name =
@@ -456,7 +468,7 @@ fromApplication dependenciesDict dependencyLocation packageNameStr application =
                 Nothing ->
                     []
     in
-    case List.Extra.find (isPackageWithName packageNameStr) dependencies of
+    case List.Extra.find (\pkg -> isPackageWithName packageNameStr pkg) dependencies of
         Just ( packageName, version ) ->
             Just
                 (ApplicationProject

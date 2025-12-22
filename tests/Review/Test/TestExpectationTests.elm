@@ -73,7 +73,7 @@ a = 1
                     |> Review.Test.runWithProjectData TestProject.application NoUnused.Exports.rule
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "Module `Reported` is never used."
+                            { message = "Module `Reported` is never used"
                             , details = [ "This module is never used. You may want to remove it to keep your project clean, and maybe detect some unused code in your project." ]
                             , under = "Reported"
                             }
@@ -83,7 +83,7 @@ a = 1
 
 I expected that the error for module `Reported` with the following message:
 
-  `Module `Reported` is never used.`
+  `Module `Reported` is never used`
 
 would provide fixes, but I found an unexpected fix for `Reported`.
 I expected the file to be edited, but instead it gets removed."""

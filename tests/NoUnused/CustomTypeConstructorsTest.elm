@@ -95,6 +95,11 @@ recursiveNeedDetails =
     "The only locations where I found it being created require already having one."
 
 
+phantomTypesHint : String
+phantomTypesHint =
+    "This type looks like it might be used for phantom types. If that's the case, consider adding `Never` to as an argument. See https://package.elm-lang.org/packages/jfmengels/elm-review-unused/latest/NoUnused-CustomTypeConstructors#phantom-types for more information."
+
+
 all : Test
 all =
     describe "NoUnusedCustomTypeConstructors"
@@ -566,7 +571,7 @@ id = Id
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Type constructor `User` is not used."
-                            , details = [ defaultDetails ]
+                            , details = [ defaultDetails, phantomTypesHint ]
                             , under = "User"
                             }
                             |> Review.Test.atExactly { start = { row = 3, column = 13 }, end = { row = 3, column = 17 } }
@@ -603,7 +608,7 @@ id = Id
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Type constructor `User` is not used."
-                            , details = [ defaultDetails ]
+                            , details = [ defaultDetails, phantomTypesHint ]
                             , under = "User"
                             }
                             |> Review.Test.atExactly { start = { row = 3, column = 13 }, end = { row = 3, column = 17 } }
@@ -622,7 +627,7 @@ id = Id
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Type constructor `User` is not used."
-                            , details = [ defaultDetails ]
+                            , details = [ defaultDetails, phantomTypesHint ]
                             , under = "User"
                             }
                             |> Review.Test.atExactly { start = { row = 3, column = 23 }, end = { row = 3, column = 27 } }
@@ -894,13 +899,13 @@ a = 1
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Type constructor `Opaque` is not used."
-                            , details = [ defaultDetails ]
+                            , details = [ defaultDetails, phantomTypesHint ]
                             , under = "Opaque"
                             }
                             |> Review.Test.atExactly { start = { row = 3, column = 15 }, end = { row = 3, column = 21 } }
                         , Review.Test.error
                             { message = "Type constructor `NotExposed` is not used."
-                            , details = [ defaultDetails ]
+                            , details = [ defaultDetails, phantomTypesHint ]
                             , under = "NotExposed"
                             }
                             |> Review.Test.atExactly { start = { row = 4, column = 19 }, end = { row = 4, column = 29 } }
@@ -1165,7 +1170,7 @@ a = Used
 import A
 import B
 value1 = case foo of
-  
+
   A.Used -> 2
 value2 = case foo of
   B.Unused -> 1

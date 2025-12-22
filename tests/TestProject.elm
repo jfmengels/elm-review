@@ -94,8 +94,7 @@ unsafePackageName packageName =
             name
 
         Nothing ->
-            -- unsafe, but if the generation went well, it should all be good.
-            unsafePackageName packageName
+            Debug.todo ("Failed to convert " ++ packageName ++ " to a package name")
 
 
 package : Project

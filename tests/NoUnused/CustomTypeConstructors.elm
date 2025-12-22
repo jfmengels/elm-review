@@ -40,9 +40,16 @@ anywhere _in the project_.
 If the project is a package and the module that declared the type is exposed and
 the type's constructors are exposed, then the constructors will not be reported.
 
+
+### Phantom types
+
 This does not prevent you from using phantom types.
-I highly suggest chaning your phantom types to the following shape: `type TypeName = ConstructorName Never`.
-This shape makes it obvious to tooling and readers that the type can't be created, so if it is used, it must be as a phantom type.
+I highly suggest changing your phantom types to the following shape:
+
+    type TypeName
+        = TypeName Never
+
+This shape makes it obvious to tooling and readers that the type can't be created, so if it is used it must be as a phantom type.
 
 **Deprecated configuration for phantom types**
 
@@ -178,6 +185,7 @@ type alias ConstructorInformation =
     { name : String
     , rangeToReport : Range
     , rangeToRemove : Maybe Range
+    , looksLikePhantomType : Bool
     }
 
 
@@ -506,17 +514,35 @@ declarationVisitor : Node Declaration -> ModuleContext -> ModuleContext
 declarationVisitor node context =
     case Node.value node of
         Declaration.CustomTypeDeclaration { name, constructors } ->
-            if (context.isExposed && context.exposesEverything) || isPhantomCustomType context.lookupTable (Node.value name) constructors then
+            if context.isExposed && context.exposesEverything then
                 context
 
             else
-                { context
-                    | declaredTypesWithConstructors =
-                        Dict.insert
-                            (Node.value name)
-                            (constructorsForCustomType constructors)
-                            context.declaredTypesWithConstructors
-                }
+                let
+                    (Node _ typeName) =
+                        name
+                in
+                case isPhantomCustomType context.lookupTable typeName constructors of
+                    DefinitelyPhantomType ->
+                        context
+
+                    LooksLikePhantomType ->
+                        { context
+                            | declaredTypesWithConstructors =
+                                Dict.insert
+                                    typeName
+                                    (constructorsForCustomType True constructors)
+                                    context.declaredTypesWithConstructors
+                        }
+
+                    NotPhantomType ->
+                        { context
+                            | declaredTypesWithConstructors =
+                                Dict.insert
+                                    typeName
+                                    (constructorsForCustomType False constructors)
+                                    context.declaredTypesWithConstructors
+                        }
 
         Declaration.FunctionDeclaration function ->
             markPhantomTypesFromTypeAnnotationAsUsed
@@ -530,8 +556,8 @@ declarationVisitor node context =
             context
 
 
-constructorsForCustomType : List (Node Type.ValueConstructor) -> Dict String ConstructorInformation
-constructorsForCustomType constructors =
+constructorsForCustomType : Bool -> List (Node Type.ValueConstructor) -> Dict String ConstructorInformation
+constructorsForCustomType looksLikePhantomType constructors =
     let
         constructorsAndNext : List ( Maybe (Node Type.ValueConstructor), Node Type.ValueConstructor )
         constructorsAndNext =
@@ -542,19 +568,15 @@ constructorsForCustomType constructors =
     List.foldl
         (\( next, constructor ) ( prev, dict ) ->
             let
-                nameNode : Node String
-                nameNode =
+                (Node range constructorName) =
                     (Node.value constructor).name
-
-                constructorName : String
-                constructorName =
-                    Node.value nameNode
 
                 constructorInformation : ConstructorInformation
                 constructorInformation =
                     { name = constructorName
-                    , rangeToReport = Node.range nameNode
+                    , rangeToReport = range
                     , rangeToRemove = findRangeToRemove prev constructor next
+                    , looksLikePhantomType = looksLikePhantomType
                     }
             in
             ( Just constructor
@@ -590,24 +612,41 @@ findRangeToRemove previousConstructor constructor nextConstructor =
                     Nothing
 
 
-isPhantomCustomType : ModuleNameLookupTable -> String -> List (Node Type.ValueConstructor) -> Bool
+type PhantomType
+    = DefinitelyPhantomType
+    | LooksLikePhantomType
+    | NotPhantomType
+
+
+isPhantomCustomType : ModuleNameLookupTable -> String -> List (Node Type.ValueConstructor) -> PhantomType
 isPhantomCustomType lookupTable typeName constructors =
     case constructors of
         [ Node _ constructor ] ->
             case constructor.arguments of
                 [ arg ] ->
-                    isNeverOrItself lookupTable typeName arg
+                    if isNeverOrItself lookupTable typeName arg then
+                        DefinitelyPhantomType
+
+                    else
+                        NotPhantomType
+
+                [] ->
+                    if Node.value constructor.name == typeName then
+                        LooksLikePhantomType
+
+                    else
+                        NotPhantomType
 
                 _ ->
-                    False
+                    NotPhantomType
 
         _ ->
-            False
+            NotPhantomType
 
 
 isNeverOrItself : ModuleNameLookupTable -> String -> Node TypeAnnotation -> Bool
-isNeverOrItself lookupTable typeName node =
-    case Node.value node of
+isNeverOrItself lookupTable typeName (Node _ typeAnnotation) =
+    case typeAnnotation of
         TypeAnnotation.Typed (Node neverRange ( _, "Never" )) [] ->
             ModuleNameLookupTable.moduleNameAt lookupTable neverRange == Just [ "Basics" ]
 
@@ -853,6 +892,7 @@ reportNonExposedConstructor moduleContext used typeName constructors ( errors, c
                     errorForCurrentModule
                         { wasUsedInLocationThatNeedsItself = Set.member ( moduleContext.currentModuleName, constructor.name ) moduleContext.wasUsedInLocationThatNeedsItself
                         , wasUsedInComparisons = Set.member ( moduleContext.currentModuleName, constructor.name ) moduleContext.wasUsedInComparisons
+                        , looksLikePhantomType = constructor.looksLikePhantomType
                         , fixesForRemovingConstructor = Dict.get ( moduleContext.currentModuleName, constructor.name ) moduleContext.fixesForRemovingConstructor |> Maybe.andThen (Dict.get moduleContext.currentModuleName) |> Maybe.withDefault []
                         }
                         constructor
@@ -1136,6 +1176,7 @@ errorsForConstructors projectContext usedConstructors moduleName moduleKey const
                     moduleKey
                     { wasUsedInLocationThatNeedsItself = Set.member ( moduleName, constructorInformation.name ) projectContext.wasUsedInLocationThatNeedsItself
                     , wasUsedInComparisons = Set.member ( moduleName, constructorInformation.name ) projectContext.wasUsedInComparisons
+                    , looksLikePhantomType = constructorInformation.looksLikePhantomType
                     , fixesForRemovingConstructor = Dict.get ( moduleName, constructorInformation.name ) projectContext.fixesForRemovingConstructor |> Maybe.withDefault Dict.empty
                     , moduleKeys = projectContext.moduleKeys
                     }
@@ -1150,16 +1191,23 @@ errorsForConstructors projectContext usedConstructors moduleName moduleKey const
 -- ERROR
 
 
-errorInformation : { a | wasUsedInLocationThatNeedsItself : Bool, wasUsedInComparisons : Bool } -> String -> { message : String, details : List String }
-errorInformation { wasUsedInLocationThatNeedsItself, wasUsedInComparisons } name =
+errorInformation : { a | wasUsedInLocationThatNeedsItself : Bool, wasUsedInComparisons : Bool, looksLikePhantomType : Bool } -> String -> { message : String, details : List String }
+errorInformation { wasUsedInLocationThatNeedsItself, wasUsedInComparisons, looksLikePhantomType } name =
     { message = "Type constructor `" ++ name ++ "` is not used."
     , details =
         [ ( defaultDetails, True )
         , ( "I found it used in comparisons, but since it is never created anywhere, all of those can be evaluated to False (for (==), True for (/=)).", wasUsedInComparisons )
         , ( "The only locations where I found it being created require already having one.", wasUsedInLocationThatNeedsItself )
+        , ( "This type looks like it might be used for phantom types. If that's the case, consider adding `Never` to as an argument. See https://package.elm-lang.org/packages/jfmengels/elm-review-unused/latest/NoUnused-CustomTypeConstructors#phantom-types for more information.", looksLikePhantomType )
         ]
-            |> List.filter Tuple.second
-            |> List.map Tuple.first
+            |> List.filterMap
+                (\( message, condition ) ->
+                    if condition then
+                        Just message
+
+                    else
+                        Nothing
+                )
     }
 
 
@@ -1173,6 +1221,7 @@ errorForModule :
     ->
         { wasUsedInLocationThatNeedsItself : Bool
         , wasUsedInComparisons : Bool
+        , looksLikePhantomType : Bool
         , fixesForRemovingConstructor : Dict ModuleNameAsString (List Fix)
         , moduleKeys : Dict ModuleNameAsString Rule.ModuleKey
         }
@@ -1191,7 +1240,6 @@ errorForModule moduleKey params constructorInformation =
                                     Rule.editModule fileModuleKey fileFixes :: acc
 
                                 Nothing ->
-                                    -- TODO Abort entire fix?
                                     acc
                         )
                         [ Rule.editModule moduleKey [ Fix.removeRange rangeToRemove ] ]
@@ -1210,6 +1258,7 @@ errorForModule moduleKey params constructorInformation =
 errorForCurrentModule :
     { wasUsedInLocationThatNeedsItself : Bool
     , wasUsedInComparisons : Bool
+    , looksLikePhantomType : Bool
     , fixesForRemovingConstructor : List Fix
     }
     -> ConstructorInformation

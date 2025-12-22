@@ -1,7 +1,10 @@
-module List.Extra exposing (find, indexedFilterMap)
+module List.Extra exposing (dictToListFilterAndMap, dictToListMap, find, findMap, findMapWithIndex, indexedFilterMap, insertAllJusts, listFilterThenMapInto)
 
 {-| Some utilities.
 -}
+
+import Dict exposing (Dict)
+import Set exposing (Set)
 
 
 {-| Find the first element that satisfies a predicate and return
@@ -24,6 +27,41 @@ find predicate list =
                 find predicate rest
 
 
+findMap : (a -> Maybe b) -> List a -> Maybe b
+findMap mapper list =
+    case list of
+        [] ->
+            Nothing
+
+        first :: rest ->
+            case mapper first of
+                Just value ->
+                    Just value
+
+                Nothing ->
+                    findMap mapper rest
+
+
+findMapWithIndex : (Int -> a -> Maybe b) -> List a -> Maybe b
+findMapWithIndex mapper list =
+    findMapWithIndexHelp mapper 0 list
+
+
+findMapWithIndexHelp : (Int -> a -> Maybe b) -> Int -> List a -> Maybe b
+findMapWithIndexHelp mapper index list =
+    case list of
+        [] ->
+            Nothing
+
+        first :: rest ->
+            case mapper index first of
+                Just value ->
+                    Just value
+
+                Nothing ->
+                    findMapWithIndexHelp mapper (index + 1) rest
+
+
 indexedFilterMap : (Int -> a -> Maybe b) -> Int -> List a -> List b -> List b
 indexedFilterMap predicate index list acc =
     case list of
@@ -41,3 +79,53 @@ indexedFilterMap predicate index list acc =
                     Nothing ->
                         acc
                 )
+
+
+{-| Note: Doesn't preserve order of the list.
+-}
+listFilterThenMapInto : (a -> Bool) -> (a -> b) -> List a -> List b -> List b
+listFilterThenMapInto predicate mapper list acc =
+    case list of
+        [] ->
+            acc
+
+        x :: xs ->
+            if predicate x then
+                mapper x :: acc
+
+            else
+                listFilterThenMapInto predicate mapper xs acc
+
+
+dictToListMap : (k -> v -> a) -> Dict k v -> List a -> List a
+dictToListMap mapper dict baseAcc =
+    Dict.foldr (\k v acc -> mapper k v :: acc) baseAcc dict
+
+
+dictToListFilterAndMap : (k -> Bool) -> (k -> v -> a) -> Dict k v -> List a -> List a
+dictToListFilterAndMap predicate mapper dict baseAcc =
+    Dict.foldr
+        (\k v acc ->
+            if predicate k then
+                mapper k v :: acc
+
+            else
+                acc
+        )
+        baseAcc
+        dict
+
+
+insertAllJusts : List ( a, Maybe comparable ) -> Set comparable -> Set comparable
+insertAllJusts list set =
+    case list of
+        [] ->
+            set
+
+        ( _, head ) :: rest ->
+            case head of
+                Nothing ->
+                    insertAllJusts rest set
+
+                Just value ->
+                    insertAllJusts rest (Set.insert value set)
