@@ -122,16 +122,20 @@ type alias SummaryInfo =
     }
 
 
+emptySummaryInfo : SummaryInfo
+emptySummaryInfo =
+    { includeExclude = []
+    , excludedDirectories = []
+    , strings = []
+    , excludedDirectoriesStrings = []
+    }
+
+
 {-| Compile a list of `FilePattern`s.
 -}
 compact : List FilePattern -> Result (List String) Summary
 compact filePatterns =
-    compactBase filePatterns
-        { includeExclude = []
-        , excludedDirectories = []
-        , strings = []
-        , excludedDirectoriesStrings = []
-        }
+    compactBase filePatterns emptySummaryInfo
         |> Result.map
             (\summary ->
                 Summary
