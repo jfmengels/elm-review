@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Improved test failure message when one of the source files can't be parsed, it now includes the parser's error messages. 
+
 ## [2.15.5] - 2025-11-19
 
 - Fixed an issue where `ModuleNameLookupTable` would sometimes yield an incorrect result for expressions located after nested let/case expressions.

@@ -141,6 +141,8 @@ parsingFailureTest =
 
 I could not parse the test source code, because it was not valid Elm code.
 
+Expecting symbol ')' at row 1, column 29
+
 Hint: Maybe you forgot to add the module definition at the top, like:
 
   `module A exposing (..)`"""
@@ -159,6 +161,8 @@ Elm code.
 The source code in question is the one at index 0 starting with:
 
   `module MyModule exposing (..`
+
+Expecting symbol ')' at row 1, column 29
 
 Hint: Maybe you forgot to add the module definition at the top, like:
 

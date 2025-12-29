@@ -34,6 +34,7 @@ module Review.Test.FailureMessage exposing
 -}
 
 import Ansi
+import Elm.Parser as Parser
 import Elm.Syntax.Range exposing (Location, Range)
 import Json.Decode as Decode
 import Json.Encode as Encode
@@ -80,6 +81,15 @@ quotedBulletList strings =
 parsingFailure : Bool -> { index : Int, source : String } -> String
 parsingFailure isOnlyFile { index, source } =
     let
+        parsingError : String
+        parsingError =
+            case Parser.parseToFile source of
+                Ok _ ->
+                    ""
+
+                Err parsingErrors ->
+                    "\n\n" ++ deadEndsToString parsingErrors
+
         hint : String
         hint =
             """Hint: Maybe you forgot to add the module definition at the top, like:
@@ -89,7 +99,7 @@ parsingFailure isOnlyFile { index, source } =
         details : String
         details =
             if isOnlyFile then
-                "I could not parse the test source code, because it was not valid Elm code."
+                "I could not parse the test source code, because it was not valid Elm code." ++ parsingError
 
             else
                 """I could not parse one of the test source codes, because it was not valid
@@ -102,6 +112,7 @@ The source code in question is the one at index """
   `"""
                     ++ (String.concat <| List.take 1 <| String.split "\n" <| String.trim source)
                     ++ "`"
+                    ++ parsingError
     in
     failureMessage "TEST SOURCE CODE PARSING ERROR" (details ++ "\n\n" ++ hint)
 
