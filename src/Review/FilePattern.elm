@@ -266,12 +266,9 @@ toDirectory globStr =
 
 
 compactErrors : List FilePattern -> List String -> List String
-compactErrors filePatterns accGlobStrings =
-    case filePatterns of
-        [] ->
-            List.reverse accGlobStrings
-
-        filePattern :: rest ->
+compactErrors filePatterns initial =
+    List.foldr
+        (\filePattern accGlobStrings ->
             let
                 raw : String
                 raw =
@@ -287,10 +284,13 @@ compactErrors filePatterns accGlobStrings =
             in
             case Glob.fromString raw of
                 Ok _ ->
-                    compactErrors rest accGlobStrings
+                    accGlobStrings
 
                 Err _ ->
-                    compactErrors rest (raw :: accGlobStrings)
+                    raw :: accGlobStrings
+        )
+        initial
+        filePatterns
 
 
 addRawIncludeExclude : String -> Bool -> SummaryInfo -> SummaryInfo
