@@ -147,12 +147,7 @@ compactBase : List FilePattern -> SummaryInfo -> Result (List String) SummaryInf
 compactBase filePatterns accSummary =
     case filePatterns of
         [] ->
-            Ok
-                { includeExclude = accSummary.includeExclude
-                , excludedDirectories = accSummary.excludedDirectories
-                , strings = List.reverse accSummary.strings
-                , excludedDirectoriesStrings = List.reverse accSummary.excludedDirectoriesStrings
-                }
+            Ok accSummary
 
         (Include raw) :: rest ->
             case Glob.fromString raw of
