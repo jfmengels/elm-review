@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [2.16.1] - 2025-12-30
+
+- Fixed an issue where `Review.Rule.withIsFileFixable` would not always yield the correct result.
+
+## [2.16.0] - 2025-12-30
+
 - Added [`Review.Rule.ignoreErrorsFor`](https://package.elm-lang.org/packages/jfmengels/elm-review/2.16.0/Review-Rule#ignoreErrorsFor)
 which allows using Glob-like [`FilePattern`s](https://package.elm-lang.org/packages/jfmengels/elm-review/2.16.0/Review-FilePattern) to ignore files,
 instead or in addition to `Review.Rule.ignoreErrorsForDirectories` and `Review.Rule.ignoreErrorsForFiles`.
@@ -267,7 +273,9 @@ Help would be appreciated to fill the blanks!
 [`Review.Rule.errorFixFailure`]: https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule#errorFixFailure
 [`Review.Test.ignoredFilesImpactResults`]: https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule-Test#ignoredFilesImpactResults
 
-[Unreleased]: https://github.com/jfmengels/elm-review/compare/v2.15.5...HEAD
+[Unreleased]: https://github.com/jfmengels/elm-review/compare/v2.16.1...HEAD
+[2.16.1]: https://github.com/jfmengels/elm-review/releases/tag/2.16.1
+[2.16.0]: https://github.com/jfmengels/elm-review/releases/tag/2.16.0
 [2.15.5]: https://github.com/jfmengels/elm-review/releases/tag/2.15.5
 [2.15.4]: https://github.com/jfmengels/elm-review/releases/tag/2.15.4
 [2.15.3]: https://github.com/jfmengels/elm-review/releases/tag/2.15.3
