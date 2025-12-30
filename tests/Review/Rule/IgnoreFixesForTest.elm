@@ -1,10 +1,14 @@
-module Review.Rule.IgnoreFixesForTest exposing (ignoreFixesForTest)
+module Review.Rule.IgnoreFixesForTest exposing (ignoreFixesForTest, isFileFixableTests)
 
+import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node
+import Json.Encode as Encode
 import Review.FilePattern as FilePattern
 import Review.Fix as Fix
+import Review.Project
 import Review.Rule as Rule exposing (Rule)
 import Review.Test
+import Set exposing (Set)
 import Test exposing (Test, describe, test)
 
 
@@ -104,6 +108,49 @@ a = ()
         ]
 
 
+isFileFixableTests : Test
+isFileFixableTests =
+    test "Rule.withIsFileFixable" <|
+        \() ->
+            moduleSrc "A"
+                |> Review.Test.runWithProjectData
+                    (Review.Project.new
+                        |> Review.Project.addModule { path = "src/B.elm", source = moduleSrc "B" }
+                        |> Review.Project.addModule { path = "src-ignored/C.elm", source = moduleSrc "C" }
+                        |> Review.Project.addModule { path = "tests/D.elm", source = moduleSrc "D" }
+                        |> Review.Project.addModule { path = "tests/E.elm", source = moduleSrc "E" }
+                        |> Review.Project.addModule { path = "src-other-ignored/folder/F.elm", source = moduleSrc "F" }
+                    )
+                    (Rule.newProjectRuleSchema "ListIgnoredFiles" Set.empty
+                        |> Rule.withModuleVisitor (Rule.withSimpleExpressionVisitor (always []))
+                        |> Rule.withModuleContextUsingContextCreator
+                            { fromProjectToModule = Rule.initContextCreator (\_ -> ())
+                            , fromModuleToProject = fromModuleToProject
+                            , foldProjectContexts = Set.union
+                            }
+                        |> Rule.withDataExtractor (\set -> set |> Set.toList |> List.sort |> Encode.list (String.join "." >> Encode.string))
+                        |> Rule.fromProjectRuleSchema
+                        |> Rule.ignoreErrorsForDirectories [ "src-ignored/" ]
+                        |> Rule.ignoreFixesFor [ FilePattern.excludeDirectory "tests" ]
+                        |> Rule.ignoreFixesFor [ FilePattern.excludeDirectory "src-other-ignored/folder/" ]
+                    )
+                |> Review.Test.expectDataExtract """["A", "B"]"""
+
+
+fromModuleToProject : Rule.ContextCreator () (Set ModuleName)
+fromModuleToProject =
+    Rule.initContextCreator
+        (\moduleName isFileFixable () ->
+            if isFileFixable then
+                Set.singleton moduleName
+
+            else
+                Set.empty
+        )
+        |> Rule.withModuleName
+        |> Rule.withIsFileFixable
+
+
 expectedError : Review.Test.ExpectedError
 expectedError =
     Review.Test.error
@@ -111,3 +158,10 @@ expectedError =
         , details = [ "No details" ]
         , under = "()"
         }
+
+
+moduleSrc : String -> String
+moduleSrc moduleName =
+    "module " ++ moduleName ++ """ exposing (a)
+a = ()
+"""

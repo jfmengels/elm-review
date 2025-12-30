@@ -7648,7 +7648,7 @@ However, you can use this information to alter the behavior of the rule (e.g. av
 withIsFileFixable : ContextCreator Bool (from -> to) -> ContextCreator from to
 withIsFileFixable (ContextCreator fn (RequestedData requested)) =
     ContextCreator
-        (\data isFileIgnored isFileFixable -> fn data isFileIgnored isFileFixable isFileIgnored)
+        (\data isFileIgnored isFileFixable -> fn data isFileIgnored isFileFixable isFileFixable)
         (RequestedData { requested | ignoredFixes = True })
 
 
