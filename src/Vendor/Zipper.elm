@@ -1,9 +1,8 @@
 module Vendor.Zipper exposing
     ( Zipper, fromList
     , current
-    , next
+    , next, focusl, focusr, position
     , start
-    , focusl, focusr, position
     )
 
 {-|
@@ -20,9 +19,9 @@ Functions that query `Zipper` for additional data.
 
 ## Bounded Movement
 
-These function will return `Nothing` when moving out of bounds of `Zipper`.
+These functions will return `Nothing` when moving out of bounds of `Zipper`.
 
-@docs next
+@docs next, focusl, focusr, position
 
 
 ## Bounds
