@@ -312,13 +312,9 @@ addEdges getModuleId module_ moduleId initialEdges =
                     acc
         )
         initialEdges
-        (importedModules module_)
-
-
-importedModules : OpaqueProjectModule -> List ModuleName
-importedModules module_ =
-    (ProjectModule.ast module_).imports
-        |> List.map (Node.value >> .moduleName >> Node.value)
+        ((ProjectModule.ast module_).imports
+            |> List.map (Node.value >> .moduleName >> Node.value)
+        )
 
 
 
