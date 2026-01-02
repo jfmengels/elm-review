@@ -808,7 +808,7 @@ checkAcyclic : Graph n e -> Result (Edge e) (AcyclicGraph n e)
 checkAcyclic graph =
     let
         reversePostOrder =
-            dfs (onFinish (.node >> .id >> (::))) [] graph
+            dfs (onFinish (\{ node } acc -> node.id :: acc)) [] graph
     in
     checkForBackEdges reversePostOrder graph
 
