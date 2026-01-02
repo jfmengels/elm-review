@@ -319,7 +319,7 @@ update key alter dict =
                     empty
 
         -- The inner constructor will do the rest
-        join ( k1, l ) ( k2, r ) =
+        join k1 l k2 r =
             -- precondition: k1 /= k2
             let
                 prefix =
@@ -344,7 +344,7 @@ update key alter dict =
                 -- This updates or removes the leaf with the same key
 
             else
-                join ( key, alteredNode Nothing ) ( l.key, dict )
+                join key (alteredNode Nothing) l.key dict
 
         -- This potentially inserts a new node
         Inner i ->
@@ -357,7 +357,7 @@ update key alter dict =
 
             else
                 -- we have to join a new leaf with the current diverging Inner node
-                join ( key, alteredNode Nothing ) ( i.prefix.prefixBits, dict )
+                join key (alteredNode Nothing) i.prefix.prefixBits dict
 
 
 
