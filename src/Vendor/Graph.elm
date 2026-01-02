@@ -1,8 +1,10 @@
 module Vendor.Graph exposing
     ( NodeId, Node, Edge, Adjacency, NodeContext, Graph
     , empty, update, insert, remove, inducedSubgraph
+    , addNode
     , isEmpty, size, member, get, nodeIdRange
-    , nodeIds, nodes, edges, fromNodesAndEdges, fromNodeLabelsAndEdgePairs
+    , fromNodesAndEdges
+    , nodeIds, nodes, edges, fromNodesAndEdgesOld, fromNodeLabelsAndEdgePairs
     , fold, mapContexts, mapNodes, mapEdges, reverseEdges, symmetricClosure
     , AcyclicGraph, checkAcyclic
     , NeighborSelector, alongOutgoingEdges, alongIncomingEdges, SimpleNodeVisitor
@@ -30,6 +32,7 @@ representation.
 # Building
 
 @docs empty, update, insert, remove, inducedSubgraph
+@docs addNode
 
 
 # Query
@@ -39,7 +42,8 @@ representation.
 
 # List representations
 
-@docs nodeIds, nodes, edges, fromNodesAndEdges, fromNodeLabelsAndEdgePairs
+@docs fromNodesAndEdges
+@docs nodeIds, nodes, edges, fromNodesAndEdgesOld, fromNodeLabelsAndEdgePairs
 
 
 # Transforms
@@ -537,9 +541,10 @@ by an edge labeled "->".
         fromNodesAndEdges [ Node 1 "1", Node 2 "2" ] [ Edge 1 2 "->" ]
 
 -}
-fromNodesAndEdges : List (Node n) -> List (Edge e) -> Graph n e
-fromNodesAndEdges nodes_ edges_ =
+fromNodesAndEdgesOld : List (Node n) -> List (Edge e) -> Graph n e
+fromNodesAndEdgesOld nodes_ edges_ =
     let
+        nodeRep : IntDict (NodeContext n v)
         nodeRep =
             List.foldl
                 (\n ->
@@ -570,6 +575,36 @@ fromNodesAndEdges nodes_ edges_ =
     Graph (List.foldl addEdgeIfValid nodeRep edges_)
 
 
+fromNodesAndEdges : IntDict (NodeContext n e) -> List (Edge e) -> Graph n e
+fromNodesAndEdges nodeRep edges_ =
+    let
+        addEdge edge rep =
+            let
+                updateOutgoing ctx =
+                    { ctx | outgoing = IntDict.insert edge.to edge.label ctx.outgoing }
+
+                updateIncoming ctx =
+                    { ctx | incoming = IntDict.insert edge.from edge.label ctx.incoming }
+            in
+            rep
+                |> IntDict.update edge.from (Maybe.map updateOutgoing)
+                |> IntDict.update edge.to (Maybe.map updateIncoming)
+
+        addEdgeIfValid edge rep =
+            if IntDict.member edge.from rep && IntDict.member edge.to rep then
+                addEdge edge rep
+
+            else
+                rep
+    in
+    Graph (List.foldl addEdgeIfValid nodeRep edges_)
+
+
+addNode : Node n -> IntDict (NodeContext n v) -> IntDict (NodeContext n v)
+addNode n intDict =
+    IntDict.insert n.id (NodeContext n IntDict.empty IntDict.empty) intDict
+
+
 {-| A more convenient version of `fromNodesAndEdges`, when edges are unlabeled
 and there are no special requirements on node ids.
 
@@ -594,7 +629,7 @@ fromNodeLabelsAndEdgePairs labels edgePairs =
         edges_ =
             List.map (\( from, to ) -> Edge from to ()) edgePairs
     in
-    fromNodesAndEdges nodes_ edges_
+    fromNodesAndEdgesOld nodes_ edges_
 
 
 

@@ -46,6 +46,7 @@ import Review.Project.ProjectCache exposing (ProjectCache)
 import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModule)
 import Set exposing (Set)
 import Vendor.Graph as Graph exposing (Graph)
+import Vendor.IntDict as IntDict exposing (IntDict)
 import Vendor.Zipper as Zipper exposing (Zipper)
 
 
@@ -271,15 +272,15 @@ buildModuleGraph mods =
 
         ( nodes, edges ) =
             Dict.foldl
-                (\_ module_ ( resNodes, resEdges ) ->
+                (\_ module_ ( accNodes, resEdges ) ->
                     let
                         moduleId : Int
                         moduleId =
                             getModuleId <| ProjectModule.moduleName module_
 
-                        node : Graph.Node String
-                        node =
-                            Graph.Node moduleId (ProjectModule.path module_)
+                        newNodes : IntDict (Graph.NodeContext FilePath ())
+                        newNodes =
+                            Graph.addNode (Graph.Node moduleId (ProjectModule.path module_)) accNodes
 
                         newResEdges : List (Graph.Edge ())
                         newResEdges =
@@ -289,11 +290,11 @@ buildModuleGraph mods =
                                 moduleId
                                 resEdges
                     in
-                    ( node :: resNodes
+                    ( newNodes
                     , newResEdges
                     )
                 )
-                ( [], [] )
+                ( IntDict.empty, [] )
                 mods
     in
     Graph.fromNodesAndEdges nodes edges
