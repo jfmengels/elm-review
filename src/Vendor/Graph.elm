@@ -581,10 +581,16 @@ fromNodesAndEdges nodeRep edges_ =
         addEdge edge rep =
             let
                 updateOutgoing ctx =
-                    { ctx | outgoing = IntDict.insert edge.to edge.label ctx.outgoing }
+                    { node = ctx.node
+                    , incoming = ctx.incoming
+                    , outgoing = IntDict.insert edge.to edge.label ctx.outgoing
+                    }
 
                 updateIncoming ctx =
-                    { ctx | incoming = IntDict.insert edge.from edge.label ctx.incoming }
+                    { node = ctx.node
+                    , incoming = IntDict.insert edge.from edge.label ctx.incoming
+                    , outgoing = ctx.outgoing
+                    }
             in
             rep
                 |> IntDict.update edge.from (Maybe.map updateOutgoing)
