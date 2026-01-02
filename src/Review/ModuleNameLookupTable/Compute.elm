@@ -271,8 +271,8 @@ collectExplicit moduleDocs list acc =
         importedConstructors : List ProjectCache.ImportedElement
         importedConstructors =
             List.foldl
-                (\node subAcc ->
-                    case Node.value node of
+                (\(Node _ node) subAcc ->
+                    case node of
                         Exposing.TypeExpose { name } ->
                             case ListExtra.find (\union -> union.name == name) moduleDocs.unions of
                                 Just union ->
@@ -416,16 +416,16 @@ collectModuleDocs ast context =
 collectLookupTable : List (Node Declaration) -> Context -> Context
 collectLookupTable declarations context =
     List.foldl
-        (\declaration ctx ->
-            case Node.value declaration of
+        (\((Node _ declaration) as node) ctx ->
+            case declaration of
                 Declaration.FunctionDeclaration function ->
                     ctx
-                        |> declarationEnterVisitor declaration
+                        |> declarationEnterVisitor node
                         |> visitExpressions (function.declaration |> Node.value |> .expression)
-                        |> declarationExitVisitor declaration
+                        |> declarationExitVisitor node
 
                 _ ->
-                    declarationEnterVisitor declaration ctx
+                    declarationEnterVisitor node ctx
         )
         context
         declarations
@@ -579,8 +579,8 @@ declarationListVisitor declarations innerContext =
 
 
 registerDeclaration : Node Declaration -> Context -> Context
-registerDeclaration declaration innerContext =
-    case Node.value declaration of
+registerDeclaration (Node declarationRange declaration) innerContext =
+    case declaration of
         Declaration.FunctionDeclaration function ->
             let
                 nameNode : Node String
@@ -594,7 +594,7 @@ registerDeclaration declaration innerContext =
                     { variableType = TopLevelVariable
                     , node = nameNode
                     }
-                |> registerIfExposed (\name ctx -> registerExposedValue function name ctx) (Node.value nameNode)
+                |> registerIfExposed (\name ctx -> registerExposedValue function name ctx) nameNode
 
         Declaration.AliasDeclaration alias ->
             let
@@ -613,25 +613,20 @@ registerDeclaration declaration innerContext =
             in
             { innerContext | localTypes = Set.insert (Node.value alias.name) innerContext.localTypes }
                 |> registerAlias
-                |> registerIfExposed registerExposedTypeAlias (Node.value alias.name)
+                |> registerIfExposed registerExposedTypeAlias alias.name
 
         Declaration.CustomTypeDeclaration { name, constructors } ->
             List.foldl
-                (\constructor innerContext_ ->
-                    let
-                        constructorName : Node String
-                        constructorName =
-                            constructor |> Node.value |> .name
-                    in
+                (\(Node _ constructor) innerContext_ ->
                     addToScope
                         { variableType = CustomTypeConstructor
-                        , node = constructorName
+                        , node = constructor.name
                         }
                         innerContext_
                 )
                 { innerContext | localTypes = Set.insert (Node.value name) innerContext.localTypes }
                 constructors
-                |> registerIfExposed (\customTypeName ctx -> registerExposedCustomType constructors customTypeName ctx) (Node.value name)
+                |> registerIfExposed (\customTypeName ctx -> registerExposedCustomType constructors customTypeName ctx) name
 
         Declaration.PortDeclaration signature ->
             innerContext
@@ -641,9 +636,9 @@ registerDeclaration declaration innerContext =
                     }
                 |> registerIfExposed
                     (\name ctx ->
-                        registerExposedValue { documentation = Nothing, signature = Just (Node (Node.range declaration) signature) } name ctx
+                        registerExposedValue { documentation = Nothing, signature = Just (Node declarationRange signature) } name ctx
                     )
-                    (Node.value signature.name)
+                    signature.name
 
         Declaration.InfixDeclaration _ ->
             innerContext
@@ -670,8 +665,8 @@ registerExposedValue function name innerContext =
             { name = name
             , comment =
                 case function.documentation of
-                    Just strNode ->
-                        Node.value strNode
+                    Just (Node _ str) ->
+                        str
 
                     Nothing ->
                         ""
@@ -682,10 +677,10 @@ registerExposedValue function name innerContext =
 
 
 registerExposedCustomType : List (Node Elm.Syntax.Type.ValueConstructor) -> String -> Context -> Context
-registerExposedCustomType constructors name innerContext =
+registerExposedCustomType constructors customTypeName innerContext =
     { innerContext
         | exposedUnions =
-            { name = name
+            { name = customTypeName
             , comment = ""
 
             -- TODO Get the args from the type. Not useful now but useful when we will provide type information
@@ -693,7 +688,7 @@ registerExposedCustomType constructors name innerContext =
             , tags =
                 constructors
                     -- TODO Get the constructor args from the type. Not useful now but useful when we will provide type information
-                    |> List.map (\constructor -> ( Node.value (Node.value constructor).name, [] ))
+                    |> List.map (\(Node _ { name }) -> ( Node.value name, [] ))
             }
                 :: innerContext.exposedUnions
     }
@@ -712,8 +707,8 @@ registerExposedTypeAlias name innerContext =
     }
 
 
-registerIfExposed : (String -> Context -> Context) -> String -> Context -> Context
-registerIfExposed registerFn name innerContext =
+registerIfExposed : (String -> Context -> Context) -> Node String -> Context -> Context
+registerIfExposed registerFn (Node _ name) innerContext =
     if innerContext.exposesEverything || Set.member name innerContext.exposedNames then
         registerFn name innerContext
 
@@ -724,8 +719,8 @@ registerIfExposed registerFn name innerContext =
 convertTypeSignatureToDocsType : Context -> Maybe (Node Signature) -> Elm.Type.Type
 convertTypeSignatureToDocsType innerContext maybeSignature =
     case maybeSignature of
-        Just signature ->
-            syntaxTypeAnnotationToDocsType innerContext (Node.value signature).typeAnnotation
+        Just (Node _ { typeAnnotation }) ->
+            syntaxTypeAnnotationToDocsType innerContext typeAnnotation
 
         Nothing ->
             Elm.Type.Tuple []
@@ -767,8 +762,8 @@ syntaxTypeAnnotationToDocsType innerContext (Node _ typeAnnotation) =
 recordUpdateToDocsType : Context -> List (Node TypeAnnotation.RecordField) -> List ( String, Elm.Type.Type )
 recordUpdateToDocsType innerContext updates =
     List.map
-        (\(Node _ ( name, typeAnnotation )) ->
-            ( Node.value name
+        (\(Node _ ( Node _ name, typeAnnotation )) ->
+            ( name
             , syntaxTypeAnnotationToDocsType innerContext typeAnnotation
             )
         )
@@ -792,8 +787,8 @@ registerVariableInScope variableInfo scope =
 
 
 moduleDefinitionVisitor : Node Module -> Context -> Context
-moduleDefinitionVisitor node innerContext =
-    case Module.exposingList (Node.value node) of
+moduleDefinitionVisitor (Node _ node) innerContext =
+    case Module.exposingList node of
         Exposing.All _ ->
             { innerContext | exposesEverything = True }
 
@@ -804,8 +799,8 @@ moduleDefinitionVisitor node innerContext =
 exposedElements : List (Node Exposing.TopLevelExpose) -> Set String
 exposedElements nodes =
     List.foldl
-        (\node acc ->
-            case Node.value node of
+        (\(Node _ node) acc ->
+            case node of
                 Exposing.FunctionExpose name ->
                     Set.insert name acc
 
@@ -835,13 +830,13 @@ importVisitor (Node _ import_) innerContext =
 
 registerImportAlias : Import -> Context -> Context
 registerImportAlias import_ innerContext =
+    let
+        moduleName : ModuleName
+        moduleName =
+            Node.value import_.moduleName
+    in
     case import_.moduleAlias of
         Nothing ->
-            let
-                moduleName : ModuleName
-                moduleName =
-                    Node.value import_.moduleName
-            in
             case moduleName of
                 singleSegmentModuleName :: [] ->
                     { innerContext
@@ -855,23 +850,23 @@ registerImportAlias import_ innerContext =
                 _ ->
                     innerContext
 
-        Just alias ->
+        Just (Node _ alias) ->
             { innerContext
                 | importAliases =
                     Dict.update
-                        (Node.value alias |> joinModuleName)
-                        (\previousValue -> Just <| Node.value import_.moduleName :: Maybe.withDefault [] previousValue)
+                        (joinModuleName alias)
+                        (\previousValue -> Just (moduleName :: Maybe.withDefault [] previousValue))
                         innerContext.importAliases
             }
 
 
 registerImportExposed : Import -> Context -> Context
 registerImportExposed import_ innerContext =
-    case import_.exposingList |> Maybe.map Node.value of
+    case import_.exposingList of
         Nothing ->
             innerContext
 
-        Just exposing_ ->
+        Just (Node _ exposing_) ->
             let
                 moduleName : ModuleName
                 moduleName =
@@ -960,8 +955,8 @@ valuesFromExposingList moduleName module_ topLevelExposeList acc =
         [] ->
             acc
 
-        topLevelExpose :: rest ->
-            case Node.value topLevelExpose of
+        (Node _ topLevelExpose) :: rest ->
+            case topLevelExpose of
                 Exposing.InfixExpose operator ->
                     valuesFromExposingList moduleName module_ rest (Dict.insert operator moduleName acc)
 
@@ -1000,8 +995,8 @@ valuesFromExposingList moduleName module_ topLevelExposeList acc =
 
 
 typesFromExposingList : Node TopLevelExpose -> Maybe String
-typesFromExposingList topLevelExpose =
-    case Node.value topLevelExpose of
+typesFromExposingList (Node _ topLevelExpose) =
+    case topLevelExpose of
         Exposing.InfixExpose _ ->
             Nothing
 
@@ -1016,13 +1011,16 @@ typesFromExposingList topLevelExpose =
 
 
 declarationEnterVisitor : Node Declaration -> Context -> Context
-declarationEnterVisitor node context =
-    case Node.value node of
+declarationEnterVisitor (Node _ node) context =
+    case node of
         Declaration.FunctionDeclaration function ->
             let
+                (Node _ functionDeclaration) =
+                    function.declaration
+
                 newScope : Scope
                 newScope =
-                    { emptyScope | names = parameters (Node.value function.declaration).arguments }
+                    { emptyScope | names = parameters functionDeclaration.arguments }
 
                 newContext : Context
                 newContext =
@@ -1030,15 +1028,15 @@ declarationEnterVisitor node context =
 
                 lookupTableAfterArguments : ModuleNameLookupTableBuilder
                 lookupTableAfterArguments =
-                    collectModuleNamesFromPattern newContext (Node.value function.declaration).arguments newContext.lookupTable
+                    collectModuleNamesFromPattern newContext functionDeclaration.arguments newContext.lookupTable
 
                 finalLookupTable : ModuleNameLookupTableBuilder
                 finalLookupTable =
                     case function.signature of
-                        Just signature ->
+                        Just (Node _ signature) ->
                             collectModuleNamesFromTypeAnnotation
                                 context
-                                [ (Node.value signature).typeAnnotation ]
+                                [ signature.typeAnnotation ]
                                 lookupTableAfterArguments
 
                         Nothing ->
@@ -1068,8 +1066,8 @@ declarationEnterVisitor node context =
 
 
 declarationExitVisitor : Node Declaration -> Context -> Context
-declarationExitVisitor node context =
-    case Node.value node of
+declarationExitVisitor (Node _ node) context =
+    case node of
         Declaration.FunctionDeclaration _ ->
             { context | scopes = NonEmpty.pop context.scopes }
 
@@ -1085,14 +1083,14 @@ parameters patterns =
 collectNamesFromPattern : VariableType -> List (Node Pattern) -> Dict String VariableInfo -> Dict String VariableInfo
 collectNamesFromPattern variableType patternsToVisit acc =
     case patternsToVisit of
-        pattern :: restOfPatternsToVisit ->
-            case Node.value pattern of
+        (Node range pattern) :: restOfPatternsToVisit ->
+            case pattern of
                 Pattern.VarPattern name ->
                     collectNamesFromPattern variableType
                         restOfPatternsToVisit
                         (Dict.insert
                             name
-                            { node = Node (Node.range pattern) name
+                            { node = Node range name
                             , variableType = variableType
                             }
                             acc
@@ -1105,9 +1103,9 @@ collectNamesFromPattern variableType patternsToVisit acc =
                     collectNamesFromPattern variableType
                         restOfPatternsToVisit
                         (List.foldl
-                            (\nameNode subAcc ->
+                            (\((Node _ name) as nameNode) subAcc ->
                                 Dict.insert
-                                    (Node.value nameNode)
+                                    name
                                     { node = nameNode
                                     , variableType = variableType
                                     }
@@ -1120,11 +1118,11 @@ collectNamesFromPattern variableType patternsToVisit acc =
                 Pattern.ParenthesizedPattern subPattern ->
                     collectNamesFromPattern variableType (subPattern :: restOfPatternsToVisit) acc
 
-                Pattern.AsPattern subPattern alias ->
+                Pattern.AsPattern subPattern ((Node _ aliasName) as alias) ->
                     collectNamesFromPattern variableType
                         (subPattern :: restOfPatternsToVisit)
                         (Dict.insert
-                            (Node.value alias)
+                            aliasName
                             { node = alias
                             , variableType = variableType
                             }
@@ -1150,13 +1148,13 @@ collectNamesFromPattern variableType patternsToVisit acc =
 collectModuleNamesFromPattern : Context -> List (Node Pattern) -> ModuleNameLookupTableBuilder -> ModuleNameLookupTableBuilder
 collectModuleNamesFromPattern context patternsToVisit acc =
     case patternsToVisit of
-        pattern :: restOfPatternsToVisit ->
-            case Node.value pattern of
+        (Node range pattern) :: restOfPatternsToVisit ->
+            case pattern of
                 Pattern.NamedPattern { moduleName, name } subPatterns ->
                     collectModuleNamesFromPattern
                         context
                         (List.append subPatterns restOfPatternsToVisit)
-                        (Builder.add (Node.range pattern) (moduleNameForValue context name moduleName) acc)
+                        (Builder.add range (moduleNameForValue context name moduleName) acc)
 
                 Pattern.UnConsPattern left right ->
                     collectModuleNamesFromPattern context (left :: right :: restOfPatternsToVisit) acc
@@ -1214,15 +1212,15 @@ popScopeExit (Node range _) context =
 
 
 expressionEnterVisitor : Node Expression -> Context -> Context
-expressionEnterVisitor node context =
-    case Node.value node of
+expressionEnterVisitor (Node nodeRange node) context =
+    case node of
         Expression.LetExpression letExpression ->
             let
                 newScope : Scope
                 newScope =
                     List.foldl
-                        (\declaration scope ->
-                            case Node.value declaration of
+                        (\(Node _ declaration) scope ->
+                            case declaration of
                                 Expression.LetFunction function ->
                                     let
                                         { name, expression, arguments } =
@@ -1260,8 +1258,8 @@ expressionEnterVisitor node context =
                 lookupTable : ModuleNameLookupTableBuilder
                 lookupTable =
                     List.foldl
-                        (\declaration acc ->
-                            case Node.value declaration of
+                        (\(Node _ declaration) acc ->
+                            case declaration of
                                 Expression.LetFunction function ->
                                     let
                                         withDeclarationModuleName : ModuleNameLookupTableBuilder
@@ -1271,10 +1269,10 @@ expressionEnterVisitor node context =
                                                 acc
                                     in
                                     case function.signature of
-                                        Just signature ->
+                                        Just (Node _ signature) ->
                                             collectModuleNamesFromTypeAnnotation
                                                 context
-                                                [ (Node.value signature).typeAnnotation ]
+                                                [ signature.typeAnnotation ]
                                                 withDeclarationModuleName
 
                                         Nothing ->
@@ -1312,7 +1310,7 @@ expressionEnterVisitor node context =
             { context
                 | lookupTable =
                     Builder.add
-                        (Node.range node)
+                        nodeRange
                         (moduleNameForValue context name moduleName)
                         context.lookupTable
             }
@@ -1328,6 +1326,10 @@ expressionEnterVisitor node context =
 
         Expression.LambdaExpression { args, expression } ->
             let
+                range : Range
+                range =
+                    Node.range expression
+
                 names : Dict String VariableInfo
                 names =
                     collectNamesFromPattern PatternVariable args Dict.empty
@@ -1335,8 +1337,8 @@ expressionEnterVisitor node context =
                 newScope : Scope
                 newScope =
                     { names = Dict.empty
-                    , cases = [ ( Node.range expression, names ) ]
-                    , caseToExit = Node.range expression
+                    , cases = [ ( range, names ) ]
+                    , caseToExit = range
                     }
             in
             { context
@@ -1348,7 +1350,7 @@ expressionEnterVisitor node context =
             { context
                 | lookupTable =
                     Builder.add
-                        (Node.range node)
+                        nodeRange
                         (moduleNameForValue context op [])
                         context.lookupTable
             }
@@ -1357,7 +1359,7 @@ expressionEnterVisitor node context =
             { context
                 | lookupTable =
                     Builder.add
-                        (Node.range node)
+                        nodeRange
                         (moduleNameForValue context op [])
                         context.lookupTable
             }
@@ -1369,8 +1371,8 @@ expressionEnterVisitor node context =
 collectModuleNamesFromTypeAnnotation : Context -> List (Node TypeAnnotation) -> ModuleNameLookupTableBuilder -> ModuleNameLookupTableBuilder
 collectModuleNamesFromTypeAnnotation context typeAnnotationsToVisit acc =
     case typeAnnotationsToVisit of
-        typeAnnotationNode :: remainingTypeAnnotationsToVisit ->
-            case Node.value typeAnnotationNode of
+        (Node _ typeAnnotationNode) :: remainingTypeAnnotationsToVisit ->
+            case typeAnnotationNode of
                 TypeAnnotation.Typed (Node range ( moduleName, name )) args ->
                     collectModuleNamesFromTypeAnnotation
                         context
@@ -1386,13 +1388,13 @@ collectModuleNamesFromTypeAnnotation context typeAnnotationsToVisit acc =
                 TypeAnnotation.Record fields ->
                     collectModuleNamesFromTypeAnnotation
                         context
-                        (ListExtra.orderIndependentMapAppend (\field -> field |> Node.value |> Tuple.second) fields remainingTypeAnnotationsToVisit)
+                        (ListExtra.orderIndependentMapAppend (\(Node _ ( _, value )) -> value) fields remainingTypeAnnotationsToVisit)
                         acc
 
-                TypeAnnotation.GenericRecord _ fields ->
+                TypeAnnotation.GenericRecord _ (Node _ fields) ->
                     collectModuleNamesFromTypeAnnotation
                         context
-                        (ListExtra.orderIndependentMapAppend (\field -> field |> Node.value |> Tuple.second) (Node.value fields) remainingTypeAnnotationsToVisit)
+                        (ListExtra.orderIndependentMapAppend (\(Node _ ( _, value )) -> value) fields remainingTypeAnnotationsToVisit)
                         acc
 
                 TypeAnnotation.FunctionTypeAnnotation left right ->
@@ -1412,8 +1414,8 @@ collectModuleNamesFromTypeAnnotation context typeAnnotationsToVisit acc =
 
 
 expressionExitVisitor : Node Expression -> Context -> Context
-expressionExitVisitor node context =
-    case Node.value node of
+expressionExitVisitor (Node _ node) context =
+    case node of
         Expression.LetExpression _ ->
             { context | scopes = NonEmpty.pop context.scopes }
 
@@ -1568,8 +1570,8 @@ joinModuleName name =
 
 
 expressionChildren : Node Expression -> List (Node Expression)
-expressionChildren node =
-    case Node.value node of
+expressionChildren (Node _ node) =
+    case node of
         Expression.Application expressions ->
             expressions
 
@@ -1577,10 +1579,10 @@ expressionChildren node =
             elements
 
         Expression.RecordExpr fields ->
-            List.map (Node.value >> (\( _, expr ) -> expr)) fields
+            List.map (\(Node _ ( _, expr )) -> expr) fields
 
         Expression.RecordUpdateExpression _ setters ->
-            List.map (Node.value >> (\( _, expr ) -> expr)) setters
+            List.map (\(Node _ ( _, expr )) -> expr) setters
 
         Expression.ParenthesizedExpression expr ->
             [ expr ]
@@ -1601,8 +1603,8 @@ expressionChildren node =
 
         Expression.LetExpression { expression, declarations } ->
             List.foldr
-                (\declaration acc ->
-                    case Node.value declaration of
+                (\(Node _ declaration) acc ->
+                    case declaration of
                         Expression.LetFunction function ->
                             functionToExpression function :: acc
 
