@@ -166,10 +166,8 @@ type Graph n e
 
 
 unGraph : Graph n e -> GraphRep n e
-unGraph graph =
-    case graph of
-        Graph rep ->
-            rep
+unGraph (Graph rep) =
+    rep
 
 
 
