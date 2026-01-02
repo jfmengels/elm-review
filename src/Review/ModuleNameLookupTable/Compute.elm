@@ -1031,9 +1031,7 @@ declarationEnterVisitor node context =
 
                 newContext : Context
                 newContext =
-                    context.scopes
-                        |> NonEmpty.cons newScope
-                        |> updateScope context
+                    { context | scopes = NonEmpty.cons newScope context.scopes }
 
                 lookupTableAfterArguments : ModuleNameLookupTableBuilder
                 lookupTableAfterArguments =
