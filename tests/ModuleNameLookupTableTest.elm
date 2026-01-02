@@ -296,6 +296,49 @@ view =
                             , under = "module"
                             }
                         ]
+        , test "should not get confused about let declaration after another declaration without arguments" <|
+            \() ->
+                let
+                    lookupFunction : ModuleNameLookupTable -> Range -> Maybe ModuleName
+                    lookupFunction =
+                        ModuleNameLookupTable.moduleNameAt
+
+                    rule : Rule
+                    rule =
+                        createRule
+                            (Rule.withExpressionEnterVisitor (expressionVisitor lookupFunction)
+                                >> Rule.withDeclarationEnterVisitor (declarationVisitor lookupFunction)
+                            )
+                in
+                """module A exposing (..)
+import Html exposing (..)
+view a =
+    let
+        x =
+            case a of
+                _ ->
+                    ""
+
+        fn label value =
+            text (label + value)
+    in
+    x
+"""
+                    |> Review.Test.runWithProjectData project rule
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = """
+<nothing>.a -> <nothing>.a
+<nothing>.text -> Html.text
+<nothing>.+ -> Basics.+
+<nothing>.label -> <nothing>.label
+<nothing>.value -> <nothing>.value
+<nothing>.x -> <nothing>.x
+"""
+                            , details = [ "details" ]
+                            , under = "module"
+                            }
+                        ]
         ]
 
 

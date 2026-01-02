@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Fixed an issue where `ModuleNameLookupTable` would sometimes yield an incorrect result for values in let expressions appearing after another let declaration without arguments, when the argument is an argument but is named the same as an imported value.
+
 ## [2.16.1] - 2025-12-30
 
 - Fixed an issue where `Review.Rule.withIsFileFixable` would not always yield the correct result.

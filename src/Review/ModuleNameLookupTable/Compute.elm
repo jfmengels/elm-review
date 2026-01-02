@@ -1233,17 +1233,12 @@ expressionEnterVisitor (Node nodeRange node) context =
                                                 , node = name
                                                 }
                                                 scope
-                                    in
-                                    if List.isEmpty arguments then
-                                        withLetVariable
 
-                                    else
-                                        let
-                                            names : Dict String VariableInfo
-                                            names =
-                                                collectNamesFromPattern PatternVariable arguments Dict.empty
-                                        in
-                                        { withLetVariable | cases = ( Node.range expression, names ) :: withLetVariable.cases }
+                                        names : Dict String VariableInfo
+                                        names =
+                                            collectNamesFromPattern PatternVariable arguments Dict.empty
+                                    in
+                                    { withLetVariable | cases = ( Node.range expression, names ) :: withLetVariable.cases }
 
                                 Expression.LetDestructuring pattern _ ->
                                     { scope | names = collectNamesFromPattern LetVariable [ pattern ] scope.names }
