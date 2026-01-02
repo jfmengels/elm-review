@@ -787,11 +787,6 @@ registerVariableInScope variableInfo scope =
     { scope | names = Dict.insert (Node.value variableInfo.node) variableInfo scope.names }
 
 
-updateScope : Context -> NonEmpty Scope -> Context
-updateScope innerContext scopes =
-    { innerContext | scopes = scopes }
-
-
 
 -- MODULE DEFINITION VISITOR
 
@@ -1223,23 +1218,23 @@ expressionEnterVisitor node context =
     case Node.value node of
         Expression.LetExpression letExpression ->
             let
-                newContext : Context
-                newContext =
+                newScope : Scope
+                newScope =
                     List.foldl
-                        (\declaration scopes ->
+                        (\declaration scope ->
                             case Node.value declaration of
                                 Expression.LetFunction function ->
                                     let
                                         { name, expression, arguments } =
                                             Node.value function.declaration
 
-                                        withLetVariable : NonEmpty Scope
+                                        withLetVariable : Scope
                                         withLetVariable =
-                                            registerVariable
+                                            registerVariableInScope
                                                 { variableType = LetVariable
                                                 , node = name
                                                 }
-                                                scopes
+                                                scope
                                     in
                                     if List.isEmpty arguments then
                                         withLetVariable
@@ -1250,14 +1245,17 @@ expressionEnterVisitor node context =
                                             names =
                                                 collectNamesFromPattern PatternVariable arguments Dict.empty
                                         in
-                                        NonEmpty.mapHead (\scope -> { scope | cases = ( Node.range expression, names ) :: scope.cases }) withLetVariable
+                                        { withLetVariable | cases = ( Node.range expression, names ) :: withLetVariable.cases }
 
                                 Expression.LetDestructuring pattern _ ->
-                                    NonEmpty.mapHead (\scope -> { scope | names = collectNamesFromPattern LetVariable [ pattern ] scope.names }) scopes
+                                    { scope | names = collectNamesFromPattern LetVariable [ pattern ] scope.names }
                         )
-                        (NonEmpty.cons emptyScope context.scopes)
+                        emptyScope
                         letExpression.declarations
-                        |> updateScope context
+
+                newContext : Context
+                newContext =
+                    { context | scopes = NonEmpty.cons newScope context.scopes }
 
                 lookupTable : ModuleNameLookupTableBuilder
                 lookupTable =
