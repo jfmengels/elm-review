@@ -267,13 +267,14 @@ buildModuleGraph mods =
             Dict.foldl
                 (\_ module_ ( resNodes, resEdges ) ->
                     let
-                        ( moduleNode, modulesEdges ) =
+                        ( moduleNode, newResEdges ) =
                             nodesAndEdges
                                 (\moduleName -> Dict.get moduleName moduleIds)
                                 module_
                                 (getModuleId <| ProjectModule.moduleName module_)
+                                resEdges
                     in
-                    ( moduleNode :: resNodes, modulesEdges ++ resEdges )
+                    ( moduleNode :: resNodes, newResEdges )
                 )
                 ( [], [] )
                 mods
@@ -281,8 +282,8 @@ buildModuleGraph mods =
     Graph.fromNodesAndEdges nodes edges
 
 
-nodesAndEdges : (ModuleName -> Maybe Int) -> OpaqueProjectModule -> Int -> ( Graph.Node FilePath, List (Graph.Edge ()) )
-nodesAndEdges getModuleId module_ moduleId =
+nodesAndEdges : (ModuleName -> Maybe Int) -> OpaqueProjectModule -> Int -> List (Graph.Edge ()) -> ( Graph.Node FilePath, List (Graph.Edge ()) )
+nodesAndEdges getModuleId module_ moduleId initialEdges =
     ( Graph.Node moduleId (ProjectModule.path module_)
     , List.foldl
         (\moduleName acc ->
@@ -293,7 +294,7 @@ nodesAndEdges getModuleId module_ moduleId =
                 Nothing ->
                     acc
         )
-        []
+        initialEdges
         (importedModules module_)
     )
 
