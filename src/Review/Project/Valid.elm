@@ -284,12 +284,17 @@ buildModuleGraph mods =
 nodesAndEdges : (ModuleName -> Maybe Int) -> OpaqueProjectModule -> Int -> ( Graph.Node FilePath, List (Graph.Edge ()) )
 nodesAndEdges getModuleId module_ moduleId =
     ( Graph.Node moduleId (ProjectModule.path module_)
-    , importedModules module_
-        |> List.filterMap getModuleId
-        |> List.map
-            (\importedModuleId ->
-                Graph.Edge importedModuleId moduleId ()
-            )
+    , List.foldl
+        (\moduleName acc ->
+            case getModuleId moduleName of
+                Just importedModuleId ->
+                    Graph.Edge importedModuleId moduleId () :: acc
+
+                Nothing ->
+                    acc
+        )
+        []
+        (importedModules module_)
     )
 
 
