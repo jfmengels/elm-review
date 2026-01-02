@@ -267,11 +267,15 @@ buildModuleGraph mods =
             Dict.foldl
                 (\_ module_ ( resNodes, resEdges ) ->
                     let
+                        moduleId : Int
+                        moduleId =
+                            getModuleId <| ProjectModule.moduleName module_
+
                         ( moduleNode, newResEdges ) =
                             nodesAndEdges
                                 (\moduleName -> Dict.get moduleName moduleIds)
                                 module_
-                                (getModuleId <| ProjectModule.moduleName module_)
+                                moduleId
                                 resEdges
                     in
                     ( moduleNode :: resNodes, newResEdges )
