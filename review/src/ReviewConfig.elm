@@ -52,8 +52,9 @@ config =
         |> Rule.ignoreErrorsForDirectories [ "tests/", "tests/Fn" ]
     , NoImportingEverything.rule []
     , NoMissingTypeAnnotation.rule
+        |> Rule.ignoreErrorsForDirectories [ "src/vendor/" ]
     , NoMissingTypeAnnotationInLetIn.rule
-        |> Rule.ignoreErrorsForDirectories [ "tests/" ]
+        |> Rule.ignoreErrorsForDirectories [ "src/Vendor/", "tests/" ]
     , NoMissingTypeExpose.rule
         |> Rule.ignoreErrorsForFiles
             [ "src/Review/Rule.elm"
@@ -80,5 +81,5 @@ config =
             ]
     , NoForbiddenWords.rule [ "REPLACEME" ]
     ]
-        |> List.map (Rule.ignoreErrorsForDirectories [ "src/Vendor/", "tests/Vendor/" ])
+        |> List.map (Rule.ignoreErrorsForDirectories [ "tests/Vendor/" ])
         |> List.map (Rule.ignoreErrorsForFiles [ "tests/NoUnused/Patterns/NameVisitor.elm" ])

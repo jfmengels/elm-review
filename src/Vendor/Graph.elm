@@ -1,18 +1,13 @@
 module Vendor.Graph exposing
     ( NodeId, Node, Edge, Adjacency, NodeContext, Graph
-    , empty, update, insert, remove, inducedSubgraph
     , addNode
-    , isEmpty, size, member, get, nodeIdRange
+    , get
     , fromNodesAndEdges
-    , nodeIds, nodes, edges, fromNodesAndEdgesOld, fromNodeLabelsAndEdgePairs
-    , fold, mapContexts, mapNodes, mapEdges, reverseEdges, symmetricClosure
     , AcyclicGraph, checkAcyclic
-    , NeighborSelector, alongOutgoingEdges, alongIncomingEdges, SimpleNodeVisitor
-    , DfsNodeVisitor, onDiscovery, onFinish, dfs, dfsTree, dfsForest, guidedDfs
-    , BfsNodeVisitor, ignorePath, bfs, guidedBfs
-    , topologicalSort, heightLevels
-    , stronglyConnectedComponents
-    , toString
+    , NeighborSelector, alongIncomingEdges, SimpleNodeVisitor
+    , DfsNodeVisitor
+    , BfsNodeVisitor, guidedBfs
+    , topologicalSort
     )
 
 {-| This module contains the primitives to build, update and traverse graphs.
@@ -31,24 +26,20 @@ representation.
 
 # Building
 
-@docs empty, update, insert, remove, inducedSubgraph
 @docs addNode
 
 
 # Query
 
-@docs isEmpty, size, member, get, nodeIdRange
+@docs get
 
 
 # List representations
 
 @docs fromNodesAndEdges
-@docs nodeIds, nodes, edges, fromNodesAndEdgesOld, fromNodeLabelsAndEdgePairs
 
 
 # Transforms
-
-@docs fold, mapContexts, mapNodes, mapEdges, reverseEdges, symmetricClosure
 
 
 # Characterization
@@ -61,38 +52,26 @@ representation.
 
 ## Neighbor selectors and node visitors
 
-@docs NeighborSelector, alongOutgoingEdges, alongIncomingEdges, SimpleNodeVisitor
+@docs NeighborSelector, alongIncomingEdges, SimpleNodeVisitor
 
 
 ## Depth-first
 
-@docs DfsNodeVisitor, onDiscovery, onFinish, dfs, dfsTree, dfsForest, guidedDfs
+@docs DfsNodeVisitor
 
 
 ## Breadth-first
 
-@docs BfsNodeVisitor, ignorePath, bfs, guidedBfs
+@docs BfsNodeVisitor, guidedBfs
 
 
 # Topological Sort
 
-@docs topologicalSort, heightLevels
-
-
-# Strongly Connected Components
-
-@docs stronglyConnectedComponents
-
-
-# String representation
-
-@docs toString
+@docs topologicalSort
 
 -}
 
-import Maybe as Maybe exposing (Maybe)
-import Vendor.Fifo as Fifo exposing (Fifo)
-import Vendor.Graph.Tree as Tree exposing (Forest, Tree)
+import Vendor.Fifo as Fifo
 import Vendor.IntDict as IntDict exposing (IntDict)
 
 
@@ -172,16 +151,6 @@ unGraph (Graph rep) =
 
 
 {- BUILD -}
-
-
-{-| An empty graph.
-
-    size empty == 0
-
--}
-empty : Graph n e
-empty =
-    Graph IntDict.empty
 
 
 type EdgeUpdate e
@@ -348,28 +317,6 @@ update nodeId updater =
     unGraph >> wrappedUpdater >> Graph
 
 
-{-| Analogous to `Dict.insert`, `insert nodeContext graph` inserts a fresh node
-with its context (label, id and edges) into `graph`. If there was already a node
-with the same id, it will be replaced by the new node context.
-
-    graph1 = fromNodesAndEdges [Node 1 "1"] []
-    newNode =
-      { node = Node 2 "2"
-      , incoming = IntDict.singleton 1 () -- so there will be an edge from 1 to 2
-      , outgoing = IntDict.empty
-      }
-    graph2 = insert newNode graph1
-    size graph2 == 2
-
-It's possible to build up whole graphs this way, but a lot less tedious way would
-be simply to use `fromNodesAndEdges`.
-
--}
-insert : NodeContext n e -> Graph n e -> Graph n e
-insert nodeContext graph =
-    update nodeContext.node.id (always (Just nodeContext)) graph
-
-
 {-| Analogous to `Dict.remove`, `remove nodeId graph` returns a version of `graph`
 without a node with id `nodeId`. If there was no node with that id, then remove
 is a no-op:
@@ -384,64 +331,8 @@ remove nodeId graph =
     update nodeId (always Nothing) graph
 
 
-{-| The [induced subgraph](http://mathworld.wolfram.com/Edge-InducedSubgraph.html)
-of a number of node ids.
--}
-inducedSubgraph : List NodeId -> Graph n e -> Graph n e
-inducedSubgraph nodeIds_ graph =
-    let
-        insertContextById nodeId acc =
-            case get nodeId graph of
-                Just ctx ->
-                    insert ctx acc
-
-                Nothing ->
-                    acc
-    in
-    List.foldl insertContextById empty nodeIds_
-
-
 
 {- QUERY -}
-
-
-{-| `isEmpty graph` is true if and only if there are no nodes in the graph.
-Some properties to reason about in code, which hold for any `graph`:
-
-    isEmpty graph =
-        graph == empty
-    isEmpty graph =
-        size graph == 0
-
--}
-isEmpty : Graph n e -> Bool
-isEmpty graph =
-    graph == empty
-
-
-{-| `size graph` returns the number of nodes in `graph`.
-
-    size empty == 0
-    graph = fromNodesAndEdges [Node 1 "1", Node 2 "2"] []
-    size graph == 2
-
--}
-size : Graph n e -> Int
-size =
-    unGraph >> IntDict.size
-
-
-{-| Analogous to `Dict.member`, `member nodeId graph` is true, if and only if
-there is a node with id `nodeId` in `graph`.
-
-    graph = fromNodesAndEdges [Node 1 "1", Node 2 "2"] []
-    member 42 graph == False
-    member 1 graph == True
-
--}
-member : NodeId -> Graph n e -> Bool
-member nodeId =
-    unGraph >> IntDict.member nodeId
 
 
 {-| Analogous to `Dict.get`, `get nodeId graph` returns the `Just` the node
@@ -457,41 +348,8 @@ get nodeId =
     unGraph >> IntDict.get nodeId
 
 
-{-| `nodeIdRange graph` returns `Just (minNodeId, maxNodeId)` if `graph` is not empty and `Nothing`
-otherwise.
-
-This is useful for finding unoccupied node ids without trial and error.
-
-    nodeIdRange empty == Nothing
-    graph = fromNodesAndEdges [Node 1 "1", Node 2 "2"] []
-    nodeIdRange graph == Just (1, 2)
-
--}
-nodeIdRange : Graph n e -> Maybe ( NodeId, NodeId )
-nodeIdRange graph =
-    IntDict.findMin (unGraph graph)
-        |> Maybe.andThen
-            (\( min, _ ) ->
-                IntDict.findMax (unGraph graph)
-                    |> Maybe.map (\( max, _ ) -> ( min, max ))
-            )
-
-
 
 {- LIST REPRESENTATIONS -}
-
-
-{-| `nodes graph` returns a list of all `Node`s (e.g. `id` and `label`) in
-`graph`.
-
-    nodes empty == []
-    graph = fromNodesAndEdges [Node 1 "1", Node 2 "2"] []
-    nodes graph == [Node 1 "1", Node 2 "2"]
-
--}
-nodes : Graph n e -> List (Node n)
-nodes =
-    unGraph >> IntDict.values >> List.map .node
 
 
 {-| `nodeIds graph` returns a list of all nodes' ids in `graph`.
@@ -504,73 +362,6 @@ nodes =
 nodeIds : Graph n e -> List NodeId
 nodeIds =
     unGraph >> IntDict.keys
-
-
-{-| `edges graph` returns a list of all `Edge`s (e.g. a record of `from` and `to` ids
-and a `label`) in `graph`.
-
-    edges empty == []
-    graph = fromNodesAndEdges [Node 1 "1", Node 2 "2"] [Edge 1 2 "->"]
-    edges graph == [Edge 1 2 "->"]
-
--}
-edges : Graph n e -> List (Edge e)
-edges graph =
-    let
-        flippedFoldl f dict list =
-            IntDict.foldl f list dict
-
-        -- dict and list flipped, so that we can use pointfree notation
-        prependEdges node1 ctx =
-            flippedFoldl (\node2 e -> (::) { to = node2, from = node1, label = e }) ctx.outgoing
-    in
-    flippedFoldl prependEdges (unGraph graph) []
-
-
-{-| `fromNodesAndEdges nodes edges` constructs a graph from the supplied `nodes`
-and `edges`. This is the most comfortable way to construct a graph as a whole.
-Oftentimes it is even more convenient to use `fromNodeLabelsAndEdgePairs` when
-edges are unlabeled anyway and auto incremented node ids are OK.
-
-The following constructs a graph with 2 nodes with a string label, connected
-by an edge labeled "->".
-
-    graph =
-        fromNodesAndEdges [ Node 1 "1", Node 2 "2" ] [ Edge 1 2 "->" ]
-
--}
-fromNodesAndEdgesOld : List (Node n) -> List (Edge e) -> Graph n e
-fromNodesAndEdgesOld nodes_ edges_ =
-    let
-        nodeRep : IntDict (NodeContext n v)
-        nodeRep =
-            List.foldl
-                (\n ->
-                    IntDict.insert n.id (NodeContext n IntDict.empty IntDict.empty)
-                )
-                IntDict.empty
-                nodes_
-
-        addEdge edge rep =
-            let
-                updateOutgoing ctx =
-                    { ctx | outgoing = IntDict.insert edge.to edge.label ctx.outgoing }
-
-                updateIncoming ctx =
-                    { ctx | incoming = IntDict.insert edge.from edge.label ctx.incoming }
-            in
-            rep
-                |> IntDict.update edge.from (Maybe.map updateOutgoing)
-                |> IntDict.update edge.to (Maybe.map updateIncoming)
-
-        addEdgeIfValid edge rep =
-            if IntDict.member edge.from rep && IntDict.member edge.to rep then
-                addEdge edge rep
-
-            else
-                rep
-    in
-    Graph (List.foldl addEdgeIfValid nodeRep edges_)
 
 
 fromNodesAndEdges : IntDict (NodeContext n e) -> List (Edge e) -> Graph n e
@@ -609,118 +400,8 @@ addNode n intDict =
     IntDict.insert n.id (NodeContext n IntDict.empty IntDict.empty) intDict
 
 
-{-| A more convenient version of `fromNodesAndEdges`, when edges are unlabeled
-and there are no special requirements on node ids.
-
-`fromNodeLabelsAndEdgePairs labels edges` implicitly assigns node ids according
-to the label's index in `labels` and the list of edge pairs is converted to
-unlabeled `Edge`s.
-
-    graph =
-        fromNodeLabelsAndEdgePairs [ 'a', 'b' ] [ ( 0, 1 ) ]
-
--}
-fromNodeLabelsAndEdgePairs : List n -> List ( NodeId, NodeId ) -> Graph n ()
-fromNodeLabelsAndEdgePairs labels edgePairs =
-    let
-        nodes_ =
-            labels
-                |> List.foldl
-                    (\lbl ( id, nodes__ ) -> ( id + 1, Node id lbl :: nodes__ ))
-                    ( 0, [] )
-                |> Tuple.second
-
-        edges_ =
-            List.map (\( from, to ) -> Edge from to ()) edgePairs
-    in
-    fromNodesAndEdgesOld nodes_ edges_
-
-
 
 {- TRANSFORMS -}
-
-
-{-| A fold over all node contexts. The accumulated value is computed lazily,
-so that the fold can exit early when the suspended accumulator is not forced.
-
-    hasLoop ctx = IntDict.member ctx.node.id ctx.incoming
-    graph = fromNodesAndEdges [Node 1 "1", Node 2 "2"] [Edge 1 2 "->"]
-    -- The graph should not have any loop.
-    fold (\ctx acc -> acc || hasLoop ctx) False graph == False
-
--}
-fold : (NodeContext n e -> acc -> acc) -> acc -> Graph n e -> acc
-fold f acc graph =
-    let
-        go acc1 graph1 =
-            let
-                maybeContext =
-                    graph1
-                        |> nodeIdRange
-                        |> Maybe.map Tuple.first
-                        |> Maybe.andThen (\id -> get id graph)
-
-                -- get should never return Nothing
-            in
-            case maybeContext of
-                Just ctx ->
-                    go (f ctx acc1) (remove ctx.node.id graph1)
-
-                Nothing ->
-                    acc1
-    in
-    go acc graph
-
-
-{-| Maps each node context to another one. This may change edge and node labels
-(including their types), possibly the node ids and also add or remove edges
-entirely through modifying the adjacency lists.
-
-The following is a specification for reverseEdges:
-
-    flipEdges ctx = { ctx | incoming = ctx.outgoing, outgoing = ctx.incoming }
-    graph = fromNodesAndEdges [Node 1 "1", Node 2 "2"] [Edge 1 2 "->"]
-    reverseEdges graph == mapContexts flipEdges graph
-
--}
-mapContexts : (NodeContext n1 e1 -> NodeContext n2 e2) -> Graph n1 e1 -> Graph n2 e2
-mapContexts f =
-    fold (\ctx -> insert (f ctx)) empty
-
-
-{-| Maps over node labels, possibly changing their types. Leaves the graph
-topology intact.
--}
-mapNodes : (n1 -> n2) -> Graph n1 e -> Graph n2 e
-mapNodes f =
-    fold
-        (\{ node, incoming, outgoing } ->
-            insert
-                { incoming = incoming
-                , outgoing = outgoing
-                , node = { id = node.id, label = f node.label }
-                }
-        )
-        empty
-
-
-{-| Maps over edge labels, possibly chaing their types. Leaves the graph
-topology intact.
--}
-mapEdges : (e1 -> e2) -> Graph n e1 -> Graph n e2
-mapEdges f =
-    fold
-        (\{ node, incoming, outgoing } ->
-            insert
-                { node = node
-                , outgoing = IntDict.map (\n e -> f e) outgoing
-                , incoming = IntDict.map (\n e -> f e) incoming
-                }
-        )
-        empty
-
-
-
 {- CHARACTERIZATION -}
 
 
@@ -746,8 +427,8 @@ type AcyclicGraph n e
 
 
 crashHack : String -> a
-crashHack msg =
-    crashHack msg
+crashHack _ =
+    crashHack ""
 
 
 unsafeGet : String -> NodeId -> Graph n e -> NodeContext n e
@@ -809,68 +490,6 @@ checkAcyclic graph =
             dfs (onFinish (\{ node } acc -> node.id :: acc)) [] graph
     in
     checkForBackEdges reversePostOrder graph
-
-
-
-{- GRAPH OPS -}
-
-
-{-| `symmetricClosure edgeMerger graph` is the
-[symmetric closure](https://en.wikipedia.org/wiki/Symmetric_closure) of `graph`,
-e.g. the undirected equivalent, where for every edge in `graph` there is also
-a corresponding reverse edge. This implies that `ctx.incoming` == `ctx.outgoing`
-for each node context `ctx`.
-
-`edgeMerger` resolves conflicts for when there are already edges in both
-directions, e.g. the graph isn't truly directed. It is guaranteed that
-`edgeMerger` will only be called with the smaller node id passed in first
-to enforce consitency of merging decisions.
-
-    graph = fromNodesAndEdges [Node 1 "1", Node 2 "2"] [Edge 1 2 "->"]
-    onlyUndirectedEdges ctx =
-      ctx.incoming == ctx.outgoing
-    merger from to outgoingLabel incomingLabel =
-      outgoingLabel -- quite arbitrary, will not be called for the above graph
-    fold
-      (\ctx acc -> acc && onlyUndirectedEdges ctx)
-      True
-      (symmetricClosure merger graph)
-      == True
-
--}
-symmetricClosure : (NodeId -> NodeId -> e -> e -> e) -> Graph n e -> Graph n e
-symmetricClosure edgeMerger =
-    -- We could use mapContexts, but this will be more efficient.
-    let
-        orderedEdgeMerger from to outgoing incoming =
-            if from <= to then
-                edgeMerger from to outgoing incoming
-
-            else
-                edgeMerger to from incoming outgoing
-
-        updateContext nodeId ctx =
-            let
-                edges_ =
-                    IntDict.uniteWith (orderedEdgeMerger nodeId) ctx.outgoing ctx.incoming
-            in
-            { ctx | outgoing = edges_, incoming = edges_ }
-    in
-    unGraph >> IntDict.map updateContext >> Graph
-
-
-{-| Reverses the direction of every edge in the graph.
--}
-reverseEdges : Graph n e -> Graph n e
-reverseEdges =
-    let
-        updateContext nodeId ctx =
-            { ctx
-                | outgoing = ctx.incoming
-                , incoming = ctx.outgoing
-            }
-    in
-    unGraph >> IntDict.map updateContext >> Graph
 
 
 
@@ -937,20 +556,6 @@ type alias DfsNodeVisitor n e acc =
     NodeContext n e
     -> acc
     -> ( acc, acc -> acc )
-
-
-{-| Transform a `SimpleNodeVisitor` into an equivalent `DfsNodeVisitor`, which
-will be called upon node discovery. This eases providing `DfsNodeVisitor`s in
-the default case:
-
-    dfsPreOrder : Graph n e -> List (NodeContext n e)
-    dfsPreOrder graph =
-        List.reverse (dfs (onDiscovery (::)) [] graph)
-
--}
-onDiscovery : SimpleNodeVisitor n e acc -> DfsNodeVisitor n e acc
-onDiscovery visitor ctx acc =
-    ( visitor ctx acc, identity )
 
 
 {-| Transform a `SimpleNodeVisitor` into an equivalent `DfsNodeVisitor`, which
@@ -1032,41 +637,6 @@ dfs visitNode acc graph =
     guidedDfs alongOutgoingEdges visitNode (nodeIds graph) acc graph |> Tuple.first
 
 
-{-| `dfsTree seed graph` computes a depth-first [spanning tree](https://en.wikipedia.org/wiki/Spanning_tree) of the component
-in `graph` starting from `seed` `alongOutgoingEdges`. This function is exemplary for needing to
-utilize the whole power of `DfsNodeVisitor`.
--}
-dfsTree : NodeId -> Graph n e -> Tree (NodeContext n e)
-dfsTree seed graph =
-    case dfsForest [ seed ] graph of
-        [] ->
-            Tree.empty
-
-        [ tree ] ->
-            tree
-
-        _ ->
-            crashHack "dfsTree: There can't be more than one DFS tree. This invariant is violated, please report this bug."
-
-
-{-| `dfsForest seeds graph` computes a depth-first spanning `Forest` of the
-components in `graph` spanned by `seeds` `alongOutgoingEdges`.
-
-A traversal over this forest would be equivalent to a depth-first traversal
-over the original graph.
-
--}
-dfsForest : List NodeId -> Graph n e -> Forest (NodeContext n e)
-dfsForest seeds graph =
-    let
-        visitNode ctx trees =
-            ( [], \children -> Tree.inner ctx children :: trees )
-    in
-    guidedDfs alongOutgoingEdges visitNode seeds [] graph
-        |> Tuple.first
-        |> List.reverse
-
-
 
 {- BFS -}
 
@@ -1086,28 +656,6 @@ type alias BfsNodeVisitor n e acc =
     -> Int
     -> acc
     -> acc
-
-
-{-| Turns a `SimpleNodeVisitor` into a `BfsNodeVisitor` by ignoring the path
-and distance parameters.
-This is useful for when the visitor should be agnostic of the
-traversal (breadth-first or depth-first or even just `fold`).
-
-    bfsLevelOrder : List (NodeContext n e)
-    bfsLevelOrder graph =
-        graph
-            |> bfs (ignorePath (::)) []
-            |> List.reverse
-
--}
-ignorePath : SimpleNodeVisitor n e acc -> BfsNodeVisitor n e acc
-ignorePath visit path _ acc =
-    case path of
-        [] ->
-            crashHack "Graph.ignorePath: No algorithm should ever pass an empty path into this BfsNodeVisitor."
-
-        ctx :: _ ->
-            visit ctx acc
 
 
 {-| The `bfs` function is not powerful enough? Go for this beast.
@@ -1170,111 +718,6 @@ guidedBfs selectNeighbors visitNode startingSeeds startingAcc startingGraph =
     go (enqueueMany 0 [] startingSeeds Fifo.empty) startingAcc startingGraph
 
 
-{-| An off-the-shelf breadth-first traversal. It will visit all components of the
-graph in no guaranteed order, discovering nodes `alongOutgoingEdges`.
-See the docs of `BfsNodeVisitor` on how to supply such a beast. There are also
-examples on how to use `bfs`.
--}
-bfs : BfsNodeVisitor n e acc -> acc -> Graph n e -> acc
-bfs visitNode acc graph =
-    case nodeIdRange graph of
-        Nothing ->
-            acc
-
-        Just ( id, _ ) ->
-            let
-                ( finalAcc, restgraph1 ) =
-                    guidedBfs alongOutgoingEdges visitNode [ id ] acc graph
-            in
-            bfs visitNode finalAcc restgraph1
-
-
-{-| Computes the height function of a given `AcyclicGraph`. This is a more general
-[topological sort](https://en.wikipedia.org/wiki/Topological_sorting),
-where independent nodes are in the same height level (e.g. the same list
-index). A valid topological sort is trivially obtained by flattening the
-result of this function.
-
-The height function is useful for solving the maximal clique problem for
-certain [perfect graphs](https://en.wikipedia.org/wiki/Perfect_graph)
-([comparability graphs](https://en.wikipedia.org/wiki/Comparability_graph)).
-There is the excellent reference
-[Algorithmic Graph Theory and Perfect Graphs](http://dl.acm.org/citation.cfm?id=984029).
-
--}
-heightLevels : AcyclicGraph n e -> List (List (NodeContext n e))
-heightLevels (AcyclicGraph startingGraph _) =
-    let
-        isSource ctx =
-            IntDict.isEmpty ctx.incoming
-
-        sources =
-            fold
-                (\ctx acc ->
-                    if isSource ctx then
-                        ctx :: acc
-
-                    else
-                        acc
-                )
-                []
-                startingGraph
-
-        countIndegrees =
-            fold
-                (\ctx ->
-                    IntDict.insert
-                        ctx.node.id
-                        (IntDict.size ctx.incoming)
-                )
-                IntDict.empty
-
-        subtract a b =
-            b - a
-
-        decrementAndNoteSources id _ ( nextLevel, indegrees ) =
-            let
-                indegreesDec =
-                    IntDict.update id (Maybe.map (subtract 1)) indegrees
-            in
-            case IntDict.get id indegreesDec of
-                Just 0 ->
-                    case get id startingGraph of
-                        Just ctx ->
-                            ( ctx :: nextLevel, indegreesDec )
-
-                        Nothing ->
-                            crashHack "Graph.heightLevels: Could not get a node of a graph which should be there by invariants. Please file a bug report!"
-
-                _ ->
-                    ( nextLevel, indegreesDec )
-
-        decrementIndegrees source nextLevel indegrees =
-            IntDict.foldl decrementAndNoteSources ( nextLevel, indegrees ) source.outgoing
-
-        go currentLevel nextLevel indegrees graph =
-            case ( currentLevel, nextLevel ) of
-                ( [], [] ) ->
-                    [ [] ]
-
-                ( [], _ ) ->
-                    [] :: go nextLevel [] indegrees graph
-
-                ( source :: currentLevel1, _ ) ->
-                    let
-                        ( nextLevel1, indegrees1 ) =
-                            decrementIndegrees source nextLevel indegrees
-                    in
-                    case go currentLevel1 nextLevel1 indegrees1 (remove source.node.id graph) of
-                        [] ->
-                            crashHack "Graph.heightLevels: Reached a branch which is impossible by invariants. Please file a bug report!"
-
-                        level :: levels ->
-                            (source :: level) :: levels
-    in
-    go sources [] (countIndegrees startingGraph) startingGraph
-
-
 {-| Computes a
 [topological ordering](https://en.wikipedia.org/wiki/Topological_sorting)
 of the given `AcyclicGraph`.
@@ -1286,78 +729,3 @@ topologicalSort (AcyclicGraph graph ordering) =
             "Graph.topologicalSort: Invalid `AcyclicGraph`, where the ordering contained nodes not present in the graph"
     in
     List.map (\id -> unsafeGet error id graph) ordering
-
-
-{-| Decomposes a graph into its strongly connected components.
-
-`Ok acyclic` means that the graph was acyclic (so every node in the
-graph forms a single connected component).
-
-`Err components` means there were cycles in the graph. The resulting
-list of `components` is a topological ordering of the _condensation_ (e.g. the
-acyclic component graph) of the input graph.
-
--}
-stronglyConnectedComponents : Graph n e -> Result (List (Graph n e)) (AcyclicGraph n e)
-stronglyConnectedComponents graph =
-    -- Based on Cormen, using 2 DFS
-    let
-        reversePostOrder =
-            dfs (onFinish (.node >> .id >> (::))) [] graph
-    in
-    checkForBackEdges reversePostOrder graph
-        |> Result.mapError
-            (\_ ->
-                let
-                    forest =
-                        dfsForest reversePostOrder (reverseEdges graph)
-                in
-                List.map (Tree.preOrderList >> List.foldr insert empty >> reverseEdges) forest
-            )
-
-
-
-{- toString -}
-
-
-{-| Returns a string representation of the graph.
--}
-toString : (n -> Maybe String) -> (e -> Maybe String) -> Graph n e -> String
-toString nodeToString edgeToString graph =
-    "Graph ["
-        ++ (String.join ", " <|
-                List.map
-                    (\{ id, label } ->
-                        "Node "
-                            ++ String.fromInt id
-                            ++ (case nodeToString label of
-                                    Nothing ->
-                                        ""
-
-                                    Just text ->
-                                        " (" ++ text ++ ")"
-                               )
-                    )
-                <|
-                    nodes graph
-           )
-        ++ "] ["
-        ++ (String.join ", " <|
-                List.map
-                    (\{ from, to, label } ->
-                        "Edge "
-                            ++ String.fromInt from
-                            ++ "->"
-                            ++ String.fromInt to
-                            ++ (case edgeToString label of
-                                    Nothing ->
-                                        ""
-
-                                    Just text ->
-                                        " (" ++ text ++ ")"
-                               )
-                    )
-                <|
-                    edges graph
-           )
-        ++ "]"

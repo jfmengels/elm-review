@@ -70,12 +70,6 @@ type StepResult
     | Found (List ( Int, Int ))
 
 
-type BugReport
-    = CannotGetA Int
-    | CannotGetB Int
-    | UnexpectedPath ( Int, Int ) (List ( Int, Int ))
-
-
 {-| Compares two text.
 
 Giving the following text
@@ -126,7 +120,7 @@ diff a b =
 {-| Test the algolithm itself.
 If it returns Err, it should be a bug.
 -}
-testDiff : List a -> List a -> Result BugReport (List (Change a))
+testDiff : List a -> List a -> Result () (List (Change a))
 testDiff a b =
     let
         arrA =
@@ -161,7 +155,7 @@ makeChanges :
     (Int -> Maybe a)
     -> (Int -> Maybe a)
     -> List ( Int, Int )
-    -> Result BugReport (List (Change a))
+    -> Result () (List (Change a))
 makeChanges getA getB path =
     case path of
         [] ->
@@ -177,7 +171,7 @@ makeChangesHelp :
     -> (Int -> Maybe a)
     -> ( Int, Int )
     -> List ( Int, Int )
-    -> Result BugReport (List (Change a))
+    -> Result () (List (Change a))
 makeChangesHelp changes getA getB ( x, y ) path =
     case path of
         [] ->
@@ -192,7 +186,7 @@ makeChangesHelp changes getA getB ( x, y ) path =
                                 Ok (NoChange a)
 
                             Nothing ->
-                                Err (CannotGetA x)
+                                Err ()
 
                     else if x == prevX then
                         case getB y of
@@ -200,7 +194,7 @@ makeChangesHelp changes getA getB ( x, y ) path =
                                 Ok (Added b)
 
                             Nothing ->
-                                Err (CannotGetB y)
+                                Err ()
 
                     else if y == prevY then
                         case getA x of
@@ -208,10 +202,10 @@ makeChangesHelp changes getA getB ( x, y ) path =
                                 Ok (Removed a)
 
                             Nothing ->
-                                Err (CannotGetA x)
+                                Err ()
 
                     else
-                        Err (UnexpectedPath ( x, y ) path)
+                        Err ()
             in
             case change of
                 Ok c ->
@@ -223,38 +217,6 @@ makeChangesHelp changes getA getB ( x, y ) path =
 
 
 -- Myers's O(ND) algorithm (http://www.xmailserver.org/diff2.pdf)
-
-
-ond : (Int -> Maybe a) -> (Int -> Maybe a) -> Int -> Int -> List ( Int, Int )
-ond getA getB m n =
-    let
-        v =
-            Array.initialize (m + n + 1) (always [])
-    in
-    ondLoopDK (snake getA getB) m 0 0 v
-
-
-ondLoopDK :
-    (Int -> Int -> List ( Int, Int ) -> ( List ( Int, Int ), Bool ))
-    -> Int
-    -> Int
-    -> Int
-    -> Array (List ( Int, Int ))
-    -> List ( Int, Int )
-ondLoopDK snake_ offset d k v =
-    if k > d then
-        ondLoopDK snake_ offset (d + 1) (-d - 1) v
-
-    else
-        case step snake_ offset k v of
-            Found path ->
-                path
-
-            Continue v_ ->
-                ondLoopDK snake_ offset d (k + 2) v_
-
-
-
 -- Wu's O(NP) algorithm (http://myerslab.mpi-cbg.de/wp-content/uploads/2014/06/np_diff.pdf)
 
 

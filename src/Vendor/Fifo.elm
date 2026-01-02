@@ -1,7 +1,6 @@
 module Vendor.Fifo exposing
-    ( Fifo, empty, fromList
+    ( Fifo, empty
     , insert, remove
-    , toList
     )
 
 {-|
@@ -9,7 +8,7 @@ module Vendor.Fifo exposing
 
 # Creating FIFOs
 
-@docs Fifo, empty, fromList
+@docs Fifo, empty
 
 
 # Inserting/Removing
@@ -18,8 +17,6 @@ module Vendor.Fifo exposing
 
 
 # To List
-
-@docs toList
 
 -}
 
@@ -72,30 +69,3 @@ remove fifo =
 
         Fifo (next :: rest) back ->
             ( Just next, Fifo rest back )
-
-
-{-| Creates a Fifo from a List.
-
-    Fifo.fromList [3,4,5]
-    |> Fifo.remove
-    |> Tuple.first
-        -- == Just 3
-
--}
-fromList : List a -> Fifo a
-fromList list =
-    Fifo list []
-
-
-{-| Converts a Fifo to a List.
-
-    Fifo.empty
-    |> Fifo.insert 7
-    |> Fifo.insert 9
-    |> Fifo.toList
-        -- == [7,9]
-
--}
-toList : Fifo a -> List a
-toList (Fifo front back) =
-    front ++ List.reverse back

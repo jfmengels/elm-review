@@ -1,7 +1,6 @@
 module Vendor.ListExtra exposing
     ( find, last
-    , orderIndependentMapAppend, orderIndependentConcatMapAppend
-    , foldlSwitched
+    , orderIndependentMapAppend
     )
 
 {-| Functions taken from elm-community/list-extra.
@@ -16,9 +15,7 @@ This also includes a few custom functions
 
 @docs find, last
 
-@docs orderIndependentMapAppend, orderIndependentConcatMapAppend
-
-@docs anyCombination
+@docs orderIndependentMapAppend
 
 -}
 
@@ -54,18 +51,6 @@ last items =
             last rest
 
 
-{-| Same as List.foldl but the position of the list and initial value arguments are switched.
--}
-foldlSwitched : (a -> b -> b) -> List a -> b -> b
-foldlSwitched func list acc =
-    case list of
-        [] ->
-            acc
-
-        x :: xs ->
-            foldlSwitched func xs (func x acc)
-
-
 
 -- Not originally from elm-community/list-extra
 
@@ -75,10 +60,3 @@ foldlSwitched func list acc =
 orderIndependentMapAppend : (a -> b) -> List a -> List b -> List b
 orderIndependentMapAppend fn left right =
     List.foldl (\element acc -> fn element :: acc) right left
-
-
-{-| Version of "(List.concatMap fn left) ++ right" that doesn't care about order.
--}
-orderIndependentConcatMapAppend : (a -> List b) -> List a -> List b -> List b
-orderIndependentConcatMapAppend fn left right =
-    List.foldl (\item acc -> List.append (fn item) acc) right left
