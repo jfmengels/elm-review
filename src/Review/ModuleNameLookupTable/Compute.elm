@@ -778,8 +778,13 @@ recordUpdateToDocsType innerContext updates =
 registerVariable : VariableInfo -> NonEmpty Scope -> NonEmpty Scope
 registerVariable variableInfo scopes =
     NonEmpty.mapHead
-        (\scope -> { scope | names = Dict.insert (Node.value variableInfo.node) variableInfo scope.names })
+        (\scope -> registerVariableInScope variableInfo scope)
         scopes
+
+
+registerVariableInScope : VariableInfo -> Scope -> Scope
+registerVariableInScope variableInfo scope =
+    { scope | names = Dict.insert (Node.value variableInfo.node) variableInfo scope.names }
 
 
 updateScope : Context -> NonEmpty Scope -> Context
