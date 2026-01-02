@@ -33,7 +33,7 @@ import Elm.Package
 import Elm.Project
 import Elm.Syntax.File
 import Elm.Syntax.ModuleName exposing (ModuleName)
-import Elm.Syntax.Node as Node
+import Elm.Syntax.Node as Node exposing (Node(..))
 import Path
 import Review.Cache.ContentHash as ContentHash exposing (ContentHash)
 import Review.FilePath exposing (FilePath)
@@ -303,8 +303,8 @@ buildModuleGraph mods =
 addEdges : (ModuleName -> Maybe Int) -> OpaqueProjectModule -> Int -> List (Graph.Edge ()) -> List (Graph.Edge ())
 addEdges getModuleId module_ moduleId initialEdges =
     List.foldl
-        (\moduleName acc ->
-            case getModuleId moduleName of
+        (\(Node _ { moduleName }) acc ->
+            case getModuleId (Node.value moduleName) of
                 Just importedModuleId ->
                     Graph.Edge importedModuleId moduleId () :: acc
 
@@ -312,9 +312,7 @@ addEdges getModuleId module_ moduleId initialEdges =
                     acc
         )
         initialEdges
-        ((ProjectModule.ast module_).imports
-            |> List.map (Node.value >> .moduleName >> Node.value)
-        )
+        (ProjectModule.ast module_).imports
 
 
 
