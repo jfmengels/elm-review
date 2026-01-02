@@ -436,17 +436,17 @@ foldl f acc dict =
             foldl f (foldl f acc i.left) i.right
 
 
-{-| Fold over the key-value pairs in a dictionary, in order from highest
+{-| Fold over the keys pairs in a dictionary, in order from highest
 key to lowest key.
 -}
-foldr : (Int -> v -> a -> a) -> a -> IntDict v -> a
+foldr : (Int -> a -> a) -> a -> IntDict v -> a
 foldr f acc dict =
     case dict of
         Empty ->
             acc
 
         Leaf l ->
-            f l.key l.value acc
+            f l.key acc
 
         Inner i ->
             foldr f (foldr f acc i.right) i.left
@@ -591,7 +591,7 @@ intersect l r =
 -}
 keys : IntDict v -> List Int
 keys dict =
-    foldr (\key _ keyList -> key :: keyList) [] dict
+    foldr (\key keyList -> key :: keyList) [] dict
 
 
 
