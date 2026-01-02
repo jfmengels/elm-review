@@ -229,10 +229,16 @@ duplicateModuleNames visitedModules projectModules =
                         , paths =
                             path
                                 :: projectModulePath
-                                :: (restOfModules
-                                        |> List.filter (\p -> ProjectModule.moduleName p == moduleName)
-                                        |> List.map ProjectModule.path
-                                   )
+                                :: List.foldl
+                                    (\p acc ->
+                                        if ProjectModule.moduleName p == moduleName then
+                                            ProjectModule.path p :: acc
+
+                                        else
+                                            acc
+                                    )
+                                    []
+                                    restOfModules
                         }
 
 
