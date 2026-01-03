@@ -145,11 +145,6 @@ type Graph n
     = Graph (GraphRep n)
 
 
-unGraph : Graph n -> GraphRep n
-unGraph (Graph rep) =
-    rep
-
-
 
 {- BUILD -}
 
@@ -299,38 +294,35 @@ The other operations can be implemented in terms of `update` like this:
 
 -}
 update : NodeId -> (Maybe (NodeContext n) -> Maybe (NodeContext n)) -> Graph n -> Graph n
-update nodeId updater (Graph base) =
+update nodeId updater (Graph rep) =
     -- This basically wraps updater so that the edges are consistent.
     -- This is, it cannot use the lookup focus, because it needs to update other contexts, too.
     let
-        wrappedUpdater rep =
-            let
-                old =
-                    IntDict.get nodeId rep
+        old =
+            IntDict.get nodeId rep
 
-                filterInvalidEdges ctx =
-                    IntSet.filter (\id -> id == ctx.node.id || IntDict.member id rep)
+        filterInvalidEdges ctx =
+            IntSet.filter (\id -> id == ctx.node.id || IntDict.member id rep)
 
-                cleanUpEdges : NodeContext n -> NodeContext n
-                cleanUpEdges ctx =
-                    { node = ctx.node
-                    , incoming = filterInvalidEdges ctx ctx.incoming
-                    , outgoing = filterInvalidEdges ctx ctx.outgoing
-                    }
+        cleanUpEdges : NodeContext n -> NodeContext n
+        cleanUpEdges ctx =
+            { node = ctx.node
+            , incoming = filterInvalidEdges ctx ctx.incoming
+            , outgoing = filterInvalidEdges ctx ctx.outgoing
+            }
 
-                new =
-                    old
-                        |> updater
-                        |> Maybe.map cleanUpEdges
+        new =
+            old
+                |> updater
+                |> Maybe.map cleanUpEdges
 
-                diff =
-                    computeEdgeDiff old new
-            in
-            rep
-                |> applyEdgeDiff nodeId diff
-                |> IntDict.update nodeId (always new)
+        diff =
+            computeEdgeDiff old new
     in
-    base |> wrappedUpdater |> Graph
+    rep
+        |> applyEdgeDiff nodeId diff
+        |> IntDict.update nodeId (always new)
+        |> Graph
 
 
 {-| Analogous to `Dict.remove`, `remove nodeId graph` returns a version of `graph`
@@ -360,8 +352,8 @@ context with id `nodeId` in `graph` if there is one and `Nothing` otherwise.
 
 -}
 get : NodeId -> Graph n -> Maybe (NodeContext n)
-get nodeId =
-    unGraph >> IntDict.get nodeId
+get nodeId (Graph rep) =
+    IntDict.get nodeId rep
 
 
 
@@ -376,8 +368,8 @@ get nodeId =
 
 -}
 nodeIds : Graph n -> List NodeId
-nodeIds =
-    unGraph >> IntDict.keys
+nodeIds (Graph rep) =
+    IntDict.keys rep
 
 
 fromNodesAndEdges : IntDict (NodeContext n) -> List Edge -> Graph n
@@ -456,45 +448,52 @@ unsafeGet msg id graph =
             ctx
 
 
-checkForBackEdges : List NodeId -> Graph n -> Result Edge (AcyclicGraph n)
-checkForBackEdges ordering graph =
+checkForBackEdges : Graph n -> List NodeId -> Result Edge (AcyclicGraph n)
+checkForBackEdges graph ordering =
+    checkOrdering graph ordering IntSet.empty
+        |> Result.map (\_ -> AcyclicGraph graph ordering)
+
+
+checkOrdering : Graph n -> List Int -> IntSet -> Result Edge IntSet
+checkOrdering graph ordering set =
+    case ordering of
+        [] ->
+            Ok set
+
+        id :: rest ->
+            case check graph id set of
+                Ok newSet ->
+                    checkOrdering graph rest newSet
+
+                err ->
+                    err
+
+
+check : Graph n -> Int -> IntSet -> Result Edge IntSet
+check graph id backSet =
     let
-        check : Int -> IntSet -> Result Edge IntSet
-        check id backSet =
-            let
-                backSetWithId : IntSet
-                backSetWithId =
-                    IntSet.insert id backSet
+        backSetWithId : IntSet
+        backSetWithId =
+            IntSet.insert id backSet
 
-                error : String
-                error =
-                    "Graph.checkForBackEdges: `ordering` didn't contain `id`"
+        error : String
+        error =
+            "Graph.checkForBackEdges: `ordering` didn't contain `id`"
 
-                ctx : NodeContext n
-                ctx =
-                    unsafeGet error id graph
+        ctx : NodeContext n
+        ctx =
+            unsafeGet error id graph
 
-                backEdges : IntSet
-                backEdges =
-                    IntSet.intersect ctx.outgoing backSetWithId
-            in
-            case IntSet.findMin backEdges of
-                Nothing ->
-                    Ok backSetWithId
-
-                Just to ->
-                    Err { from = id, to = to }
-
-        success : a -> AcyclicGraph n
-        success _ =
-            AcyclicGraph graph ordering
+        backEdges : IntSet
+        backEdges =
+            IntSet.intersect ctx.outgoing backSetWithId
     in
-    -- TODO Use TCO here
-    ordering
-        |> List.foldl
-            (\id res -> res |> Result.andThen (check id))
-            (Ok IntSet.empty)
-        |> Result.map success
+    case IntSet.findMin backEdges of
+        Nothing ->
+            Ok backSetWithId
+
+        Just to ->
+            Err { from = id, to = to }
 
 
 {-| `checkAcyclic graph` checks `graph` for cycles.
@@ -511,7 +510,7 @@ checkAcyclic graph =
         reversePostOrder =
             dfs (onFinish (\{ node } acc -> node.id :: acc)) [] graph
     in
-    checkForBackEdges reversePostOrder graph
+    checkForBackEdges graph reversePostOrder
 
 
 
@@ -616,7 +615,7 @@ guidedDfs :
     -> List NodeId
     -> acc
     -> Graph n
-    -> ( acc, Graph n )
+    -> acc
 guidedDfs selectNeighbors visitNode startingSeeds startingAcc startingGraph =
     let
         go seeds acc graph =
@@ -647,6 +646,7 @@ guidedDfs selectNeighbors visitNode startingSeeds startingAcc startingGraph =
                             go seeds1 accAfterFinish graph1
     in
     go startingSeeds startingAcc startingGraph
+        |> Tuple.first
 
 
 {-| An off-the-shelf depth-first traversal. It will visit all components of the
@@ -656,7 +656,7 @@ examples on how to use `dfs`.
 -}
 dfs : DfsNodeVisitor n acc -> acc -> Graph n -> acc
 dfs visitNode acc graph =
-    guidedDfs alongOutgoingEdges visitNode (nodeIds graph) acc graph |> Tuple.first
+    guidedDfs alongOutgoingEdges visitNode (nodeIds graph) acc graph
 
 
 
@@ -706,17 +706,15 @@ guidedBfs :
 guidedBfs selectNeighbors visitNode startingSeeds startingAcc startingGraph =
     let
         enqueueMany distance parentPath nodeIds_ queue =
-            nodeIds_
-                |> List.map (\id -> ( id, parentPath, distance ))
-                |> List.foldl Fifo.insert queue
+            List.foldl (\id acc -> Fifo.insert ( id, parentPath, distance ) acc) queue nodeIds_
 
         go seeds acc graph =
             case Fifo.remove seeds of
-                ( Nothing, _ ) ->
+                Nothing ->
                     -- We are done with this connected component, so we return acc and the rest of the graph
                     ( acc, graph )
 
-                ( Just ( next, parentPath, distance ), seeds1 ) ->
+                Just ( ( next, parentPath, distance ), seeds1 ) ->
                     case get next graph of
                         -- This can actually happen since we don't filter for already visited nodes.
                         -- That would be an opportunity for time-memory-tradeoff.
