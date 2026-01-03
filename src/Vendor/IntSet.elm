@@ -4,7 +4,7 @@ module Vendor.IntSet exposing
     , member, findMin
     , intersect
     , keys
-    , foldl
+    , foldl, foldlFlipped
     )
 
 {-|
@@ -65,7 +65,7 @@ Dictionary equality with `(==)` is unreliable and should not be used.
 
 # Transform
 
-@docs foldl
+@docs foldl, foldlFlipped
 
 
 # String representation
@@ -429,6 +429,14 @@ foldl f acc dict =
 
         Inner i ->
             foldl f (foldl f acc i.left) i.right
+
+
+{-| Fold over the key-value pairs in a dictionary, in order from lowest
+key to highest key.
+-}
+foldlFlipped : (Int -> a -> a) -> IntSet -> a -> a
+foldlFlipped f dict acc =
+    foldl f acc dict
 
 
 {-| Fold over the keys pairs in a dictionary, in order from highest

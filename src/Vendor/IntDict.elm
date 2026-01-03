@@ -3,7 +3,6 @@ module Vendor.IntDict exposing
     , empty, insert, update
     , member, get
     , keys
-    , foldl
     )
 
 {-|
@@ -61,8 +60,6 @@ Dictionary equality with `(==)` is unreliable and should not be used.
 
 
 # Transform
-
-@docs foldl
 
 
 # String representation
@@ -399,22 +396,6 @@ get key dict =
 
 
 -- TRANSFORM
-
-
-{-| Fold over the key-value pairs in a dictionary, in order from lowest
-key to highest key.
--}
-foldl : (Int -> a -> a) -> IntDict v -> a -> a
-foldl f dict acc =
-    case dict of
-        Empty () ->
-            acc
-
-        Leaf l ->
-            f l.key acc
-
-        Inner i ->
-            foldl f i.right (foldl f i.left acc)
 
 
 {-| Fold over the keys pairs in a dictionary, in order from highest

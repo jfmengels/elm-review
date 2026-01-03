@@ -146,33 +146,20 @@ type Graph n
 {- BUILD -}
 
 
-type EdgeUpdate
-    = Remove
-
-
 type alias EdgeDiff =
-    { incoming : IntDict EdgeUpdate
-    , outgoing : IntDict EdgeUpdate
+    { incoming : IntSet
+    , outgoing : IntSet
     }
 
 
-collect : IntSet -> IntDict EdgeUpdate -> IntDict EdgeUpdate
+collect : IntSet -> IntSet -> IntSet
 collect adj updates =
     IntSet.foldl collectUpdates updates adj
 
 
-collectUpdates : Int -> IntDict EdgeUpdate -> IntDict EdgeUpdate
-collectUpdates updatedId =
-    let
-        replaceUpdate old_ =
-            case old_ of
-                Just Remove ->
-                    Vendor.Graph.Hack.crashHack "Graph.computeEdgeDiff: Collected two removals for the same edge. This is an error in the implementation of Graph and you should file a bug report!"
-
-                Nothing ->
-                    Just Remove
-    in
-    IntDict.update updatedId replaceUpdate
+collectUpdates : Int -> IntSet -> IntSet
+collectUpdates updatedId set =
+    IntSet.remove updatedId set
 
 
 
@@ -203,8 +190,8 @@ applyEdgeDiff nodeId diff graphRep =
             { node = ctx.node, incoming = ctx.incoming, outgoing = IntSet.remove nodeId ctx.outgoing }
     in
     graphRep
-        |> IntDict.foldl updateIncomingAdjacency diff.incoming
-        |> IntDict.foldl updateOutgoingAdjacency diff.outgoing
+        |> IntSet.foldlFlipped updateIncomingAdjacency diff.incoming
+        |> IntSet.foldlFlipped updateOutgoingAdjacency diff.outgoing
 
 
 {-| Analogous to `Dict.remove`, `remove nodeId graph` returns a version of `graph`
@@ -225,8 +212,8 @@ remove nodeId ((Graph rep) as graph) =
         Just node ->
             let
                 diff =
-                    { outgoing = IntDict.empty |> collect node.incoming
-                    , incoming = IntDict.empty |> collect node.outgoing
+                    { outgoing = collect node.incoming IntSet.empty
+                    , incoming = collect node.outgoing IntSet.empty
                     }
             in
             rep
