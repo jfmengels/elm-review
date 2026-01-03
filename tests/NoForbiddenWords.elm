@@ -321,7 +321,7 @@ forbiddenWordError word range =
 
 fastConcat : List (List a) -> List a
 fastConcat =
-    List.foldr (++) []
+    List.concat
 
 
 fastConcatMap : (a -> List b) -> List a -> List b
