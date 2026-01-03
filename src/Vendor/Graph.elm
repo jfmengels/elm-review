@@ -195,22 +195,21 @@ is a no-op:
 -}
 remove : NodeId -> Graph n -> Graph n
 remove nodeId ((Graph rep) as graph) =
-    case IntDict.get nodeId rep of
-        Nothing ->
-            graph
+    if IntDict.member nodeId rep then
+        let
+            diff : EdgeDiff
+            diff =
+                { outgoing = IntSet.empty
+                , incoming = IntSet.empty
+                }
+        in
+        rep
+            |> applyEdgeDiff nodeId diff
+            |> IntDict.update nodeId (always Nothing)
+            |> Graph
 
-        Just node ->
-            let
-                diff : EdgeDiff
-                diff =
-                    { outgoing = IntSet.empty
-                    , incoming = IntSet.empty
-                    }
-            in
-            rep
-                |> applyEdgeDiff nodeId diff
-                |> IntDict.update nodeId (always Nothing)
-                |> Graph
+    else
+        graph
 
 
 
