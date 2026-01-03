@@ -171,8 +171,6 @@ applyEdgeDiff nodeId graphRep =
             { node = ctx.node, incoming = ctx.incoming, outgoing = IntSet.remove nodeId ctx.outgoing }
     in
     graphRep
-        |> IntSet.foldlFlipped updateIncomingAdjacency IntSet.empty
-        |> IntSet.foldlFlipped updateOutgoingAdjacency IntSet.empty
 
 
 {-| Analogous to `Dict.remove`, `remove nodeId graph` returns a version of `graph`
