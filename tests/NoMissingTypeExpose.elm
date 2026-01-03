@@ -144,8 +144,8 @@ dependencyDictVisitor dependencies context =
     ( []
     , { context
         | exposedModules =
-            Dict.values dependencies
-                |> List.foldl exposedModulesForDependency context.exposedModules
+            dependencies
+                |> Dict.foldl (always exposedModulesForDependency) context.exposedModules
       }
     )
 

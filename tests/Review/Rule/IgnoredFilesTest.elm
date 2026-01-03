@@ -208,7 +208,7 @@ ruleThatListsIgnoredFiles =
             , fromModuleToProject = fromModuleToProject
             , foldProjectContexts = Set.union
             }
-        |> Rule.withDataExtractor (\set -> set |> Set.toList |> List.sort |> Encode.list (String.join "." >> Encode.string))
+        |> Rule.withDataExtractor (\set -> set |> Encode.set (String.join "." >> Encode.string))
         |> Rule.fromProjectRuleSchema
 
 
