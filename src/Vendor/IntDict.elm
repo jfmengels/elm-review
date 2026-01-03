@@ -351,13 +351,7 @@ remove : Int -> (Maybe v -> Maybe v) -> IntDict v -> IntDict v
 remove key alter dict =
     let
         alteredNode mv =
-            case always Nothing mv of
-                -- handle this centrally
-                Just v ->
-                    leaf key v
-
-                Nothing ->
-                    empty
+            empty
 
         -- The inner constructor will do the rest
         join k1 l k2 r =
