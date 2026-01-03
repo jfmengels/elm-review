@@ -74,6 +74,7 @@ representation.
 import Vendor.Fifo as Fifo
 import Vendor.Graph.Hack
 import Vendor.IntDict as IntDict exposing (IntDict)
+import Vendor.IntSet as IntSet exposing (IntSet)
 
 
 {-| The type used for identifying nodes, an integer.
@@ -95,10 +96,9 @@ type alias Node n =
 to start and end node identifiers, a label value can
 be attached to an edge.
 -}
-type alias Edge e =
+type alias Edge =
     { from : NodeId
     , to : NodeId
-    , label : e
     }
 
 
@@ -106,17 +106,17 @@ type alias Edge e =
 rather than as an ordered list. This enables more dynamic
 graphs with efficient edge removal and insertion on the run.
 -}
-type alias Adjacency e =
-    IntDict e
+type alias Adjacency =
+    IntSet
 
 
 {-| Represents a node with its incoming and outgoing edges
 (predecessors and successors).
 -}
-type alias NodeContext n e =
+type alias NodeContext n =
     { node : Node n
-    , incoming : Adjacency e
-    , outgoing : Adjacency e
+    , incoming : Adjacency
+    , outgoing : Adjacency
     }
 
 
@@ -126,8 +126,8 @@ type alias NodeContext n e =
 -- which would justify the complexity.
 
 
-type alias GraphRep n e =
-    IntDict (NodeContext n e)
+type alias GraphRep n =
+    IntDict (NodeContext n)
 
 
 {-| The central graph type. It is parameterized both over the node label type `n`
@@ -137,15 +137,15 @@ One can build such a graph with the primitives under _Build_. Most of the time
 `fromNodesAndEdges` works fairly well.
 
 For simplicity, this library just uses a patricia trie based graph representation, which means
-it is just an efficient version of `Dict NodeId (NodeContext n e)`. This allows efficient insertion and
+it is just an efficient version of `Dict NodeId (NodeContext n)`. This allows efficient insertion and
 removal of nodes of the graph after building.
 
 -}
-type Graph n e
-    = Graph (GraphRep n e)
+type Graph n
+    = Graph (GraphRep n)
 
 
-unGraph : Graph n e -> GraphRep n e
+unGraph : Graph n -> GraphRep n
 unGraph (Graph rep) =
     rep
 
@@ -154,52 +154,26 @@ unGraph (Graph rep) =
 {- BUILD -}
 
 
-type EdgeUpdate e
-    = Insert e
-    | Remove e
+type EdgeUpdate
+    = Insert
+    | Remove
 
 
-type alias EdgeDiff e =
-    { incoming : IntDict (EdgeUpdate e)
-    , outgoing : IntDict (EdgeUpdate e)
+type alias EdgeDiff =
+    { incoming : IntDict EdgeUpdate
+    , outgoing : IntDict EdgeUpdate
     }
 
 
-emptyDiff : EdgeDiff e
+emptyDiff : EdgeDiff
 emptyDiff =
     { incoming = IntDict.empty
     , outgoing = IntDict.empty
     }
 
 
-computeEdgeDiff : Maybe (NodeContext n e) -> Maybe (NodeContext n e) -> EdgeDiff e
+computeEdgeDiff : Maybe (NodeContext n) -> Maybe (NodeContext n) -> EdgeDiff
 computeEdgeDiff old new =
-    let
-        collectUpdates edgeUpdate updatedId label =
-            let
-                replaceUpdate old_ =
-                    case ( old_, edgeUpdate label ) of
-                        ( Just (Remove oldLbl), Insert newLbl ) ->
-                            if oldLbl == newLbl then
-                                Nothing
-
-                            else
-                                Just (Insert newLbl)
-
-                        ( Just (Remove _), Remove _ ) ->
-                            Vendor.Graph.Hack.crashHack "Graph.computeEdgeDiff: Collected two removals for the same edge. This is an error in the implementation of Graph and you should file a bug report!"
-
-                        ( Just (Insert _), _ ) ->
-                            Vendor.Graph.Hack.crashHack "Graph.computeEdgeDiff: Collected inserts before removals. This is an error in the implementation of Graph and you should file a bug report!"
-
-                        ( Nothing, eu ) ->
-                            Just eu
-            in
-            IntDict.update updatedId replaceUpdate
-
-        collect edgeUpdate adj updates =
-            IntDict.foldl (collectUpdates edgeUpdate) updates adj
-    in
     case ( old, new ) of
         ( Nothing, Nothing ) ->
             emptyDiff
@@ -224,6 +198,31 @@ computeEdgeDiff old new =
                 }
 
 
+collect : EdgeUpdate -> IntSet -> IntDict EdgeUpdate -> IntDict EdgeUpdate
+collect edgeUpdate adj updates =
+    IntSet.foldl (collectUpdates edgeUpdate) updates adj
+
+
+collectUpdates : EdgeUpdate -> Int -> IntDict EdgeUpdate -> IntDict EdgeUpdate
+collectUpdates edgeUpdate updatedId =
+    let
+        replaceUpdate old_ =
+            case ( old_, edgeUpdate ) of
+                ( Just Remove, Insert ) ->
+                    Nothing
+
+                ( Just Remove, Remove ) ->
+                    Vendor.Graph.Hack.crashHack "Graph.computeEdgeDiff: Collected two removals for the same edge. This is an error in the implementation of Graph and you should file a bug report!"
+
+                ( Just Insert, _ ) ->
+                    Vendor.Graph.Hack.crashHack "Graph.computeEdgeDiff: Collected inserts before removals. This is an error in the implementation of Graph and you should file a bug report!"
+
+                ( Nothing, eu ) ->
+                    Just eu
+    in
+    IntDict.update updatedId replaceUpdate
+
+
 
 -- applies an EdgeDiff to the graphRep, where nodeId is adjacent
 -- to all touched edges. incoming and outgoing is wrt. to the node set (e.g.
@@ -231,37 +230,52 @@ computeEdgeDiff old new =
 -- the internal invariants of the graph.
 
 
-applyEdgeDiff : NodeId -> EdgeDiff e -> GraphRep n e -> GraphRep n e
+applyEdgeDiff : NodeId -> EdgeDiff -> GraphRep n -> GraphRep n
 applyEdgeDiff nodeId diff graphRep =
     let
+        flippedFoldl : (Int -> b -> a -> a) -> IntDict b -> a -> a
         flippedFoldl f dict acc =
             IntDict.foldl f acc dict
 
+        edgeUpdateToMaybe : EdgeUpdate -> Bool
         edgeUpdateToMaybe edgeUpdate =
             case edgeUpdate of
-                Insert lbl ->
-                    Just lbl
+                Insert ->
+                    True
 
-                Remove _ ->
-                    Nothing
+                Remove ->
+                    False
 
-        updateAdjacency updateEdge updatedId edgeUpdate =
+        updateIncomingAdjacency : Int -> EdgeUpdate -> IntDict (NodeContext n) -> IntDict (NodeContext n)
+        updateIncomingAdjacency updatedId edgeUpdate =
             let
+                updateLbl : NodeContext n -> NodeContext n
                 updateLbl =
-                    updateEdge (always (edgeUpdateToMaybe edgeUpdate))
+                    updateIncomingEdge (edgeUpdateToMaybe edgeUpdate)
+            in
+            IntDict.update updatedId (Maybe.map updateLbl)
+
+        updateOutgoingAdjacency : Int -> EdgeUpdate -> IntDict (NodeContext n) -> IntDict (NodeContext n)
+        updateOutgoingAdjacency updatedId edgeUpdate =
+            let
+                updateLbl : NodeContext n -> NodeContext n
+                updateLbl =
+                    updateOutgoingEdge (edgeUpdateToMaybe edgeUpdate)
             in
             IntDict.update updatedId (Maybe.map updateLbl)
 
         -- ignores edges to nodes not in the graph
-        updateIncomingEdge upd node =
-            { node | incoming = IntDict.update nodeId upd node.incoming }
+        updateIncomingEdge : Bool -> { a | incoming : IntSet } -> { a | incoming : IntSet }
+        updateIncomingEdge keep node =
+            { node | incoming = IntSet.update nodeId keep node.incoming }
 
-        updateOutgoingEdge upd node =
-            { node | outgoing = IntDict.update nodeId upd node.outgoing }
+        updateOutgoingEdge : Bool -> { a | outgoing : IntSet } -> { a | outgoing : IntSet }
+        updateOutgoingEdge keep node =
+            { node | outgoing = IntSet.update nodeId keep node.outgoing }
     in
     graphRep
-        |> flippedFoldl (updateAdjacency updateIncomingEdge) diff.incoming
-        |> flippedFoldl (updateAdjacency updateOutgoingEdge) diff.outgoing
+        |> flippedFoldl updateIncomingAdjacency diff.incoming
+        |> flippedFoldl updateOutgoingAdjacency diff.outgoing
 
 
 {-| Analogous to `Dict.update`, `update nodeId updater graph` will find
@@ -284,8 +298,8 @@ The other operations can be implemented in terms of `update` like this:
         update nodeContext.node.id (always (Just nodeContext)) graph
 
 -}
-update : NodeId -> (Maybe (NodeContext n e) -> Maybe (NodeContext n e)) -> Graph n e -> Graph n e
-update nodeId updater =
+update : NodeId -> (Maybe (NodeContext n) -> Maybe (NodeContext n)) -> Graph n -> Graph n
+update nodeId updater (Graph base) =
     -- This basically wraps updater so that the edges are consistent.
     -- This is, it cannot use the lookup focus, because it needs to update other contexts, too.
     let
@@ -295,12 +309,13 @@ update nodeId updater =
                     IntDict.get nodeId rep
 
                 filterInvalidEdges ctx =
-                    IntDict.filter (\id _ -> id == ctx.node.id || IntDict.member id rep)
+                    IntSet.filter (\id -> id == ctx.node.id || IntDict.member id rep)
 
+                cleanUpEdges : NodeContext n -> NodeContext n
                 cleanUpEdges ctx =
-                    { ctx
-                        | incoming = filterInvalidEdges ctx ctx.incoming
-                        , outgoing = filterInvalidEdges ctx ctx.outgoing
+                    { node = ctx.node
+                    , incoming = filterInvalidEdges ctx ctx.incoming
+                    , outgoing = filterInvalidEdges ctx ctx.outgoing
                     }
 
                 new =
@@ -315,7 +330,7 @@ update nodeId updater =
                 |> applyEdgeDiff nodeId diff
                 |> IntDict.update nodeId (always new)
     in
-    unGraph >> wrappedUpdater >> Graph
+    base |> wrappedUpdater |> Graph
 
 
 {-| Analogous to `Dict.remove`, `remove nodeId graph` returns a version of `graph`
@@ -327,7 +342,7 @@ is a no-op:
     graph |> remove 2 |> size == 1
 
 -}
-remove : NodeId -> Graph n e -> Graph n e
+remove : NodeId -> Graph n -> Graph n
 remove nodeId graph =
     update nodeId (always Nothing) graph
 
@@ -344,7 +359,7 @@ context with id `nodeId` in `graph` if there is one and `Nothing` otherwise.
     get 1 graph == Just <node context of node 1>
 
 -}
-get : NodeId -> Graph n e -> Maybe (NodeContext n e)
+get : NodeId -> Graph n -> Maybe (NodeContext n)
 get nodeId =
     unGraph >> IntDict.get nodeId
 
@@ -360,25 +375,28 @@ get nodeId =
     nodeIds graph == [1, 2]
 
 -}
-nodeIds : Graph n e -> List NodeId
+nodeIds : Graph n -> List NodeId
 nodeIds =
     unGraph >> IntDict.keys
 
 
-fromNodesAndEdges : IntDict (NodeContext n e) -> List (Edge e) -> Graph n e
+fromNodesAndEdges : IntDict (NodeContext n) -> List Edge -> Graph n
 fromNodesAndEdges nodeRep edges_ =
     let
+        addEdge : Edge -> IntDict (NodeContext n) -> IntDict (NodeContext n)
         addEdge edge rep =
             let
+                updateOutgoing : NodeContext n -> NodeContext n
                 updateOutgoing ctx =
                     { node = ctx.node
                     , incoming = ctx.incoming
-                    , outgoing = IntDict.insert edge.to edge.label ctx.outgoing
+                    , outgoing = IntSet.insert edge.to ctx.outgoing
                     }
 
+                updateIncoming : NodeContext n -> NodeContext n
                 updateIncoming ctx =
                     { node = ctx.node
-                    , incoming = IntDict.insert edge.from edge.label ctx.incoming
+                    , incoming = IntSet.insert edge.from ctx.incoming
                     , outgoing = ctx.outgoing
                     }
             in
@@ -386,6 +404,7 @@ fromNodesAndEdges nodeRep edges_ =
                 |> IntDict.update edge.from (Maybe.map updateOutgoing)
                 |> IntDict.update edge.to (Maybe.map updateIncoming)
 
+        addEdgeIfValid : Edge -> IntDict (NodeContext n) -> IntDict (NodeContext n)
         addEdgeIfValid edge rep =
             if IntDict.member edge.from rep && IntDict.member edge.to rep then
                 addEdge edge rep
@@ -396,9 +415,9 @@ fromNodesAndEdges nodeRep edges_ =
     Graph (List.foldl addEdgeIfValid nodeRep edges_)
 
 
-addNode : Node n -> IntDict (NodeContext n v) -> IntDict (NodeContext n v)
+addNode : Node n -> IntDict (NodeContext n) -> IntDict (NodeContext n)
 addNode n intDict =
-    IntDict.insert n.id (NodeContext n IntDict.empty IntDict.empty) intDict
+    IntDict.insert n.id (NodeContext n IntSet.empty IntSet.empty) intDict
 
 
 
@@ -413,8 +432,8 @@ This can be passed on to functions that only work on acyclic graphs,
 like `topologicalSort` and `heightLevels`.
 
 -}
-type AcyclicGraph n e
-    = AcyclicGraph (Graph n e) (List NodeId)
+type AcyclicGraph n
+    = AcyclicGraph (Graph n) (List NodeId)
 
 
 
@@ -427,7 +446,7 @@ type AcyclicGraph n e
 -}
 
 
-unsafeGet : String -> NodeId -> Graph n e -> NodeContext n e
+unsafeGet : String -> NodeId -> Graph n -> NodeContext n
 unsafeGet msg id graph =
     case get id graph of
         Nothing ->
@@ -437,37 +456,44 @@ unsafeGet msg id graph =
             ctx
 
 
-checkForBackEdges : List NodeId -> Graph n e -> Result (Edge e) (AcyclicGraph n e)
+checkForBackEdges : List NodeId -> Graph n -> Result Edge (AcyclicGraph n)
 checkForBackEdges ordering graph =
     let
-        check id ( backSet, _ ) =
+        check : Int -> IntSet -> Result Edge IntSet
+        check id backSet =
             let
+                backSetWithId : IntSet
                 backSetWithId =
-                    IntDict.insert id () backSet
+                    IntSet.insert id backSet
 
+                error : String
                 error =
                     "Graph.checkForBackEdges: `ordering` didn't contain `id`"
 
+                ctx : NodeContext n
                 ctx =
                     unsafeGet error id graph
 
+                backEdges : IntSet
                 backEdges =
-                    IntDict.intersect ctx.outgoing backSetWithId
+                    IntSet.intersect ctx.outgoing backSetWithId
             in
-            case IntDict.findMin backEdges of
+            case IntSet.findMin backEdges of
                 Nothing ->
-                    Ok ( backSetWithId, () )
+                    Ok backSetWithId
 
-                Just ( to, label ) ->
-                    Err (Edge id to label)
+                Just to ->
+                    Err { from = id, to = to }
 
+        success : a -> AcyclicGraph n
         success _ =
             AcyclicGraph graph ordering
     in
+    -- TODO Use TCO here
     ordering
         |> List.foldl
             (\id res -> res |> Result.andThen (check id))
-            (Ok ( IntDict.empty, () ))
+            (Ok IntSet.empty)
         |> Result.map success
 
 
@@ -479,7 +505,7 @@ If there aren't any cycles, this will return `Ok acyclic`, where
 `acyclic` is an `AcyclicGraph` that witnesses this fact.
 
 -}
-checkAcyclic : Graph n e -> Result (Edge e) (AcyclicGraph n e)
+checkAcyclic : Graph n -> Result Edge (AcyclicGraph n)
 checkAcyclic graph =
     let
         reversePostOrder =
@@ -494,41 +520,41 @@ checkAcyclic graph =
 
 {-| Selects the next neighbors for the currently visited node in the traversal.
 -}
-type alias NeighborSelector n e =
-    NodeContext n e
+type alias NeighborSelector n =
+    NodeContext n
     -> List NodeId
 
 
 {-| A good default for selecting neighbors is to just go along outgoing edges:
 
     alongOutgoingEdges ctx =
-        IntDict.keys ctx.outgoing
+        IntSet.keys ctx.outgoing
 
 `dfs`/`bfs` use this as their selecting strategy.
 
 -}
-alongOutgoingEdges : NeighborSelector n e
+alongOutgoingEdges : NeighborSelector n
 alongOutgoingEdges ctx =
-    IntDict.keys ctx.outgoing
+    IntSet.keys ctx.outgoing
 
 
 {-| A less common way for selecting neighbors is to follow incoming edges:
 
     alongIncomingEdges ctx =
-        IntDict.keys ctx.incoming
+        IntSet.keys ctx.incoming
 
 -}
-alongIncomingEdges : NeighborSelector n e
+alongIncomingEdges : NeighborSelector n
 alongIncomingEdges ctx =
-    IntDict.keys ctx.incoming
+    IntSet.keys ctx.incoming
 
 
 {-| A generic node visitor just like that in the ordinary `fold` function.
 There are combinators that make these usable for both depth-first traversal
 (`onDiscovery`, `onFinish`) and breadth-first traversal (`ignorePath`).
 -}
-type alias SimpleNodeVisitor n e acc =
-    NodeContext n e
+type alias SimpleNodeVisitor n acc =
+    NodeContext n
     -> acc
     -> acc
 
@@ -548,8 +574,8 @@ In the cases where you don't need access to the value both at dicovery and at
 finish, look into `onDiscovery` and `onFinish`.
 
 -}
-type alias DfsNodeVisitor n e acc =
-    NodeContext n e
+type alias DfsNodeVisitor n acc =
+    NodeContext n
     -> acc
     -> ( acc, acc -> acc )
 
@@ -558,12 +584,12 @@ type alias DfsNodeVisitor n e acc =
 will be called upon node finish. This eases providing `DfsNodeVisitor`s in
 the default case:
 
-    dfsPostOrder : Graph n e -> List (NodeContext n e)
+    dfsPostOrder : Graph n -> List (NodeContext n)
     dfsPostOrder graph =
         List.reverse (dfs (onFinish (::)) [] graph)
 
 -}
-onFinish : SimpleNodeVisitor n e acc -> DfsNodeVisitor n e acc
+onFinish : SimpleNodeVisitor n acc -> DfsNodeVisitor n acc
 onFinish visitor ctx acc =
     ( acc, visitor ctx )
 
@@ -585,12 +611,12 @@ accumulated value together with the unvisited rest of `graph`.
 
 -}
 guidedDfs :
-    NeighborSelector n e
-    -> DfsNodeVisitor n e acc
+    NeighborSelector n
+    -> DfsNodeVisitor n acc
     -> List NodeId
     -> acc
-    -> Graph n e
-    -> ( acc, Graph n e )
+    -> Graph n
+    -> ( acc, Graph n )
 guidedDfs selectNeighbors visitNode startingSeeds startingAcc startingGraph =
     let
         go seeds acc graph =
@@ -628,7 +654,7 @@ graph in no guaranteed order, discovering nodes `alongOutgoingEdges`.
 See the docs of `DfsNodeVisitor` on how to supply such a beast. There are also
 examples on how to use `dfs`.
 -}
-dfs : DfsNodeVisitor n e acc -> acc -> Graph n e -> acc
+dfs : DfsNodeVisitor n acc -> acc -> Graph n -> acc
 dfs visitNode acc graph =
     guidedDfs alongOutgoingEdges visitNode (nodeIds graph) acc graph |> Tuple.first
 
@@ -647,8 +673,8 @@ If you don't need the additional information, you can turn a `SimpleNodeVisitor`
 into a `BfsNodeVisitor` by calling `ignorePath`.
 
 -}
-type alias BfsNodeVisitor n e acc =
-    List (NodeContext n e)
+type alias BfsNodeVisitor n acc =
+    List (NodeContext n)
     -> Int
     -> acc
     -> acc
@@ -671,12 +697,12 @@ accumulated value together with the unvisited rest of `graph`.
 
 -}
 guidedBfs :
-    NeighborSelector n e
-    -> BfsNodeVisitor n e acc
+    NeighborSelector n
+    -> BfsNodeVisitor n acc
     -> List NodeId
     -> acc
-    -> Graph n e
-    -> ( acc, Graph n e )
+    -> Graph n
+    -> ( acc, Graph n )
 guidedBfs selectNeighbors visitNode startingSeeds startingAcc startingGraph =
     let
         enqueueMany distance parentPath nodeIds_ queue =
@@ -718,7 +744,7 @@ guidedBfs selectNeighbors visitNode startingSeeds startingAcc startingGraph =
 [topological ordering](https://en.wikipedia.org/wiki/Topological_sorting)
 of the given `AcyclicGraph`.
 -}
-topologicalSort : AcyclicGraph n e -> List (NodeContext n e)
+topologicalSort : AcyclicGraph n -> List (NodeContext n)
 topologicalSort (AcyclicGraph graph ordering) =
     let
         error =

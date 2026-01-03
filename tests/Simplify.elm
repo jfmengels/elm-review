@@ -13334,7 +13334,7 @@ emptiableFlatRepeatChecks emptiable checkInfo =
 
 which applies to for example
 
-    Graph.fold : (NodeContext n e -> b -> b) -> b -> Graph n e -> b
+    Graph.fold : (NodeContext n -> b -> b) -> b -> Graph n -> b
 
 but also functions like
 

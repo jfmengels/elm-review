@@ -4,7 +4,7 @@ import Ansi
 import Dict exposing (Dict)
 import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModule)
 import Vendor.Graph as Graph exposing (Graph)
-import Vendor.IntDict as IntDict
+import Vendor.IntSet as IntSet
 
 
 error : String -> List String -> { ruleName : String, message : String, details : List String }
@@ -18,7 +18,7 @@ error ruleName cycle =
     }
 
 
-findCycle : Dict String OpaqueProjectModule -> Graph String e -> Graph.Edge e -> List String
+findCycle : Dict String OpaqueProjectModule -> Graph String -> Graph.Edge -> List String
 findCycle modules graph edge =
     let
         initialCycle : List (Graph.Node String)
@@ -40,7 +40,7 @@ filePathToModuleName modules { label } =
             label
 
 
-findSmallerCycle : Graph n e -> List (Graph.Node n) -> List (Graph.Node n) -> List (Graph.Node n)
+findSmallerCycle : Graph n -> List (Graph.Node n) -> List (Graph.Node n) -> List (Graph.Node n)
 findSmallerCycle graph currentBest nodesToVisit =
     case nodesToVisit of
         [] ->
@@ -68,7 +68,7 @@ findSmallerCycle graph currentBest nodesToVisit =
                 findSmallerCycle graph newBest restOfNodes
 
 
-reachedTarget : Graph.NodeId -> List (Graph.NodeContext n e) -> Bool
+reachedTarget : Graph.NodeId -> List (Graph.NodeContext n) -> Bool
 reachedTarget targetNode path =
     case List.head path of
         Just node ->
@@ -78,14 +78,14 @@ reachedTarget targetNode path =
             False
 
 
-visitorDiscoverCycle : Graph.NodeId -> List (Graph.NodeContext n e) -> Int -> List (Graph.Node n) -> List (Graph.Node n)
+visitorDiscoverCycle : Graph.NodeId -> List (Graph.NodeContext n) -> Int -> List (Graph.Node n) -> List (Graph.Node n)
 visitorDiscoverCycle targetNode path distance acc =
     if List.isEmpty acc then
         -- We haven't found the cycle yet
         if distance == 0 then
             case List.head path of
                 Just head ->
-                    if IntDict.member head.node.id head.incoming then
+                    if IntSet.member head.node.id head.incoming then
                         [ head.node ]
 
                     else

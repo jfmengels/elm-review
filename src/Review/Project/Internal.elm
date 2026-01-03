@@ -32,7 +32,7 @@ type alias ProjectInternals =
     , extraFiles : Dict {- path -} String {- content -} String
     , extraFilesContentHashes : Dict {- path -} String ContentHash
     , dependencies : Dict String Dependency
-    , moduleGraph : Maybe (Graph FilePath ())
+    , moduleGraph : Maybe (Graph FilePath)
     , sourceDirectories : List String
     , cache : ProjectCache
     }
