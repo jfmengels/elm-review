@@ -150,47 +150,13 @@ type Graph n
 
 
 type EdgeUpdate
-    = Insert
-    | Remove
+    = Remove
 
 
 type alias EdgeDiff =
     { incoming : IntDict EdgeUpdate
     , outgoing : IntDict EdgeUpdate
     }
-
-
-emptyDiff : EdgeDiff
-emptyDiff =
-    { incoming = IntDict.empty
-    , outgoing = IntDict.empty
-    }
-
-
-computeEdgeDiff : Maybe (NodeContext n) -> Maybe (NodeContext n) -> EdgeDiff
-computeEdgeDiff old new =
-    case ( old, new ) of
-        ( Nothing, Nothing ) ->
-            emptyDiff
-
-        ( Just rem, Nothing ) ->
-            { outgoing = IntDict.empty |> collect Remove rem.incoming
-            , incoming = IntDict.empty |> collect Remove rem.outgoing
-            }
-
-        ( Nothing, Just ins ) ->
-            { outgoing = IntDict.empty |> collect Insert ins.incoming
-            , incoming = IntDict.empty |> collect Insert ins.outgoing
-            }
-
-        ( Just rem, Just ins ) ->
-            if rem == ins then
-                emptyDiff
-
-            else
-                { outgoing = IntDict.empty |> collect Remove rem.incoming |> collect Insert ins.incoming
-                , incoming = IntDict.empty |> collect Remove rem.outgoing |> collect Insert ins.outgoing
-                }
 
 
 collect : EdgeUpdate -> IntSet -> IntDict EdgeUpdate -> IntDict EdgeUpdate
@@ -203,14 +169,8 @@ collectUpdates edgeUpdate updatedId =
     let
         replaceUpdate old_ =
             case ( old_, edgeUpdate ) of
-                ( Just Remove, Insert ) ->
-                    Nothing
-
                 ( Just Remove, Remove ) ->
                     Vendor.Graph.Hack.crashHack "Graph.computeEdgeDiff: Collected two removals for the same edge. This is an error in the implementation of Graph and you should file a bug report!"
-
-                ( Just Insert, _ ) ->
-                    Vendor.Graph.Hack.crashHack "Graph.computeEdgeDiff: Collected inserts before removals. This is an error in the implementation of Graph and you should file a bug report!"
 
                 ( Nothing, eu ) ->
                     Just eu
@@ -235,9 +195,6 @@ applyEdgeDiff nodeId diff graphRep =
         edgeUpdateToMaybe : EdgeUpdate -> Bool
         edgeUpdateToMaybe edgeUpdate =
             case edgeUpdate of
-                Insert ->
-                    True
-
                 Remove ->
                     False
 
@@ -273,58 +230,6 @@ applyEdgeDiff nodeId diff graphRep =
         |> flippedFoldl updateOutgoingAdjacency diff.outgoing
 
 
-{-| Analogous to `Dict.update`, `update nodeId updater graph` will find
-the node context of the node with id `nodeId` in `graph`. It will then call `updater`
-with `Just` that node context if that node was found and `Nothing`
-otherwise. `updater` can then return `Just` an updated node context
-(modifying edges is also permitted!) or delete the node by returning
-`Nothing`. The updated `graph` is returned.
-
-This is the most powerful building function since all possible per-node
-operations are possible (node removal, insertion and updating of context
-properties).
-
-The other operations can be implemented in terms of `update` like this:
-
-    remove nodeId graph =
-        update nodeId (always Nothing) graph
-
-    insert nodeContext graph =
-        update nodeContext.node.id (always (Just nodeContext)) graph
-
--}
-update : NodeId -> (Maybe (NodeContext n) -> Maybe (NodeContext n)) -> Graph n -> Graph n
-update nodeId updater (Graph rep) =
-    -- This basically wraps updater so that the edges are consistent.
-    -- This is, it cannot use the lookup focus, because it needs to update other contexts, too.
-    let
-        old =
-            IntDict.get nodeId rep
-
-        filterInvalidEdges ctx =
-            IntSet.filter (\id -> id == ctx.node.id || IntDict.member id rep)
-
-        cleanUpEdges : NodeContext n -> NodeContext n
-        cleanUpEdges ctx =
-            { node = ctx.node
-            , incoming = filterInvalidEdges ctx ctx.incoming
-            , outgoing = filterInvalidEdges ctx ctx.outgoing
-            }
-
-        new =
-            old
-                |> updater
-                |> Maybe.map cleanUpEdges
-
-        diff =
-            computeEdgeDiff old new
-    in
-    rep
-        |> applyEdgeDiff nodeId diff
-        |> IntDict.update nodeId (always new)
-        |> Graph
-
-
 {-| Analogous to `Dict.remove`, `remove nodeId graph` returns a version of `graph`
 without a node with id `nodeId`. If there was no node with that id, then remove
 is a no-op:
@@ -335,8 +240,22 @@ is a no-op:
 
 -}
 remove : NodeId -> Graph n -> Graph n
-remove nodeId graph =
-    update nodeId (always Nothing) graph
+remove nodeId ((Graph rep) as graph) =
+    case IntDict.get nodeId rep of
+        Nothing ->
+            graph
+
+        Just node ->
+            let
+                diff =
+                    { outgoing = IntDict.empty |> collect Remove node.incoming
+                    , incoming = IntDict.empty |> collect Remove node.outgoing
+                    }
+            in
+            rep
+                |> applyEdgeDiff nodeId diff
+                |> IntDict.update nodeId (always Nothing)
+                |> Graph
 
 
 

@@ -4,7 +4,7 @@ module Vendor.IntSet exposing
     , member, findMin
     , intersect
     , keys
-    , foldl, filter
+    , foldl
     )
 
 {-|
@@ -65,7 +65,7 @@ Dictionary equality with `(==)` is unreliable and should not be used.
 
 # Transform
 
-@docs foldl, filter
+@docs foldl
 
 
 # String representation
@@ -365,21 +365,6 @@ findMin dict =
 
 
 -- TRANSFORM
-
-
-{-| Keep a key-value pair when it satisfies a predicate.
--}
-filter : (Int -> Bool) -> IntSet -> IntSet
-filter predicate dict =
-    let
-        add k d =
-            if predicate k then
-                insert k d
-
-            else
-                d
-    in
-    foldl add empty dict
 
 
 {-| Fold over the key-value pairs in a dictionary, in order from lowest
