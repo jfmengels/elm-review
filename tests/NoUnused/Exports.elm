@@ -199,7 +199,7 @@ reportUnusedProductionExports :
     }
     -> Configuration
     -> Configuration
-reportUnusedProductionExports { isProductionFile, exceptionsAre } _ =
+reportUnusedProductionExports { isProductionFile, exceptionsAre } (Configuration _) =
     let
         affixMatches : List (String -> Bool)
         affixMatches =
