@@ -4,8 +4,7 @@ module Vendor.Graph exposing
     , get
     , fromNodesAndEdges
     , AcyclicGraph, checkAcyclic
-    , NeighborSelector, alongIncomingEdges, SimpleNodeVisitor
-    , DfsNodeVisitor
+    , NeighborSelector, alongIncomingEdges
     , BfsNodeVisitor, guidedBfs
     , topologicalSort
     )
@@ -52,12 +51,10 @@ representation.
 
 ## Neighbor selectors and node visitors
 
-@docs NeighborSelector, alongIncomingEdges, SimpleNodeVisitor
+@docs NeighborSelector, alongIncomingEdges
 
 
 ## Depth-first
-
-@docs DfsNodeVisitor
 
 
 ## Breadth-first
@@ -422,8 +419,9 @@ If there aren't any cycles, this will return `Ok acyclic`, where
 checkAcyclic : Graph n -> Result Edge (AcyclicGraph n)
 checkAcyclic graph =
     let
+        reversePostOrder : List NodeId
         reversePostOrder =
-            dfs (onFinish (\{ node } acc -> node.id :: acc)) [] graph
+            dfs [] graph
     in
     checkForBackEdges graph reversePostOrder
 
@@ -463,49 +461,8 @@ alongIncomingEdges ctx =
     IntSet.keys ctx.incoming
 
 
-{-| A generic node visitor just like that in the ordinary `fold` function.
-There are combinators that make these usable for both depth-first traversal
-(`onDiscovery`, `onFinish`) and breadth-first traversal (`ignorePath`).
--}
-type alias SimpleNodeVisitor n acc =
-    NodeContext n
-    -> acc
-    -> acc
-
-
 
 {- DFS -}
-
-
-{-| A node visitor specialized for depth-first traversal. Along with the node
-context of the currently visited node, the current accumulated value is passed.
-The visitor then has the chance to both modify the value at discovery of the
-node through the first return value and also provide a finishing
-transformation which is called with the value after all children were processed
-and the node is about to be finished.
-
-In the cases where you don't need access to the value both at dicovery and at
-finish, look into `onDiscovery` and `onFinish`.
-
--}
-type alias DfsNodeVisitor n acc =
-    NodeContext n
-    -> acc
-    -> ( acc, acc -> acc )
-
-
-{-| Transform a `SimpleNodeVisitor` into an equivalent `DfsNodeVisitor`, which
-will be called upon node finish. This eases providing `DfsNodeVisitor`s in
-the default case:
-
-    dfsPostOrder : Graph n -> List (NodeContext n)
-    dfsPostOrder graph =
-        List.reverse (dfs (onFinish (::)) [] graph)
-
--}
-onFinish : SimpleNodeVisitor n acc -> DfsNodeVisitor n acc
-onFinish visitor ctx acc =
-    ( acc, visitor ctx )
 
 
 {-| The `dfs*` functions are not powerful enough? Go for this beast.
@@ -526,13 +483,13 @@ accumulated value together with the unvisited rest of `graph`.
 -}
 guidedDfs :
     NeighborSelector n
-    -> DfsNodeVisitor n acc
     -> List NodeId
-    -> acc
+    -> List NodeId
     -> Graph n
-    -> acc
-guidedDfs selectNeighbors visitNode startingSeeds startingAcc startingGraph =
+    -> List NodeId
+guidedDfs selectNeighbors startingSeeds startingAcc startingGraph =
     let
+        go : List NodeId -> List NodeId -> Graph n -> ( List NodeId, Graph n )
         go seeds acc graph =
             case seeds of
                 [] ->
@@ -549,16 +506,10 @@ guidedDfs selectNeighbors visitNode startingSeeds startingAcc startingGraph =
 
                         Just ctx ->
                             let
-                                ( accAfterDiscovery, finishNode ) =
-                                    visitNode ctx acc
-
                                 ( accBeforeFinish, graph1 ) =
-                                    go (selectNeighbors ctx) accAfterDiscovery (remove next graph)
-
-                                accAfterFinish =
-                                    finishNode accBeforeFinish
+                                    go (selectNeighbors ctx) acc (remove next graph)
                             in
-                            go seeds1 accAfterFinish graph1
+                            go seeds1 (ctx.node.id :: accBeforeFinish) graph1
     in
     go startingSeeds startingAcc startingGraph
         |> Tuple.first
@@ -569,9 +520,9 @@ graph in no guaranteed order, discovering nodes `alongOutgoingEdges`.
 See the docs of `DfsNodeVisitor` on how to supply such a beast. There are also
 examples on how to use `dfs`.
 -}
-dfs : DfsNodeVisitor n acc -> acc -> Graph n -> acc
-dfs visitNode acc graph =
-    guidedDfs alongOutgoingEdges visitNode (nodeIds graph) acc graph
+dfs : List NodeId -> Graph n -> List NodeId
+dfs acc graph =
+    guidedDfs alongOutgoingEdges (nodeIds graph) acc graph
 
 
 
