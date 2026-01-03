@@ -188,10 +188,6 @@ collectUpdates edgeUpdate updatedId =
 applyEdgeDiff : NodeId -> EdgeDiff -> GraphRep n -> GraphRep n
 applyEdgeDiff nodeId diff graphRep =
     let
-        flippedFoldl : (Int -> b -> a -> a) -> IntDict b -> a -> a
-        flippedFoldl f dict acc =
-            IntDict.foldl f acc dict
-
         edgeUpdateToMaybe : EdgeUpdate -> Bool
         edgeUpdateToMaybe edgeUpdate =
             case edgeUpdate of
@@ -226,8 +222,8 @@ applyEdgeDiff nodeId diff graphRep =
             { node | outgoing = IntSet.update nodeId keep node.outgoing }
     in
     graphRep
-        |> flippedFoldl updateIncomingAdjacency diff.incoming
-        |> flippedFoldl updateOutgoingAdjacency diff.outgoing
+        |> IntDict.foldl updateIncomingAdjacency diff.incoming
+        |> IntDict.foldl updateOutgoingAdjacency diff.outgoing
 
 
 {-| Analogous to `Dict.remove`, `remove nodeId graph` returns a version of `graph`

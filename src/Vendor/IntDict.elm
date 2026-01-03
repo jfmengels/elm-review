@@ -364,8 +364,8 @@ get key dict =
 {-| Fold over the key-value pairs in a dictionary, in order from lowest
 key to highest key.
 -}
-foldl : (Int -> v -> a -> a) -> a -> IntDict v -> a
-foldl f acc dict =
+foldl : (Int -> v -> a -> a) -> IntDict v -> a -> a
+foldl f dict acc =
     case dict of
         Empty () ->
             acc
@@ -374,7 +374,7 @@ foldl f acc dict =
             f l.key l.value acc
 
         Inner i ->
-            foldl f (foldl f acc i.left) i.right
+            foldl f i.right (foldl f i.left acc)
 
 
 {-| Fold over the keys pairs in a dictionary, in order from highest
