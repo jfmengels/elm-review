@@ -194,11 +194,11 @@ applyEdgeDiff nodeId diff graphRep =
             IntDict.update updatedId (Maybe.map updateOutgoingEdge)
 
         -- ignores edges to nodes not in the graph
-        updateIncomingEdge : { a | incoming : IntSet } -> { a | incoming : IntSet }
+        updateIncomingEdge : NodeContext n -> NodeContext n
         updateIncomingEdge node =
             { node | incoming = IntSet.remove nodeId node.incoming }
 
-        updateOutgoingEdge : { a | outgoing : IntSet } -> { a | outgoing : IntSet }
+        updateOutgoingEdge : NodeContext n -> NodeContext n
         updateOutgoingEdge node =
             { node | outgoing = IntSet.remove nodeId node.outgoing }
     in
