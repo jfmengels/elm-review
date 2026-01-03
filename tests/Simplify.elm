@@ -252,8 +252,20 @@ Destructuring using case expressions
     round (toFloat n) -- same for ceiling, floor and truncate
     --> n
 
+    abs 3
+    --> 3
+
+    abs (abs n)
+    --> abs n
+
+    abs -n
+    --> abs n
+
     min n n
     --> n
+
+    min n -n
+    --> -(abs n)
 
     min (min n0 n1) n0
     --> min n0 n1
@@ -263,6 +275,9 @@ Destructuring using case expressions
 
     max n n
     --> n
+
+    max n -n
+    --> abs n
 
     max (max n0 n1) n0
     --> max n0 n1
@@ -349,8 +364,11 @@ Destructuring using case expressions
     Tuple.first (Tuple.mapSecond changeFirst tuple)
     --> Tuple.first tuple
 
+    Tuple.first (Tuple.mapFirst changeFirst tuple)
+    --> changeFirst (Tuple.first tuple)
+
     Tuple.first (Tuple.mapBoth changeFirst changeSecond tuple)
-    --> Tuple.first (Tuple.mapFirst changeFirst tuple)
+    --> changeFirst (Tuple.first tuple)
 
     Tuple.second ( a, b )
     --> b
@@ -358,8 +376,11 @@ Destructuring using case expressions
     Tuple.second (Tuple.mapFirst changeFirst tuple)
     --> Tuple.second tuple
 
+    Tuple.second (Tuple.mapSecond changeSecond tuple)
+    --> changeSecond (Tuple.second tuple)
+
     Tuple.second (Tuple.mapBoth changeFirst changeSecond tuple)
-    --> Tuple.second (Tuple.mapSecond changeSecond tuple)
+    --> changeSecond (Tuple.second tuple)
 
 
 ### Strings
@@ -780,11 +801,29 @@ Destructuring using case expressions
     List.minimum [ a ]
     --> Just a
 
+    List.minimum (List.range 2 3)
+    --> Just 2
+
     List.maximum []
     --> Nothing
 
     List.maximum [ a ]
     --> Just a
+
+    List.maximum (List.range 2 3)
+    --> Just 3
+
+    List.foldr (++) "" list
+    --> String.concat list
+
+    List.foldr (++) [] list
+    --> List.concat list
+
+    List.foldr (::) [] list
+    --> list
+
+    List.foldl (::) [] list
+    --> List.reverse list
 
     -- The following simplifications for List.foldl also work for List.foldr
     List.foldl f x []
@@ -820,8 +859,15 @@ Destructuring using case expressions
     List.foldl (||) True list
     --> True
 
+    List.foldl f initial (List.reverse list)
+    --> List.foldr f initial list
+
     Array.foldl f x (Array.fromList list)
     --> List.foldl f x array
+
+    -- when `expectNaN` is not enabled
+    Set.member x (Set.fromList list)
+    --> List.member x list
 
     List.all f []
     --> True
@@ -864,6 +910,9 @@ Destructuring using case expressions
 
     List.range 6 3
     --> []
+
+    List.range n n
+    --> [ n ]
 
     List.length [ a, b, c ]
     --> 3
@@ -918,6 +967,12 @@ Destructuring using case expressions
 
     List.sort (List.repeat n a)
     --> List.repeat n a
+
+    List.sort (Set.toList set)
+    --> Set.toList set
+
+    List.sort (Dict.toList dict)
+    --> Dict.toList dict
 
     List.sortBy (always a) list
     --> list
@@ -1213,6 +1268,9 @@ Destructuring using case expressions
     List.foldl f x (Set.toList set)
     --> Set.foldl f x set
 
+    List.member x (Set.toList set)
+    --> Set.member x set
+
     Set.filter f (Set.filter f set)
     --> Set.filter f set
 
@@ -1231,12 +1289,19 @@ Destructuring using case expressions
     Tuple.first (Set.partition f set)
     --> Set.filter f set
 
+    Set.foldr (::) [] set
+    --> Set.toList set
+
     -- The following simplifications for Set.foldl also work for Set.foldr
     Set.foldl f initial Set.empty
     --> initial
 
     Set.foldl (\_ soFar -> soFar) initial set
     --> initial
+
+    -- when `expectNaN` is not enabled
+    Set.foldl Set.insert Set.empty set
+    --> set
 
     List.length (Set.toList set)
     --> Set.size set
@@ -1277,11 +1342,15 @@ Destructuring using case expressions
     Dict.member x Dict.empty
     --> False
 
-    Dict.member x [ ( y, v0 ), ( x, v1 ) ]
+    Dict.member x (Dict.fromList [ ( y, v0 ), ( x, v1 ) ])
     --> True
 
-    Dict.member -999 [ ( 0, v0 ), ( 1, v1 ) ]
+    Dict.member -999 (Dict.fromList [ ( 0, v0 ), ( 1, v1 ) ])
     --> False
+
+    -- when `expectNaN` is not enabled
+    Dict.member x (Dict.fromList list)
+    --> List.any (Tuple.first >> (==) x) list
 
     Dict.insert k v1 (Dict.insert k v0 dict)
     --> Dict.insert k v1 dict
@@ -1367,12 +1436,31 @@ Destructuring using case expressions
     List.map Tuple.second (Dict.toList dict)
     --> Dict.values dict
 
-    -- same for foldr
+    Dict.foldr (\k _ ks -> k :: ks) [] dict
+    --> Dict.keys dict
+
+    Dict.foldr (\_ v vs -> v :: vs) [] dict
+    --> Dict.values dict
+
+    Dict.foldr (\k v kvs -> ( k, v ) :: kvs) [] dict
+    --> Dict.toList dict
+
+    -- The following foldl simplifications also work for foldr
     Dict.foldl f initial Dict.empty
     --> initial
 
     Dict.foldl (\_ soFar -> soFar) initial dict
     --> initial
+
+    -- when `expectNaN` is not enabled
+    Dict.foldl Dict.insert Dict.empty dict
+    --> dict
+
+    List.foldl (\v s -> f v s) init (Dict.values dict)
+    --> Dict.foldl (\_ v s -> f v s) init dict
+
+    List.foldl (\k s -> f k s) init (Dict.keys dict)
+    --> Dict.foldl (\k _ s -> f k s) init dict
 
     -- The following simplification also works for Dict.keys, Dict.values
     List.length (Dict.toList dict)
@@ -1478,6 +1566,18 @@ All of these also apply for `Sub`.
     Task.sequence [ task ]
     --> Task.map List.singleton task
 
+    Task.attempt identity (Task.map f task)
+    --> Task.attempt f task
+
+    Task.perform identity (Task.map f task)
+    --> Task.perform f task
+
+    Cmd.map f (Task.perform identity task)
+    --> Task.perform f task
+
+    Cmd.map f (Task.attempt identity task)
+    --> Task.attempt f task
+
 
 ### Html.Attributes
 
@@ -1486,6 +1586,27 @@ All of these also apply for `Sub`.
 
     Html.Attributes.classList [ ( onlyOneThing, True ) ]
     --> Html.Attributes.class onlyOneThing
+
+
+### Json.Encode
+
+    Json.Encode.list f (Array.toList array)
+    --> Json.Encode.array f array
+
+    Json.Encode.array identity (Array.map f array)
+    --> Json.Encode.array f array
+
+    Json.Encode.array f (Array.fromList list)
+    --> Json.Encode.list f list
+
+    Json.Encode.list identity (List.map f list)
+    --> Json.Encode.list f list
+
+    Json.Encode.list f (Set.toList set)
+    --> Json.Encode.set f set
+
+    Json.Encode.set identity (Set.map f set)
+    --> Json.Encode.set f set
 
 
 ### Json.Decode
@@ -1601,6 +1722,7 @@ import Fn.Basics
 import Fn.Dict
 import Fn.Html.Attributes
 import Fn.Json.Decode
+import Fn.Json.Encode
 import Fn.List
 import Fn.Maybe
 import Fn.Parser
@@ -2919,11 +3041,11 @@ expressionVisitorHelp (Node expressionRange expression) config context =
                             Nothing ->
                                 Nothing
 
-                    Node _ (Expression.ParenthesizedExpression (Node lambdaRange (Expression.LambdaExpression lambda))) ->
+                    Node lambdaWithParens (Expression.ParenthesizedExpression (Node _ (Expression.LambdaExpression lambda))) ->
                         appliedLambdaError
-                            { nodeRange = expressionRange
-                            , lambdaRange = lambdaRange
-                            , lambda = lambda
+                            { lambda = lambda
+                            , lambdaWithParens = lambdaWithParens
+                            , firstArgument = firstArg
                             }
 
                     Node operatorRange (Expression.PrefixOperator operator) ->
@@ -3149,7 +3271,7 @@ expressionVisitorHelp (Node expressionRange expression) config context =
         Expression.OperatorApplication ">>" _ earlier composedLater ->
             onlyMaybeError
                 (compositionChecks
-                    (toCompositionCheckInfo context { earlier = earlier, later = composedLater })
+                    (toCompositionCheckInfo config context { earlier = earlier, later = composedLater })
                 )
 
         ----------
@@ -3158,7 +3280,7 @@ expressionVisitorHelp (Node expressionRange expression) config context =
         Expression.OperatorApplication "<<" _ composedLater earlier ->
             onlyMaybeError
                 (compositionChecks
-                    (toCompositionCheckInfo context { earlier = earlier, later = composedLater })
+                    (toCompositionCheckInfo config context { earlier = earlier, later = composedLater })
                 )
 
         ---------------------
@@ -3252,6 +3374,8 @@ expressionVisitorHelp (Node expressionRange expression) config context =
                     , lookupTable = context.lookupTable
                     , inferredConstants = context.inferredConstants
                     , importLookup = context.importLookup
+                    , moduleCustomTypes = context.moduleCustomTypes
+                    , importCustomTypes = context.importCustomTypes
                     , moduleBindings = context.moduleBindings
                     , localBindings = context.localBindings
                     }
@@ -3403,9 +3527,9 @@ toCallCheckInfo config context checkInfo =
             , importLookup = context.importLookup
             , moduleCustomTypes = context.moduleCustomTypes
             , importCustomTypes = context.importCustomTypes
-            , commentRanges = context.commentRanges
             , moduleBindings = context.moduleBindings
             , localBindings = context.localBindings
+            , commentRanges = context.commentRanges
             , inferredConstants = context.inferredConstants
             }
 
@@ -3424,21 +3548,22 @@ toCallCheckInfo config context checkInfo =
             , importLookup = context.importLookup
             , moduleCustomTypes = context.moduleCustomTypes
             , importCustomTypes = context.importCustomTypes
-            , commentRanges = context.commentRanges
             , moduleBindings = context.moduleBindings
             , localBindings = context.localBindings
+            , commentRanges = context.commentRanges
             , inferredConstants = context.inferredConstants
             }
 
 
 toCompositionCheckInfo :
-    ModuleContext
+    { config | expectNaN : Bool }
+    -> ModuleContext
     ->
         { earlier : Node Expression
         , later : Node Expression
         }
     -> CompositionCheckInfo
-toCompositionCheckInfo context compositionSpecific =
+toCompositionCheckInfo config context compositionSpecific =
     let
         innerComposition :
             { earlier :
@@ -3450,16 +3575,17 @@ toCompositionCheckInfo context compositionSpecific =
         innerComposition =
             getInnerComposition compositionSpecific
     in
-    { lookupTable = context.lookupTable
+    { expectNaN = config.expectNaN
+    , lookupTable = context.lookupTable
     , importLookup = context.importLookup
     , importRecordTypeAliases = context.importRecordTypeAliases
     , moduleRecordTypeAliases = context.moduleRecordTypeAliases
     , moduleCustomTypes = context.moduleCustomTypes
     , importCustomTypes = context.importCustomTypes
-    , inferredConstants = context.inferredConstants
     , moduleBindings = context.moduleBindings
     , localBindings = context.localBindings
     , extractSourceCode = context.extractSourceCode
+    , inferredConstants = context.inferredConstants
     , earlier = innerComposition.earlier
     , later = innerComposition.later
     , isEmbeddedInComposition = innerComposition.isEmbeddedInComposition
@@ -3571,10 +3697,10 @@ type alias CallCheckInfo =
             { variantNames : Set String
             , allParametersAreUsedInVariants : Bool
             }
-    , extractSourceCode : Range -> String
-    , commentRanges : List Range
     , moduleBindings : Set String
     , localBindings : RangeDict (Set String)
+    , extractSourceCode : Range -> String
+    , commentRanges : List Range
     , inferredConstants : ( Infer.Inferred, List Infer.Inferred )
     , parentRange : Range
     , fnRange : Range
@@ -3602,7 +3728,8 @@ thirdArg checkInfo =
 
 
 type alias CompositionIntoCheckInfo =
-    { lookupTable : ModuleNameLookupTable
+    { expectNaN : Bool
+    , lookupTable : ModuleNameLookupTable
     , importLookup : ImportLookup
     , importCustomTypes :
         Dict
@@ -3619,10 +3746,10 @@ type alias CompositionIntoCheckInfo =
             { variantNames : Set String
             , allParametersAreUsedInVariants : Bool
             }
-    , inferredConstants : ( Infer.Inferred, List Infer.Inferred )
     , moduleBindings : Set String
     , localBindings : RangeDict (Set String)
     , extractSourceCode : Range -> String
+    , inferredConstants : ( Infer.Inferred, List Infer.Inferred )
     , later :
         { range : Range
         , fn : ( ModuleName, String )
@@ -3703,6 +3830,7 @@ intoFnChecks =
     , ( Fn.Basics.ceiling, ( 1, floatToIntConversionChecks Basics.ceiling ) )
     , ( Fn.Basics.floor, ( 1, floatToIntConversionChecks Basics.floor ) )
     , ( Fn.Basics.truncate, ( 1, floatToIntConversionChecks Basics.truncate ) )
+    , ( Fn.Basics.abs, ( 1, basicsAbsChecks ) )
     , ( Fn.Basics.min, ( 2, basicsMinChecks ) )
     , ( Fn.Basics.max, ( 2, basicsMaxChecks ) )
     , ( Fn.Basics.compare, ( 2, basicsCompareChecks ) )
@@ -3840,6 +3968,11 @@ intoFnChecks =
     , ( Fn.Task.mapError, ( 2, taskMapErrorChecks ) )
     , ( Fn.Task.onError, ( 2, taskOnErrorChecks ) )
     , ( Fn.Task.sequence, ( 1, taskSequenceChecks ) )
+    , ( Fn.Task.perform, ( 2, taskPerformChecks ) )
+    , ( Fn.Task.attempt, ( 2, taskAttemptChecks ) )
+    , ( Fn.Json.Encode.list, ( 2, jsonEncodeListChecks ) )
+    , ( Fn.Json.Encode.array, ( 2, jsonEncodeArrayChecks ) )
+    , ( Fn.Json.Encode.set, ( 2, jsonEncodeSetChecks ) )
     , ( Fn.Json.Decode.oneOf, ( 1, jsonDecodeOneOfChecks ) )
     , ( Fn.Json.Decode.map, ( 2, jsonDecodeMapChecks ) )
     , ( Fn.Json.Decode.map2, ( 3, jsonDecodeMapNChecks ) )
@@ -3873,7 +4006,8 @@ functionCallChecks =
 
 
 type alias CompositionCheckInfo =
-    { lookupTable : ModuleNameLookupTable
+    { expectNaN : Bool
+    , lookupTable : ModuleNameLookupTable
     , importLookup : ImportLookup
     , importRecordTypeAliases : Dict ModuleName (Dict String (List String))
     , moduleRecordTypeAliases : Dict String (List String)
@@ -3892,10 +4026,10 @@ type alias CompositionCheckInfo =
             { variantNames : Set String
             , allParametersAreUsedInVariants : Bool
             }
-    , inferredConstants : ( Infer.Inferred, List Infer.Inferred )
     , moduleBindings : Set String
     , localBindings : RangeDict (Set String)
     , extractSourceCode : Range -> String
+    , inferredConstants : ( Infer.Inferred, List Infer.Inferred )
     , earlier :
         { node : Node Expression
         , removeRange : Range
@@ -3925,14 +4059,15 @@ compositionChecks checkInfo =
                                                 case Dict.get ( laterFnModuleName, laterFnOrCall.fnName ) compositionIntoChecks of
                                                     Just ( laterArgCount, compositionIntoChecksForSpecificLater ) ->
                                                         compositionIntoChecksForSpecificLater
-                                                            { lookupTable = checkInfo.lookupTable
+                                                            { expectNaN = checkInfo.expectNaN
+                                                            , lookupTable = checkInfo.lookupTable
                                                             , importLookup = checkInfo.importLookup
                                                             , importCustomTypes = checkInfo.importCustomTypes
                                                             , moduleCustomTypes = checkInfo.moduleCustomTypes
-                                                            , inferredConstants = checkInfo.inferredConstants
                                                             , moduleBindings = checkInfo.moduleBindings
                                                             , localBindings = checkInfo.localBindings
                                                             , extractSourceCode = checkInfo.extractSourceCode
+                                                            , inferredConstants = checkInfo.inferredConstants
                                                             , later =
                                                                 { range = laterFnOrCall.nodeRange
                                                                 , fn = ( laterFnModuleName, laterFnOrCall.fnName )
@@ -4138,8 +4273,8 @@ minusChecks checkInfo =
                 , details = [ "You can replace this operation by the negated right number you subtracted from 0, like `-n`." ]
                 }
                 checkInfo.operatorRange
-                (replaceBySubExpressionFix checkInfo.parentRange checkInfo.right
-                    ++ [ Fix.insertAt checkInfo.parentRange.start "-" ]
+                (Fix.insertAt checkInfo.parentRange.start "-"
+                    :: replaceBySubExpressionFix checkInfo.parentRange checkInfo.right
                 )
             )
 
@@ -4186,7 +4321,7 @@ multiplyChecks checkInfo =
             (\() ->
                 checkOperationFromBothSides checkInfo
                     (\side ->
-                        if numberNotExpectingNaNForMultiplyProperties.absorbing.is (extractInferResources checkInfo) side.node then
+                        if numberNotExpectingNaNForMultiplyProperties.absorbing.is (extractNormalizeResources checkInfo) side.node then
                             Just
                                 (Rule.errorWithFix
                                     { message = "Multiplication by 0 should be replaced"
@@ -4398,8 +4533,7 @@ plusplusChecks checkInfo =
                                     , details = [ "You can replace this (++) operation by using (::) with the value inside the left singleton list on the right list." ]
                                     }
                                     checkInfo.operatorRange
-                                    (Fix.replaceRangeBy checkInfo.operatorRange
-                                        "::"
+                                    (Fix.replaceRangeBy checkInfo.operatorRange "::"
                                         :: replaceBySubExpressionFix checkInfo.leftRange leftListSingletonElement
                                     )
                                 )
@@ -5414,6 +5548,107 @@ floatToIntConversionChecks operation =
         ]
 
 
+basicsAbsChecks : IntoFnCheck
+basicsAbsChecks =
+    intoFnChecksFirstThatConstructsError
+        [ operationDoesNotChangeResultOfOperationCheck
+        , absOnNegatedChecks
+        , intoFnCheckOnlyCall
+            (\checkInfo ->
+                case AstHelpers.getUncomputedNumberValue checkInfo.firstArg of
+                    Nothing ->
+                        Nothing
+
+                    Just numberInput ->
+                        let
+                            result : Float
+                            result =
+                                Basics.abs numberInput
+                        in
+                        Just
+                            (Rule.errorWithFix
+                                { message = qualifiedToString checkInfo.fn ++ " on a number literal can be evaluated"
+                                , details =
+                                    [ "You can replace this call by the resulting absolute value." ]
+                                }
+                                checkInfo.fnRange
+                                (if result == numberInput then
+                                    -- preserve style like 0x1 or 2e10
+                                    replaceBySubExpressionFix checkInfo.parentRange checkInfo.firstArg
+
+                                 else
+                                    [ Fix.replaceRangeBy checkInfo.parentRange
+                                        (String.fromFloat result)
+                                    ]
+                                )
+                            )
+            )
+        ]
+
+
+absOnNegatedChecks : IntoFnCheck
+absOnNegatedChecks =
+    { composition =
+        \checkInfo ->
+            if checkInfo.earlier.fn == Fn.Basics.negate then
+                Just
+                    { info =
+                        { message =
+                            "Unnecessary "
+                                ++ qualifiedToString Fn.Basics.negate
+                                ++ " before "
+                                ++ qualifiedToString checkInfo.later.fn
+                        , details =
+                            [ "You can remove the composition with "
+                                ++ qualifiedToString (qualify Fn.Basics.negate defaultQualifyResources)
+                                ++ "."
+                            ]
+                        }
+                    , fix = [ Fix.removeRange checkInfo.earlier.removeRange ]
+                    }
+
+            else
+                Nothing
+    , call =
+        \checkInfo ->
+            case sameInAllBranches (\branch -> getNegated checkInfo.lookupTable branch) checkInfo.firstArg of
+                Just branchesNegated ->
+                    Just
+                        (Rule.errorWithFix
+                            { message =
+                                qualifiedToString checkInfo.fn
+                                    ++ " on a negated value makes the negation unnecessary"
+                            , details =
+                                [ "You can remove the negation of the value given to the "
+                                    ++ qualifiedToString (qualify checkInfo.fn defaultQualifyResources)
+                                    ++ " call."
+                                ]
+                            }
+                            checkInfo.fnRange
+                            (List.concatMap
+                                (\branchNegated ->
+                                    replaceBySubExpressionFix branchNegated.range branchNegated.inNegation
+                                )
+                                branchesNegated
+                            )
+                        )
+
+                Nothing ->
+                    Nothing
+    }
+
+
+getNegated : ModuleNameLookupTable -> Node Expression -> Maybe { range : Range, inNegation : Node Expression }
+getNegated lookupTable expressionNode =
+    case AstHelpers.removeParens expressionNode of
+        Node _ (Expression.Negation inNegation) ->
+            Just { range = Node.range expressionNode, inNegation = inNegation }
+
+        _ ->
+            Maybe.map (\negateCall -> { range = negateCall.nodeRange, inNegation = negateCall.firstArg })
+                (AstHelpers.getSpecificUnreducedFnCall Fn.Basics.negate lookupTable expressionNode)
+
+
 basicsMinChecks : IntoFnCheck
 basicsMinChecks =
     intoFnChecksFirstThatConstructsError
@@ -5450,7 +5685,27 @@ basicsMinChecks =
                                     )
 
                             _ ->
-                                Nothing
+                                case Normalize.compare checkInfo checkInfo.firstArg (Node.empty (Expression.Negation rightArg)) of
+                                    Normalize.ConfirmedEquality ->
+                                        Just
+                                            (Rule.errorWithFix
+                                                { message = qualifiedToString checkInfo.fn ++ " with a first value that is equal to negative the second value results in the its negative absolute value"
+                                                , details = [ "You can replace this call by the negated Basics.abs on either its first or second argument." ]
+                                                }
+                                                checkInfo.fnRange
+                                                (Fix.replaceRangeBy checkInfo.fnRange
+                                                    (qualifiedToString (qualify Fn.Basics.abs checkInfo))
+                                                    :: keepOnlyAndSurroundWithFix
+                                                        { parentRange = checkInfo.parentRange
+                                                        , keep = Range.combine [ checkInfo.fnRange, Node.range checkInfo.firstArg ]
+                                                        , left = "-("
+                                                        , right = ")"
+                                                        }
+                                                )
+                                            )
+
+                                    _ ->
+                                        Nothing
             )
         ]
 
@@ -5491,7 +5746,25 @@ basicsMaxChecks =
                                     )
 
                             _ ->
-                                Nothing
+                                case Normalize.compare checkInfo checkInfo.firstArg (Node.empty (Expression.Negation rightArg)) of
+                                    Normalize.ConfirmedEquality ->
+                                        Just
+                                            (Rule.errorWithFix
+                                                { message = qualifiedToString checkInfo.fn ++ " with a first value that is equal to negative the second value results in the its absolute value"
+                                                , details = [ "You can replace this call by Basics.abs on either its first or second argument." ]
+                                                }
+                                                checkInfo.fnRange
+                                                (Fix.replaceRangeBy checkInfo.fnRange
+                                                    (qualifiedToString (qualify Fn.Basics.abs checkInfo))
+                                                    :: keepOnlyAndParenthesizeFix
+                                                        { parentRange = checkInfo.parentRange
+                                                        , keep = Range.combine [ checkInfo.fnRange, Node.range checkInfo.firstArg ]
+                                                        }
+                                                )
+                                            )
+
+                                    _ ->
+                                        Nothing
             )
         ]
 
@@ -5574,7 +5847,7 @@ orderToReference order =
             Fn.Basics.gTVariant
 
 
-evaluateCompare : Infer.Resources a -> Node Expression -> Node Expression -> Match Order
+evaluateCompare : Normalize.Resources a -> Node Expression -> Node Expression -> Match Order
 evaluateCompare resources left right =
     case expressionToComparable resources left of
         Just leftComparable ->
@@ -5712,7 +5985,7 @@ evaluateConversionToIntOnNumberCheck operation checkInfo =
                         (Rule.errorWithFix
                             { message = qualifiedToString checkInfo.fn ++ " on a number literal can be evaluated"
                             , details =
-                                [ "You replace this call by the resulting Int value."
+                                [ "You can replace this call by the resulting Int value."
                                 ]
                             }
                             checkInfo.fnRange
@@ -5769,7 +6042,7 @@ unnecessaryOperationWithEmptySideChecks forOperationProperties side checkInfo =
 
 operationWithAbsorbingSideChecks : TypeProperties (AbsorbableProperties otherProperties) -> { side | node : Node Expression, otherNode : Node Expression, otherDescription : String } -> OperatorApplicationCheckInfo -> Maybe (Error {})
 operationWithAbsorbingSideChecks forOperationProperties side checkInfo =
-    if forOperationProperties.absorbing.is (extractInferResources checkInfo) side.node then
+    if forOperationProperties.absorbing.is (extractNormalizeResources checkInfo) side.node then
         Just
             (Rule.errorWithFix
                 { message = "(" ++ checkInfo.operator ++ ") with any side being " ++ forOperationProperties.absorbing.description ++ " will result in " ++ forOperationProperties.absorbing.description
@@ -5816,7 +6089,7 @@ findSimilarConditionsError operatorCheckInfo =
 
 
 areSimilarConditionsError :
-    QualifyResources (Infer.Resources a)
+    QualifyResources (Normalize.Resources a)
     -> String
     -> Node Expression
     -> ( RedundantConditionResolution, Node Expression )
@@ -5965,6 +6238,7 @@ tupleFirstChecks =
             , description = "first"
             , mapUnrelatedFn = Fn.Tuple.mapSecond
             , mapFn = Fn.Tuple.mapFirst
+            , mapBothArgIndex = 0
             }
         , intoFnCheckOnlyComposition
             (\checkInfo ->
@@ -5976,11 +6250,10 @@ tupleFirstChecks =
                                 , details = [ "You can replace this call by always with the first argument given to " ++ qualifiedToString (qualify checkInfo.earlier.fn defaultQualifyResources) ++ "." ]
                                 }
                             , fix =
-                                replaceBySubExpressionFix checkInfo.earlier.range first
-                                    ++ [ Fix.insertAt checkInfo.earlier.range.start
-                                            (qualifiedToString (qualify Fn.Basics.always checkInfo) ++ " ")
-                                       , Fix.removeRange checkInfo.later.removeRange
-                                       ]
+                                Fix.insertAt checkInfo.earlier.range.start
+                                    (qualifiedToString (qualify Fn.Basics.always checkInfo) ++ " ")
+                                    :: Fix.removeRange checkInfo.later.removeRange
+                                    :: replaceBySubExpressionFix checkInfo.earlier.range first
                             }
 
                     _ ->
@@ -6003,6 +6276,7 @@ tupleSecondChecks =
             , description = "second"
             , mapFn = Fn.Tuple.mapSecond
             , mapUnrelatedFn = Fn.Tuple.mapFirst
+            , mapBothArgIndex = 1
             }
         , intoFnCheckOnlyComposition
             (\checkInfo ->
@@ -6030,6 +6304,7 @@ tuplePartChecks :
     , description : String
     , mapFn : ( ModuleName, String )
     , mapUnrelatedFn : ( ModuleName, String )
+    , mapBothArgIndex : Int
     }
     -> IntoFnCheck
 tuplePartChecks partConfig =
@@ -6055,104 +6330,284 @@ tuplePartChecks partConfig =
                     )
                     (AstHelpers.getTuple2 checkInfo.lookupTable checkInfo.firstArg)
             )
-        , intoFnCheckOnlyCall
-            (\checkInfo ->
-                case AstHelpers.getSpecificUnreducedFnCall partConfig.mapUnrelatedFn checkInfo.lookupTable checkInfo.firstArg of
-                    Just mapSecondCall ->
-                        case mapSecondCall.argsAfterFirst of
-                            [ unmappedTuple ] ->
-                                Just
-                                    (Rule.errorWithFix
-                                        { message = "Unnecessary " ++ qualifiedToString partConfig.mapUnrelatedFn ++ " before " ++ qualifiedToString checkInfo.fn
-                                        , details = [ "Changing a tuple part which ultimately isn't accessed is unnecessary. You can replace the " ++ qualifiedToString partConfig.mapUnrelatedFn ++ " call by the unchanged tuple." ]
-                                        }
-                                        checkInfo.fnRange
-                                        (keepOnlyFix { parentRange = mapSecondCall.nodeRange, keep = Node.range unmappedTuple })
-                                    )
+        , tuplePartOnMapUnrelatedCheck partConfig.mapUnrelatedFn
+        , tuplePartOnMapPartCheck partConfig.mapFn
+        , tuplePartMapOnMapBothCheck
+            { argIndex = partConfig.mapBothArgIndex }
+        ]
 
-                            _ ->
-                                Nothing
 
-                    Nothing ->
-                        Nothing
-            )
-        , intoFnCheckOnlyCall
-            (\checkInfo ->
-                case AstHelpers.getSpecificUnreducedFnCall Fn.Tuple.mapBoth checkInfo.lookupTable checkInfo.firstArg of
-                    Just tupleMapBothCall ->
-                        case tupleMapBothCall.argsAfterFirst of
-                            [ secondMapperArg, _ ] ->
-                                Just
-                                    (Rule.errorWithFix
-                                        { message = qualifiedToString Fn.Tuple.mapBoth ++ " before " ++ qualifiedToString checkInfo.fn ++ " is the same as " ++ qualifiedToString partConfig.mapFn
-                                        , details = [ "Changing a tuple part which ultimately isn't accessed is unnecessary. You can replace the " ++ qualifiedToString Fn.Tuple.mapBoth ++ " call by " ++ qualifiedToString partConfig.mapFn ++ " with the same " ++ partConfig.description ++ " mapping and tuple." ]
-                                        }
-                                        checkInfo.fnRange
-                                        (case partConfig.part of
-                                            TupleFirst ->
-                                                Fix.replaceRangeBy tupleMapBothCall.fnRange
-                                                    (qualifiedToString (qualify partConfig.mapFn checkInfo))
-                                                    :: keepOnlyFix
-                                                        { parentRange = Range.combine [ tupleMapBothCall.fnRange, Node.range tupleMapBothCall.firstArg, Node.range secondMapperArg ]
-                                                        , keep = Range.combine [ tupleMapBothCall.fnRange, Node.range tupleMapBothCall.firstArg ]
-                                                        }
+tuplePartOnMapUnrelatedCheck : ( ModuleName, String ) -> IntoFnCheck
+tuplePartOnMapUnrelatedCheck mapUnrelatedFn =
+    { call =
+        \checkInfo ->
+            case AstHelpers.getSpecificUnreducedFnCall mapUnrelatedFn checkInfo.lookupTable checkInfo.firstArg of
+                Just mapUnrelatedCall ->
+                    case mapUnrelatedCall.argsAfterFirst of
+                        [ unmappedTuple ] ->
+                            Just
+                                (Rule.errorWithFix
+                                    { message = "Unnecessary " ++ qualifiedToString mapUnrelatedFn ++ " before " ++ qualifiedToString checkInfo.fn
+                                    , details = [ "Changing a tuple part which ultimately isn't accessed is unnecessary. You can replace the " ++ qualifiedToString mapUnrelatedFn ++ " call by the unchanged tuple." ]
+                                    }
+                                    checkInfo.fnRange
+                                    (keepOnlyFix { parentRange = mapUnrelatedCall.nodeRange, keep = Node.range unmappedTuple })
+                                )
 
-                                            TupleSecond ->
-                                                [ Fix.replaceRangeBy (Range.combine [ tupleMapBothCall.fnRange, Node.range tupleMapBothCall.firstArg ])
-                                                    (qualifiedToString (qualify partConfig.mapFn checkInfo))
-                                                ]
-                                        )
-                                    )
+                        _ ->
+                            Nothing
 
-                            _ ->
-                                Nothing
-
-                    Nothing ->
-                        Nothing
-            )
-        , intoFnCheckOnlyComposition
-            (\checkInfo ->
-                if checkInfo.earlier.fn == partConfig.mapUnrelatedFn then
-                    Just
-                        { info =
-                            { message = "Unnecessary " ++ qualifiedToString partConfig.mapUnrelatedFn ++ " before " ++ qualifiedToString checkInfo.later.fn
-                            , details = [ "Changing a tuple part which ultimately isn't accessed is unnecessary. You can remove the " ++ qualifiedToString partConfig.mapUnrelatedFn ++ " call." ]
-                            }
-                        , fix = [ Fix.removeRange checkInfo.earlier.removeRange ]
-                        }
-
-                else
+                Nothing ->
                     Nothing
-            )
-        , intoFnCheckOnlyComposition
-            (\checkInfo ->
-                case ( checkInfo.earlier.fn, checkInfo.earlier.args ) of
-                    ( ( [ "Tuple" ], "mapBoth" ), firstMapperArg :: _ :: [] ) ->
+    , composition =
+        \checkInfo ->
+            if checkInfo.earlier.fn == mapUnrelatedFn then
+                Just
+                    { info =
+                        { message = "Unnecessary " ++ qualifiedToString mapUnrelatedFn ++ " before " ++ qualifiedToString checkInfo.later.fn
+                        , details = [ "Changing a tuple part which ultimately isn't accessed is unnecessary. You can remove the " ++ qualifiedToString mapUnrelatedFn ++ " call." ]
+                        }
+                    , fix = [ Fix.removeRange checkInfo.earlier.removeRange ]
+                    }
+
+            else
+                Nothing
+    }
+
+
+tuplePartOnMapPartCheck : ( ModuleName, String ) -> IntoFnCheck
+tuplePartOnMapPartCheck mapPartFn =
+    { call =
+        \checkInfo ->
+            case AstHelpers.getSpecificUnreducedFnCall mapPartFn checkInfo.lookupTable checkInfo.firstArg of
+                Just mapPartCall ->
+                    case mapPartCall.argsAfterFirst of
+                        [ tupleArg ] ->
+                            let
+                                tupleArgNeedsParens : Bool
+                                tupleArgNeedsParens =
+                                    needsParens (Node.value tupleArg)
+                            in
+                            Just
+                                (Rule.errorWithFix
+                                    { message =
+                                        qualifiedToString checkInfo.fn
+                                            ++ " on "
+                                            ++ qualifiedToString mapPartFn
+                                            ++ " can be replaced by directly calling the given function on the accessed tuple part"
+                                    , details =
+                                        [ "You can take the function argument of the the "
+                                            ++ qualifiedToString mapPartFn
+                                            ++ " call and call it with the accessed tuple part."
+                                        ]
+                                    }
+                                    checkInfo.fnRange
+                                    (Fix.insertAt (Node.range tupleArg).start
+                                        ("("
+                                            ++ qualifiedToString (qualify checkInfo.fn checkInfo)
+                                            ++ " "
+                                            ++ (if tupleArgNeedsParens then
+                                                    "("
+
+                                                else
+                                                    ""
+                                               )
+                                        )
+                                        :: Fix.insertAt (Node.range tupleArg).end
+                                            (")"
+                                                ++ (if tupleArgNeedsParens then
+                                                        ")"
+
+                                                    else
+                                                        ""
+                                                   )
+                                            )
+                                        :: replaceBySubExpressionFix
+                                            (Range.combine
+                                                [ mapPartCall.fnRange
+                                                , Node.range mapPartCall.firstArg
+                                                ]
+                                            )
+                                            mapPartCall.firstArg
+                                        ++ replaceBySubExpressionFix
+                                            checkInfo.parentRange
+                                            checkInfo.firstArg
+                                    )
+                                )
+
+                        _ ->
+                            Nothing
+
+                Nothing ->
+                    Nothing
+    , composition =
+        \checkInfo ->
+            if checkInfo.earlier.fn == mapPartFn then
+                case checkInfo.earlier.args of
+                    [ partChangeFunctionArg ] ->
                         Just
                             { info =
-                                { message = qualifiedToString Fn.Tuple.mapBoth ++ " before " ++ qualifiedToString checkInfo.later.fn ++ " is the same as " ++ qualifiedToString partConfig.mapFn
-                                , details = [ "Changing a tuple part which ultimately isn't accessed is unnecessary. You can replace the " ++ qualifiedToString Fn.Tuple.mapBoth ++ " call by " ++ qualifiedToString partConfig.mapFn ++ " with the same " ++ partConfig.description ++ " mapping." ]
+                                { message =
+                                    qualifiedToString checkInfo.later.fn
+                                        ++ " on "
+                                        ++ qualifiedToString mapPartFn
+                                        ++ " can be replaced by directly calling the given function on the accessed tuple part"
+                                , details =
+                                    [ "You can take the function argument of the the "
+                                        ++ qualifiedToString mapPartFn
+                                        ++ " call and compose it after the tuple part access."
+                                    ]
                                 }
                             , fix =
-                                case partConfig.part of
-                                    TupleFirst ->
-                                        Fix.replaceRangeBy checkInfo.earlier.fnRange
-                                            (qualifiedToString (qualify partConfig.mapFn checkInfo))
-                                            :: keepOnlyFix
-                                                { parentRange = checkInfo.earlier.range
-                                                , keep = Range.combine [ checkInfo.earlier.fnRange, Node.range firstMapperArg ]
-                                                }
+                                -- Tuple.first << Tuple.mapFirst f
+                                --> f << Tuple.first
+                                --
+                                -- Tuple.mapFirst f >> Tuple.first
+                                --> Tuple.first >> f
+                                Fix.removeRange checkInfo.later.removeRange
+                                    :: (if Range.compareLocations checkInfo.earlier.range.start checkInfo.later.range.start == LT then
+                                            [ Fix.insertAt checkInfo.earlier.range.start
+                                                ("("
+                                                    ++ qualifiedToString (qualify checkInfo.later.fn checkInfo)
+                                                    ++ " >> "
+                                                )
+                                            , Fix.insertAt checkInfo.earlier.range.end ")"
+                                            ]
 
-                                    TupleSecond ->
-                                        [ Fix.replaceRangeBy (Range.combine [ checkInfo.earlier.fnRange, Node.range firstMapperArg ])
-                                            (qualifiedToString (qualify partConfig.mapFn checkInfo))
-                                        ]
+                                        else
+                                            [ Fix.insertAt checkInfo.earlier.range.start
+                                                "("
+                                            , Fix.insertAt checkInfo.earlier.range.end
+                                                (" << "
+                                                    ++ qualifiedToString (qualify checkInfo.later.fn checkInfo)
+                                                    ++ ")"
+                                                )
+                                            ]
+                                       )
+                                    ++ replaceBySubExpressionFix
+                                        checkInfo.earlier.range
+                                        partChangeFunctionArg
                             }
 
                     _ ->
                         Nothing
-            )
-        ]
+
+            else
+                Nothing
+    }
+
+
+tuplePartMapOnMapBothCheck : { argIndex : Int } -> IntoFnCheck
+tuplePartMapOnMapBothCheck config =
+    { call =
+        \checkInfo ->
+            case AstHelpers.getSpecificUnreducedFnCall Fn.Tuple.mapBoth checkInfo.lookupTable checkInfo.firstArg of
+                Just mapBothCall ->
+                    case mapBothCall.argsAfterFirst of
+                        [ _, tupleArg ] ->
+                            case List.drop config.argIndex (mapBothCall.firstArg :: mapBothCall.argsAfterFirst) of
+                                [] ->
+                                    Nothing
+
+                                partChangeFunctionArg :: _ ->
+                                    Just
+                                        (Rule.errorWithFix
+                                            { message =
+                                                qualifiedToString checkInfo.fn
+                                                    ++ " on "
+                                                    ++ qualifiedToString Fn.Tuple.mapBoth
+                                                    ++ " can be replaced by directly calling the given function on the accessed tuple part"
+                                            , details =
+                                                [ "You can take the "
+                                                    ++ indexthToString config.argIndex
+                                                    ++ " function argument of the the "
+                                                    ++ qualifiedToString Fn.Tuple.mapBoth
+                                                    ++ " call and call it with the accessed tuple part."
+                                                ]
+                                            }
+                                            checkInfo.fnRange
+                                            (Fix.insertAt (Node.range tupleArg).start
+                                                ("("
+                                                    ++ qualifiedToString (qualify checkInfo.fn checkInfo)
+                                                    ++ " "
+                                                )
+                                                :: Fix.insertAt (Node.range tupleArg).end
+                                                    ")"
+                                                :: replaceBy2SubExpressionsFix
+                                                    (Node.range checkInfo.firstArg)
+                                                    partChangeFunctionArg
+                                                    tupleArg
+                                                ++ replaceBySubExpressionFix
+                                                    checkInfo.parentRange
+                                                    checkInfo.firstArg
+                                            )
+                                        )
+
+                        _ ->
+                            Nothing
+
+                Nothing ->
+                    Nothing
+    , composition =
+        \checkInfo ->
+            if
+                (checkInfo.earlier.fn == Fn.Tuple.mapBoth)
+                    && onlyLastArgIsCurried { args = checkInfo.earlier.args, argCount = 3 }
+            then
+                case List.drop config.argIndex checkInfo.earlier.args of
+                    [] ->
+                        Nothing
+
+                    partChangeFunctionArg :: _ ->
+                        Just
+                            { info =
+                                { message =
+                                    qualifiedToString checkInfo.later.fn
+                                        ++ " on "
+                                        ++ qualifiedToString Fn.Tuple.mapBoth
+                                        ++ " can be replaced by directly calling the given function on the accessed tuple part"
+                                , details =
+                                    [ "You can take the "
+                                        ++ indexthToString config.argIndex
+                                        ++ " function argument of the the "
+                                        ++ qualifiedToString Fn.Tuple.mapBoth
+                                        ++ " call and compose it after the tuple part access."
+                                    ]
+                                }
+                            , fix =
+                                -- Tuple.first << Tuple.mapFirst f
+                                --> f << Tuple.first
+                                --
+                                -- Tuple.mapFirst f >> Tuple.first
+                                --> Tuple.first >> f
+                                Fix.removeRange checkInfo.later.removeRange
+                                    :: (if Range.compareLocations checkInfo.earlier.range.start checkInfo.later.range.start == LT then
+                                            [ Fix.insertAt checkInfo.earlier.range.start
+                                                ("("
+                                                    ++ qualifiedToString (qualify checkInfo.later.fn checkInfo)
+                                                    ++ " >> "
+                                                )
+                                            , Fix.insertAt checkInfo.earlier.range.end ")"
+                                            ]
+
+                                        else
+                                            [ Fix.insertAt checkInfo.earlier.range.start
+                                                "("
+                                            , Fix.insertAt checkInfo.earlier.range.end
+                                                (" << "
+                                                    ++ qualifiedToString (qualify checkInfo.later.fn checkInfo)
+                                                    ++ ")"
+                                                )
+                                            ]
+                                       )
+                                    ++ replaceBySubExpressionFix
+                                        checkInfo.earlier.range
+                                        partChangeFunctionArg
+                            }
+
+            else
+                Nothing
+    }
 
 
 
@@ -6511,25 +6966,34 @@ listConcatChecks =
             (\checkInfo ->
                 case fromListGetLiteral listCollection checkInfo.lookupTable checkInfo.firstArg of
                     Just listLiteral ->
-                        if List.all AstHelpers.isListLiteral listLiteral.elements then
+                        let
+                            (Node firstArgRange _) =
+                                checkInfo.firstArg
+                        in
+                        if
+                            (firstArgRange.start.row /= firstArgRange.end.row)
+                                && not (List.all (\(Node itemRange _) -> itemRange.start.row /= itemRange.end.row) listLiteral.elements)
+                        then
+                            Nothing
+
+                        else if List.all AstHelpers.isListLiteral listLiteral.elements then
                             Just
                                 (Rule.errorWithFix
                                     { message = "Expression could be simplified to be a single List"
                                     , details = [ "Try moving all the elements into a single list." ]
                                     }
                                     checkInfo.fnRange
-                                    (keepOnlyFix { parentRange = checkInfo.parentRange, keep = Node.range checkInfo.firstArg }
+                                    (keepOnlyFix { parentRange = checkInfo.parentRange, keep = firstArgRange }
                                         ++ List.concatMap removeBoundariesFix listLiteral.elements
                                     )
                                 )
 
                         else
-                            Nothing
+                            mergeConsecutiveFromListLiteralsCheck listCollection listLiteral.elements checkInfo
 
                     Nothing ->
                         Nothing
             )
-        , intoFnCheckOnlyCall (mergeConsecutiveFromListLiteralsCheck listCollection)
         ]
 
 
@@ -6573,10 +7037,9 @@ listHeadChecks =
                                         , details = [ "You can replace this call by Just the first list element." ]
                                         }
                                         checkInfo.fnRange
-                                        (replaceBySubExpressionFix (Node.range checkInfo.firstArg) listArgHead
-                                            ++ [ Fix.replaceRangeBy checkInfo.fnRange
-                                                    (qualifiedToString (qualify Fn.Maybe.justVariant checkInfo))
-                                               ]
+                                        (Fix.replaceRangeBy checkInfo.fnRange
+                                            (qualifiedToString (qualify Fn.Maybe.justVariant checkInfo))
+                                            :: replaceBySubExpressionFix (Node.range checkInfo.firstArg) listArgHead
                                         )
                                 )
                                 (getListHead checkInfo.lookupTable checkInfo.firstArg)
@@ -6594,10 +7057,9 @@ listHeadChecks =
                                                         , details = [ "You can replace this call by List.maximum with the same list given to List.sort which is meant for this exact purpose." ]
                                                         }
                                                         checkInfo.fnRange
-                                                        (replaceBySubExpressionFix (Node.range checkInfo.firstArg) sortCall.firstArg
-                                                            ++ [ Fix.replaceRangeBy checkInfo.fnRange
-                                                                    (qualifiedToString (qualify Fn.List.maximum checkInfo))
-                                                               ]
+                                                        (Fix.replaceRangeBy checkInfo.fnRange
+                                                            (qualifiedToString (qualify Fn.List.maximum checkInfo))
+                                                            :: replaceBySubExpressionFix (Node.range checkInfo.firstArg) sortCall.firstArg
                                                         )
                                                 )
                                     )
@@ -6631,10 +7093,9 @@ listTailExistsError replaceListArgByTailFix checkInfo =
         , details = [ "You can replace this call by Just the list elements after the first." ]
         }
         checkInfo.fnRange
-        (replaceListArgByTailFix
-            ++ [ Fix.replaceRangeBy checkInfo.fnRange
-                    (qualifiedToString (qualify Fn.Maybe.justVariant checkInfo))
-               ]
+        (Fix.replaceRangeBy checkInfo.fnRange
+            (qualifiedToString (qualify Fn.Maybe.justVariant checkInfo))
+            :: replaceListArgByTailFix
         )
 
 
@@ -6781,16 +7242,15 @@ listMapOnSingletonCheck =
                                                 , details = [ "You can replace this call by a singleton list with the function directly applied to the value inside the given singleton list." ]
                                                 }
                                                 checkInfo.fnRange
-                                                (keepOnlyFix
-                                                    { parentRange = Range.combine [ checkInfo.fnRange, mappingArgRange ]
-                                                    , keep = mappingArgRange
-                                                    }
+                                                (Fix.insertAt checkInfo.parentRange.start "[ "
+                                                    :: Fix.insertAt checkInfo.parentRange.end " ]"
+                                                    :: keepOnlyFix
+                                                        { parentRange = Range.combine [ checkInfo.fnRange, mappingArgRange ]
+                                                        , keep = mappingArgRange
+                                                        }
                                                     ++ List.concatMap
                                                         (\wrap -> replaceBySubExpressionFix wrap.nodeRange wrap.value)
                                                         wraps
-                                                    ++ [ Fix.insertAt checkInfo.parentRange.start "[ "
-                                                       , Fix.insertAt checkInfo.parentRange.end " ]"
-                                                       ]
                                                 )
                                             )
 
@@ -6806,15 +7266,94 @@ listMapOnSingletonCheck =
 
 listMemberChecks : IntoFnCheck
 listMemberChecks =
-    intoFnCheckOnlyCall
-        (\checkInfo ->
-            callOnEmptyReturnsCheck
-                { resultAsString = \res -> qualifiedToString (qualify Fn.Basics.falseVariant res) }
-                listCollection
-                checkInfo
-                |> onNothing (\() -> knownMemberChecks listCollection checkInfo)
-                |> onNothing (\() -> wrapperMemberChecks listCollection checkInfo)
-        )
+    intoFnChecksFirstThatConstructsError
+        [ intoFnCheckOnlyCall
+            (\checkInfo ->
+                callOnEmptyReturnsCheck
+                    { resultAsString = \res -> qualifiedToString (qualify Fn.Basics.falseVariant res) }
+                    listCollection
+                    checkInfo
+                    |> onNothing (\() -> knownMemberChecks listCollection checkInfo)
+                    |> onNothing (\() -> wrapperMemberChecks listCollection checkInfo)
+            )
+        , containsElementOnConversionFnCallCanBeCombinedCheck
+            { combinedOperationRepresents = "check for a set member"
+            , convertFn = Fn.Set.toList
+            , convertedRepresentsIndefinite = "a list"
+            , combinedFn = Fn.Set.member
+            }
+        ]
+
+
+containsElementOnConversionFnCallCanBeCombinedCheck :
+    { combinedOperationRepresents : String
+    , convertFn : ( ModuleName, String )
+    , convertedRepresentsIndefinite : String
+    , combinedFn : ( ModuleName, String )
+    }
+    -> IntoFnCheck
+containsElementOnConversionFnCallCanBeCombinedCheck config =
+    { call =
+        \checkInfo ->
+            if checkInfo.expectNaN && AstHelpers.couldBeValueContainingNaN checkInfo.firstArg then
+                Nothing
+
+            else
+                case fullyAppliedLastArg checkInfo of
+                    Just convertedArg ->
+                        case AstHelpers.getSpecificUnreducedFnCall config.convertFn checkInfo.lookupTable convertedArg of
+                            Just conversionCall ->
+                                if checkInfo.expectNaN && AstHelpers.couldBeValueContainingNaN conversionCall.firstArg then
+                                    Nothing
+
+                                else
+                                    Just
+                                        (Rule.errorWithFix
+                                            { message =
+                                                "To "
+                                                    ++ config.combinedOperationRepresents
+                                                    ++ ", you don't need to convert to "
+                                                    ++ config.convertedRepresentsIndefinite
+                                            , details = [ "Using " ++ qualifiedToString config.combinedFn ++ " directly is meant for this exact purpose and will also be faster." ]
+                                            }
+                                            checkInfo.fnRange
+                                            (Fix.replaceRangeBy checkInfo.fnRange
+                                                (qualifiedToString (qualify config.combinedFn checkInfo))
+                                                :: replaceBySubExpressionFix conversionCall.nodeRange conversionCall.firstArg
+                                            )
+                                        )
+
+                            Nothing ->
+                                Nothing
+
+                    Nothing ->
+                        Nothing
+    , composition =
+        \checkInfo ->
+            if
+                Basics.not checkInfo.expectNaN
+                    && (checkInfo.earlier.fn == config.convertFn)
+                    && onlyLastArgIsCurried checkInfo.later
+            then
+                Just
+                    { info =
+                        { message =
+                            "To "
+                                ++ config.combinedOperationRepresents
+                                ++ ", you don't need to convert to "
+                                ++ config.convertedRepresentsIndefinite
+                        , details = [ "Using " ++ qualifiedToString config.combinedFn ++ " directly is meant for this exact purpose and will also be faster." ]
+                        }
+                    , fix =
+                        [ Fix.replaceRangeBy checkInfo.later.fnRange
+                            (qualifiedToString (qualify config.combinedFn checkInfo))
+                        , Fix.removeRange checkInfo.earlier.removeRange
+                        ]
+                    }
+
+            else
+                Nothing
+    }
 
 
 listSumChecks : IntoFnCheck
@@ -6881,7 +7420,38 @@ listMinimumChecks : IntoFnCheck
 listMinimumChecks =
     intoFnChecksFirstThatConstructsError
         [ intoFnCheckOnlyCall
-            (callOnEmptyReturnsCheck { resultAsString = maybeWithJustAsWrap.empty.specific.asString } listCollection)
+            (\checkInfo ->
+                callOnEmptyReturnsCheck { resultAsString = maybeWithJustAsWrap.empty.specific.asString } listCollection checkInfo
+                    |> onNothing
+                        (\() ->
+                            case getNonEmptyListRangeCall checkInfo checkInfo.firstArg of
+                                Nothing ->
+                                    Nothing
+
+                                Just listRangeCall ->
+                                    Just
+                                        (Rule.errorWithFix
+                                            { message =
+                                                qualifiedToString checkInfo.fn
+                                                    ++ " on a non-empty "
+                                                    ++ qualifiedToString Fn.List.range
+                                                    ++ " results in Just its start number"
+                                            , details =
+                                                [ "You can replace this call by the first argument given to the "
+                                                    ++ qualifiedToString Fn.List.range
+                                                    ++ " call, wrapped in Just."
+                                                ]
+                                            }
+                                            checkInfo.fnRange
+                                            (Fix.replaceRangeBy checkInfo.fnRange
+                                                (qualifiedToString (qualify Fn.Maybe.justVariant checkInfo))
+                                                :: replaceBySubExpressionFix
+                                                    (Node.range checkInfo.firstArg)
+                                                    listRangeCall.start
+                                            )
+                                        )
+                        )
+            )
         , onWrappedReturnsJustItsValueCheck listCollection
         ]
 
@@ -6890,23 +7460,175 @@ listMaximumChecks : IntoFnCheck
 listMaximumChecks =
     intoFnChecksFirstThatConstructsError
         [ intoFnCheckOnlyCall
-            (callOnEmptyReturnsCheck { resultAsString = maybeWithJustAsWrap.empty.specific.asString } listCollection)
+            (\checkInfo ->
+                callOnEmptyReturnsCheck { resultAsString = maybeWithJustAsWrap.empty.specific.asString } listCollection checkInfo
+                    |> onNothing
+                        (\() ->
+                            case getNonEmptyListRangeCall checkInfo checkInfo.firstArg of
+                                Nothing ->
+                                    Nothing
+
+                                Just listRangeCall ->
+                                    Just
+                                        (Rule.errorWithFix
+                                            { message =
+                                                qualifiedToString checkInfo.fn
+                                                    ++ " on a non-empty "
+                                                    ++ qualifiedToString Fn.List.range
+                                                    ++ " results in Just its end number"
+                                            , details =
+                                                [ "You can replace this call by the second argument given to the "
+                                                    ++ qualifiedToString Fn.List.range
+                                                    ++ " call, wrapped in Just."
+                                                ]
+                                            }
+                                            checkInfo.fnRange
+                                            (Fix.replaceRangeBy checkInfo.fnRange
+                                                (qualifiedToString (qualify Fn.Maybe.justVariant checkInfo))
+                                                :: replaceBySubExpressionFix
+                                                    (Node.range checkInfo.firstArg)
+                                                    listRangeCall.end
+                                            )
+                                        )
+                        )
+            )
         , onWrappedReturnsJustItsValueCheck listCollection
         ]
 
 
+getNonEmptyListRangeCall :
+    Infer.Resources a
+    -> Node Expression
+    -> Maybe { start : Node Expression, end : Node Expression }
+getNonEmptyListRangeCall checkInfo expressionNode =
+    case AstHelpers.getSpecificUnreducedFnCall Fn.List.range checkInfo.lookupTable expressionNode of
+        Nothing ->
+            Nothing
+
+        Just listRangeCall ->
+            case listRangeCall.argsAfterFirst of
+                [ rangeEndArg ] ->
+                    case Evaluate.getInt checkInfo listRangeCall.firstArg of
+                        Nothing ->
+                            Nothing
+
+                        Just rangeStartValue ->
+                            case Evaluate.getInt checkInfo rangeEndArg of
+                                Nothing ->
+                                    Nothing
+
+                                Just rangeEndValue ->
+                                    if rangeStartValue <= rangeEndValue then
+                                        Just { start = listRangeCall.firstArg, end = rangeEndArg }
+
+                                    else
+                                        Nothing
+
+                _ ->
+                    Nothing
+
+
 listFoldlChecks : IntoFnCheck
 listFoldlChecks =
-    listFoldChecks "foldl"
+    intoFnChecksFirstThatConstructsError
+        [ listFoldChecks "foldl" "foldr"
+        , intoFnCheckOnlyCall
+            (\checkInfo ->
+                case secondArg checkInfo of
+                    Nothing ->
+                        Nothing
+
+                    Just initialArg ->
+                        if
+                            isEmptyList initialArg
+                                && Normalize.isSpecificUnappliedBinaryOperation "::" checkInfo checkInfo.firstArg
+                        then
+                            Just
+                                (operationWithSpecificArgsIsEquivalentToFnError
+                                    { specificArgsDescription = "(::) []"
+                                    , replacementFn = Fn.List.reverse
+                                    }
+                                    checkInfo
+                                )
+
+                        else
+                            Nothing
+            )
+        ]
 
 
 listFoldrChecks : IntoFnCheck
 listFoldrChecks =
-    listFoldChecks "foldr"
+    intoFnChecksFirstThatConstructsError
+        [ listFoldChecks "foldr" "foldl"
+        , intoFnCheckOnlyCall
+            (\checkInfo ->
+                case secondArg checkInfo of
+                    Nothing ->
+                        Nothing
+
+                    Just initialArg ->
+                        if
+                            isEmptyString initialArg
+                                && isStringAppendFunction checkInfo checkInfo.firstArg
+                        then
+                            Just
+                                (operationWithSpecificArgsIsEquivalentToFnError
+                                    { specificArgsDescription = "(++) \"\""
+                                    , replacementFn = Fn.String.concat
+                                    }
+                                    checkInfo
+                                )
+
+                        else if
+                            isEmptyList initialArg
+                                && isListAppendFunction checkInfo checkInfo.firstArg
+                        then
+                            Just
+                                (operationWithSpecificArgsIsEquivalentToFnError
+                                    { specificArgsDescription = "(++) []"
+                                    , replacementFn = Fn.List.concat
+                                    }
+                                    checkInfo
+                                )
+
+                        else if
+                            isEmptyList initialArg
+                                && Normalize.isSpecificUnappliedBinaryOperation "::" checkInfo checkInfo.firstArg
+                        then
+                            Just
+                                (alwaysReturnsLastArgError
+                                    (qualifiedToString checkInfo.fn ++ " (::) []")
+                                    listCollection
+                                    checkInfo
+                                )
+
+                        else
+                            Nothing
+            )
+        ]
 
 
-listFoldChecks : String -> IntoFnCheck
-listFoldChecks foldFnName =
+isStringAppendFunction :
+    Infer.Resources (AstHelpers.ReduceLambdaResources a)
+    -> Node Expression
+    -> Bool
+isStringAppendFunction resources expressionNode =
+    Normalize.isSpecificUnappliedBinaryOperation "++" resources expressionNode
+        || AstHelpers.isSpecificValueOrFn Fn.String.append resources expressionNode
+
+
+isListAppendFunction :
+    Infer.Resources (AstHelpers.ReduceLambdaResources a)
+    -> Node Expression
+    -> Bool
+isListAppendFunction resources expressionNode =
+    Normalize.isSpecificUnappliedBinaryOperation "++" resources expressionNode
+        || AstHelpers.isSpecificValueOrFn Fn.List.append resources expressionNode
+
+
+listFoldChecks : String -> String -> IntoFnCheck
+listFoldChecks foldFnName reverseFoldFnName =
     intoFnChecksFirstThatConstructsError
         [ intoFnCheckOnlyCall (emptiableFoldChecks listCollection)
         , intoFnCheckOnlyCall
@@ -7019,10 +7741,10 @@ listFoldChecks foldFnName =
                                             )
                                         ]
                         in
-                        if AstHelpers.isSpecificUnappliedBinaryOperation "*" checkInfo checkInfo.firstArg then
+                        if Normalize.isSpecificUnappliedBinaryOperation "*" checkInfo checkInfo.firstArg then
                             numberBinaryOperationChecks { two = "*", list = "product", identity = 1 }
 
-                        else if AstHelpers.isSpecificUnappliedBinaryOperation "+" checkInfo checkInfo.firstArg then
+                        else if Normalize.isSpecificUnappliedBinaryOperation "+" checkInfo checkInfo.firstArg then
                             numberBinaryOperationChecks { two = "+", list = "sum", identity = 0 }
 
                         else
@@ -7031,58 +7753,271 @@ listFoldChecks foldFnName =
                                     Nothing
 
                                 Determined initialBool ->
-                                    if AstHelpers.isSpecificUnappliedBinaryOperation "&&" checkInfo checkInfo.firstArg then
+                                    if Normalize.isSpecificUnappliedBinaryOperation "&&" checkInfo checkInfo.firstArg then
                                         Just (boolBinaryOperationChecks { two = "&&", list = "all", determining = False } initialBool)
 
-                                    else if AstHelpers.isSpecificUnappliedBinaryOperation "||" checkInfo checkInfo.firstArg then
+                                    else if Normalize.isSpecificUnappliedBinaryOperation "||" checkInfo checkInfo.firstArg then
                                         Just (boolBinaryOperationChecks { two = "||", list = "any", determining = True } initialBool)
 
                                     else
                                         Nothing
             )
-        , foldOnConversionFnCallCanBeCombinedCheck
-            { originalRepresentsIndefinite = "a set"
+        , onConversionFnCallCanBeCombinedCheck
+            { combinedOperationRepresents = "fold a list"
+            , convertFn = Fn.List.reverse
+            , actionRepresents = "reverse it"
+            , combinedFn = ( [ "List" ], reverseFoldFnName )
+            }
+        , onConversionFnCallCanBeCombinedCheck
+            { combinedOperationRepresents = "fold a set"
             , convertFn = Fn.Set.toList
-            , convertedRepresentsIndefinite = "a list"
+            , actionRepresents = "convert to a list"
             , combinedFn = ( [ "Set" ], foldFnName )
             }
-        , foldOnConversionFnCallCanBeCombinedCheck
-            { originalRepresentsIndefinite = "an array"
+        , onConversionFnCallCanBeCombinedCheck
+            { combinedOperationRepresents = "fold an array"
             , convertFn = Fn.Array.toList
-            , convertedRepresentsIndefinite = "a list"
+            , actionRepresents = "convert to a list"
             , combinedFn = ( [ "Array" ], foldFnName )
+            }
+        , listFoldOnDictEntryPartListChecks
+            { combinedFn = ( [ "Dict" ], foldFnName )
             }
         ]
 
 
-foldOnConversionFnCallCanBeCombinedCheck :
-    { originalRepresentsIndefinite : String
+listFoldOnDictEntryPartListChecks : { combinedFn : ( ModuleName, String ) } -> IntoFnCheck
+listFoldOnDictEntryPartListChecks config =
+    { composition =
+        \checkInfo ->
+            case checkInfo.later.args of
+                [ reduceArg, _ ] ->
+                    case checkInfo.earlier.fn of
+                        ( [ "Dict" ], "values" ) ->
+                            Just
+                                { info =
+                                    { message = "To fold over dict values, you don't need to convert to a list"
+                                    , details =
+                                        [ "You can replace this composition by "
+                                            ++ qualifiedToString config.combinedFn
+                                            ++ " and ignore the first incoming value in the reduce function."
+                                        ]
+                                    }
+                                , fix =
+                                    Fix.replaceRangeBy checkInfo.later.fnRange
+                                        (qualifiedToString (qualify config.combinedFn checkInfo))
+                                        :: Fix.removeRange checkInfo.earlier.removeRange
+                                        :: ignoreFirstIncomingFix checkInfo reduceArg
+                                }
+
+                        ( [ "Dict" ], "keys" ) ->
+                            Just
+                                { info =
+                                    { message = "To fold over dict keys, you don't need to convert to a list"
+                                    , details =
+                                        [ "You can replace this composition by "
+                                            ++ qualifiedToString config.combinedFn
+                                            ++ " and ignore the second incoming value in the reduce function."
+                                        ]
+                                    }
+                                , fix =
+                                    Fix.replaceRangeBy checkInfo.later.fnRange
+                                        (qualifiedToString (qualify config.combinedFn checkInfo))
+                                        :: Fix.removeRange checkInfo.earlier.removeRange
+                                        :: ignoreSecondIncomingFix checkInfo reduceArg
+                                }
+
+                        _ ->
+                            Nothing
+
+                _ ->
+                    Nothing
+    , call =
+        \checkInfo ->
+            case checkInfo.argsAfterFirst of
+                [ _, foldedOverArg ] ->
+                    case AstHelpers.getSpecificUnreducedFnCall Fn.Dict.values checkInfo.lookupTable foldedOverArg of
+                        Just dictValuesCall ->
+                            Just
+                                (Rule.errorWithFix
+                                    { message = "To fold over dict values, you don't need to convert to a list"
+                                    , details =
+                                        [ "You can replace these calls by "
+                                            ++ qualifiedToString config.combinedFn
+                                            ++ " and ignore the first incoming value in the reduce function."
+                                        ]
+                                    }
+                                    checkInfo.fnRange
+                                    (Fix.replaceRangeBy checkInfo.fnRange
+                                        (qualifiedToString (qualify config.combinedFn checkInfo))
+                                        :: ignoreFirstIncomingFix checkInfo checkInfo.firstArg
+                                        ++ replaceBySubExpressionFix
+                                            (Node.range foldedOverArg)
+                                            dictValuesCall.firstArg
+                                    )
+                                )
+
+                        Nothing ->
+                            case AstHelpers.getSpecificUnreducedFnCall Fn.Dict.keys checkInfo.lookupTable foldedOverArg of
+                                Just dictKeysCall ->
+                                    Just
+                                        (Rule.errorWithFix
+                                            { message = "To fold over dict keys, you don't need to convert to a list"
+                                            , details =
+                                                [ "You can replace these calls by "
+                                                    ++ qualifiedToString config.combinedFn
+                                                    ++ " and ignore the second incoming value in the reduce function."
+                                                ]
+                                            }
+                                            checkInfo.fnRange
+                                            (Fix.replaceRangeBy checkInfo.fnRange
+                                                (qualifiedToString (qualify config.combinedFn checkInfo))
+                                                :: ignoreSecondIncomingFix checkInfo checkInfo.firstArg
+                                                ++ replaceBySubExpressionFix
+                                                    (Node.range foldedOverArg)
+                                                    dictKeysCall.firstArg
+                                            )
+                                        )
+
+                                Nothing ->
+                                    Nothing
+
+                _ ->
+                    Nothing
+    }
+
+
+ignoreFirstIncomingFix : QualifyResources a -> Node Expression -> List Fix
+ignoreFirstIncomingFix resources functionExpressionNode =
+    case sameInAllBranches getLambda functionExpressionNode of
+        Nothing ->
+            -- not \_ -> to preserve eager evaluation of the function expression
+            let
+                functionExpressionNeedsParens : Bool
+                functionExpressionNeedsParens =
+                    needsParens (Node.value functionExpressionNode)
+            in
+            [ Fix.insertAt (Node.range functionExpressionNode).start
+                ("("
+                    ++ qualifiedToString (qualify Fn.Basics.always resources)
+                    ++ " "
+                    ++ (if functionExpressionNeedsParens then
+                            "("
+
+                        else
+                            ""
+                       )
+                )
+            , Fix.insertAt (Node.range functionExpressionNode).end
+                ((if functionExpressionNeedsParens then
+                    ")"
+
+                  else
+                    ""
+                 )
+                    ++ ")"
+                )
+            ]
+
+        Just lambdas ->
+            lambdas
+                |> List.map
+                    (\lambda ->
+                        Fix.insertAt (Node.range lambda.firstParameter).start "_ "
+                    )
+
+
+ignoreSecondIncomingFix : QualifyResources a -> Node Expression -> List Fix
+ignoreSecondIncomingFix resources functionExpressionNode =
+    case sameInAllBranches getLambda functionExpressionNode of
+        Nothing ->
+            -- don't fix to a lambda to preserve eager evaluation of the function expression
+            let
+                functionExpressionNeedsParens : Bool
+                functionExpressionNeedsParens =
+                    needsParens (Node.value functionExpressionNode)
+            in
+            [ Fix.insertAt (Node.range functionExpressionNode).start
+                -- always << f  is the equivalent point-free version of
+                -- \f a _ -> f a
+                -- Think:
+                --  always << reduce
+                --> (\f _ -> f) << reduce
+                --> \a -> (\f _ -> f) <| reduce a
+                --> \a -> \_ -> reduce a
+                --> \a _ acc -> reduce a acc
+                ("("
+                    ++ qualifiedToString (qualify Fn.Basics.always resources)
+                    ++ " << "
+                    ++ (if functionExpressionNeedsParens then
+                            "("
+
+                        else
+                            ""
+                       )
+                )
+            , Fix.insertAt (Node.range functionExpressionNode).end
+                ((if functionExpressionNeedsParens then
+                    ")"
+
+                  else
+                    ""
+                 )
+                    ++ ")"
+                )
+            ]
+
+        Just lambdas ->
+            lambdas
+                |> List.map
+                    (\lambda ->
+                        Fix.insertAt (Node.range lambda.firstParameter).end
+                            " _"
+                    )
+
+
+getLambda : Node Expression -> Maybe { firstParameter : Node Pattern }
+getLambda expressionNode =
+    case AstHelpers.removeParens expressionNode of
+        Node _ (Expression.LambdaExpression lambda) ->
+            case lambda.args of
+                [] ->
+                    Nothing
+
+                firstParameter :: _ ->
+                    Just { firstParameter = firstParameter }
+
+        _ ->
+            Nothing
+
+
+onConversionFnCallCanBeCombinedCheck :
+    { combinedOperationRepresents : String
     , convertFn : ( ModuleName, String )
-    , convertedRepresentsIndefinite : String
+    , actionRepresents : String
     , combinedFn : ( ModuleName, String )
     }
     -> IntoFnCheck
-foldOnConversionFnCallCanBeCombinedCheck config =
+onConversionFnCallCanBeCombinedCheck config =
     { call =
         \checkInfo ->
-            case thirdArg checkInfo of
+            case fullyAppliedLastArg checkInfo of
                 Just convertedArg ->
                     case AstHelpers.getSpecificUnreducedFnCall config.convertFn checkInfo.lookupTable convertedArg of
                         Just conversionCall ->
                             Just
                                 (Rule.errorWithFix
                                     { message =
-                                        "To fold "
-                                            ++ config.originalRepresentsIndefinite
-                                            ++ ", you don't need to convert to "
-                                            ++ config.convertedRepresentsIndefinite
+                                        "To "
+                                            ++ config.combinedOperationRepresents
+                                            ++ ", you don't need to "
+                                            ++ config.actionRepresents
                                     , details = [ "Using " ++ qualifiedToString config.combinedFn ++ " directly is meant for this exact purpose and will also be faster." ]
                                     }
                                     checkInfo.fnRange
-                                    (replaceBySubExpressionFix conversionCall.nodeRange conversionCall.firstArg
-                                        ++ [ Fix.replaceRangeBy checkInfo.fnRange
-                                                (qualifiedToString (qualify config.combinedFn checkInfo))
-                                           ]
+                                    (Fix.replaceRangeBy checkInfo.fnRange
+                                        (qualifiedToString (qualify config.combinedFn checkInfo))
+                                        :: replaceBySubExpressionFix conversionCall.nodeRange conversionCall.firstArg
                                     )
                                 )
 
@@ -7100,10 +8035,10 @@ foldOnConversionFnCallCanBeCombinedCheck config =
                 Just
                     { info =
                         { message =
-                            "To fold "
-                                ++ config.originalRepresentsIndefinite
-                                ++ ", you don't need to convert to "
-                                ++ config.convertedRepresentsIndefinite
+                            "To "
+                                ++ config.combinedOperationRepresents
+                                ++ ", you don't need to "
+                                ++ config.actionRepresents
                         , details = [ "Using " ++ qualifiedToString config.combinedFn ++ " directly is meant for this exact purpose and will also be faster." ]
                         }
                     , fix =
@@ -7307,6 +8242,8 @@ listSortChecks =
         , unnecessaryOnWrappedCheck listCollection
         , operationDoesNotChangeResultOfOperationCheck
         , unnecessaryOnSpecificFnCallCheck Fn.List.repeat
+        , unnecessaryOnSpecificFnCallCheck Fn.Set.toList
+        , unnecessaryOnSpecificFnCallCheck Fn.Dict.toList
         ]
 
 
@@ -7532,8 +8469,8 @@ arrayLengthOnArrayRepeatOrInitializeChecks checkInfo =
                     , details = [ "You can replace this call by " ++ maxFn ++ " 0 with the given length. " ++ maxFn ++ " 0 makes sure that negative given lengths return 0." ]
                     }
                     checkInfo.fnRange
-                    (keepOnlyFix { parentRange = checkInfo.parentRange, keep = Node.range call.firstArg }
-                        ++ [ Fix.insertAt checkInfo.parentRange.start (qualifiedToString (qualify Fn.Basics.max checkInfo) ++ " 0 ") ]
+                    (Fix.insertAt checkInfo.parentRange.start (qualifiedToString (qualify Fn.Basics.max checkInfo) ++ " 0 ")
+                        :: keepOnlyFix { parentRange = checkInfo.parentRange, keep = Node.range call.firstArg }
                     )
                 )
 
@@ -7575,10 +8512,10 @@ arrayFoldChecks : String -> IntoFnCheck
 arrayFoldChecks foldFnName =
     intoFnChecksFirstThatConstructsError
         [ intoFnCheckOnlyCall (\checkInfo -> emptiableFoldChecks arrayCollection checkInfo)
-        , foldOnConversionFnCallCanBeCombinedCheck
-            { originalRepresentsIndefinite = "a list"
+        , onConversionFnCallCanBeCombinedCheck
+            { combinedOperationRepresents = "fold a list"
             , convertFn = Fn.Array.fromList
-            , convertedRepresentsIndefinite = "an array"
+            , actionRepresents = "convert to an array"
             , combinedFn = ( [ "List" ], foldFnName )
             }
         ]
@@ -7699,15 +8636,23 @@ setSizeChecks =
 
 setMemberChecks : IntoFnCheck
 setMemberChecks =
-    intoFnCheckOnlyCall
-        (\checkInfo ->
-            callOnEmptyReturnsCheck
-                { resultAsString = \res -> qualifiedToString (qualify Fn.Basics.falseVariant res) }
-                setCollection
-                checkInfo
-                |> onNothing (\() -> knownMemberChecks setCollection checkInfo)
-                |> onNothing (\() -> wrapperMemberChecks setCollection checkInfo)
-        )
+    intoFnChecksFirstThatConstructsError
+        [ intoFnCheckOnlyCall
+            (\checkInfo ->
+                callOnEmptyReturnsCheck
+                    { resultAsString = \res -> qualifiedToString (qualify Fn.Basics.falseVariant res) }
+                    setCollection
+                    checkInfo
+                    |> onNothing (\() -> knownMemberChecks setCollection checkInfo)
+                    |> onNothing (\() -> wrapperMemberChecks setCollection checkInfo)
+            )
+        , containsElementOnConversionFnCallCanBeCombinedCheck
+            { combinedOperationRepresents = "check for a list member"
+            , convertFn = Fn.Set.fromList
+            , convertedRepresentsIndefinite = "a set"
+            , combinedFn = Fn.List.member
+            }
+        ]
 
 
 setInsertChecks : IntoFnCheck
@@ -7767,6 +8712,25 @@ setUnionChecks =
                                         insertedElementRange : Range
                                         insertedElementRange =
                                             Node.range setSingletonCall.firstArg
+
+                                        replacement : String
+                                        replacement =
+                                            qualifiedToString (qualify Fn.Set.insert checkInfo)
+                                                ++ (if insertedElementRange.start.row == insertedElementRange.end.row then
+                                                        " "
+
+                                                    else
+                                                        "\n"
+                                                            ++ String.repeat
+                                                                (insertedElementRange.start.column - 2)
+                                                                " "
+                                                   )
+                                                ++ (if needsParens (Node.value setSingletonCall.firstArg) then
+                                                        "(" ++ checkInfo.extractSourceCode insertedElementRange ++ ")"
+
+                                                    else
+                                                        checkInfo.extractSourceCode insertedElementRange
+                                                   )
                                     in
                                     Rule.errorWithFix
                                         { message =
@@ -7782,37 +8746,15 @@ setUnionChecks =
                                             ]
                                         }
                                         checkInfo.fnRange
-                                        (keepOnlyFix
-                                            { parentRange = checkInfo.parentRange
-                                            , keep =
-                                                Range.combine
-                                                    [ checkInfo.fnRange
-                                                    , Node.range checkInfo.firstArg
-                                                    ]
-                                            }
-                                            ++ [ Fix.replaceRangeBy checkInfo.fnRange
-                                                    (qualifiedToString (qualify Fn.Set.insert checkInfo)
-                                                        ++ (if insertedElementRange.start.row == insertedElementRange.end.row then
-                                                                " "
-
-                                                            else
-                                                                "\n"
-                                                                    ++ String.repeat
-                                                                        (insertedElementRange.start.column - 2)
-                                                                        " "
-                                                           )
-                                                        ++ (if needsParens (Node.value setSingletonCall.firstArg) then
-                                                                "("
-                                                                    ++ checkInfo.extractSourceCode
-                                                                        insertedElementRange
-                                                                    ++ ")"
-
-                                                            else
-                                                                checkInfo.extractSourceCode
-                                                                    insertedElementRange
-                                                           )
-                                                    )
-                                               ]
+                                        (Fix.replaceRangeBy checkInfo.fnRange replacement
+                                            :: keepOnlyFix
+                                                { parentRange = checkInfo.parentRange
+                                                , keep =
+                                                    Range.combine
+                                                        [ checkInfo.fnRange
+                                                        , Node.range checkInfo.firstArg
+                                                        ]
+                                                }
                                         )
                                 )
             )
@@ -7832,12 +8774,67 @@ setToListChecks =
 
 setFoldlChecks : IntoFnCheck
 setFoldlChecks =
-    intoFnCheckOnlyCall (emptiableFoldChecks setCollection)
+    intoFnCheckOnlyCall setFoldChecks
 
 
 setFoldrChecks : IntoFnCheck
 setFoldrChecks =
-    intoFnCheckOnlyCall (emptiableFoldChecks setCollection)
+    intoFnCheckOnlyCall
+        (\checkInfo ->
+            setFoldChecks checkInfo
+                |> onNothing
+                    (\() ->
+                        case secondArg checkInfo of
+                            Nothing ->
+                                Nothing
+
+                            Just initialArg ->
+                                if
+                                    isEmptyList initialArg
+                                        && Normalize.isSpecificUnappliedBinaryOperation "::" checkInfo checkInfo.firstArg
+                                then
+                                    Just
+                                        (operationWithSpecificArgsIsEquivalentToFnError
+                                            { specificArgsDescription = "(::) []"
+                                            , replacementFn = Fn.Set.toList
+                                            }
+                                            checkInfo
+                                        )
+
+                                else
+                                    Nothing
+                    )
+        )
+
+
+setFoldChecks : CallCheckInfo -> Maybe (Error {})
+setFoldChecks checkInfo =
+    emptiableFoldChecks setCollection checkInfo
+        |> onNothing
+            (\() ->
+                if checkInfo.expectNaN then
+                    Nothing
+
+                else
+                    case secondArg checkInfo of
+                        Nothing ->
+                            Nothing
+
+                        Just initialArg ->
+                            if
+                                AstHelpers.isSpecificValueReference checkInfo.lookupTable Fn.Set.empty initialArg
+                                    && AstHelpers.isSpecificValueOrFn Fn.Set.insert checkInfo checkInfo.firstArg
+                            then
+                                Just
+                                    (alwaysReturnsLastArgError
+                                        (qualifiedToString checkInfo.fn ++ " Set.insert Set.empty")
+                                        setCollection
+                                        checkInfo
+                                    )
+
+                            else
+                                Nothing
+            )
 
 
 
@@ -7958,27 +8955,141 @@ dictSizeChecks =
 
 dictMemberChecks : IntoFnCheck
 dictMemberChecks =
-    intoFnCheckOnlyCall
-        (\checkInfo ->
-            callOnEmptyReturnsCheck
-                { resultAsString = \res -> qualifiedToString (qualify Fn.Basics.falseVariant res) }
-                dictCollection
-                checkInfo
-                |> onNothing
-                    (\() ->
-                        knownMemberChecks
-                            { represents = "dict"
-                            , representsPlural = "dicts"
-                            , elements =
-                                { countDescription = "size"
-                                , elementDescription = "key"
-                                , determineCount = dictDetermineSize
-                                , get = dictGetKeys
+    intoFnChecksFirstThatConstructsError
+        [ intoFnCheckOnlyCall
+            (\checkInfo ->
+                callOnEmptyReturnsCheck
+                    { resultAsString = \res -> qualifiedToString (qualify Fn.Basics.falseVariant res) }
+                    dictCollection
+                    checkInfo
+                    |> onNothing
+                        (\() ->
+                            knownMemberChecks
+                                { represents = "dict"
+                                , representsPlural = "dicts"
+                                , elements =
+                                    { countDescription = "size"
+                                    , elementDescription = "key"
+                                    , determineCount = dictDetermineSize
+                                    , get = dictGetKeys
+                                    }
                                 }
+                                checkInfo
+                        )
+            )
+        , dictMemberOnFromListToListAnyChecks
+        ]
+
+
+dictMemberOnFromListToListAnyChecks : IntoFnCheck
+dictMemberOnFromListToListAnyChecks =
+    { call =
+        \checkInfo ->
+            if checkInfo.expectNaN && AstHelpers.couldBeValueContainingNaN checkInfo.firstArg then
+                Nothing
+
+            else
+                case fullyAppliedLastArg checkInfo of
+                    Just convertedArg ->
+                        case AstHelpers.getSpecificUnreducedFnCall Fn.Dict.fromList checkInfo.lookupTable convertedArg of
+                            Just conversionCall ->
+                                if checkInfo.expectNaN && AstHelpers.couldBeValueContainingNaN conversionCall.firstArg then
+                                    Nothing
+
+                                else
+                                    let
+                                        needleArgRange : Range
+                                        needleArgRange =
+                                            Node.range checkInfo.firstArg
+                                    in
+                                    Just
+                                        (Rule.errorWithFix
+                                            { message =
+                                                qualifiedToString checkInfo.fn
+                                                    ++ " on "
+                                                    ++ qualifiedToString Fn.Dict.fromList
+                                                    ++ " can be replaced by List.any with a function comparing the key"
+                                            , details =
+                                                [ "You can replace these calls by "
+                                                    ++ qualifiedToString Fn.List.any
+                                                    ++ " comparing the key which is both simpler and faster. The automatic fix suggests Tuple.first >> (==) ... to only evaluate the member to check for once. However, if it is a variable, a simpler alternative might be using a lambda like \\( k, _ ) -> k == ..."
+                                                ]
+                                            }
+                                            checkInfo.fnRange
+                                            (Fix.replaceRangeBy checkInfo.fnRange
+                                                (qualifiedToString (qualify Fn.List.any checkInfo))
+                                                :: Fix.insertAt needleArgRange.start
+                                                    ("("
+                                                        ++ qualifiedToString (qualify Fn.Tuple.first checkInfo)
+                                                        ++ " >> (==)"
+                                                        ++ (if needleArgRange.start.row == needleArgRange.end.row then
+                                                                " "
+
+                                                            else
+                                                                "\n" ++ String.repeat (needleArgRange.start.column - 1) " "
+                                                           )
+                                                    )
+                                                :: Fix.insertAt needleArgRange.end ")"
+                                                :: replaceBySubExpressionFix conversionCall.nodeRange conversionCall.firstArg
+                                            )
+                                        )
+
+                            Nothing ->
+                                Nothing
+
+                    Nothing ->
+                        Nothing
+    , composition =
+        \checkInfo ->
+            if
+                Basics.not checkInfo.expectNaN
+                    && (checkInfo.earlier.fn == Fn.Dict.fromList)
+            then
+                case checkInfo.later.args of
+                    [ needleArg ] ->
+                        let
+                            needleArgRange : Range
+                            needleArgRange =
+                                Node.range needleArg
+                        in
+                        Just
+                            { info =
+                                { message =
+                                    qualifiedToString checkInfo.later.fn
+                                        ++ " on "
+                                        ++ qualifiedToString Fn.Dict.fromList
+                                        ++ " can be replaced by List.any with a function comparing the key"
+                                , details =
+                                    [ "You can replace this composition by "
+                                        ++ qualifiedToString Fn.List.any
+                                        ++ " comparing the key which is both simpler and faster. The automatic fix suggests Tuple.first >> (==) ... to only evaluate the member to check for once. However, if it is a variable, a simpler alternative might be using a lambda like \\( k, _ ) -> k == ..."
+                                    ]
+                                }
+                            , fix =
+                                [ Fix.removeRange checkInfo.earlier.removeRange
+                                , Fix.replaceRangeBy checkInfo.later.fnRange
+                                    (qualifiedToString (qualify Fn.List.any checkInfo))
+                                , Fix.insertAt needleArgRange.start
+                                    ("("
+                                        ++ qualifiedToString (qualify Fn.Tuple.first checkInfo)
+                                        ++ " >> (==) ("
+                                        ++ (if needleArgRange.start.row == needleArgRange.end.row then
+                                                ""
+
+                                            else
+                                                "\n" ++ String.repeat (needleArgRange.start.column - 1) " "
+                                           )
+                                    )
+                                , Fix.insertAt needleArgRange.end "))"
+                                ]
                             }
-                            checkInfo
-                    )
-        )
+
+                    _ ->
+                        Nothing
+
+            else
+                Nothing
+    }
 
 
 dictInsertChecks : IntoFnCheck
@@ -8144,12 +9255,210 @@ dictToListChecks =
 
 dictFoldlChecks : IntoFnCheck
 dictFoldlChecks =
-    intoFnCheckOnlyCall (emptiableFoldWithExtraArgChecks dictCollection)
+    intoFnCheckOnlyCall dictFoldChecks
 
 
 dictFoldrChecks : IntoFnCheck
 dictFoldrChecks =
-    intoFnCheckOnlyCall (emptiableFoldWithExtraArgChecks dictCollection)
+    intoFnCheckOnlyCall
+        (\checkInfo ->
+            dictFoldChecks checkInfo
+                |> onNothing
+                    (\() ->
+                        case secondArg checkInfo of
+                            Nothing ->
+                                Nothing
+
+                            Just initialArg ->
+                                if isEmptyList initialArg then
+                                    if
+                                        case AstHelpers.getAlwaysResult checkInfo checkInfo.firstArg of
+                                            Nothing ->
+                                                False
+
+                                            Just reduceIgnoringKey ->
+                                                Normalize.isSpecificUnappliedBinaryOperation "::" checkInfo reduceIgnoringKey
+                                    then
+                                        Just
+                                            (operationWithSpecificArgsIsEquivalentToFnError
+                                                { specificArgsDescription = "(\\_ v vs -> v :: vs) []"
+                                                , replacementFn = Fn.Dict.values
+                                                }
+                                                checkInfo
+                                            )
+
+                                    else if
+                                        case getFunctionIgnoringSecondIncoming checkInfo checkInfo.firstArg of
+                                            Nothing ->
+                                                False
+
+                                            Just reduceIgnoringValue ->
+                                                Normalize.isSpecificUnappliedBinaryOperation "::" checkInfo reduceIgnoringValue
+                                    then
+                                        Just
+                                            (operationWithSpecificArgsIsEquivalentToFnError
+                                                { specificArgsDescription = "(\\k _ ks -> k :: ks) []"
+                                                , replacementFn = Fn.Dict.keys
+                                                }
+                                                checkInfo
+                                            )
+
+                                    else if
+                                        case getFunctionWithFirstAndSecondIncomingAsTuple checkInfo checkInfo.firstArg of
+                                            Nothing ->
+                                                False
+
+                                            Just reduceFunctionWithKeyValueIncomingAsTuple ->
+                                                Normalize.isSpecificUnappliedBinaryOperation "::"
+                                                    checkInfo
+                                                    reduceFunctionWithKeyValueIncomingAsTuple
+                                    then
+                                        Just
+                                            (operationWithSpecificArgsIsEquivalentToFnError
+                                                { specificArgsDescription = "(\\k v kvs -> ( k, v ) :: kvs) []"
+                                                , replacementFn = Fn.Dict.toList
+                                                }
+                                                checkInfo
+                                            )
+
+                                    else
+                                        Nothing
+
+                                else
+                                    Nothing
+                    )
+        )
+
+
+getFunctionWithFirstAndSecondIncomingAsTuple :
+    AstHelpers.ReduceLambdaResources a
+    -> Node Expression
+    -> Maybe (Node Expression)
+getFunctionWithFirstAndSecondIncomingAsTuple resources expressionNode =
+    case AstHelpers.getCollapsedLambda expressionNode of
+        Nothing ->
+            Nothing
+
+        Just lambda ->
+            case lambda.patterns of
+                keyPattern :: valuePattern :: patternsAfterKeyValue ->
+                    Just
+                        (Node.empty
+                            (Expression.LambdaExpression
+                                { args =
+                                    Node.empty (Pattern.TuplePattern [ keyPattern, valuePattern ])
+                                        :: patternsAfterKeyValue
+                                , expression = lambda.expression
+                                }
+                            )
+                        )
+
+                [ keyPatternOnly ] ->
+                    case getFullComposition lambda.expression of
+                        Nothing ->
+                            Nothing
+
+                        Just fullComposition ->
+                            if
+                                AstHelpers.isSpecificValueOrFn Fn.Tuple.pair
+                                    resources
+                                    (Node.empty
+                                        (Expression.LambdaExpression
+                                            { args = [ keyPatternOnly ]
+                                            , expression = fullComposition.earlier
+                                            }
+                                        )
+                                    )
+                            then
+                                Just fullComposition.composedLater
+
+                            else
+                                Nothing
+
+                _ ->
+                    Nothing
+
+
+getFunctionIgnoringSecondIncoming :
+    AstHelpers.ReduceLambdaResources a
+    -> Node Expression
+    -> Maybe (Node Expression)
+getFunctionIgnoringSecondIncoming resources expressionNode =
+    case expressionNode of
+        Node _ (Expression.ParenthesizedExpression inParens) ->
+            getFunctionIgnoringSecondIncoming resources inParens
+
+        Node _ (Expression.LambdaExpression lambda) ->
+            case lambda.args of
+                [] ->
+                    getFunctionIgnoringSecondIncoming resources
+                        lambda.expression
+
+                keyPattern :: reduceLambdaPatternsAfterKey ->
+                    AstHelpers.getAlwaysResult resources
+                        (case reduceLambdaPatternsAfterKey of
+                            [] ->
+                                lambda.expression
+
+                            _ :: _ ->
+                                Node.empty
+                                    (Expression.LambdaExpression
+                                        { args = reduceLambdaPatternsAfterKey
+                                        , expression = lambda.expression
+                                        }
+                                    )
+                        )
+                        |> Maybe.map
+                            (\alwaysResult ->
+                                Node.empty
+                                    (Expression.LambdaExpression
+                                        { args = [ keyPattern ]
+                                        , expression = alwaysResult
+                                        }
+                                    )
+                            )
+
+        _ ->
+            case getFullComposition expressionNode of
+                Nothing ->
+                    Nothing
+
+                Just fullComposition ->
+                    if AstHelpers.isSpecificValueOrFn Fn.Basics.always resources fullComposition.composedLater then
+                        Just fullComposition.earlier
+
+                    else
+                        Nothing
+
+
+dictFoldChecks : CallCheckInfo -> Maybe (Error {})
+dictFoldChecks checkInfo =
+    emptiableFoldWithExtraArgChecks dictCollection checkInfo
+        |> onNothing
+            (\() ->
+                if checkInfo.expectNaN then
+                    Nothing
+
+                else
+                    case secondArg checkInfo of
+                        Nothing ->
+                            Nothing
+
+                        Just initialArg ->
+                            if
+                                AstHelpers.isSpecificValueReference checkInfo.lookupTable Fn.Dict.empty initialArg
+                                    && AstHelpers.isSpecificValueOrFn Fn.Dict.insert checkInfo checkInfo.firstArg
+                            then
+                                Just
+                                    (alwaysReturnsLastArgError
+                                        (qualifiedToString checkInfo.fn ++ " Dict.insert Dict.empty")
+                                        dictCollection
+                                        checkInfo
+                                    )
+
+                            else
+                                Nothing
+            )
 
 
 
@@ -8163,7 +9472,99 @@ platformCmdBatchChecks =
 
 platformCmdMapChecks : IntoFnCheck
 platformCmdMapChecks =
-    emptiableMapChecks cmdCollection
+    intoFnChecksFirstThatConstructsError
+        [ emptiableMapChecks cmdCollection
+        , mapAfterConvertMapIdentityCanBeCombinedCheck { convertMapFn = Fn.Task.perform }
+        , mapAfterConvertMapIdentityCanBeCombinedCheck { convertMapFn = Fn.Task.attempt }
+        ]
+
+
+mapAfterConvertMapIdentityCanBeCombinedCheck :
+    { config | convertMapFn : ( ModuleName, String ) }
+    -> IntoFnCheck
+mapAfterConvertMapIdentityCanBeCombinedCheck config =
+    { composition =
+        \checkInfo ->
+            let
+                earlierIsConvertMapIdentity : Bool
+                earlierIsConvertMapIdentity =
+                    (checkInfo.earlier.fn == config.convertMapFn)
+                        && (case checkInfo.earlier.args of
+                                [ changeFunctionArg ] ->
+                                    AstHelpers.isIdentity checkInfo changeFunctionArg
+
+                                _ ->
+                                    False
+                           )
+            in
+            if earlierIsConvertMapIdentity then
+                Just
+                    { info =
+                        { message =
+                            qualifiedToString checkInfo.later.fn
+                                ++ " on "
+                                ++ qualifiedToString config.convertMapFn
+                                ++ " with an identity function can be combined"
+                        , details =
+                            [ "You can replace this composition by "
+                                ++ qualifiedToString config.convertMapFn
+                                ++ " with the function given to "
+                                ++ qualifiedToString (qualify checkInfo.later.fn checkInfo)
+                                ++ "."
+                            ]
+                        }
+                    , fix =
+                        [ Fix.removeRange checkInfo.earlier.removeRange
+                        , Fix.replaceRangeBy
+                            checkInfo.later.fnRange
+                            (qualifiedToString (qualify config.convertMapFn checkInfo))
+                        ]
+                    }
+
+            else
+                Nothing
+    , call =
+        \checkInfo ->
+            case fullyAppliedLastArg checkInfo of
+                Nothing ->
+                    Nothing
+
+                Just cmdArg ->
+                    case AstHelpers.getSpecificUnreducedFnCall config.convertMapFn checkInfo.lookupTable cmdArg of
+                        Nothing ->
+                            Nothing
+
+                        Just convertMapFnCall ->
+                            case convertMapFnCall.argsAfterFirst of
+                                [ toConvertArg ] ->
+                                    Just
+                                        (Rule.errorWithFix
+                                            { message =
+                                                qualifiedToString checkInfo.fn
+                                                    ++ " on "
+                                                    ++ qualifiedToString config.convertMapFn
+                                                    ++ " with an identity function can be combined"
+                                            , details =
+                                                [ "You can replace these operations by "
+                                                    ++ qualifiedToString config.convertMapFn
+                                                    ++ " with the function given to "
+                                                    ++ qualifiedToString (qualify checkInfo.fn checkInfo)
+                                                    ++ "."
+                                                ]
+                                            }
+                                            checkInfo.fnRange
+                                            (Fix.replaceRangeBy
+                                                checkInfo.fnRange
+                                                (qualifiedToString (qualify config.convertMapFn checkInfo))
+                                                :: replaceBySubExpressionFix
+                                                    (Node.range cmdArg)
+                                                    toConvertArg
+                                            )
+                                        )
+
+                                _ ->
+                                    Nothing
+    }
 
 
 
@@ -8234,6 +9635,16 @@ taskSequenceChecks =
         ]
 
 
+taskPerformChecks : IntoFnCheck
+taskPerformChecks =
+    mapToOperationWithIdentityCanBeCombinedToOperationChecks taskWithSucceedAsWrap
+
+
+taskAttemptChecks : IntoFnCheck
+taskAttemptChecks =
+    mapToOperationWithIdentityCanBeCombinedToOperationChecks taskWithSucceedAsWrap
+
+
 
 -- HTML.ATTRIBUTES FUNCTIONS
 
@@ -8289,10 +9700,9 @@ htmlAttributesClassListChecks =
                                                 , details = [ "You can replace this call by " ++ qualifiedToString replacementFn ++ " with the String from the single tuple list element." ]
                                                 }
                                                 checkInfo.fnRange
-                                                (replaceBySubExpressionFix (Node.range checkInfo.firstArg) tuple.first
-                                                    ++ [ Fix.replaceRangeBy checkInfo.fnRange
-                                                            (qualifiedToString (qualify replacementFn checkInfo))
-                                                       ]
+                                                (Fix.replaceRangeBy checkInfo.fnRange
+                                                    (qualifiedToString (qualify replacementFn checkInfo))
+                                                    :: replaceBySubExpressionFix (Node.range checkInfo.firstArg) tuple.first
                                                 )
                                             )
 
@@ -8353,6 +9763,47 @@ htmlAttributesClassListChecks =
                                 Nothing
                     )
         )
+
+
+
+-- JSON.ENCODE FUNCTIONS
+
+
+jsonEncodeListChecks : IntoFnCheck
+jsonEncodeListChecks =
+    intoFnChecksFirstThatConstructsError
+        [ onConversionFnCallCanBeCombinedCheck
+            { combinedOperationRepresents = "encode an array"
+            , convertFn = Fn.Array.toList
+            , actionRepresents = "convert to a list"
+            , combinedFn = Fn.Json.Encode.array
+            }
+        , onConversionFnCallCanBeCombinedCheck
+            { combinedOperationRepresents = "encode a set"
+            , convertFn = Fn.Set.toList
+            , actionRepresents = "convert to a list"
+            , combinedFn = Fn.Json.Encode.set
+            }
+        , mapToOperationWithIdentityCanBeCombinedToOperationChecks listCollection
+        ]
+
+
+jsonEncodeArrayChecks : IntoFnCheck
+jsonEncodeArrayChecks =
+    intoFnChecksFirstThatConstructsError
+        [ onConversionFnCallCanBeCombinedCheck
+            { combinedOperationRepresents = "encode a list"
+            , convertFn = Fn.Array.fromList
+            , actionRepresents = "convert to an array"
+            , combinedFn = Fn.Json.Encode.list
+            }
+        , mapToOperationWithIdentityCanBeCombinedToOperationChecks arrayCollection
+        ]
+
+
+jsonEncodeSetChecks : IntoFnCheck
+jsonEncodeSetChecks =
+    mapToOperationWithIdentityCanBeCombinedToOperationChecks setCollection
 
 
 
@@ -8530,9 +9981,9 @@ type alias CollectionProperties otherProperties =
         | elements :
             { countDescription : String
             , elementDescription : String
-            , determineCount : Infer.Resources {} -> Node Expression -> Maybe CollectionSize
+            , determineCount : Normalize.Resources {} -> Node Expression -> Maybe CollectionSize
             , get :
-                Infer.Resources {}
+                Normalize.Resources {}
                 -> Node Expression
                 ->
                     Maybe
@@ -8645,7 +10096,7 @@ type TypeSubsetKindProperties
 type alias ConstantProperties =
     { description : String
     , asString : QualifyResources {} -> String
-    , is : Infer.Resources {} -> Node Expression -> Bool
+    , is : Normalize.Resources {} -> Node Expression -> Bool
     }
 
 
@@ -8661,11 +10112,11 @@ type ConstructWithOneValueDescription
     | An String
 
 
-isInTypeSubset : TypeSubsetProperties specificProperties -> Infer.Resources res -> Node Expression -> Bool
+isInTypeSubset : TypeSubsetProperties specificProperties -> Normalize.Resources res -> Node Expression -> Bool
 isInTypeSubset typeSubsetProperties resources expressionNode =
     case typeSubsetProperties.kind typeSubsetProperties.specific of
         Constant constantProperties ->
-            constantProperties.is (extractInferResources resources) expressionNode
+            constantProperties.is (extractNormalizeResources resources) expressionNode
 
         ConstructWithOneValue constructWithOneValue ->
             isJust (constructWithOneValue.getValue resources.lookupTable expressionNode)
@@ -8731,7 +10182,7 @@ fnCallConstructWithOneValueProperties description fullyQualified =
 
 
 getEmptyExpressionNode :
-    Infer.Resources a
+    Normalize.Resources a
     -> EmptiableProperties empty otherProperties
     -> Node Expression
     -> Maybe (Node Expression)
@@ -8743,9 +10194,9 @@ getEmptyExpressionNode resources emptiable expressionNode =
         Nothing
 
 
-getAbsorbingExpressionNode : AbsorbableProperties otherProperties -> Infer.Resources res -> Node Expression -> Maybe (Node Expression)
+getAbsorbingExpressionNode : AbsorbableProperties otherProperties -> Normalize.Resources res -> Node Expression -> Maybe (Node Expression)
 getAbsorbingExpressionNode absorbable inferResources expressionNode =
-    if absorbable.absorbing.is (extractInferResources inferResources) expressionNode then
+    if absorbable.absorbing.is (extractNormalizeResources inferResources) expressionNode then
         Just expressionNode
 
     else
@@ -8824,12 +10275,14 @@ extractQualifyResources resources =
     }
 
 
-extractInferResources :
-    Infer.Resources a
-    -> Infer.Resources {}
-extractInferResources resources =
+extractNormalizeResources :
+    Normalize.Resources a
+    -> Normalize.Resources {}
+extractNormalizeResources resources =
     { lookupTable = resources.lookupTable
     , inferredConstants = resources.inferredConstants
+    , moduleCustomTypes = resources.moduleCustomTypes
+    , importCustomTypes = resources.importCustomTypes
     }
 
 
@@ -9105,16 +10558,22 @@ listCollection =
 listEmptyConstantSpecific : ConstantProperties
 listEmptyConstantSpecific =
     { description = "[]"
-    , is =
-        \_ expressionNode ->
-            case AstHelpers.removeParens expressionNode of
-                Node _ (Expression.ListExpr []) ->
-                    True
-
-                _ ->
-                    False
+    , is = \_ expressionNode -> isEmptyList expressionNode
     , asString = \_ -> "[]"
     }
+
+
+isEmptyList : Node Expression -> Bool
+isEmptyList (Node _ expression) =
+    case expression of
+        Expression.ParenthesizedExpression inParens ->
+            isEmptyList inParens
+
+        Expression.ListExpr [] ->
+            True
+
+        _ ->
+            False
 
 
 listSingletonConstruct : ConstructWithOneValueProperties
@@ -9260,15 +10719,21 @@ stringEmptyConstantSpecific : ConstantProperties
 stringEmptyConstantSpecific =
     { description = emptyStringAsString
     , asString = \_ -> emptyStringAsString
-    , is =
-        \_ (Node _ expr) ->
-            case expr of
-                Expression.Literal "" ->
-                    True
-
-                _ ->
-                    False
+    , is = \_ expressionNode -> isEmptyString expressionNode
     }
+
+
+isEmptyString : Node Expression -> Bool
+isEmptyString (Node _ expression) =
+    case expression of
+        Expression.ParenthesizedExpression inParens ->
+            isEmptyString inParens
+
+        Expression.Literal "" ->
+            True
+
+        _ ->
+            False
 
 
 singleCharConstruct : ConstructWithOneValueProperties
@@ -9342,7 +10807,7 @@ stringGetElements resources expressionNode =
             )
 
 
-arrayCollection : TypeProperties (CollectionProperties (ConstructibleFromListProperties (EmptiableProperties ConstantProperties {})))
+arrayCollection : TypeProperties (CollectionProperties (ConstructibleFromListProperties (EmptiableProperties ConstantProperties (MappableProperties {}))))
 arrayCollection =
     { represents = "array"
     , representsPlural = "arrays"
@@ -9354,6 +10819,7 @@ arrayCollection =
         , get = arrayGetElements
         }
     , fromList = ConstructionFromListCall Fn.Array.fromList
+    , mapFn = Fn.Array.map
     }
 
 
@@ -9422,7 +10888,7 @@ arrayDetermineLength resources expressionNode =
             )
 
 
-setCollection : TypeProperties (CollectionProperties (EmptiableProperties ConstantProperties (WrapperProperties (ConstructibleFromListProperties {}))))
+setCollection : TypeProperties (CollectionProperties (EmptiableProperties ConstantProperties (WrapperProperties (ConstructibleFromListProperties (MappableProperties {})))))
 setCollection =
     { represents = "set"
     , representsPlural = "sets"
@@ -9435,6 +10901,7 @@ setCollection =
         }
     , wrap = setSingletonConstruct
     , fromList = ConstructionFromListCall Fn.Set.fromList
+    , mapFn = Fn.Set.map
     }
 
 
@@ -9443,7 +10910,7 @@ setSingletonConstruct =
     fnCallConstructWithOneValueProperties (A "singleton set") Fn.Set.singleton
 
 
-setGetElements : Infer.Resources a -> Node Expression -> Maybe { known : List (Node Expression), allKnown : Bool }
+setGetElements : Normalize.Resources a -> Node Expression -> Maybe { known : List (Node Expression), allKnown : Bool }
 setGetElements resources expressionNode =
     (if AstHelpers.isSpecificValueReference resources.lookupTable Fn.Set.empty expressionNode then
         Just { known = [], allKnown = True }
@@ -9485,7 +10952,7 @@ setGetElements resources expressionNode =
 
 
 getComparableWithExpressionNode :
-    Infer.Resources a
+    Normalize.Resources a
     -> Node Expression
     -> Maybe { comparable : ComparableExpression, expressionNode : Node Expression }
 getComparableWithExpressionNode resources expressionNode =
@@ -9493,7 +10960,7 @@ getComparableWithExpressionNode resources expressionNode =
         |> Maybe.map (\comparable -> { comparable = comparable, expressionNode = expressionNode })
 
 
-setDetermineSize : Infer.Resources res -> Node Expression -> Maybe CollectionSize
+setDetermineSize : Normalize.Resources res -> Node Expression -> Maybe CollectionSize
 setDetermineSize resources expressionNode =
     (if AstHelpers.isSpecificValueReference resources.lookupTable Fn.Set.empty expressionNode then
         Just (Exactly 0)
@@ -9566,7 +11033,7 @@ dictCollection =
 
 
 dictDetermineSize :
-    Infer.Resources a
+    Normalize.Resources a
     -> Node Expression
     -> Maybe CollectionSize
 dictDetermineSize resources expressionNode =
@@ -9628,7 +11095,7 @@ dictDetermineSize resources expressionNode =
             )
 
 
-dictGetValues : Infer.Resources res -> Node Expression -> Maybe { known : List (Node Expression), allKnown : Bool }
+dictGetValues : Normalize.Resources res -> Node Expression -> Maybe { known : List (Node Expression), allKnown : Bool }
 dictGetValues resources expressionNode =
     (if AstHelpers.isSpecificValueReference resources.lookupTable Fn.Dict.empty expressionNode then
         Just { known = [], allKnown = True }
@@ -9679,7 +11146,7 @@ dictGetValues resources expressionNode =
 
 
 getTupleWithComparableFirst :
-    Infer.Resources a
+    Normalize.Resources a
     -> Node Expression
     ->
         Maybe
@@ -9705,7 +11172,7 @@ getTupleWithComparableFirst resources expressionNode =
             Nothing
 
 
-dictGetKeys : Infer.Resources res -> Node Expression -> Maybe { known : List (Node Expression), allKnown : Bool }
+dictGetKeys : Normalize.Resources res -> Node Expression -> Maybe { known : List (Node Expression), allKnown : Bool }
 dictGetKeys resources expressionNode =
     (if AstHelpers.isSpecificValueReference resources.lookupTable Fn.Dict.empty expressionNode then
         Just { known = [], allKnown = True }
@@ -9870,7 +11337,7 @@ oneOfConstantsWithOneAndRestListChecks : WrapperProperties otherProperties -> Ca
 oneOfConstantsWithOneAndRestListChecks wrapper checkInfo =
     case secondArg checkInfo of
         Just otherOptionsArg ->
-            if listCollection.empty.specific.is (extractInferResources checkInfo) otherOptionsArg then
+            if listCollection.empty.specific.is (extractNormalizeResources checkInfo) otherOptionsArg then
                 Just
                     (Rule.errorWithFix
                         { message = qualifiedToString checkInfo.fn ++ " with one possible value will result in " ++ qualifiedToString wrapper.wrap.fn ++ " with that value"
@@ -9910,7 +11377,7 @@ oneOfWeightedConstantsWithOneAndRestChecks : WrapperProperties otherProperties -
 oneOfWeightedConstantsWithOneAndRestChecks wrapper checkInfo =
     case secondArg checkInfo of
         Just otherOptionsArg ->
-            if listCollection.empty.specific.is (extractInferResources checkInfo) otherOptionsArg then
+            if listCollection.empty.specific.is (extractNormalizeResources checkInfo) otherOptionsArg then
                 Just
                     (Rule.errorWithFix
                         { message = qualifiedToString checkInfo.fn ++ " with one possible value will result in " ++ qualifiedToString wrapper.wrap.fn ++ " with that value"
@@ -9919,13 +11386,12 @@ oneOfWeightedConstantsWithOneAndRestChecks wrapper checkInfo =
                         checkInfo.fnRange
                         (case AstHelpers.getTuple2 checkInfo.lookupTable checkInfo.firstArg of
                             Just tuple ->
-                                keepOnlyFix
-                                    { parentRange = checkInfo.parentRange
-                                    , keep = Range.combine [ checkInfo.fnRange, Node.range checkInfo.firstArg ]
-                                    }
-                                    ++ [ Fix.replaceRangeBy checkInfo.fnRange
-                                            (qualifiedToString (qualify wrapper.wrap.fn checkInfo))
-                                       ]
+                                Fix.replaceRangeBy checkInfo.fnRange
+                                    (qualifiedToString (qualify wrapper.wrap.fn checkInfo))
+                                    :: keepOnlyFix
+                                        { parentRange = checkInfo.parentRange
+                                        , keep = Range.combine [ checkInfo.fnRange, Node.range checkInfo.firstArg ]
+                                        }
                                     ++ replaceBySubExpressionFix (Node.range checkInfo.firstArg) tuple.second
 
                             Nothing ->
@@ -9934,16 +11400,15 @@ oneOfWeightedConstantsWithOneAndRestChecks wrapper checkInfo =
                                     tupleArgRange =
                                         Node.range checkInfo.firstArg
                                 in
-                                keepOnlyFix
-                                    { parentRange = checkInfo.parentRange
-                                    , keep = Range.combine [ checkInfo.fnRange, Node.range checkInfo.firstArg ]
-                                    }
-                                    ++ [ Fix.replaceRangeBy checkInfo.fnRange
-                                            (qualifiedToString (qualify wrapper.wrap.fn checkInfo))
-                                       , Fix.insertAt tupleArgRange.start
-                                            ("(" ++ qualifiedToString Fn.Tuple.first ++ " ")
-                                       , Fix.insertAt tupleArgRange.end ")"
-                                       ]
+                                Fix.replaceRangeBy checkInfo.fnRange
+                                    (qualifiedToString (qualify wrapper.wrap.fn checkInfo))
+                                    :: Fix.insertAt tupleArgRange.start
+                                        ("(" ++ qualifiedToString Fn.Tuple.first ++ " ")
+                                    :: Fix.insertAt tupleArgRange.end ")"
+                                    :: keepOnlyFix
+                                        { parentRange = checkInfo.parentRange
+                                        , keep = Range.combine [ checkInfo.fnRange, Node.range checkInfo.firstArg ]
+                                        }
                         )
                     )
 
@@ -10107,11 +11572,10 @@ mapOnWrappedChecks wrapper =
                                             checkInfo.fnRange
                                             (case checkInfo.callStyle of
                                                 CallStyle.Pipe CallStyle.LeftToRight ->
-                                                    [ Fix.removeRange { start = checkInfo.fnRange.start, end = mappingArgRange.start }
-                                                    , Fix.insertAt mappingArgRange.end
-                                                        (" |> " ++ qualifiedToString (qualify wrapper.wrap.fn checkInfo))
-                                                    ]
-                                                        ++ removeWrapCalls
+                                                    Fix.removeRange { start = checkInfo.fnRange.start, end = mappingArgRange.start }
+                                                        :: Fix.insertAt mappingArgRange.end
+                                                            (" |> " ++ qualifiedToString (qualify wrapper.wrap.fn checkInfo))
+                                                        :: removeWrapCalls
 
                                                 CallStyle.Pipe CallStyle.RightToLeft ->
                                                     Fix.replaceRangeBy
@@ -10120,12 +11584,11 @@ mapOnWrappedChecks wrapper =
                                                         :: removeWrapCalls
 
                                                 CallStyle.Application ->
-                                                    [ Fix.replaceRangeBy
+                                                    Fix.replaceRangeBy
                                                         { start = checkInfo.parentRange.start, end = mappingArgRange.start }
                                                         (qualifiedToString (qualify wrapper.wrap.fn checkInfo) ++ " (")
-                                                    , Fix.insertAt checkInfo.parentRange.end ")"
-                                                    ]
-                                                        ++ removeWrapCalls
+                                                        :: Fix.insertAt checkInfo.parentRange.end ")"
+                                                        :: removeWrapCalls
                                             )
                                         )
 
@@ -10739,26 +12202,25 @@ callOnFromListWithIrrelevantEmptyElement situation ( constructibleFromList, empt
         ]
 
 -}
-mergeConsecutiveFromListLiteralsCheck : ConstructibleFromListProperties otherProperties -> CallCheckInfo -> Maybe (Error {})
-mergeConsecutiveFromListLiteralsCheck constructibleFromList checkInfo =
-    case Maybe.andThen (\lastArg -> fromListGetLiteral constructibleFromList checkInfo.lookupTable lastArg) (fullyAppliedLastArg checkInfo) of
-        Just listLiteral ->
-            case mergeConsecutiveFromListLiteralsFixWithBeforeEndingIn Nothing [] constructibleFromList checkInfo listLiteral.elements of
-                [] ->
-                    Nothing
-
-                (_ :: _) as fixes ->
-                    Just
-                        (Rule.errorWithFix
-                            { message = "Consecutive " ++ constructionFromListOnLiteralDescription constructibleFromList.fromList ++ "s can be merged"
-                            , details = [ "Try moving all the elements from consecutive " ++ constructionFromListOnLiteralDescription constructibleFromList.fromList ++ "s so that they form a single list." ]
-                            }
-                            checkInfo.fnRange
-                            fixes
-                        )
-
-        Nothing ->
+mergeConsecutiveFromListLiteralsCheck :
+    ConstructibleFromListProperties otherProperties
+    -> List (Node Expression)
+    -> CallCheckInfo
+    -> Maybe (Error {})
+mergeConsecutiveFromListLiteralsCheck constructibleFromList listElements checkInfo =
+    case mergeConsecutiveFromListLiteralsFixWithBeforeEndingIn Nothing [] constructibleFromList checkInfo listElements of
+        [] ->
             Nothing
+
+        (_ :: _) as fixes ->
+            Just
+                (Rule.errorWithFix
+                    { message = "Consecutive " ++ constructionFromListOnLiteralDescription constructibleFromList.fromList ++ "s can be merged"
+                    , details = [ "Try moving all the elements from consecutive " ++ constructionFromListOnLiteralDescription constructibleFromList.fromList ++ "s so that they form a single list." ]
+                    }
+                    checkInfo.fnRange
+                    fixes
+                )
 
 
 mergeConsecutiveFromListLiteralsFixWithBeforeEndingIn : Maybe { literalInsertLocation : Location, elementEndLocation : Location } -> List Fix -> ConstructibleFromListProperties otherProperties -> { resources | lookupTable : ModuleNameLookupTable, extractSourceCode : Range -> String } -> List (Node Expression) -> List Fix
@@ -10817,26 +12279,47 @@ emptiableRangeChecks : EmptiableProperties ConstantProperties otherProperties ->
 emptiableRangeChecks emptiable checkInfo =
     case secondArg checkInfo of
         Just rangeEndArg ->
-            case Evaluate.getInt checkInfo checkInfo.firstArg of
-                Just rangeStartValue ->
-                    case Evaluate.getInt checkInfo rangeEndArg of
-                        Just rangeEndValue ->
-                            if rangeStartValue > rangeEndValue then
-                                Just
-                                    (resultsInConstantError
-                                        (qualifiedToString checkInfo.fn ++ " with a start index greater than the end index")
-                                        emptiable.empty.specific.asString
-                                        checkInfo
-                                    )
+            case Normalize.compare checkInfo checkInfo.firstArg rangeEndArg of
+                Normalize.ConfirmedEquality ->
+                    Just
+                        (Rule.errorWithFix
+                            { message = qualifiedToString checkInfo.fn ++ " with equal start and end will result in a singleton with that value"
+                            , details = [ "You can replace this call by its start or equivalent end argument and wrap it in a new list." ]
+                            }
+                            checkInfo.fnRange
+                            (keepOnlyAndSurroundWithFix
+                                { parentRange = checkInfo.parentRange
+                                , keep =
+                                    -- choosing to replace the start argument is arbitrary.
+                                    -- we could instead also choose based on some heuristic
+                                    Node.range checkInfo.firstArg
+                                , left = "[ "
+                                , right = " ]"
+                                }
+                            )
+                        )
 
-                            else
-                                Nothing
+                _ ->
+                    case Evaluate.getInt checkInfo checkInfo.firstArg of
+                        Just rangeStartValue ->
+                            case Evaluate.getInt checkInfo rangeEndArg of
+                                Just rangeEndValue ->
+                                    if rangeStartValue > rangeEndValue then
+                                        Just
+                                            (resultsInConstantError
+                                                (qualifiedToString checkInfo.fn ++ " with a start index greater than the end index")
+                                                emptiable.empty.specific.asString
+                                                checkInfo
+                                            )
+
+                                    else
+                                        Nothing
+
+                                Nothing ->
+                                    Nothing
 
                         Nothing ->
                             Nothing
-
-                Nothing ->
-                    Nothing
 
         Nothing ->
             Nothing
@@ -10913,6 +12396,64 @@ operationWithFirstArgIsEquivalentToFnError config checkInfo =
             (Range.combine [ checkInfo.fnRange, Node.range checkInfo.firstArg ])
             (qualifiedToString (qualify config.replacementFn checkInfo))
         ]
+
+
+operationWithSpecificArgsIsEquivalentToFnError :
+    { specificArgsDescription : String, replacementFn : ( ModuleName, String ) }
+    -> CallCheckInfo
+    -> Error {}
+operationWithSpecificArgsIsEquivalentToFnError config checkInfo =
+    Rule.errorWithFix
+        { message =
+            qualifiedToString checkInfo.fn
+                ++ " "
+                ++ config.specificArgsDescription
+                ++ " is the same as "
+                ++ qualifiedToString config.replacementFn
+        , details =
+            [ "You can replace this call by "
+                ++ qualifiedToString config.replacementFn
+                ++ " which is meant for this exact purpose."
+            ]
+        }
+        checkInfo.fnRange
+        (case fullyAppliedLastArg checkInfo of
+            Just lastArg ->
+                fixToCall
+                    { fn = config.replacementFn
+                    , style = checkInfo.callStyle
+                    , argRange = checkInfo.parentRange
+                    }
+                    checkInfo
+                    :: replaceBySubExpressionFix checkInfo.parentRange
+                        lastArg
+
+            Nothing ->
+                [ Fix.replaceRangeBy checkInfo.parentRange
+                    (qualifiedToString (qualify config.replacementFn checkInfo))
+                ]
+        )
+
+
+fixToCall :
+    { fn : ( ModuleName, String ), style : FunctionCallStyle, argRange : Range }
+    -> QualifyResources a
+    -> Fix
+fixToCall config resources =
+    let
+        fnAsString : String
+        fnAsString =
+            qualifiedToString (qualify config.fn resources)
+    in
+    case config.style of
+        CallStyle.Application ->
+            Fix.insertAt config.argRange.start (fnAsString ++ " ")
+
+        CallStyle.Pipe CallStyle.RightToLeft ->
+            Fix.insertAt config.argRange.start (fnAsString ++ " <| ")
+
+        CallStyle.Pipe CallStyle.LeftToRight ->
+            Fix.insertAt config.argRange.end (" |> " ++ fnAsString)
 
 
 {-| Map where the usual map function has an extra argument with special information.
@@ -10992,14 +12533,14 @@ wrapperMemberChecks wrapper checkInfo =
                             , details = [ "You can replace this call by checking whether the member to find and the value inside " ++ constructWithOneValueDescriptionDefinite "the" wrapper.wrap.description ++ " are equal." ]
                             }
                             checkInfo.fnRange
-                            (keepOnlyFix
-                                { parentRange = checkInfo.parentRange
-                                , keep = Range.combine [ needleArgRange, Node.range wrapValue ]
-                                }
-                                ++ Fix.replaceRangeBy
-                                    (rangeBetweenExclusive needleArgRange (Node.range wrapValue))
-                                    " == "
-                                :: parenthesizeIfNeededFix wrapValue
+                            (Fix.replaceRangeBy
+                                (rangeBetweenExclusive needleArgRange (Node.range wrapValue))
+                                " == "
+                                :: keepOnlyFix
+                                    { parentRange = checkInfo.parentRange
+                                    , keep = Range.combine [ needleArgRange, Node.range wrapValue ]
+                                    }
+                                ++ parenthesizeIfNeededFix wrapValue
                             )
                         )
 
@@ -11014,7 +12555,7 @@ knownMemberChecks : TypeProperties (CollectionProperties otherProperties) -> Cal
 knownMemberChecks collection checkInfo =
     case fullyAppliedLastArg checkInfo of
         Just collectionArg ->
-            case collection.elements.get (extractInferResources checkInfo) collectionArg of
+            case collection.elements.get (extractNormalizeResources checkInfo) collectionArg of
                 Just collectionElements ->
                     let
                         needleArg : Node Expression
@@ -11114,7 +12655,7 @@ callOnCollectionWithAbsorbingElementChecks :
     -> CallCheckInfo
     -> Maybe (Error {})
 callOnCollectionWithAbsorbingElementChecks situation ( collection, elementAbsorbable ) checkInfo =
-    case Maybe.andThen (\lastArg -> collection.elements.get (extractInferResources checkInfo) lastArg) (fullyAppliedLastArg checkInfo) of
+    case Maybe.andThen (\lastArg -> collection.elements.get (extractNormalizeResources checkInfo) lastArg) (fullyAppliedLastArg checkInfo) of
         Just elements ->
             case findMap (getAbsorbingExpressionNode elementAbsorbable checkInfo) elements.known of
                 Just absorbingElement ->
@@ -11181,9 +12722,9 @@ collectionAllChecks collection checkInfo =
         |> onNothing
             (\() ->
                 if AstHelpers.isSpecificValueOrFn Fn.Basics.not checkInfo checkInfo.firstArg then
-                    case Maybe.andThen (\collectionArg -> collection.elements.get (extractInferResources checkInfo) collectionArg) (fullyAppliedLastArg checkInfo) of
+                    case Maybe.andThen (\collectionArg -> collection.elements.get (extractNormalizeResources checkInfo) collectionArg) (fullyAppliedLastArg checkInfo) of
                         Just elements ->
-                            if List.any (\element -> boolTrueConstant.is (extractInferResources checkInfo) element) elements.known then
+                            if List.any (\element -> boolTrueConstant.is (extractNormalizeResources checkInfo) element) elements.known then
                                 Just
                                     (Rule.errorWithFix
                                         { message = qualifiedToString checkInfo.fn ++ " with `not` on a " ++ collection.represents ++ " with True will result in False"
@@ -11255,9 +12796,9 @@ collectionAnyChecks collection checkInfo =
         |> onNothing
             (\() ->
                 if AstHelpers.isSpecificValueOrFn Fn.Basics.not checkInfo checkInfo.firstArg then
-                    case Maybe.andThen (\lastArg -> collection.elements.get (extractInferResources checkInfo) lastArg) (fullyAppliedLastArg checkInfo) of
+                    case Maybe.andThen (\lastArg -> collection.elements.get (extractNormalizeResources checkInfo) lastArg) (fullyAppliedLastArg checkInfo) of
                         Just elements ->
-                            if List.any (\element -> boolFalseConstant.is (extractInferResources checkInfo) element) elements.known then
+                            if List.any (\element -> boolFalseConstant.is (extractNormalizeResources checkInfo) element) elements.known then
                                 Just
                                     (Rule.errorWithFix
                                         { message = qualifiedToString checkInfo.fn ++ " with `not` on a " ++ collection.represents ++ " with False will result in True"
@@ -11551,11 +13092,11 @@ sequenceOnCollectionWithKnownEmptyElementCheck :
     -> CallCheckInfo
     -> Maybe (Error {})
 sequenceOnCollectionWithKnownEmptyElementCheck ( collection, elementEmptiable ) checkInfo =
-    case collection.elements.get (extractInferResources checkInfo) checkInfo.firstArg of
+    case collection.elements.get (extractNormalizeResources checkInfo) checkInfo.firstArg of
         Just elements ->
             case List.filter (\el -> isNothing (elementEmptiable.wrap.getValue checkInfo.lookupTable el)) elements.known of
                 firstNonWrappedElement :: _ ->
-                    if isInTypeSubset elementEmptiable.empty (extractInferResources checkInfo) firstNonWrappedElement then
+                    if isInTypeSubset elementEmptiable.empty (extractNormalizeResources checkInfo) firstNonWrappedElement then
                         Just
                             (Rule.errorWithFix
                                 { message = qualifiedToString checkInfo.fn ++ " on a " ++ collection.represents ++ " containing " ++ typeSubsetDescriptionIndefinite elementEmptiable.empty ++ " will result in " ++ typeSubsetDescriptionDefinite "the first" elementEmptiable.empty
@@ -11606,7 +13147,7 @@ sequenceOnCollectionWithAllElementsWrapped :
     -> CallCheckInfo
     -> Maybe (Error {})
 sequenceOnCollectionWithAllElementsWrapped ( collection, elementWrapper ) checkInfo =
-    case collection.elements.get (extractInferResources checkInfo) checkInfo.firstArg of
+    case collection.elements.get (extractNormalizeResources checkInfo) checkInfo.firstArg of
         Just elements ->
             if elements.allKnown then
                 case traverse (getValueWithNodeRange (elementWrapper.wrap.getValue checkInfo.lookupTable)) elements.known of
@@ -11702,15 +13243,12 @@ sequenceRepeatChecks wrapper checkInfo =
                                         , details = [ "You can replace the call by " ++ qualifiedToString wrapper.wrap.fn ++ " with " ++ qualifiedToString Fn.List.repeat ++ " with the same length and the value inside " ++ constructWithOneValueDescriptionDefinite "the given" wrapper.wrap.description ++ "." ]
                                         }
                                         checkInfo.fnRange
-                                        (replaceBySubExpressionFix wrapCall.nodeRange wrapCall.firstArg
-                                            ++ [ Fix.replaceRangeBy checkInfo.fnRange
-                                                    (qualifiedToString (qualify Fn.List.repeat checkInfo))
-                                               , Fix.insertAt checkInfo.parentRange.start
-                                                    (qualifiedToString (qualify wrapper.wrap.fn checkInfo)
-                                                        ++ " ("
-                                                    )
-                                               , Fix.insertAt checkInfo.parentRange.end ")"
-                                               ]
+                                        (Fix.replaceRangeBy checkInfo.fnRange
+                                            (qualifiedToString (qualify Fn.List.repeat checkInfo))
+                                            :: Fix.insertAt checkInfo.parentRange.start
+                                                (qualifiedToString (qualify wrapper.wrap.fn checkInfo) ++ " (")
+                                            :: Fix.insertAt checkInfo.parentRange.end ")"
+                                            :: replaceBySubExpressionFix wrapCall.nodeRange wrapCall.firstArg
                                         )
                                     )
 
@@ -11741,7 +13279,7 @@ emptiableFlatRepeatChecks : TypeProperties (EmptiableProperties ConstantProperti
 emptiableFlatRepeatChecks emptiable checkInfo =
     (case secondArg checkInfo of
         Just emptiableArg ->
-            if emptiable.empty.specific.is (extractInferResources checkInfo) emptiableArg then
+            if emptiable.empty.specific.is (extractNormalizeResources checkInfo) emptiableArg then
                 Just
                     (Rule.errorWithFix
                         { message = qualifiedToString checkInfo.fn ++ " with " ++ emptiable.empty.specific.description ++ " will result in " ++ emptiable.empty.specific.description
@@ -12040,7 +13578,7 @@ indexAccessChecks collection checkInfo n =
     else
         case secondArg checkInfo of
             Just arg ->
-                (case collection.elements.get (extractInferResources checkInfo) arg of
+                (case collection.elements.get (extractNormalizeResources checkInfo) arg of
                     Just literalElements ->
                         case List.drop n literalElements.known |> List.head of
                             Just element ->
@@ -12050,10 +13588,9 @@ indexAccessChecks collection checkInfo n =
                                         , details = [ "You can replace this call by Just the targeted element." ]
                                         }
                                         checkInfo.fnRange
-                                        (replaceBySubExpressionFix (Node.range arg) element
-                                            ++ [ Fix.replaceRangeBy (Range.combine [ checkInfo.fnRange, Node.range checkInfo.firstArg ])
-                                                    (qualifiedToString (qualify Fn.Maybe.justVariant checkInfo))
-                                               ]
+                                        (Fix.replaceRangeBy (Range.combine [ checkInfo.fnRange, Node.range checkInfo.firstArg ])
+                                            (qualifiedToString (qualify Fn.Maybe.justVariant checkInfo))
+                                            :: replaceBySubExpressionFix (Node.range arg) element
                                         )
                                     )
 
@@ -12203,7 +13740,7 @@ operationOverridesPreviousOperationWithEqualFirstArgCheck config =
     { call =
         \checkInfo ->
             case
-                Maybe.andThen (AstHelpers.getSpecificFnCall checkInfo.fn checkInfo)
+                Maybe.andThen (AstHelpers.getSpecificUnreducedFnCall checkInfo.fn checkInfo.lookupTable)
                     (fullyAppliedLastArg checkInfo)
             of
                 Nothing ->
@@ -12287,7 +13824,7 @@ setOnKnownElementChecks :
 setOnKnownElementChecks collection checkInfo n replacementArgRange =
     case thirdArg checkInfo of
         Just collectionArg ->
-            case collection.elements.get (extractInferResources checkInfo) collectionArg of
+            case collection.elements.get (extractNormalizeResources checkInfo) collectionArg of
                 Just literalElements ->
                     case List.drop n literalElements.known |> List.head of
                         Just element ->
@@ -12297,8 +13834,8 @@ setOnKnownElementChecks collection checkInfo n replacementArgRange =
                                     , details = [ "You can directly replace the element at the given index in the " ++ collection.represents ++ "." ]
                                     }
                                     checkInfo.fnRange
-                                    (keepOnlyFix { parentRange = checkInfo.parentRange, keep = Node.range collectionArg }
-                                        ++ [ Fix.replaceRangeBy (Node.range element) (checkInfo.extractSourceCode replacementArgRange) ]
+                                    (Fix.replaceRangeBy (Node.range element) (checkInfo.extractSourceCode replacementArgRange)
+                                        :: keepOnlyFix { parentRange = checkInfo.parentRange, keep = Node.range collectionArg }
                                     )
                                 )
 
@@ -12389,12 +13926,11 @@ dropOnLargerConstructionFromListLiteralWillRemoveTheseElementsCheck config const
                                     , details = [ "You can remove the first " ++ String.fromInt config.dropCount ++ " elements from the " ++ constructionFromListOnLiteralDescription constructibleFromList.fromList ++ "." ]
                                     }
                                     checkInfo.fnRange
-                                    (keepOnlyFix { parentRange = checkInfo.parentRange, keep = Node.range lastArg }
-                                        ++ [ Fix.removeRange
-                                                { start = startWithoutBoundary fromListLiteral.literalRange
-                                                , end = elementAfterDroppedRange.start
-                                                }
-                                           ]
+                                    (Fix.removeRange
+                                        { start = startWithoutBoundary fromListLiteral.literalRange
+                                        , end = elementAfterDroppedRange.start
+                                        }
+                                        :: keepOnlyFix { parentRange = checkInfo.parentRange, keep = Node.range lastArg }
                                     )
                                 )
 
@@ -12453,27 +13989,27 @@ wrapperMapNChecks wrapper checkInfo =
                         , details = [ "You can replace this call by " ++ wrapFnDescription ++ " with the function applied to the values inside each " ++ constructWithOneValueDescriptionWithoutArticle wrapper.wrap.description ++ "." ]
                         }
                         checkInfo.fnRange
-                        (keepOnlyFix
-                            { parentRange = Range.combine [ checkInfo.fnRange, Node.range checkInfo.firstArg ]
-                            , keep = Node.range checkInfo.firstArg
-                            }
+                        ((case checkInfo.callStyle of
+                            CallStyle.Pipe CallStyle.LeftToRight ->
+                                [ Fix.insertAt checkInfo.parentRange.end
+                                    (" |> " ++ qualifiedToString (qualify wrapper.wrap.fn checkInfo))
+                                ]
+
+                            CallStyle.Pipe CallStyle.RightToLeft ->
+                                [ Fix.insertAt checkInfo.parentRange.start
+                                    (qualifiedToString (qualify wrapper.wrap.fn checkInfo) ++ " <| ")
+                                ]
+
+                            CallStyle.Application ->
+                                [ Fix.insertAt checkInfo.parentRange.end ")"
+                                , Fix.insertAt checkInfo.parentRange.start (qualifiedToString (qualify wrapper.wrap.fn checkInfo) ++ " (")
+                                ]
+                         )
+                            ++ keepOnlyFix
+                                { parentRange = Range.combine [ checkInfo.fnRange, Node.range checkInfo.firstArg ]
+                                , keep = Node.range checkInfo.firstArg
+                                }
                             ++ List.concatMap (\wrap -> replaceBySubExpressionFix wrap.nodeRange wrap.value) wraps
-                            ++ (case checkInfo.callStyle of
-                                    CallStyle.Pipe CallStyle.LeftToRight ->
-                                        [ Fix.insertAt checkInfo.parentRange.end
-                                            (" |> " ++ qualifiedToString (qualify wrapper.wrap.fn checkInfo))
-                                        ]
-
-                                    CallStyle.Pipe CallStyle.RightToLeft ->
-                                        [ Fix.insertAt checkInfo.parentRange.start
-                                            (qualifiedToString (qualify wrapper.wrap.fn checkInfo) ++ " <| ")
-                                        ]
-
-                                    CallStyle.Application ->
-                                        [ Fix.insertAt checkInfo.parentRange.end ")"
-                                        , Fix.insertAt checkInfo.parentRange.start (qualifiedToString (qualify wrapper.wrap.fn checkInfo) ++ " (")
-                                        ]
-                               )
                         )
                     )
 
@@ -12540,8 +14076,8 @@ mapNOrFirstEmptyConstructionChecks emptiable checkInfo =
                                 { description =
                                     "always with " ++ typeSubsetDescriptionDefinite "the first" emptiable.empty
                                 , fix =
-                                    replaceBySubExpressionFix checkInfo.parentRange emptyAndBefore.found
-                                        ++ [ Fix.insertAt checkInfo.parentRange.start (qualifiedToString (qualify Fn.Basics.always checkInfo) ++ " ") ]
+                                    Fix.insertAt checkInfo.parentRange.start (qualifiedToString (qualify Fn.Basics.always checkInfo) ++ " ")
+                                        :: replaceBySubExpressionFix checkInfo.parentRange emptyAndBefore.found
                                 }
 
                             -- multiple args curried
@@ -12554,10 +14090,9 @@ mapNOrFirstEmptyConstructionChecks emptiable checkInfo =
                                 { description =
                                     lambdaStart ++ "with " ++ typeSubsetDescriptionDefinite "the first" emptiable.empty
                                 , fix =
-                                    replaceBySubExpressionFix checkInfo.parentRange emptyAndBefore.found
-                                        ++ [ Fix.insertAt checkInfo.parentRange.start ("(" ++ lambdaStart)
-                                           , Fix.insertAt checkInfo.parentRange.end ")"
-                                           ]
+                                    Fix.insertAt checkInfo.parentRange.start ("(" ++ lambdaStart)
+                                        :: Fix.insertAt checkInfo.parentRange.end ")"
+                                        :: replaceBySubExpressionFix checkInfo.parentRange emptyAndBefore.found
                                 }
                 in
                 Just
@@ -12857,7 +14392,10 @@ onSpecificFnCallCanBeCombinedCheck config =
     in
     { call =
         \checkInfo ->
-            case Maybe.andThen (\lastArg -> AstHelpers.getSpecificFnCall config.earlierFn checkInfo lastArg) (fullyAppliedLastArg checkInfo) of
+            case
+                Maybe.andThen (\lastArg -> AstHelpers.getSpecificUnreducedFnCall config.earlierFn checkInfo.lookupTable lastArg)
+                    (fullyAppliedLastArg checkInfo)
+            of
                 Just fromFnCall ->
                     if laterInitArgsAreValidForOperation (listFilledInit ( checkInfo.firstArg, checkInfo.argsAfterFirst )) checkInfo then
                         Just
@@ -13043,7 +14581,7 @@ pipelineChecks checkInfo =
 fullyAppliedLambdaInPipelineChecks : { nodeRange : Range, firstArgument : Node Expression, function : Node Expression } -> Maybe (Error {})
 fullyAppliedLambdaInPipelineChecks checkInfo =
     case Node.value checkInfo.function of
-        Expression.ParenthesizedExpression (Node lambdaRange (Expression.LambdaExpression lambda)) ->
+        Expression.ParenthesizedExpression (Node _ (Expression.LambdaExpression lambda)) ->
             case Node.value (AstHelpers.removeParens checkInfo.firstArgument) of
                 Expression.OperatorApplication "|>" _ _ _ ->
                     Nothing
@@ -13053,9 +14591,9 @@ fullyAppliedLambdaInPipelineChecks checkInfo =
 
                 _ ->
                     appliedLambdaError
-                        { nodeRange = checkInfo.nodeRange
-                        , lambdaRange = lambdaRange
-                        , lambda = lambda
+                        { lambda = lambda
+                        , lambdaWithParens = Node.range checkInfo.function
+                        , firstArgument = checkInfo.firstArgument
                         }
 
         _ ->
@@ -13720,10 +15258,7 @@ unnecessaryCallOnSpecificFnCallCheck specificFn checkInfo =
                             ]
                         }
                         checkInfo.fnRange
-                        (replaceBySubExpressionFix
-                            checkInfo.parentRange
-                            fullyAppliedLastArgNode
-                        )
+                        (replaceBySubExpressionFix checkInfo.parentRange fullyAppliedLastArgNode)
                     )
 
             else
@@ -13820,7 +15355,7 @@ callOnEmptyReturnsCheck :
 callOnEmptyReturnsCheck config collection checkInfo =
     case fullyAppliedLastArg checkInfo of
         Just lastArg ->
-            if isInTypeSubset collection.empty (extractInferResources checkInfo) lastArg then
+            if isInTypeSubset collection.empty (extractNormalizeResources checkInfo) lastArg then
                 let
                     resultDescription : String
                     resultDescription =
@@ -14006,11 +15541,10 @@ onWrappedReturnsJustItsValueCheck wrapper =
                                     , details = [ "You can replace this call by Just the value inside " ++ constructWithOneValueDescriptionDefinite "the" wrapper.wrap.description ++ "." ]
                                     }
                                     checkInfo.fnRange
-                                    (Fix.removeRange { start = (Node.range withWrapArg).end, end = checkInfo.parentRange.end }
+                                    (Fix.replaceRangeBy { start = checkInfo.parentRange.start, end = (Node.range withWrapArg).start }
+                                        (qualifiedToString (qualify Fn.Maybe.justVariant checkInfo) ++ " ")
+                                        :: Fix.removeRange { start = (Node.range withWrapArg).end, end = checkInfo.parentRange.end }
                                         :: List.concatMap (\wrap -> replaceBySubExpressionFix wrap.nodeRange wrap.value) wraps
-                                        ++ [ Fix.replaceRangeBy { start = checkInfo.parentRange.start, end = (Node.range withWrapArg).start }
-                                                (qualifiedToString (qualify Fn.Maybe.justVariant checkInfo) ++ " ")
-                                           ]
                                     )
                                 )
 
@@ -14201,7 +15735,7 @@ collectionIntersectChecks collection =
         [ unnecessaryOnEmptyCheck collection
         , intoFnCheckOnlyCall
             (\checkInfo ->
-                if collection.empty.specific.is (extractInferResources checkInfo) checkInfo.firstArg then
+                if collection.empty.specific.is (extractNormalizeResources checkInfo) checkInfo.firstArg then
                     Just
                         (alwaysResultsInUnparenthesizedConstantError
                             (qualifiedToString checkInfo.fn ++ " on " ++ collection.empty.specific.description)
@@ -14218,7 +15752,7 @@ collectionIntersectChecks collection =
 
 collectionDiffChecks : TypeProperties (CollectionProperties (EmptiableProperties ConstantProperties otherProperties)) -> CallCheckInfo -> Maybe (Error {})
 collectionDiffChecks collection checkInfo =
-    if collection.empty.specific.is (extractInferResources checkInfo) checkInfo.firstArg then
+    if collection.empty.specific.is (extractNormalizeResources checkInfo) checkInfo.firstArg then
         Just
             (alwaysResultsInUnparenthesizedConstantError
                 (qualifiedToString checkInfo.fn ++ " " ++ emptyAsString checkInfo collection)
@@ -14229,7 +15763,7 @@ collectionDiffChecks collection checkInfo =
     else
         case secondArg checkInfo of
             Just collectionArg ->
-                if isInTypeSubset collection.empty (extractInferResources checkInfo) collectionArg then
+                if isInTypeSubset collection.empty (extractNormalizeResources checkInfo) collectionArg then
                     Just
                         (Rule.errorWithFix
                             { message = "Unnecessary " ++ qualifiedToString checkInfo.fn ++ " with " ++ emptyAsString checkInfo collection
@@ -14411,32 +15945,39 @@ collectionUnionWithLiteralsChecks config operationInfo collection checkInfo =
         Just literalListSecond ->
             case fromListGetLiteral collection checkInfo.lookupTable operationInfo.first of
                 Just literalListFirst ->
-                    let
-                        fromListLiteralDescription : String
-                        fromListLiteralDescription =
-                            constructionFromListOnLiteralDescription collection.fromList
-                    in
-                    Just
-                        (Rule.errorWithFix
-                            { message = operationInfo.operation ++ " on " ++ fromListLiteralDescription ++ "s can be turned into a single " ++ fromListLiteralDescription
-                            , details = [ "Try moving all the elements into a single " ++ fromListLiteralDescription ++ "." ]
-                            }
-                            operationInfo.operationRange
-                            (if config.leftElementsStayOnTheLeft then
-                                keepOnlyFix { parentRange = checkInfo.parentRange, keep = Node.range operationInfo.second }
-                                    ++ [ Fix.insertAt
-                                            (rangeWithoutBoundaries literalListSecond.literalRange).start
-                                            (checkInfo.extractSourceCode (rangeWithoutBoundaries literalListFirst.literalRange) ++ ",")
-                                       ]
+                    if
+                        (literalListFirst.literalRange.start.row == literalListSecond.literalRange.end.row)
+                            || ((literalListFirst.literalRange.start.row /= literalListFirst.literalRange.end.row)
+                                    && (literalListSecond.literalRange.start.row /= literalListSecond.literalRange.end.row)
+                               )
+                    then
+                        let
+                            fromListLiteralDescription : String
+                            fromListLiteralDescription =
+                                constructionFromListOnLiteralDescription collection.fromList
+                        in
+                        Just
+                            (Rule.errorWithFix
+                                { message = operationInfo.operation ++ " on " ++ fromListLiteralDescription ++ "s can be turned into a single " ++ fromListLiteralDescription
+                                , details = [ "Try moving all the elements into a single " ++ fromListLiteralDescription ++ "." ]
+                                }
+                                operationInfo.operationRange
+                                (if config.leftElementsStayOnTheLeft then
+                                    Fix.insertAt
+                                        (rangeWithoutBoundaries literalListSecond.literalRange).start
+                                        (checkInfo.extractSourceCode (rangeWithoutBoundaries literalListFirst.literalRange) ++ ",")
+                                        :: keepOnlyFix { parentRange = checkInfo.parentRange, keep = Node.range operationInfo.second }
 
-                             else
-                                keepOnlyFix { parentRange = checkInfo.parentRange, keep = Node.range operationInfo.first }
-                                    ++ [ Fix.insertAt
-                                            (rangeWithoutBoundaries literalListFirst.literalRange).start
-                                            (checkInfo.extractSourceCode (rangeWithoutBoundaries literalListSecond.literalRange) ++ ",")
-                                       ]
+                                 else
+                                    Fix.insertAt
+                                        (rangeWithoutBoundaries literalListFirst.literalRange).start
+                                        (checkInfo.extractSourceCode (rangeWithoutBoundaries literalListSecond.literalRange) ++ ",")
+                                        :: keepOnlyFix { parentRange = checkInfo.parentRange, keep = Node.range operationInfo.first }
+                                )
                             )
-                        )
+
+                    else
+                        Nothing
 
                 Nothing ->
                     Nothing
@@ -14460,10 +16001,9 @@ collectionInsertChecks collection =
                                     , details = [ "You can replace this call by " ++ qualifiedToString collection.wrap.fn ++ "." ]
                                     }
                                     checkInfo.fnRange
-                                    (replaceBySubExpressionFix checkInfo.parentRange checkInfo.firstArg
-                                        ++ [ Fix.insertAt checkInfo.parentRange.start
-                                                (qualifiedToString (qualify collection.wrap.fn checkInfo) ++ " ")
-                                           ]
+                                    (Fix.insertAt checkInfo.parentRange.start
+                                        (qualifiedToString (qualify collection.wrap.fn checkInfo) ++ " ")
+                                        :: replaceBySubExpressionFix checkInfo.parentRange checkInfo.firstArg
                                     )
                                 )
 
@@ -14478,7 +16018,7 @@ collectionInsertChecks collection =
 
 collectionIsEmptyChecks : TypeProperties (CollectionProperties (EmptiableProperties empty otherProperties)) -> CallCheckInfo -> Maybe (Error {})
 collectionIsEmptyChecks collection checkInfo =
-    case collection.elements.determineCount (extractInferResources checkInfo) checkInfo.firstArg of
+    case collection.elements.determineCount (extractNormalizeResources checkInfo) checkInfo.firstArg of
         Just (Exactly 0) ->
             Just
                 (resultsInConstantError
@@ -14501,7 +16041,7 @@ collectionIsEmptyChecks collection checkInfo =
 
 collectionSizeChecks : TypeProperties (CollectionProperties otherProperties) -> CallCheckInfo -> Maybe (Error {})
 collectionSizeChecks collection checkInfo =
-    case collection.elements.determineCount (extractInferResources checkInfo) checkInfo.firstArg of
+    case collection.elements.determineCount (extractNormalizeResources checkInfo) checkInfo.firstArg of
         Just (Exactly size) ->
             Just
                 (Rule.errorWithFix
@@ -14569,8 +16109,8 @@ wrapperFromListSingletonChecks wrapper =
                             , details = [ "You can replace this call by " ++ qualifiedToString wrapper.wrap.fn ++ " with the value inside the singleton list." ]
                             }
                             checkInfo.fnRange
-                            (replaceBySubExpressionFix (Node.range checkInfo.firstArg) listSingletonValue
-                                ++ [ Fix.replaceRangeBy checkInfo.fnRange (qualifiedToString (qualify wrapper.wrap.fn checkInfo)) ]
+                            (Fix.replaceRangeBy checkInfo.fnRange (qualifiedToString (qualify wrapper.wrap.fn checkInfo))
+                                :: replaceBySubExpressionFix (Node.range checkInfo.firstArg) listSingletonValue
                             )
                         )
     , composition =
@@ -14581,8 +16121,7 @@ wrapperFromListSingletonChecks wrapper =
                         { message = qualifiedToString checkInfo.later.fn ++ " on a singleton list will result in " ++ qualifiedToString wrapper.wrap.fn ++ " with the value inside"
                         , details = [ "You can replace this call by " ++ qualifiedToString wrapper.wrap.fn ++ "." ]
                         }
-                    , fix =
-                        compositionReplaceByFnFix wrapper.wrap.fn checkInfo
+                    , fix = compositionReplaceByFnFix wrapper.wrap.fn checkInfo
                     }
 
             else
@@ -14817,6 +16356,21 @@ type alias IfCheckInfo =
     { lookupTable : ModuleNameLookupTable
     , inferredConstants : ( Infer.Inferred, List Infer.Inferred )
     , importLookup : ImportLookup
+    , importCustomTypes :
+        Dict
+            ModuleName
+            (Dict
+                String
+                { variantNames : Set String
+                , allParametersAreUsedInVariants : Bool
+                }
+            )
+    , moduleCustomTypes :
+        Dict
+            String
+            { variantNames : Set String
+            , allParametersAreUsedInVariants : Bool
+            }
     , moduleBindings : Set String
     , localBindings : RangeDict (Set String)
     , nodeRange : Range
@@ -14888,10 +16442,9 @@ ifChecks checkInfo =
                                         , details = [ "The expression can be replaced by the condition wrapped by `not`." ]
                                         }
                                         (targetIfKeyword checkInfo.nodeRange)
-                                        (replaceBySubExpressionFix checkInfo.nodeRange checkInfo.condition
-                                            ++ [ Fix.insertAt checkInfo.nodeRange.start
-                                                    (qualifiedToString (qualify Fn.Basics.not checkInfo) ++ " ")
-                                               ]
+                                        (Fix.insertAt checkInfo.nodeRange.start
+                                            (qualifiedToString (qualify Fn.Basics.not checkInfo) ++ " ")
+                                            :: replaceBySubExpressionFix checkInfo.nodeRange checkInfo.condition
                                         )
                                     )
 
@@ -15376,7 +16929,7 @@ caseVariantOfWithUnreachableCasesChecks config checkInfo =
                 , cases : List { patternRange : Range, name : String, attachments : List (Node Pattern), expressionNode : Node Expression }
                 }
         maybeVariantCaseOf =
-            case AstHelpers.getValueOrFnOrFnCall checkInfo config.casedExpressionNode of
+            case AstHelpers.getUnreducedValueOrFnOrFnCall config.casedExpressionNode of
                 Nothing ->
                     Nothing
 
@@ -16087,10 +17640,10 @@ fullyAppliedPrefixOperatorError checkInfo =
 -- APPLIED LAMBDA
 
 
-appliedLambdaError : { nodeRange : Range, lambdaRange : Range, lambda : Expression.Lambda } -> Maybe (Error {})
+appliedLambdaError : { lambdaWithParens : Range, lambda : Expression.Lambda, firstArgument : Node Expression } -> Maybe (Error {})
 appliedLambdaError checkInfo =
     case checkInfo.lambda.args of
-        (Node unitRange Pattern.UnitPattern) :: otherPatterns ->
+        (Node patternRange Pattern.UnitPattern) :: otherPatterns ->
             Just
                 (Rule.errorWithFix
                     { message = "Unnecessary unit argument"
@@ -16099,18 +17652,11 @@ appliedLambdaError checkInfo =
                         , "Maybe this was made in attempt to make the computation lazy, but in practice the function will be evaluated eagerly."
                         ]
                     }
-                    unitRange
-                    (case otherPatterns of
-                        [] ->
-                            replaceBySubExpressionFix checkInfo.nodeRange checkInfo.lambda.expression
-
-                        secondPattern :: _ ->
-                            Fix.removeRange { start = unitRange.start, end = (Node.range secondPattern).start }
-                                :: keepOnlyAndParenthesizeFix { parentRange = checkInfo.nodeRange, keep = checkInfo.lambdaRange }
-                    )
+                    patternRange
+                    (appliedLambdaErrorFix patternRange otherPatterns checkInfo)
                 )
 
-        (Node allRange Pattern.AllPattern) :: otherPatterns ->
+        (Node patternRange Pattern.AllPattern) :: otherPatterns ->
             Just
                 (Rule.errorWithFix
                     { message = "Unnecessary wildcard argument argument"
@@ -16119,19 +17665,27 @@ appliedLambdaError checkInfo =
                         , "Maybe this was made in attempt to make the computation lazy, but in practice the function will be evaluated eagerly."
                         ]
                     }
-                    allRange
-                    (case otherPatterns of
-                        [] ->
-                            replaceBySubExpressionFix checkInfo.nodeRange checkInfo.lambda.expression
-
-                        secondPattern :: _ ->
-                            Fix.removeRange { start = allRange.start, end = (Node.range secondPattern).start }
-                                :: keepOnlyAndParenthesizeFix { parentRange = checkInfo.nodeRange, keep = checkInfo.lambdaRange }
-                    )
+                    patternRange
+                    (appliedLambdaErrorFix patternRange otherPatterns checkInfo)
                 )
 
         _ ->
             Nothing
+
+
+appliedLambdaErrorFix :
+    Range
+    -> List (Node Pattern)
+    -> { lambdaWithParens : Range, lambda : Expression.Lambda, firstArgument : Node Expression }
+    -> List Fix
+appliedLambdaErrorFix patternRange otherPatterns checkInfo =
+    case otherPatterns of
+        [] ->
+            replaceBySubExpressionFix (Range.combine [ checkInfo.lambdaWithParens, Node.range checkInfo.firstArgument ]) checkInfo.lambda.expression
+
+        secondPattern :: _ ->
+            Fix.removeRange { start = patternRange.start, end = (Node.range secondPattern).start }
+                :: keepOnlyFix { parentRange = Range.combine [ checkInfo.lambdaWithParens, Node.range checkInfo.firstArgument ], keep = checkInfo.lambdaWithParens }
 
 
 
@@ -16333,11 +17887,10 @@ accessingRecordCompositionChecks checkInfo =
                                                                 , details = [ "This composition will construct a record where we known the value of the field " ++ wrapInBackticks accessFunctionFieldName ++ ". This exact field is then immediately accessed which means you can replace this composition by `always` with that value." ]
                                                                 }
                                                                 (Node.range checkInfo.later.node)
-                                                                (replaceBySubExpressionFix (Node.range checkInfo.earlier.node) accessedFieldExpressionNode
-                                                                    ++ [ Fix.insertAt (Node.range checkInfo.earlier.node).start
-                                                                            (qualifiedToString (qualify Fn.Basics.always checkInfo) ++ " ")
-                                                                       , Fix.removeRange checkInfo.later.removeRange
-                                                                       ]
+                                                                (Fix.insertAt (Node.range checkInfo.earlier.node).start
+                                                                    (qualifiedToString (qualify Fn.Basics.always checkInfo) ++ " ")
+                                                                    :: Fix.removeRange checkInfo.later.removeRange
+                                                                    :: replaceBySubExpressionFix (Node.range checkInfo.earlier.node) accessedFieldExpressionNode
                                                                 )
                                                             )
 
@@ -16571,6 +18124,21 @@ keepOnlyFix config =
     ]
 
 
+keepOnlyAndSurroundWithFix : { parentRange : Range, keep : Range, left : String, right : String } -> List Fix
+keepOnlyAndSurroundWithFix config =
+    [ Fix.replaceRangeBy
+        { start = config.parentRange.start
+        , end = config.keep.start
+        }
+        config.left
+    , Fix.replaceRangeBy
+        { start = config.keep.end
+        , end = config.parentRange.end
+        }
+        config.right
+    ]
+
+
 keepOnlyAndParenthesizeFix : { parentRange : Range, keep : Range } -> List Fix
 keepOnlyAndParenthesizeFix config =
     [ Fix.replaceRangeBy { start = config.parentRange.start, end = config.keep.start } "("
@@ -16585,6 +18153,66 @@ replaceBySubExpressionFix outerRange (Node exprRange exprValue) =
 
     else
         keepOnlyFix { parentRange = outerRange, keep = exprRange }
+
+
+replaceBy2SubExpressionsFix : Range -> Node Expression -> Node Expression -> List Fix
+replaceBy2SubExpressionsFix parentRange subA subB =
+    let
+        ( leftSub, rightSub ) =
+            case Range.compareLocations (Node.range subA).start (Node.range subB).end of
+                LT ->
+                    ( subA, subB )
+
+                _ ->
+                    ( subB, subA )
+
+        leftSubNeedsParens : Bool
+        leftSubNeedsParens =
+            needsParens (Node.value leftSub)
+
+        rightSubNeedsParens : Bool
+        rightSubNeedsParens =
+            needsParens (Node.value rightSub)
+    in
+    [ Fix.replaceRangeBy
+        { start = parentRange.start
+        , end = (Node.range leftSub).start
+        }
+        (if leftSubNeedsParens then
+            "("
+
+         else
+            ""
+        )
+    , Fix.replaceRangeBy
+        { start = (Node.range leftSub).end
+        , end = (Node.range rightSub).start
+        }
+        ((if leftSubNeedsParens then
+            ")"
+
+          else
+            ""
+         )
+            ++ " "
+            ++ (if rightSubNeedsParens then
+                    "("
+
+                else
+                    ""
+               )
+        )
+    , Fix.replaceRangeBy
+        { start = (Node.range rightSub).end
+        , end = parentRange.end
+        }
+        (if rightSubNeedsParens then
+            ")"
+
+         else
+            ""
+        )
+    ]
 
 
 replaceSubExpressionByRecordAccessFix : String -> Node Expression -> List Fix
@@ -17380,7 +19008,7 @@ trueInAllBranches isSpecific baseExpressionNode =
                 False
 
 
-expressionToComparable : Infer.Resources a -> Node Expression -> Maybe ComparableExpression
+expressionToComparable : Normalize.Resources a -> Node Expression -> Maybe ComparableExpression
 expressionToComparable resources expressionNode =
     normalizedExpressionToComparableWithSign 1 (Normalize.normalize resources expressionNode)
 

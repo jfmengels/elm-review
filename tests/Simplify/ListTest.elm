@@ -499,7 +499,7 @@ a = List.concat << List.singleton
 a = identity
 """
                         ]
-        , test "should report List.concat that only contains list literals" <|
+        , test "should report List.concat that only contains list literals if they're all on the same line" <|
             \() ->
                 """module A exposing (..)
 a = List.concat [ [ 1, 2, 3 ], [ 4, 5, 6] ]
@@ -513,6 +513,38 @@ a = List.concat [ [ 1, 2, 3 ], [ 4, 5, 6] ]
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 a = [  1, 2, 3 ,  4, 5, 6 ]
+"""
+                        ]
+        , test "should report List.concat that only contains list literals if they're all on different lines" <|
+            \() ->
+                """module A exposing (..)
+a = List.concat
+    [ [ 1
+      , 2
+      , 3
+      ]
+    , [ 4
+      , 5
+      , 6
+      ]
+    ]
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Expression could be simplified to be a single List"
+                            , details = [ "Try moving all the elements into a single list." ]
+                            , under = "List.concat"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = [  1
+      , 2
+      , 3
+
+    ,  4
+      , 5
+      , 6
+    ]
 """
                         ]
         , test "should report List.concat that only contains list literals, using (<|)" <|
@@ -531,6 +563,17 @@ a = List.concat <| [ [ 1, 2, 3 ], [ 4, 5, 6 ] ]
 a = [  1, 2, 3 ,  4, 5, 6  ]
 """
                         ]
+        , test "should not report List.concat that only contains list literals if sub-lists are on different lines (potential intent to organize sub-lists)" <|
+            \() ->
+                """module A exposing (..)
+a =
+    List.concat
+        [ [ 1, 2, 3 ]
+        , [ 4, 5, 6]
+        ]
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectNoErrors
         , test "should report List.concat that only contains list literals, using (|>)" <|
             \() ->
                 """module A exposing (..)
@@ -1661,6 +1704,76 @@ a = List.member 0 [ 2, 3, 1 ]
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 a = False
+"""
+                        ]
+        , test "should not replace List.member 2 (Set.toList set) when expectNaN is enabled" <|
+            \() ->
+                """module A exposing (..)
+import Set
+a = List.member 2 (Set.toList set)
+"""
+                    |> Review.Test.run ruleExpectingNaN
+                    |> Review.Test.expectNoErrors
+        , test "should not replace List.member 2 << Set.toList when expectNaN is enabled" <|
+            \() ->
+                """module A exposing (..)
+import Set
+a = List.member 2 << Set.toList
+"""
+                    |> Review.Test.run ruleExpectingNaN
+                    |> Review.Test.expectNoErrors
+        , test "should replace List.member x (Set.toList set) by Set.member x set when expectNaN is not enabled" <|
+            \() ->
+                """module A exposing (..)
+import Set
+a = List.member x (Set.toList set)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "To check for a set member, you don't need to convert to a list"
+                            , details = [ "Using Set.member directly is meant for this exact purpose and will also be faster." ]
+                            , under = "List.member"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Set
+a = Set.member x set
+"""
+                        ]
+        , test "should replace List.member x << Set.toList by Set.member x when expectNaN is not enabled" <|
+            \() ->
+                """module A exposing (..)
+import Set
+a = List.member x << Set.toList
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "To check for a set member, you don't need to convert to a list"
+                            , details = [ "Using Set.member directly is meant for this exact purpose and will also be faster." ]
+                            , under = "List.member"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Set
+a = Set.member x
+"""
+                        ]
+        , test "should replace Set.toList >> List.member x by Set.member x when expectNaN is not enabled" <|
+            \() ->
+                """module A exposing (..)
+import Set
+a = Set.toList >> List.member x
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "To check for a set member, you don't need to convert to a list"
+                            , details = [ "Using Set.member directly is meant for this exact purpose and will also be faster." ]
+                            , under = "List.member"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Set
+a = Set.member x
 """
                         ]
         ]
@@ -3740,6 +3853,7 @@ listMinimumTests =
                 """module A exposing (..)
 a = List.minimum
 b = List.minimum list
+c = List.minimum (List.range start end)
 """
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectNoErrors
@@ -3831,6 +3945,54 @@ a = List.minimum << List.singleton
 a = Just
 """
                         ]
+        , test "should replace List.minimum (List.range 2 3) by Just 2" <|
+            \() ->
+                """module A exposing (..)
+a = List.minimum (List.range 2 3)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.minimum on a non-empty List.range results in Just its start number"
+                            , details = [ "You can replace this call by the first argument given to the List.range call, wrapped in Just." ]
+                            , under = "List.minimum"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = Just 2
+"""
+                        ]
+        , test "should replace List.minimum <| List.range 2 3 by Just <| 2" <|
+            \() ->
+                """module A exposing (..)
+a = List.minimum <| List.range 2 3
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.minimum on a non-empty List.range results in Just its start number"
+                            , details = [ "You can replace this call by the first argument given to the List.range call, wrapped in Just." ]
+                            , under = "List.minimum"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = Just <| 2
+"""
+                        ]
+        , test "should replace List.range 2 3 |> List.minimum by 2 |> Just" <|
+            \() ->
+                """module A exposing (..)
+a = List.range 2 3 |> List.minimum
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.minimum on a non-empty List.range results in Just its start number"
+                            , details = [ "You can replace this call by the first argument given to the List.range call, wrapped in Just." ]
+                            , under = "List.minimum"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = 2 |> Just
+"""
+                        ]
         ]
 
 
@@ -3842,6 +4004,7 @@ listMaximumTests =
                 """module A exposing (..)
 a = List.maximum
 b = List.maximum list
+c = List.maximum (List.range start end)
 """
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectNoErrors
@@ -3899,6 +4062,54 @@ a = List.maximum << List.singleton
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 a = Just
+"""
+                        ]
+        , test "should replace List.maximum (List.range 2 3) by Just 3" <|
+            \() ->
+                """module A exposing (..)
+a = List.maximum (List.range 2 3)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.maximum on a non-empty List.range results in Just its end number"
+                            , details = [ "You can replace this call by the second argument given to the List.range call, wrapped in Just." ]
+                            , under = "List.maximum"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = Just 3
+"""
+                        ]
+        , test "should replace List.maximum <| List.range 2 3 by Just <| 3" <|
+            \() ->
+                """module A exposing (..)
+a = List.maximum <| List.range 2 3
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.maximum on a non-empty List.range results in Just its end number"
+                            , details = [ "You can replace this call by the second argument given to the List.range call, wrapped in Just." ]
+                            , under = "List.maximum"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = Just <| 3
+"""
+                        ]
+        , test "should replace List.range 2 3 |> List.maximum by 3 |> Just" <|
+            \() ->
+                """module A exposing (..)
+a = List.range 2 3 |> List.maximum
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.maximum on a non-empty List.range results in Just its end number"
+                            , details = [ "You can replace this call by the second argument given to the List.range call, wrapped in Just." ]
+                            , under = "List.maximum"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = 3 |> Just
 """
                         ]
         ]
@@ -4120,6 +4331,240 @@ a = Array.toList >> List.foldl f x
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 a = Array.foldl f x
+"""
+                        ]
+        , test "should replace List.foldl (\\a s -> f a s) init (Dict.values dict) by Dict.foldl (\\_ a s -> f a s) init dict" <|
+            \() ->
+                """module A exposing (..)
+a = List.foldl (\\a s -> f a s) init (Dict.values dict)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "To fold over dict values, you don't need to convert to a list"
+                            , details =
+                                [ "You can replace these calls by Dict.foldl and ignore the first incoming value in the reduce function." ]
+                            , under = "List.foldl"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = Dict.foldl (\\_ a s -> f a s) init dict
+"""
+                        ]
+        , test "should replace List.foldl (\\a -> f a) init (Dict.values dict) by Dict.foldl (\\_ a -> f a) init dict" <|
+            \() ->
+                """module A exposing (..)
+a = List.foldl (\\a -> f a) init (Dict.values dict)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "To fold over dict values, you don't need to convert to a list"
+                            , details =
+                                [ "You can replace these calls by Dict.foldl and ignore the first incoming value in the reduce function." ]
+                            , under = "List.foldl"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = Dict.foldl (\\_ a -> f a) init dict
+"""
+                        ]
+        , test "should replace List.foldl (if c then \\a s -> f a else \\a -> f a) init (Dict.values dict) by Dict.foldl (if c then \\_ a s -> f a else \\_ a -> f a) init dict" <|
+            \() ->
+                """module A exposing (..)
+a = List.foldl (if c then \\a s -> f a else \\a -> f a) init (Dict.values dict)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "To fold over dict values, you don't need to convert to a list"
+                            , details =
+                                [ "You can replace these calls by Dict.foldl and ignore the first incoming value in the reduce function." ]
+                            , under = "List.foldl"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = Dict.foldl (if c then \\_ a s -> f a else \\_ a -> f a) init dict
+"""
+                        ]
+        , test "should replace List.foldl f init (Dict.values dict) by Dict.foldl (always f) init dict" <|
+            \() ->
+                """module A exposing (..)
+a = List.foldl f init (Dict.values dict)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "To fold over dict values, you don't need to convert to a list"
+                            , details =
+                                [ "You can replace these calls by Dict.foldl and ignore the first incoming value in the reduce function." ]
+                            , under = "List.foldl"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = Dict.foldl (always f) init dict
+"""
+                        ]
+        , test "should replace List.foldl (\\a s -> f a s) init << Dict.values by Dict.foldl (\\_ a s -> f a s) init" <|
+            \() ->
+                """module A exposing (..)
+a = List.foldl (\\a s -> f a s) init << Dict.values
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "To fold over dict values, you don't need to convert to a list"
+                            , details =
+                                [ "You can replace this composition by Dict.foldl and ignore the first incoming value in the reduce function." ]
+                            , under = "List.foldl"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = Dict.foldl (\\_ a s -> f a s) init
+"""
+                        ]
+        , test "should replace Dict.values >> List.foldl (\\a s -> f a s) init by Dict.foldl (\\_ a s -> f a s) init" <|
+            \() ->
+                """module A exposing (..)
+a = Dict.values >> List.foldl (\\a s -> f a s) init
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "To fold over dict values, you don't need to convert to a list"
+                            , details =
+                                [ "You can replace this composition by Dict.foldl and ignore the first incoming value in the reduce function." ]
+                            , under = "List.foldl"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = Dict.foldl (\\_ a s -> f a s) init
+"""
+                        ]
+        , test "should replace List.foldl (\\a s -> f a s) init (Dict.keys dict) by Dict.foldl (\\a _ s -> f a s) init dict" <|
+            \() ->
+                """module A exposing (..)
+a = List.foldl (\\a s -> f a s) init (Dict.keys dict)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "To fold over dict keys, you don't need to convert to a list"
+                            , details =
+                                [ "You can replace these calls by Dict.foldl and ignore the second incoming value in the reduce function." ]
+                            , under = "List.foldl"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = Dict.foldl (\\a _ s -> f a s) init dict
+"""
+                        ]
+        , test "should replace List.foldl f init (Dict.keys dict) by Dict.foldl (always f) init dict" <|
+            \() ->
+                """module A exposing (..)
+a = List.foldl f init (Dict.keys dict)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "To fold over dict keys, you don't need to convert to a list"
+                            , details =
+                                [ "You can replace these calls by Dict.foldl and ignore the second incoming value in the reduce function." ]
+                            , under = "List.foldl"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = Dict.foldl (always << f) init dict
+"""
+                        ]
+        , test "should replace List.foldl (\\a s -> f a s) init << Dict.keys by Dict.foldl (\\a _ s -> f a s) init" <|
+            \() ->
+                """module A exposing (..)
+a = List.foldl (\\a s -> f a s) init << Dict.keys
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "To fold over dict keys, you don't need to convert to a list"
+                            , details =
+                                [ "You can replace this composition by Dict.foldl and ignore the second incoming value in the reduce function." ]
+                            , under = "List.foldl"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = Dict.foldl (\\a _ s -> f a s) init
+"""
+                        ]
+        , test "should replace Dict.keys >> List.foldl (\\a s -> f a s) init by Dict.foldl (\\a _ s -> f a s) init" <|
+            \() ->
+                """module A exposing (..)
+a = Dict.keys >> List.foldl (\\a s -> f a s) init
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "To fold over dict keys, you don't need to convert to a list"
+                            , details =
+                                [ "You can replace this composition by Dict.foldl and ignore the second incoming value in the reduce function." ]
+                            , under = "List.foldl"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = Dict.foldl (\\a _ s -> f a s) init
+"""
+                        ]
+        , test "should replace List.foldl f x << List.reverse by List.foldr f x" <|
+            \() ->
+                """module A exposing (..)
+a = List.foldl f x << List.reverse
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "To fold a list, you don't need to reverse it"
+                            , details = [ "Using List.foldr directly is meant for this exact purpose and will also be faster." ]
+                            , under = "List.foldl"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.foldr f x
+"""
+                        ]
+        , test "should replace List.foldl f x (List.reverse list) by List.foldr f x list" <|
+            \() ->
+                """module A exposing (..)
+a = List.foldl f x (List.reverse list)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "To fold a list, you don't need to reverse it"
+                            , details = [ "Using List.foldr directly is meant for this exact purpose and will also be faster." ]
+                            , under = "List.foldl"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.foldr f x list
+"""
+                        ]
+        , test "should replace List.foldl (::) [] by List.reverse" <|
+            \() ->
+                """module A exposing (..)
+a = List.foldl (::) []
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.foldl (::) [] is the same as List.reverse"
+                            , details = [ "You can replace this call by List.reverse which is meant for this exact purpose." ]
+                            , under = "List.foldl"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.reverse
+"""
+                        ]
+        , test "should replace list |> List.foldl (::) [] by list |> List.reverse" <|
+            \() ->
+                """module A exposing (..)
+a = list |> List.foldl (::) []
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.foldl (::) [] is the same as List.reverse"
+                            , details = [ "You can replace this call by List.reverse which is meant for this exact purpose." ]
+                            , under = "List.foldl"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = list |> List.reverse
 """
                         ]
         , listFoldlSumTests
@@ -5163,6 +5608,471 @@ a = Array.toList >> List.foldr f x
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 a = Array.foldr f x
+"""
+                        ]
+        , test "should replace List.foldr (\\a s -> f a s) init (Dict.values dict) by Dict.foldr (\\_ a s -> f a s) init dict" <|
+            \() ->
+                """module A exposing (..)
+a = List.foldr (\\a s -> f a s) init (Dict.values dict)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "To fold over dict values, you don't need to convert to a list"
+                            , details =
+                                [ "You can replace these calls by Dict.foldr and ignore the first incoming value in the reduce function." ]
+                            , under = "List.foldr"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = Dict.foldr (\\_ a s -> f a s) init dict
+"""
+                        ]
+        , test "should replace List.foldr (\\a -> f a) init (Dict.values dict) by Dict.foldr (\\_ a -> f a) init dict" <|
+            \() ->
+                """module A exposing (..)
+a = List.foldr (\\a -> f a) init (Dict.values dict)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "To fold over dict values, you don't need to convert to a list"
+                            , details =
+                                [ "You can replace these calls by Dict.foldr and ignore the first incoming value in the reduce function." ]
+                            , under = "List.foldr"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = Dict.foldr (\\_ a -> f a) init dict
+"""
+                        ]
+        , test "should replace List.foldr (if c then \\a s -> f a else \\a -> f a) init (Dict.values dict) by Dict.foldr (if c then \\_ a s -> f a else \\_ a -> f a) init dict" <|
+            \() ->
+                """module A exposing (..)
+a = List.foldr (if c then \\a s -> f a else \\a -> f a) init (Dict.values dict)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "To fold over dict values, you don't need to convert to a list"
+                            , details =
+                                [ "You can replace these calls by Dict.foldr and ignore the first incoming value in the reduce function." ]
+                            , under = "List.foldr"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = Dict.foldr (if c then \\_ a s -> f a else \\_ a -> f a) init dict
+"""
+                        ]
+        , test "should replace List.foldr f init (Dict.values dict) by Dict.foldr (always f) init dict" <|
+            \() ->
+                """module A exposing (..)
+a = List.foldr f init (Dict.values dict)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "To fold over dict values, you don't need to convert to a list"
+                            , details =
+                                [ "You can replace these calls by Dict.foldr and ignore the first incoming value in the reduce function." ]
+                            , under = "List.foldr"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = Dict.foldr (always f) init dict
+"""
+                        ]
+        , test "should replace List.foldr (\\a s -> f a s) init << Dict.values by Dict.foldr (\\_ a s -> f a s) init" <|
+            \() ->
+                """module A exposing (..)
+a = List.foldr (\\a s -> f a s) init << Dict.values
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "To fold over dict values, you don't need to convert to a list"
+                            , details =
+                                [ "You can replace this composition by Dict.foldr and ignore the first incoming value in the reduce function." ]
+                            , under = "List.foldr"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = Dict.foldr (\\_ a s -> f a s) init
+"""
+                        ]
+        , test "should replace Dict.values >> List.foldr (\\a s -> f a s) init by Dict.foldr (\\_ a s -> f a s) init" <|
+            \() ->
+                """module A exposing (..)
+a = Dict.values >> List.foldr (\\a s -> f a s) init
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "To fold over dict values, you don't need to convert to a list"
+                            , details =
+                                [ "You can replace this composition by Dict.foldr and ignore the first incoming value in the reduce function." ]
+                            , under = "List.foldr"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = Dict.foldr (\\_ a s -> f a s) init
+"""
+                        ]
+        , test "should replace List.foldr (\\a s -> f a s) init (Dict.keys dict) by Dict.foldr (\\a _ s -> f a s) init dict" <|
+            \() ->
+                """module A exposing (..)
+a = List.foldr (\\a s -> f a s) init (Dict.keys dict)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "To fold over dict keys, you don't need to convert to a list"
+                            , details =
+                                [ "You can replace these calls by Dict.foldr and ignore the second incoming value in the reduce function." ]
+                            , under = "List.foldr"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = Dict.foldr (\\a _ s -> f a s) init dict
+"""
+                        ]
+        , test "should replace List.foldr f init (Dict.keys dict) by Dict.foldr (always f) init dict" <|
+            \() ->
+                """module A exposing (..)
+a = List.foldr f init (Dict.keys dict)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "To fold over dict keys, you don't need to convert to a list"
+                            , details =
+                                [ "You can replace these calls by Dict.foldr and ignore the second incoming value in the reduce function." ]
+                            , under = "List.foldr"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = Dict.foldr (always << f) init dict
+"""
+                        ]
+        , test "should replace List.foldr (\\a s -> f a s) init << Dict.keys by Dict.foldr (\\a _ s -> f a s) init" <|
+            \() ->
+                """module A exposing (..)
+a = List.foldr (\\a s -> f a s) init << Dict.keys
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "To fold over dict keys, you don't need to convert to a list"
+                            , details =
+                                [ "You can replace this composition by Dict.foldr and ignore the second incoming value in the reduce function." ]
+                            , under = "List.foldr"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = Dict.foldr (\\a _ s -> f a s) init
+"""
+                        ]
+        , test "should replace Dict.keys >> List.foldr (\\a s -> f a s) init by Dict.foldr (\\a _ s -> f a s) init" <|
+            \() ->
+                """module A exposing (..)
+a = Dict.keys >> List.foldr (\\a s -> f a s) init
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "To fold over dict keys, you don't need to convert to a list"
+                            , details =
+                                [ "You can replace this composition by Dict.foldr and ignore the second incoming value in the reduce function." ]
+                            , under = "List.foldr"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = Dict.foldr (\\a _ s -> f a s) init
+"""
+                        ]
+        , test "should replace List.foldr f x (List.reverse list) by List.foldl f x list" <|
+            \() ->
+                """module A exposing (..)
+a = List.foldr f x (List.reverse list)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "To fold a list, you don't need to reverse it"
+                            , details = [ "Using List.foldl directly is meant for this exact purpose and will also be faster." ]
+                            , under = "List.foldr"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.foldl f x list
+"""
+                        ]
+        , test "should replace List.foldr f x << List.reverse by List.foldl f x" <|
+            \() ->
+                """module A exposing (..)
+a = List.foldr f x << List.reverse
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "To fold a list, you don't need to reverse it"
+                            , details = [ "Using List.foldl directly is meant for this exact purpose and will also be faster." ]
+                            , under = "List.foldr"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.foldl f x
+"""
+                        ]
+        , test "should replace List.foldr (++) \"\" list by String.concat list" <|
+            \() ->
+                """module A exposing (..)
+a = List.foldr (++) "" list
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.foldr (++) \"\" is the same as String.concat"
+                            , details = [ "You can replace this call by String.concat which is meant for this exact purpose." ]
+                            , under = "List.foldr"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = String.concat list
+"""
+                        ]
+        , test "should replace List.foldr (++) \"\" <| f <| a by String.concat <| f <| a" <|
+            \() ->
+                """module A exposing (..)
+a = List.foldr (++) "" <| f <| a
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.foldr (++) \"\" is the same as String.concat"
+                            , details = [ "You can replace this call by String.concat which is meant for this exact purpose." ]
+                            , under = "List.foldr"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = String.concat <| (f <| a)
+"""
+                        ]
+        , test "should replace a |> f |> List.foldr (++) \"\" by a |> f |> String.concat" <|
+            \() ->
+                """module A exposing (..)
+a = a |> f |> List.foldr (++) ""
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.foldr (++) \"\" is the same as String.concat"
+                            , details = [ "You can replace this call by String.concat which is meant for this exact purpose." ]
+                            , under = "List.foldr"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (a |> f) |> String.concat
+"""
+                        ]
+        , test "should replace List.foldr (++) \"\" by String.concat" <|
+            \() ->
+                """module A exposing (..)
+a = List.foldr (++) ""
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.foldr (++) \"\" is the same as String.concat"
+                            , details = [ "You can replace this call by String.concat which is meant for this exact purpose." ]
+                            , under = "List.foldr"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = String.concat
+"""
+                        ]
+        , test "should replace List.foldr (\\l r -> l ++ r) \"\" by String.concat" <|
+            \() ->
+                """module A exposing (..)
+a = List.foldr (\\l r -> l ++ r) ""
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.foldr (++) \"\" is the same as String.concat"
+                            , details = [ "You can replace this call by String.concat which is meant for this exact purpose." ]
+                            , under = "List.foldr"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = String.concat
+"""
+                        ]
+        , test "should replace List.foldr (\\l r -> (++) l r) \"\" by String.concat" <|
+            \() ->
+                """module A exposing (..)
+a = List.foldr (\\l r -> (++) l r) ""
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.foldr (++) \"\" is the same as String.concat"
+                            , details = [ "You can replace this call by String.concat which is meant for this exact purpose." ]
+                            , under = "List.foldr"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = String.concat
+"""
+                        , Review.Test.error
+                            { message = "Use the infix form (a + b) over the prefix form ((+) a b)"
+                            , details = [ "The prefix form is generally more unfamiliar to Elm developers, and therefore it is nicer when the infix form is used." ]
+                            , under = "(++)"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.foldr (\\l r -> l ++ r) ""
+"""
+                        ]
+        , test "should replace List.foldr String.append \"\" by String.concat" <|
+            \() ->
+                """module A exposing (..)
+a = List.foldr String.append ""
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.foldr (++) \"\" is the same as String.concat"
+                            , details = [ "You can replace this call by String.concat which is meant for this exact purpose." ]
+                            , under = "List.foldr"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = String.concat
+"""
+                        ]
+        , test "should replace List.foldr (\\l r -> r |> String.append l) \"\" by String.concat" <|
+            \() ->
+                """module A exposing (..)
+a = List.foldr (\\l r -> r |> String.append l) ""
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.foldr (++) \"\" is the same as String.concat"
+                            , details = [ "You can replace this call by String.concat which is meant for this exact purpose." ]
+                            , under = "List.foldr"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = String.concat
+"""
+                        ]
+        , test "should not replace List.foldr (\\l r -> l |> String.append r) \"\"" <|
+            \() ->
+                """module A exposing (..)
+a = List.foldr (\\l r -> l |> String.append r) ""
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectNoErrors
+        , test "should replace List.foldr (++) [] by List.concat" <|
+            \() ->
+                """module A exposing (..)
+a = List.foldr (++) []
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.foldr (++) [] is the same as List.concat"
+                            , details = [ "You can replace this call by List.concat which is meant for this exact purpose." ]
+                            , under = "List.foldr"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.concat
+"""
+                        ]
+        , test "should replace List.foldr (\\l r -> l ++ r) [] by List.concat" <|
+            \() ->
+                """module A exposing (..)
+a = List.foldr (\\l r -> l ++ r) []
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.foldr (++) [] is the same as List.concat"
+                            , details = [ "You can replace this call by List.concat which is meant for this exact purpose." ]
+                            , under = "List.foldr"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.concat
+"""
+                        ]
+        , test "should replace List.foldr (\\l r -> (++) l r) [] by List.concat" <|
+            \() ->
+                """module A exposing (..)
+a = List.foldr (\\l r -> (++) l r) []
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.foldr (++) [] is the same as List.concat"
+                            , details = [ "You can replace this call by List.concat which is meant for this exact purpose." ]
+                            , under = "List.foldr"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.concat
+"""
+                        , Review.Test.error
+                            { message = "Use the infix form (a + b) over the prefix form ((+) a b)"
+                            , details = [ "The prefix form is generally more unfamiliar to Elm developers, and therefore it is nicer when the infix form is used." ]
+                            , under = "(++)"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.foldr (\\l r -> l ++ r) []
+"""
+                        ]
+        , test "should replace List.foldr List.append [] by List.concat" <|
+            \() ->
+                """module A exposing (..)
+a = List.foldr List.append []
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.foldr (++) [] is the same as List.concat"
+                            , details = [ "You can replace this call by List.concat which is meant for this exact purpose." ]
+                            , under = "List.foldr"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.concat
+"""
+                        ]
+        , test "should replace List.foldr (\\l r -> r |> List.append l) [] by List.concat" <|
+            \() ->
+                """module A exposing (..)
+a = List.foldr (\\l r -> r |> List.append l) []
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.foldr (++) [] is the same as List.concat"
+                            , details = [ "You can replace this call by List.concat which is meant for this exact purpose." ]
+                            , under = "List.foldr"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.concat
+"""
+                        ]
+        , test "should replace List.foldr (::) [] by identity" <|
+            \() ->
+                """module A exposing (..)
+a = List.foldr (::) []
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.foldr (::) [] will always return the same given list"
+                            , details = [ "You can replace this call by identity." ]
+                            , under = "List.foldr"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = identity
+"""
+                        ]
+        , test "should replace list |> List.foldr (::) [] by list" <|
+            \() ->
+                """module A exposing (..)
+a = list |> List.foldr (::) []
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.foldr (::) [] will always return the same given list"
+                            , details = [ "You can replace this call by the list itself." ]
+                            , under = "List.foldr"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = list
 """
                         ]
         , listFoldrSumTests
@@ -6322,10 +7232,10 @@ listRangeTests =
         [ test "should not report List.range used with okay arguments" <|
             \() ->
                 """module A exposing (..)
-a = List.range
-a = List.range 5
-a = List.range 5 10
-a = List.range 5 0xF
+a0 = List.range
+a1 = List.range 5
+a2 = List.range 5 10
+a3 = List.range 5 0xF
 """
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectNoErrors
@@ -6375,6 +7285,22 @@ a = 5 |> List.range 10
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 a = []
+"""
+                        ]
+        , test "should replace List.range n n by [ n ]" <|
+            \() ->
+                """module A exposing (..)
+a = List.range n n
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.range with equal start and end will result in a singleton with that value"
+                            , details = [ "You can replace this call by its start or equivalent end argument and wrap it in a new list." ]
+                            , under = "List.range"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = [ n ]
 """
                         ]
         ]
@@ -7006,6 +7932,102 @@ a = List.repeat n >> List.sort
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 a = List.repeat n
+"""
+                        ]
+        , test "should replace List.sort (Set.toList set) by Set.toList set" <|
+            \() ->
+                """module A exposing (..)
+a = List.sort (Set.toList set)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary List.sort on a Set.toList call"
+                            , details = [ "You can replace this call by the given Set.toList call." ]
+                            , under = "List.sort"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (Set.toList set)
+"""
+                        ]
+        , test "should replace List.sort << Set.toList by Set.toList" <|
+            \() ->
+                """module A exposing (..)
+a = List.sort << Set.toList
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary List.sort on a Set.toList call"
+                            , details = [ "You can replace this composition by the given Set.toList function." ]
+                            , under = "List.sort"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = Set.toList
+"""
+                        ]
+        , test "should replace Set.toList >> List.sort by Set.toList" <|
+            \() ->
+                """module A exposing (..)
+a = Set.toList >> List.sort
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary List.sort on a Set.toList call"
+                            , details = [ "You can replace this composition by the given Set.toList function." ]
+                            , under = "List.sort"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = Set.toList
+"""
+                        ]
+        , test "should replace List.sort (Dict.toList dict) by Dict.toList dict" <|
+            \() ->
+                """module A exposing (..)
+a = List.sort (Dict.toList dict)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary List.sort on a Dict.toList call"
+                            , details = [ "You can replace this call by the given Dict.toList call." ]
+                            , under = "List.sort"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (Dict.toList dict)
+"""
+                        ]
+        , test "should replace List.sort << Dict.toList by Dict.toList" <|
+            \() ->
+                """module A exposing (..)
+a = List.sort << Dict.toList
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary List.sort on a Dict.toList call"
+                            , details = [ "You can replace this composition by the given Dict.toList function." ]
+                            , under = "List.sort"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = Dict.toList
+"""
+                        ]
+        , test "should replace Dict.toList >> List.sort by Dict.toList" <|
+            \() ->
+                """module A exposing (..)
+a = Dict.toList >> List.sort
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary List.sort on a Dict.toList call"
+                            , details = [ "You can replace this composition by the given Dict.toList function." ]
+                            , under = "List.sort"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = Dict.toList
 """
                         ]
         ]
@@ -7895,6 +8917,29 @@ a = List.repeat n >> List.sortWith f
 a = List.repeat n
 """
                         ]
+        , test "should replace (\\v -> List.repeat n v) >> List.sortWith f by (\\v -> List.repeat n v)" <|
+            \() ->
+                """module A exposing (..)
+a = (\\v -> List.repeat n v) >> List.sortWith f
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary List.sortWith on a List.repeat call"
+                            , details = [ "You can replace this composition by the given List.repeat call." ]
+                            , under = "List.sortWith"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (\\v -> List.repeat n v)
+"""
+                        ]
+        , test "should not replace (\\n -> List.repeat n n) >> List.sortWith f" <|
+            \() ->
+                """module A exposing (..)
+a = (\\n -> List.repeat n n) >> List.sortWith f
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectNoErrors
         ]
 
 

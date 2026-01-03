@@ -192,4 +192,130 @@ a = Cmd.map f Cmd.none
 a = Cmd.none
 """
                         ]
+        , test "should replace Cmd.map f (Task.perform identity task) by Task.perform f task" <|
+            \() ->
+                """module A exposing (..)
+import Task
+a = Cmd.map f (Task.perform identity task)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Platform.Cmd.map on Task.perform with an identity function can be combined"
+                            , details = [ "You can replace these operations by Task.perform with the function given to Cmd.map." ]
+                            , under = "Cmd.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Task
+a = Task.perform f task
+"""
+                        ]
+        , test "should replace Cmd.map f << Task.perform identity by Task.perform f" <|
+            \() ->
+                """module A exposing (..)
+import Task
+a = Cmd.map f << Task.perform identity
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Platform.Cmd.map on Task.perform with an identity function can be combined"
+                            , details = [ "You can replace this composition by Task.perform with the function given to Cmd.map." ]
+                            , under = "Cmd.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Task
+a = Task.perform f
+"""
+                        ]
+        , test "should replace Task.perform identity >> Cmd.map f by Task.perform f" <|
+            \() ->
+                """module A exposing (..)
+import Task
+a = Task.perform identity >> Cmd.map f
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Platform.Cmd.map on Task.perform with an identity function can be combined"
+                            , details = [ "You can replace this composition by Task.perform with the function given to Cmd.map." ]
+                            , under = "Cmd.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Task
+a = Task.perform f
+"""
+                        ]
+        , test "should replace (Cmd.map <| f <| x) << Task.perform identity by Task.perform <| f <| x" <|
+            \() ->
+                """module A exposing (..)
+import Task
+a = (Cmd.map <| f <| x) << Task.perform identity
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Platform.Cmd.map on Task.perform with an identity function can be combined"
+                            , details = [ "You can replace this composition by Task.perform with the function given to Cmd.map." ]
+                            , under = "Cmd.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Task
+a = (Task.perform <| f <| x)
+"""
+                        ]
+        , test "should replace Cmd.map f (Task.attempt identity task) by Task.attempt f task" <|
+            \() ->
+                """module A exposing (..)
+import Task
+a = Cmd.map f (Task.attempt identity task)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Platform.Cmd.map on Task.attempt with an identity function can be combined"
+                            , details = [ "You can replace these operations by Task.attempt with the function given to Cmd.map." ]
+                            , under = "Cmd.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Task
+a = Task.attempt f task
+"""
+                        ]
+        , test "should replace Cmd.map f << Task.attempt identity by Task.attempt f" <|
+            \() ->
+                """module A exposing (..)
+import Task
+a = Cmd.map f << Task.attempt identity
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Platform.Cmd.map on Task.attempt with an identity function can be combined"
+                            , details = [ "You can replace this composition by Task.attempt with the function given to Cmd.map." ]
+                            , under = "Cmd.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Task
+a = Task.attempt f
+"""
+                        ]
+        , test "should replace Task.attempt identity >> Cmd.map f by Task.attempt f" <|
+            \() ->
+                """module A exposing (..)
+import Task
+a = Task.attempt identity >> Cmd.map f
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Platform.Cmd.map on Task.attempt with an identity function can be combined"
+                            , details = [ "You can replace this composition by Task.attempt with the function given to Cmd.map." ]
+                            , under = "Cmd.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Task
+a = Task.attempt f
+"""
+                        ]
         ]

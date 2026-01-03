@@ -1835,6 +1835,76 @@ import Set
 a = False
 """
                         ]
+        , test "should not replace Set.member 2 (Set.fromList list) when expectNaN is enabled" <|
+            \() ->
+                """module A exposing (..)
+import Set
+a = Set.member 2 (Set.fromList list)
+"""
+                    |> Review.Test.run ruleExpectingNaN
+                    |> Review.Test.expectNoErrors
+        , test "should not replace Set.member 2 << Set.fromList when expectNaN is enabled" <|
+            \() ->
+                """module A exposing (..)
+import Set
+a = Set.member 2 << Set.fromList
+"""
+                    |> Review.Test.run ruleExpectingNaN
+                    |> Review.Test.expectNoErrors
+        , test "should replace Set.member x (Set.fromList list) by List.member x list when expectNaN is not enabled" <|
+            \() ->
+                """module A exposing (..)
+import Set
+a = Set.member x (Set.fromList list)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "To check for a list member, you don't need to convert to a set"
+                            , details = [ "Using List.member directly is meant for this exact purpose and will also be faster." ]
+                            , under = "Set.member"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Set
+a = List.member x list
+"""
+                        ]
+        , test "should replace Set.member x << Set.fromList by Set.member x when expectNaN is not enabled" <|
+            \() ->
+                """module A exposing (..)
+import Set
+a = Set.member x << Set.fromList
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "To check for a list member, you don't need to convert to a set"
+                            , details = [ "Using List.member directly is meant for this exact purpose and will also be faster." ]
+                            , under = "Set.member"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Set
+a = List.member x
+"""
+                        ]
+        , test "should replace Set.fromList >> Set.member x by Set.member x when expectNaN is not enabled" <|
+            \() ->
+                """module A exposing (..)
+import Set
+a = Set.fromList >> Set.member x
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "To check for a list member, you don't need to convert to a set"
+                            , details = [ "Using List.member directly is meant for this exact purpose and will also be faster." ]
+                            , under = "Set.member"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Set
+a = List.member x
+"""
+                        ]
         ]
 
 
@@ -2787,6 +2857,42 @@ import Set
 a = always
 """
                         ]
+        , test "should replace Set.foldl Set.insert Set.empty by identity" <|
+            \() ->
+                """module A exposing (..)
+import Set
+a = Set.foldl Set.insert Set.empty
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Set.foldl Set.insert Set.empty will always return the same given set"
+                            , details = [ "You can replace this call by identity." ]
+                            , under = "Set.foldl"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Set
+a = identity
+"""
+                        ]
+        , test "should replace set |> Set.foldl (\\e s -> s |> Set.insert e) Set.empty by set" <|
+            \() ->
+                """module A exposing (..)
+import Set
+a = set |> Set.foldl (\\e s -> s |> Set.insert e) Set.empty
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Set.foldl Set.insert Set.empty will always return the same given set"
+                            , details = [ "You can replace this call by the set itself." ]
+                            , under = "Set.foldl"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Set
+a = set
+"""
+                        ]
         ]
 
 
@@ -2874,6 +2980,78 @@ a = Set.foldr (always identity)
                             |> Review.Test.whenFixed """module A exposing (..)
 import Set
 a = always
+"""
+                        ]
+        , test "should replace Set.foldr (::) [] by Set.toList" <|
+            \() ->
+                """module A exposing (..)
+import Set
+a = Set.foldr (::) []
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Set.foldr (::) [] is the same as Set.toList"
+                            , details = [ "You can replace this call by Set.toList which is meant for this exact purpose." ]
+                            , under = "Set.foldr"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Set
+a = Set.toList
+"""
+                        ]
+        , test "should replace set |> Set.foldr (\\h t -> h :: t) [] by set |> Set.toList" <|
+            \() ->
+                """module A exposing (..)
+import Set
+a = set |> Set.foldr (\\h t -> h :: t) []
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Set.foldr (::) [] is the same as Set.toList"
+                            , details = [ "You can replace this call by Set.toList which is meant for this exact purpose." ]
+                            , under = "Set.foldr"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Set
+a = set |> Set.toList
+"""
+                        ]
+        , test "should replace Set.foldr Set.insert Set.empty by identity" <|
+            \() ->
+                """module A exposing (..)
+import Set
+a = Set.foldr Set.insert Set.empty
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Set.foldr Set.insert Set.empty will always return the same given set"
+                            , details = [ "You can replace this call by identity." ]
+                            , under = "Set.foldr"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Set
+a = identity
+"""
+                        ]
+        , test "should replace set |> Set.foldr (\\e s -> s |> Set.insert e) Set.empty by set" <|
+            \() ->
+                """module A exposing (..)
+import Set
+a = set |> Set.foldr (\\e s -> s |> Set.insert e) Set.empty
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Set.foldr Set.insert Set.empty will always return the same given set"
+                            , details = [ "You can replace this call by the set itself." ]
+                            , under = "Set.foldr"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Set
+a = set
 """
                         ]
         ]

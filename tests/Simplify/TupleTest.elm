@@ -178,7 +178,7 @@ a = Tuple.first << Tuple.mapSecond changeSecond
 a = Tuple.first
 """
                         ]
-        , test "should replace Tuple.mapBoth changeFirst changeSecond tuple |> Tuple.first by Tuple.mapFirst changeFirst tuple |> Tuple.first" <|
+        , test "should replace Tuple.mapBoth changeFirst changeSecond tuple |> Tuple.first by changeFirst (Tuple.first tuple)" <|
             \() ->
                 """module A exposing (..)
 a = Tuple.mapBoth changeFirst changeSecond tuple |> Tuple.first
@@ -186,15 +186,15 @@ a = Tuple.mapBoth changeFirst changeSecond tuple |> Tuple.first
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "Tuple.mapBoth before Tuple.first is the same as Tuple.mapFirst"
-                            , details = [ "Changing a tuple part which ultimately isn't accessed is unnecessary. You can replace the Tuple.mapBoth call by Tuple.mapFirst with the same first mapping and tuple." ]
+                            { message = "Tuple.first on Tuple.mapBoth can be replaced by directly calling the given function on the accessed tuple part"
+                            , details = [ "You can take the 1st function argument of the the Tuple.mapBoth call and call it with the accessed tuple part." ]
                             , under = "Tuple.first"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
-a = Tuple.mapFirst changeFirst tuple |> Tuple.first
+a = (changeFirst (Tuple.first tuple))
 """
                         ]
-        , test "should replace Tuple.first << Tuple.mapBoth changeFirst changeSecond by Tuple.first << Tuple.mapFirst changeFirst" <|
+        , test "should replace Tuple.first << Tuple.mapBoth changeFirst changeSecond by changeFirst << Tuple.first" <|
             \() ->
                 """module A exposing (..)
 a = Tuple.first << Tuple.mapBoth changeFirst changeSecond
@@ -202,12 +202,12 @@ a = Tuple.first << Tuple.mapBoth changeFirst changeSecond
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "Tuple.mapBoth before Tuple.first is the same as Tuple.mapFirst"
-                            , details = [ "Changing a tuple part which ultimately isn't accessed is unnecessary. You can replace the Tuple.mapBoth call by Tuple.mapFirst with the same first mapping." ]
+                            { message = "Tuple.first on Tuple.mapBoth can be replaced by directly calling the given function on the accessed tuple part"
+                            , details = [ "You can take the 1st function argument of the the Tuple.mapBoth call and compose it after the tuple part access." ]
                             , under = "Tuple.first"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
-a = Tuple.first << Tuple.mapFirst changeFirst
+a = (changeFirst << Tuple.first)
 """
                         ]
         , test "should replace Tuple.first (List.partition f list) by (List.filter f list)" <|
@@ -314,6 +314,86 @@ import Dict
 a = Dict.filter f
 """
                         ]
+        , test "should replace Tuple.first (Tuple.mapFirst f tuple) by f (Tuple.first tuple)" <|
+            \() ->
+                """module A exposing (..)
+a = Tuple.first (Tuple.mapFirst f tuple)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Tuple.first on Tuple.mapFirst can be replaced by directly calling the given function on the accessed tuple part"
+                            , details = [ "You can take the function argument of the the Tuple.mapFirst call and call it with the accessed tuple part." ]
+                            , under = "Tuple.first"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (f (Tuple.first tuple))
+"""
+                        ]
+        , test "should replace Tuple.first (Tuple.mapFirst f <| g tuple) by f <| Tuple.first (g tuple)" <|
+            \() ->
+                """module A exposing (..)
+a = Tuple.first (Tuple.mapFirst f <| g tuple)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Tuple.first on Tuple.mapFirst can be replaced by directly calling the given function on the accessed tuple part"
+                            , details = [ "You can take the function argument of the the Tuple.mapFirst call and call it with the accessed tuple part." ]
+                            , under = "Tuple.first"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (f <| (Tuple.first (g tuple)))
+"""
+                        ]
+        , test "should replace Tuple.first (g tuple |> Tuple.mapFirst f) by Tuple.first (g tuple) |> f" <|
+            \() ->
+                """module A exposing (..)
+a = Tuple.first (g tuple |> Tuple.mapFirst f)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Tuple.first on Tuple.mapFirst can be replaced by directly calling the given function on the accessed tuple part"
+                            , details = [ "You can take the function argument of the the Tuple.mapFirst call and call it with the accessed tuple part." ]
+                            , under = "Tuple.first"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = ((Tuple.first (g tuple)) |> f)
+"""
+                        ]
+        , test "should replace Tuple.mapFirst f >> Tuple.first by Tuple.first >> f" <|
+            \() ->
+                """module A exposing (..)
+a = Tuple.mapFirst f >> Tuple.first
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Tuple.first on Tuple.mapFirst can be replaced by directly calling the given function on the accessed tuple part"
+                            , details = [ "You can take the function argument of the the Tuple.mapFirst call and compose it after the tuple part access." ]
+                            , under = "Tuple.first"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (Tuple.first >> f)
+"""
+                        ]
+        , test "should replace Tuple.first << Tuple.mapFirst f by f << Tuple.first" <|
+            \() ->
+                """module A exposing (..)
+a = Tuple.first << Tuple.mapFirst f
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Tuple.first on Tuple.mapFirst can be replaced by directly calling the given function on the accessed tuple part"
+                            , details = [ "You can take the function argument of the the Tuple.mapFirst call and compose it after the tuple part access." ]
+                            , under = "Tuple.first"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (f << Tuple.first)
+"""
+                        ]
         ]
 
 
@@ -408,7 +488,7 @@ a = Tuple.second << Tuple.mapFirst changeSecond
 a = Tuple.second
 """
                         ]
-        , test "should replace Tuple.mapBoth changeFirst changeSecond tuple |> Tuple.second by Tuple.mapFirst changeFirst tuple |> Tuple.second" <|
+        , test "should replace Tuple.mapBoth changeFirst changeSecond tuple |> Tuple.second by changeSecond (Tuple.second tuple)" <|
             \() ->
                 """module A exposing (..)
 a = Tuple.mapBoth changeFirst changeSecond tuple |> Tuple.second
@@ -416,15 +496,15 @@ a = Tuple.mapBoth changeFirst changeSecond tuple |> Tuple.second
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "Tuple.mapBoth before Tuple.second is the same as Tuple.mapSecond"
-                            , details = [ "Changing a tuple part which ultimately isn't accessed is unnecessary. You can replace the Tuple.mapBoth call by Tuple.mapSecond with the same second mapping and tuple." ]
+                            { message = "Tuple.second on Tuple.mapBoth can be replaced by directly calling the given function on the accessed tuple part"
+                            , details = [ "You can take the 2nd function argument of the the Tuple.mapBoth call and call it with the accessed tuple part." ]
                             , under = "Tuple.second"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
-a = Tuple.mapSecond changeSecond tuple |> Tuple.second
+a = (changeSecond (Tuple.second tuple))
 """
                         ]
-        , test "should replace Tuple.second << Tuple.mapBoth changeFirst changeSecond by Tuple.second << Tuple.mapSecond changeSecond" <|
+        , test "should replace Tuple.second << Tuple.mapBoth changeFirst changeSecond by changeSecond << Tuple.second" <|
             \() ->
                 """module A exposing (..)
 a = Tuple.second << Tuple.mapBoth changeFirst changeSecond
@@ -432,12 +512,92 @@ a = Tuple.second << Tuple.mapBoth changeFirst changeSecond
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "Tuple.mapBoth before Tuple.second is the same as Tuple.mapSecond"
-                            , details = [ "Changing a tuple part which ultimately isn't accessed is unnecessary. You can replace the Tuple.mapBoth call by Tuple.mapSecond with the same second mapping." ]
+                            { message = "Tuple.second on Tuple.mapBoth can be replaced by directly calling the given function on the accessed tuple part"
+                            , details = [ "You can take the 2nd function argument of the the Tuple.mapBoth call and compose it after the tuple part access." ]
                             , under = "Tuple.second"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
-a = Tuple.second << Tuple.mapSecond changeSecond
+a = (changeSecond << Tuple.second)
+"""
+                        ]
+        , test "should replace Tuple.second (Tuple.mapSecond f tuple) by f (Tuple.second tuple)" <|
+            \() ->
+                """module A exposing (..)
+a = Tuple.second (Tuple.mapSecond f tuple)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Tuple.second on Tuple.mapSecond can be replaced by directly calling the given function on the accessed tuple part"
+                            , details = [ "You can take the function argument of the the Tuple.mapSecond call and call it with the accessed tuple part." ]
+                            , under = "Tuple.second"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (f (Tuple.second tuple))
+"""
+                        ]
+        , test "should replace Tuple.second (Tuple.mapSecond f <| g tuple) by f <| Tuple.second (g tuple)" <|
+            \() ->
+                """module A exposing (..)
+a = Tuple.second (Tuple.mapSecond f <| g tuple)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Tuple.second on Tuple.mapSecond can be replaced by directly calling the given function on the accessed tuple part"
+                            , details = [ "You can take the function argument of the the Tuple.mapSecond call and call it with the accessed tuple part." ]
+                            , under = "Tuple.second"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (f <| (Tuple.second (g tuple)))
+"""
+                        ]
+        , test "should replace Tuple.second (g tuple |> Tuple.mapSecond f) by Tuple.second (g tuple) |> f" <|
+            \() ->
+                """module A exposing (..)
+a = Tuple.second (g tuple |> Tuple.mapSecond f)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Tuple.second on Tuple.mapSecond can be replaced by directly calling the given function on the accessed tuple part"
+                            , details = [ "You can take the function argument of the the Tuple.mapSecond call and call it with the accessed tuple part." ]
+                            , under = "Tuple.second"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = ((Tuple.second (g tuple)) |> f)
+"""
+                        ]
+        , test "should replace Tuple.mapSecond f >> Tuple.second by Tuple.second >> f" <|
+            \() ->
+                """module A exposing (..)
+a = Tuple.mapSecond f >> Tuple.second
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Tuple.second on Tuple.mapSecond can be replaced by directly calling the given function on the accessed tuple part"
+                            , details = [ "You can take the function argument of the the Tuple.mapSecond call and compose it after the tuple part access." ]
+                            , under = "Tuple.second"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (Tuple.second >> f)
+"""
+                        ]
+        , test "should replace Tuple.second << Tuple.mapSecond f by f << Tuple.second" <|
+            \() ->
+                """module A exposing (..)
+a = Tuple.second << Tuple.mapSecond f
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Tuple.second on Tuple.mapSecond can be replaced by directly calling the given function on the accessed tuple part"
+                            , details = [ "You can take the function argument of the the Tuple.mapSecond call and compose it after the tuple part access." ]
+                            , under = "Tuple.second"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (f << Tuple.second)
 """
                         ]
         ]

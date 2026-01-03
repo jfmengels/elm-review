@@ -14,6 +14,8 @@ all =
         , taskMapErrorTests
         , taskOnErrorTests
         , taskSequenceTests
+        , attemptTests
+        , performTests
         ]
 
 
@@ -1253,6 +1255,144 @@ a = Task.sequence [ a, Task.fail x, b ]
                             |> Review.Test.whenFixed """module A exposing (..)
 import Task
 a = Task.sequence [ a, Task.fail x]
+"""
+                        ]
+        ]
+
+
+attemptTests : Test
+attemptTests =
+    describe "Task.attempt"
+        [ test "should not report Task.attempt used with okay arguments" <|
+            \() ->
+                """module A exposing (..)
+a0 = Task.attempt
+a1 = Task.attempt f
+a2 = Task.attempt f task
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectNoErrors
+        , test "should replace Task.attempt identity (Task.map f task) by Task.attempt f task" <|
+            \() ->
+                """module A exposing (..)
+import Task
+a = Task.attempt identity (Task.map f task)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Task.map, then Task.attempt with an identity function can be combined into Task.attempt"
+                            , details = [ "You can replace this call by Task.attempt with the same arguments given to Task.map which is meant for this exact purpose." ]
+                            , under = "Task.attempt"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Task
+a = (Task.attempt f task)
+"""
+                        ]
+        , test "should replace Task.attempt identity << Task.map f by Task.attempt f" <|
+            \() ->
+                """module A exposing (..)
+import Task
+a = Task.attempt identity << Task.map f
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Task.map, then Task.attempt with an identity function can be combined into Task.attempt"
+                            , details = [ "You can replace this composition by Task.attempt with the same arguments given to Task.map which is meant for this exact purpose." ]
+                            , under = "Task.attempt"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Task
+a = Task.attempt f
+"""
+                        ]
+        , test "should replace Task.map f >> Task.attempt identity by Task.attempt f" <|
+            \() ->
+                """module A exposing (..)
+import Task
+a = Task.map f >> Task.attempt identity
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Task.map, then Task.attempt with an identity function can be combined into Task.attempt"
+                            , details = [ "You can replace this composition by Task.attempt with the same arguments given to Task.map which is meant for this exact purpose." ]
+                            , under = "Task.attempt"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Task
+a = Task.attempt f
+"""
+                        ]
+        ]
+
+
+performTests : Test
+performTests =
+    describe "Task.perform"
+        [ test "should not report Task.perform used with okay arguments" <|
+            \() ->
+                """module A exposing (..)
+a0 = Task.perform
+a1 = Task.perform f
+a2 = Task.perform f task
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectNoErrors
+        , test "should replace Task.perform identity (Task.map f task) by Task.perform f task" <|
+            \() ->
+                """module A exposing (..)
+import Task
+a = Task.perform identity (Task.map f task)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Task.map, then Task.perform with an identity function can be combined into Task.perform"
+                            , details = [ "You can replace this call by Task.perform with the same arguments given to Task.map which is meant for this exact purpose." ]
+                            , under = "Task.perform"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Task
+a = (Task.perform f task)
+"""
+                        ]
+        , test "should replace Task.perform identity << Task.map f by Task.perform f" <|
+            \() ->
+                """module A exposing (..)
+import Task
+a = Task.perform identity << Task.map f
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Task.map, then Task.perform with an identity function can be combined into Task.perform"
+                            , details = [ "You can replace this composition by Task.perform with the same arguments given to Task.map which is meant for this exact purpose." ]
+                            , under = "Task.perform"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Task
+a = Task.perform f
+"""
+                        ]
+        , test "should replace Task.map f >> Task.perform identity by Task.perform f" <|
+            \() ->
+                """module A exposing (..)
+import Task
+a = Task.map f >> Task.perform identity
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Task.map, then Task.perform with an identity function can be combined into Task.perform"
+                            , details = [ "You can replace this composition by Task.perform with the same arguments given to Task.map which is meant for this exact purpose." ]
+                            , under = "Task.perform"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Task
+a = Task.perform f
 """
                         ]
         ]

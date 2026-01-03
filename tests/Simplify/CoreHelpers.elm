@@ -406,13 +406,13 @@ list2AreSameLengthAndAll areRegular aList bList =
 drop2EndingsWhile : (a -> b -> Bool) -> List a -> List b -> ( List a, List b )
 drop2EndingsWhile shouldDrop aList bList =
     let
-        ( reducedArgumentsReverse, reducedPatternsReverse ) =
+        ( trimmedAListReverse, trimmedBListReverse ) =
             drop2BeginningsWhile
                 shouldDrop
                 (List.reverse aList)
                 (List.reverse bList)
     in
-    ( List.reverse reducedArgumentsReverse, List.reverse reducedPatternsReverse )
+    ( List.reverse trimmedAListReverse, List.reverse trimmedBListReverse )
 
 
 drop2BeginningsWhile : (a -> b -> Bool) -> List a -> List b -> ( List a, List b )

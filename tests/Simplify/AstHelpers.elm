@@ -1,9 +1,10 @@
 module Simplify.AstHelpers exposing
-    ( ReduceLambdaResources
-    , removeParens, removeParensFromPattern
-    , getValueOrFnOrFnCall
-    , getSpecificFnCall, getSpecificUnreducedFnCall, isSpecificUnreducedFnCall, isSpecificValueOrFn, isSpecificValueReference
-    , isIdentity, getAlwaysResult, isSpecificUnappliedBinaryOperation
+    ( removeParens, removeParensFromPattern
+    , ReduceLambdaResources, reduceLambda
+    , getValueOrFnOrFnCall, getUnreducedValueOrFnOrFnCall
+    , getSpecificUnreducedFnCall, isSpecificUnreducedFnCall, isSpecificValueOrFn, isSpecificValueReference
+    , getCollapsedLambda
+    , isIdentity, getAlwaysResult
     , isTupleFirstAccess, isTupleSecondAccess
     , getAccessingRecord, getRecordAccessFunction
     , getOrder, getBool, getBoolPattern, getUncomputedNumberValue
@@ -19,25 +20,26 @@ module Simplify.AstHelpers exposing
 {-|
 
 
-## resources
-
-@docs ReduceLambdaResources
-
-
 ### remove parens
 
 @docs removeParens, removeParensFromPattern
 
 
+## reduce lambda
+
+@docs ReduceLambdaResources, reduceLambda
+
+
 ### value/function/function call/composition
 
-@docs getValueOrFnOrFnCall
-@docs getSpecificFnCall, getSpecificUnreducedFnCall, isSpecificUnreducedFnCall, isSpecificValueOrFn, isSpecificValueReference
+@docs getValueOrFnOrFnCall, getUnreducedValueOrFnOrFnCall
+@docs getSpecificUnreducedFnCall, isSpecificUnreducedFnCall, isSpecificValueOrFn, isSpecificValueReference
 
 
 ### certain kind
 
-@docs isIdentity, getAlwaysResult, isSpecificUnappliedBinaryOperation
+@docs getCollapsedLambda
+@docs isIdentity, getAlwaysResult
 @docs isTupleFirstAccess, isTupleSecondAccess
 @docs getAccessingRecord, getRecordAccessFunction
 @docs getOrder, getBool, getBoolPattern, getUncomputedNumberValue
@@ -79,8 +81,6 @@ import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNam
 import Set exposing (Set)
 import Simplify.CallStyle as CallStyle exposing (FunctionCallStyle)
 import Simplify.CoreHelpers exposing (drop2EndingsWhile, list2AreSameLengthAndAll)
-import Simplify.Infer as Infer
-import Simplify.Normalize as Normalize
 
 
 {-| Keep removing parens from the outside until we have something different from a `ParenthesizedExpression`
@@ -198,14 +198,14 @@ getSpecificUnreducedFnCall :
             }
 getSpecificUnreducedFnCall reference lookupTable expressionNode =
     Maybe.andThen (\valOrFn -> valueOrFunctionCallToSpecificFnCall reference lookupTable valOrFn)
-        (getCollapsedUnreducedValueOrFunctionCall expressionNode)
+        (getUnreducedValueOrFnOrFnCall expressionNode)
 
 
 {-| Like `getSpecificUnreducedFnCall` without returning any info
 -}
 isSpecificUnreducedFnCall : ( ModuleName, String ) -> ModuleNameLookupTable -> Node Expression -> Bool
 isSpecificUnreducedFnCall ( specificModuleOrigin, specificName ) lookupTable expressionNode =
-    case getCollapsedUnreducedValueOrFunctionCall expressionNode of
+    case getUnreducedValueOrFnOrFnCall expressionNode of
         Nothing ->
             False
 
@@ -280,13 +280,13 @@ getValueOrFnOrFnCall :
             , args : List (Node Expression)
             , callStyle : FunctionCallStyle
             }
-getValueOrFnOrFnCall lookupTable expressionNode =
-    case getCollapsedUnreducedValueOrFunctionCall expressionNode of
+getValueOrFnOrFnCall resources expressionNode =
+    case getUnreducedValueOrFnOrFnCall expressionNode of
         (Just _) as justValueOrCall ->
             justValueOrCall
 
         Nothing ->
-            case getReducedLambda lookupTable expressionNode of
+            case getReducedLambda resources expressionNode of
                 Just reducedLambda ->
                     case reducedLambda.lambdaPatterns of
                         [] ->
@@ -315,7 +315,7 @@ isSpecificValueOrFn :
     -> Node Expression
     -> Bool
 isSpecificValueOrFn ( specificModuleOrigin, specificName ) context expressionNode =
-    case getValueOrFunction context expressionNode of
+    case getValueOrFn context expressionNode of
         Just valueOrFn ->
             (valueOrFn.name == specificName)
                 && (case ModuleNameLookupTable.moduleNameAt context.lookupTable valueOrFn.range of
@@ -332,11 +332,11 @@ isSpecificValueOrFn ( specificModuleOrigin, specificName ) context expressionNod
 
 {-| Parse either a value reference, a function reference without arguments or a lambda that is reducible to a function without arguments
 -}
-getValueOrFunction :
+getValueOrFn :
     ReduceLambdaResources context
     -> Node Expression
     -> Maybe { name : String, range : Range }
-getValueOrFunction lookupTable expressionNode =
+getValueOrFn lookupTable expressionNode =
     case removeParens expressionNode of
         Node rangeInParens (Expression.FunctionOrValue _ foundName) ->
             Just { range = rangeInParens, name = foundName }
@@ -382,7 +382,10 @@ isSpecificValueReference lookupTable ( moduleOriginToCheckFor, nameToCheckFor ) 
             False
 
 
-getCollapsedUnreducedValueOrFunctionCall :
+{-| Like `getValueOrFnOrFnCall` but skipping the check for a reduced lambda.
+Use when parsing a fully applied value/function
+-}
+getUnreducedValueOrFnOrFnCall :
     Node Expression
     ->
         Maybe
@@ -392,7 +395,7 @@ getCollapsedUnreducedValueOrFunctionCall :
             , args : List (Node Expression)
             , callStyle : FunctionCallStyle
             }
-getCollapsedUnreducedValueOrFunctionCall baseNode =
+getUnreducedValueOrFnOrFnCall baseNode =
     case removeParens baseNode of
         Node fnRange (Expression.FunctionOrValue _ fnName) ->
             Just
@@ -413,7 +416,7 @@ getCollapsedUnreducedValueOrFunctionCall baseNode =
                     , callStyle = CallStyle.Application
                     }
                 )
-                (getCollapsedUnreducedValueOrFunctionCall fedNode)
+                (getUnreducedValueOrFnOrFnCall fedNode)
 
         Node _ (Expression.OperatorApplication "|>" _ firstArg fedNode) ->
             Maybe.map
@@ -425,7 +428,7 @@ getCollapsedUnreducedValueOrFunctionCall baseNode =
                     , callStyle = CallStyle.pipeLeftToRight
                     }
                 )
-                (getCollapsedUnreducedValueOrFunctionCall fedNode)
+                (getUnreducedValueOrFnOrFnCall fedNode)
 
         Node _ (Expression.OperatorApplication "<|" _ fedNode firstArg) ->
             Maybe.map
@@ -437,7 +440,7 @@ getCollapsedUnreducedValueOrFunctionCall baseNode =
                     , callStyle = CallStyle.pipeRightToLeft
                     }
                 )
-                (getCollapsedUnreducedValueOrFunctionCall fedNode)
+                (getUnreducedValueOrFnOrFnCall fedNode)
 
         _ ->
             Nothing
@@ -620,27 +623,23 @@ getReducedLambda :
             , lambdaPatterns : List (Node Pattern)
             , callStyle : FunctionCallStyle
             }
-getReducedLambda context expressionNode =
+getReducedLambda resources expressionNode =
     -- maybe a version of this is better located in Normalize?
     case getCollapsedLambda expressionNode of
         Just lambda ->
-            case getCollapsedUnreducedValueOrFunctionCall lambda.expression of
+            case getUnreducedValueOrFnOrFnCall lambda.expression of
                 Just call ->
                     let
-                        ( reducedCallArguments, reducedLambdaPatterns ) =
-                            drop2EndingsWhile
-                                (\argument pattern ->
-                                    expressionReconstructsDestructuringPattern context argument pattern
-                                )
-                                call.args
-                                lambda.patterns
+                        reduced : { lambdaPatterns : List (Node Pattern), callArguments : List (Node Expression) }
+                        reduced =
+                            reduceLambda resources { args = lambda.patterns, expression = lambda.expression } call.args
                     in
                     Just
                         { nodeRange = Node.range expressionNode
                         , fnName = call.fnName
                         , fnRange = call.fnRange
-                        , callArguments = reducedCallArguments
-                        , lambdaPatterns = reducedLambdaPatterns
+                        , callArguments = reduced.callArguments
+                        , lambdaPatterns = reduced.lambdaPatterns
                         , callStyle = call.callStyle
                         }
 
@@ -649,6 +648,169 @@ getReducedLambda context expressionNode =
 
         _ ->
             Nothing
+
+
+{-| Cancel out call arguments that reconstruct lambda patterns in the same
+position and without variables being mentioned anywhere else
+-}
+reduceLambda :
+    ReduceLambdaResources a
+    -> Expression.Lambda
+    -> List (Node Expression)
+    ->
+        { lambdaPatterns : List (Node Pattern)
+        , callArguments : List (Node Expression)
+        }
+reduceLambda resources lambda callArguments =
+    let
+        ( reducedCallArguments, reducedLambdaPatterns ) =
+            drop2EndingsWhile
+                (\argument pattern ->
+                    not
+                        (expressionContainsAnyVariableInIgnoring
+                            (patternBindings (Node.value pattern))
+                            argument
+                            lambda.expression
+                        )
+                        && expressionReconstructsDestructuringPattern resources argument pattern
+                )
+                callArguments
+                lambda.args
+    in
+    { lambdaPatterns = reducedLambdaPatterns
+    , callArguments = reducedCallArguments
+    }
+
+
+expressionContainsAnyVariableInIgnoring : Set String -> Node Expression -> Node Expression -> Bool
+expressionContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnore (Node expressionToCheckRange expressionToCheck) =
+    if Node.range subToIgnore == expressionToCheckRange then
+        False
+
+    else
+        case expressionToCheck of
+            Expression.FunctionOrValue qualification name ->
+                case qualification of
+                    _ :: _ ->
+                        False
+
+                    [] ->
+                        Set.member name bindingsToCheckFor
+
+            Expression.UnitExpr ->
+                False
+
+            Expression.Floatable _ ->
+                False
+
+            Expression.PrefixOperator _ ->
+                False
+
+            -- invalid syntax
+            Expression.Operator _ ->
+                False
+
+            Expression.Integer _ ->
+                False
+
+            Expression.Hex _ ->
+                False
+
+            Expression.Literal _ ->
+                False
+
+            Expression.CharLiteral _ ->
+                False
+
+            Expression.RecordAccessFunction _ ->
+                False
+
+            Expression.Negation inNegation ->
+                expressionContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnore inNegation
+
+            Expression.ParenthesizedExpression inParens ->
+                expressionContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnore inParens
+
+            Expression.LambdaExpression lambda ->
+                expressionContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnore lambda.expression
+
+            Expression.RecordAccess record _ ->
+                expressionContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnore record
+
+            Expression.OperatorApplication _ _ left right ->
+                -- || TCO-ed
+                if expressionContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnore left then
+                    True
+
+                else
+                    expressionContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnore right
+
+            Expression.IfBlock condition onTrue onFalse ->
+                -- || TCO-ed
+                if
+                    expressionContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnore condition
+                        || expressionContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnore onTrue
+                then
+                    True
+
+                else
+                    expressionContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnore onFalse
+
+            Expression.Application parts ->
+                List.any (\part -> expressionContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnore part) parts
+
+            Expression.TupledExpression parts ->
+                List.any (\part -> expressionContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnore part) parts
+
+            Expression.ListExpr elements ->
+                List.any (\element -> expressionContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnore element) elements
+
+            Expression.LetExpression letIn ->
+                -- || TCO-ed
+                if List.any (\letDeclaration -> letDeclarationContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnore letDeclaration) letIn.declarations then
+                    True
+
+                else
+                    expressionContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnore letIn.expression
+
+            Expression.CaseExpression caseOf ->
+                expressionContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnore caseOf.expression
+                    || List.any
+                        (\( _, fieldValue ) ->
+                            expressionContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnore fieldValue
+                        )
+                        caseOf.cases
+
+            Expression.RecordExpr fields ->
+                List.any
+                    (\(Node _ ( _, fieldValue )) ->
+                        expressionContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnore fieldValue
+                    )
+                    fields
+
+            Expression.RecordUpdateExpression (Node _ record) fields ->
+                Set.member record bindingsToCheckFor
+                    || List.any
+                        (\(Node _ ( _, fieldValue )) ->
+                            expressionContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnore fieldValue
+                        )
+                        fields
+
+            Expression.GLSLExpression _ ->
+                -- no clue
+                True
+
+
+letDeclarationContainsAnyVariableInIgnoring : Set String -> Node Expression -> Node Expression.LetDeclaration -> Bool
+letDeclarationContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnore (Node _ letDeclaration) =
+    case letDeclaration of
+        Expression.LetDestructuring _ destructuredExpression ->
+            expressionContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnore destructuredExpression
+
+        Expression.LetFunction valueOrFunctionDeclaration ->
+            expressionContainsAnyVariableInIgnoring bindingsToCheckFor
+                subToIgnore
+                (Node.value valueOrFunctionDeclaration.declaration).expression
 
 
 {-| Check if the expression is the exact same value that was pattern-matched on.
@@ -1217,52 +1379,6 @@ getOrder lookupTable expressionNode =
 
     else
         Nothing
-
-
-{-| Whether a given expression can be called with 2 operands and produces the same result as an operation with a given operator.
-Is either a function reducible to the operator in prefix notation `(op)` or a lambda `\a b -> a op b`.
--}
-isSpecificUnappliedBinaryOperation : String -> Infer.Resources a -> Node Expression -> Bool
-isSpecificUnappliedBinaryOperation symbol checkInfo expression =
-    case expression |> Normalize.normalize checkInfo |> Node.value of
-        Expression.PrefixOperator operatorSymbol ->
-            operatorSymbol == symbol
-
-        Expression.LambdaExpression lambda ->
-            case lambda.args of
-                [ Node _ (Pattern.VarPattern element) ] ->
-                    case Node.value lambda.expression of
-                        Expression.Application [ Node _ (Expression.PrefixOperator operatorSymbol), Node _ (Expression.FunctionOrValue [] argument) ] ->
-                            (operatorSymbol == symbol)
-                                && (argument == element)
-
-                        -- no simple application
-                        _ ->
-                            False
-
-                [ Node _ (Pattern.VarPattern element), Node _ (Pattern.VarPattern soFar) ] ->
-                    case Node.value lambda.expression of
-                        Expression.Application [ Node _ (Expression.PrefixOperator operatorSymbol), Node _ (Expression.FunctionOrValue [] left), Node _ (Expression.FunctionOrValue [] right) ] ->
-                            (operatorSymbol == symbol)
-                                && ((left == element && right == soFar)
-                                        || (left == soFar && right == element)
-                                   )
-
-                        Expression.OperatorApplication operatorSymbol _ (Node _ (Expression.FunctionOrValue [] left)) (Node _ (Expression.FunctionOrValue [] right)) ->
-                            (operatorSymbol == symbol)
-                                && ((left == element && right == soFar)
-                                        || (left == soFar && right == element)
-                                   )
-
-                        _ ->
-                            False
-
-                _ ->
-                    False
-
-        -- not a known simple operator function
-        _ ->
-            False
 
 
 {-| Indicates whether this value is potentially NaN,

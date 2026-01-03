@@ -313,7 +313,7 @@ a = \"\"\"a
             \"\"\"
 """
                         ]
-        , test "should report concatenating two list literals" <|
+        , test "should report concatenating two list literals if they're one the same line" <|
             \() ->
                 """module A exposing (..)
 a = [ 1 ] ++ [ 2, 3 ]
@@ -329,6 +329,38 @@ a = [ 1 ] ++ [ 2, 3 ]
 a = [ 1 , 2, 3 ]
 """
                         ]
+        , test "should report concatenating two list literals if all list elements are on different lines" <|
+            \() ->
+                """module A exposing (..)
+a = [ 0
+    , 1 ]
+    ++ [ 2
+       , 3
+       ]
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "++ on list literals can be turned into a single list literal"
+                            , details = [ "Try moving all the elements into a single list literal." ]
+                            , under = "++"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+
+a = [ 0
+    , 1 , 2
+       , 3
+       ]
+"""
+                        ]
+        , test "should not report concatenating two list literals if two lists are on different lines" <|
+            \() ->
+                """module A exposing (..)
+a = [ 0, 1 ]
+    ++ [ 2, 3 ]
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectNoErrors
         , test "should report concatenating two list literals, even if they contain variables" <|
             \() ->
                 """module A exposing (..)

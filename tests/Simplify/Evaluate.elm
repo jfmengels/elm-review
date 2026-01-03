@@ -9,7 +9,7 @@ import Simplify.Match exposing (Match(..))
 import Simplify.Normalize as Normalize
 
 
-getBoolean : Infer.Resources a -> Node Expression -> Match Bool
+getBoolean : Normalize.Resources a -> Node Expression -> Match Bool
 getBoolean resources baseNode =
     case AstHelpers.removeParens baseNode of
         Node referenceRange (Expression.FunctionOrValue _ name) ->

@@ -1,4 +1,4 @@
-module Simplify.Normalize exposing (Comparison(..), areAllTheSameAs, areTheSame, compare, compareWithoutNormalization, normalize, normalizeButKeepRange)
+module Simplify.Normalize exposing (Comparison(..), Resources, areAllTheSameAs, areTheSame, compare, compareWithoutNormalization, isSpecificUnappliedBinaryOperation, normalize, normalizeButKeepRange)
 
 import Dict exposing (Dict)
 import Elm.Syntax.Expression as Expression exposing (Expression)
@@ -8,15 +8,20 @@ import Elm.Syntax.Pattern as Pattern exposing (Pattern)
 import Elm.Syntax.Range as Range
 import Elm.Writer
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
+import Simplify.AstHelpers as AstHelpers
 import Simplify.Infer as Infer
 
 
-areTheSame : Infer.Resources a -> Node Expression -> Node Expression -> Bool
+type alias Resources a =
+    Infer.Resources (AstHelpers.ReduceLambdaResources a)
+
+
+areTheSame : Resources a -> Node Expression -> Node Expression -> Bool
 areTheSame resources a b =
     normalize resources a == normalize resources b
 
 
-areAllTheSameAs : Infer.Resources res -> Node Expression -> (a -> Node Expression) -> List a -> Bool
+areAllTheSameAs : Resources res -> Node Expression -> (a -> Node Expression) -> List a -> Bool
 areAllTheSameAs resources first restElementToExpressionNode rest =
     let
         normalizedFirst : Node Expression
@@ -31,7 +36,7 @@ areAllTheSameAs resources first restElementToExpressionNode rest =
         rest
 
 
-normalize : Infer.Resources a -> Node Expression -> Node Expression
+normalize : Resources a -> Node Expression -> Node Expression
 normalize resources node =
     case Node.value node of
         Expression.ParenthesizedExpression expr ->
@@ -86,9 +91,9 @@ normalize resources node =
                 (normalize resources extraArgument)
 
         Expression.OperatorApplication "<<" _ left right ->
-            toNode (Expression.OperatorApplication ">>" Infix.Right (normalize resources right) (normalize resources left))
+            toNode (Expression.OperatorApplication ">>" normalizedInfixDirection (normalize resources right) (normalize resources left))
 
-        Expression.OperatorApplication "::" infixDirection head tail ->
+        Expression.OperatorApplication "::" _ head tail ->
             let
                 normalizedHead : Node Expression
                 normalizedHead =
@@ -104,35 +109,17 @@ normalize resources node =
                         Expression.ListExpr (normalizedHead :: tailElements)
 
                     _ ->
-                        Expression.OperatorApplication "::" infixDirection normalizedHead normalizedTail
+                        Expression.OperatorApplication "::" normalizedInfixDirection normalizedHead normalizedTail
                 )
 
-        Expression.OperatorApplication ">" infixDirection left right ->
-            toNode (Expression.OperatorApplication "<" infixDirection (normalize resources right) (normalize resources left))
+        Expression.OperatorApplication ">" _ left right ->
+            toNode (Expression.OperatorApplication "<" normalizedInfixDirection (normalize resources right) (normalize resources left))
 
-        Expression.OperatorApplication ">=" infixDirection left right ->
-            toNode (Expression.OperatorApplication "<=" infixDirection (normalize resources right) (normalize resources left))
+        Expression.OperatorApplication ">=" _ left right ->
+            toNode (Expression.OperatorApplication "<=" normalizedInfixDirection (normalize resources right) (normalize resources left))
 
-        Expression.OperatorApplication operator infixDirection l r ->
-            let
-                left : Node Expression
-                left =
-                    normalize resources l
-
-                right : Node Expression
-                right =
-                    normalize resources r
-            in
-            toNode
-                (if
-                    operatorIsSymmetrical operator
-                        && (toComparable left > toComparable right)
-                 then
-                    Expression.OperatorApplication operator infixDirection right left
-
-                 else
-                    Expression.OperatorApplication operator infixDirection left right
-                )
+        Expression.OperatorApplication operator _ left right ->
+            createOperation operator (normalize resources left) (normalize resources right)
 
         Expression.FunctionOrValue rawModuleName string ->
             Expression.FunctionOrValue
@@ -223,11 +210,24 @@ normalize resources node =
                 )
 
         Expression.LambdaExpression lambda ->
+            let
+                lambdaPatternsNormalized : List (Node Pattern)
+                lambdaPatternsNormalized =
+                    List.map (\arg -> normalizePattern resources.lookupTable arg) lambda.args
+            in
             toNode
-                (Expression.LambdaExpression
-                    { args = List.map (\arg -> normalizePattern resources.lookupTable arg) lambda.args
-                    , expression = normalize resources lambda.expression
-                    }
+                (reduceLambda resources
+                    (case normalize resources lambda.expression of
+                        Node _ (Expression.LambdaExpression resultLambda) ->
+                            { args = lambdaPatternsNormalized ++ resultLambda.args
+                            , expression = resultLambda.expression
+                            }
+
+                        resultNormalized ->
+                            { args = lambdaPatternsNormalized
+                            , expression = resultNormalized
+                            }
+                    )
                 )
 
         Expression.ListExpr elements ->
@@ -283,7 +283,7 @@ operatorIsSymmetrical operator =
             False
 
 
-normalizeButKeepRange : Infer.Resources a -> Node Expression -> Node Expression
+normalizeButKeepRange : Resources a -> Node Expression -> Node Expression
 normalizeButKeepRange checkInfo node =
     Node (Node.range node) (Node.value (normalize checkInfo node))
 
@@ -305,11 +305,35 @@ toComparable a =
     Elm.Writer.write (Elm.Writer.writeExpression a)
 
 
+{-| Expects normalized left and right
+-}
+createOperation : String -> Node Expression -> Node Expression -> Node Expression
+createOperation operator left right =
+    toNode
+        (if
+            operatorIsSymmetrical operator
+                && (toComparable left > toComparable right)
+         then
+            Expression.OperatorApplication operator normalizedInfixDirection right left
+
+         else
+            Expression.OperatorApplication operator normalizedInfixDirection left right
+        )
+
+
+normalizedInfixDirection : Infix.InfixDirection
+normalizedInfixDirection =
+    Infix.Non
+
+
 addToFunctionCall : Node Expression -> Node Expression -> Node Expression
 addToFunctionCall functionCall extraArgument =
     case Node.value functionCall of
         Expression.ParenthesizedExpression expr ->
             addToFunctionCall expr extraArgument
+
+        Expression.Application [ Node _ (Expression.PrefixOperator operator), left ] ->
+            createOperation operator left extraArgument
 
         Expression.Application (fnCall :: args) ->
             Expression.Application (fnCall :: (args ++ [ extraArgument ]))
@@ -334,6 +358,111 @@ addToFunctionCall functionCall extraArgument =
         _ ->
             Expression.Application [ functionCall, extraArgument ]
                 |> toNode
+
+
+{-| Whether a given expression can be called with 2 operands and produces the same result as an operation with a given operator.
+Is either a function reducible to the operator in prefix notation `(op)` or a lambda `\a b -> a op b`.
+-}
+isSpecificUnappliedBinaryOperation : String -> Resources a -> Node Expression -> Bool
+isSpecificUnappliedBinaryOperation operator resources expressionNode =
+    Node.value (normalize resources expressionNode) == Expression.PrefixOperator operator
+
+
+reduceLambda : Resources a -> Expression.Lambda -> Expression
+reduceLambda resources lambda =
+    case Node.value lambda.expression of
+        Expression.Application (called :: callArguments) ->
+            let
+                reduced : { lambdaPatterns : List (Node Pattern), callArguments : List (Node Expression) }
+                reduced =
+                    AstHelpers.reduceLambda resources lambda callArguments
+
+                reducedResultCall : Expression
+                reducedResultCall =
+                    case reduced.callArguments of
+                        [] ->
+                            Node.value called
+
+                        _ :: _ ->
+                            Expression.Application (called :: reduced.callArguments)
+            in
+            case reduced.lambdaPatterns of
+                [] ->
+                    reducedResultCall
+
+                _ :: _ ->
+                    Expression.LambdaExpression
+                        { args = reduced.lambdaPatterns
+                        , expression = Node.empty reducedResultCall
+                        }
+
+        Expression.OperatorApplication operator _ left right ->
+            let
+                reduced :
+                    { lambdaPatterns : List (Node Pattern)
+                    , result : Expression
+                    }
+                reduced =
+                    let
+                        leftRightReduced : { lambdaPatterns : List (Node Pattern), callArguments : List (Node Expression) }
+                        leftRightReduced =
+                            AstHelpers.reduceLambda resources lambda [ left, right ]
+                    in
+                    case leftRightReduced.callArguments of
+                        [ callArgument ] ->
+                            { lambdaPatterns = leftRightReduced.lambdaPatterns
+                            , result = Expression.Application [ toNode (Expression.PrefixOperator operator), callArgument ]
+                            }
+
+                        [] ->
+                            { lambdaPatterns = leftRightReduced.lambdaPatterns
+                            , result = Expression.PrefixOperator operator
+                            }
+
+                        _ :: _ :: _ ->
+                            if operatorIsSymmetrical operator then
+                                let
+                                    rightLeftReduced : { lambdaPatterns : List (Node Pattern), callArguments : List (Node Expression) }
+                                    rightLeftReduced =
+                                        AstHelpers.reduceLambda resources lambda [ right, left ]
+                                in
+                                case rightLeftReduced.callArguments of
+                                    [ callArgument ] ->
+                                        { lambdaPatterns = rightLeftReduced.lambdaPatterns
+                                        , result = Expression.Application [ toNode (Expression.PrefixOperator operator), callArgument ]
+                                        }
+
+                                    [] ->
+                                        { lambdaPatterns = rightLeftReduced.lambdaPatterns
+                                        , result = Expression.PrefixOperator operator
+                                        }
+
+                                    _ :: _ :: _ ->
+                                        { lambdaPatterns = rightLeftReduced.lambdaPatterns
+                                        , result =
+                                            -- same as before
+                                            Node.value lambda.expression
+                                        }
+
+                            else
+                                { lambdaPatterns = leftRightReduced.lambdaPatterns
+                                , result =
+                                    -- same as before
+                                    Node.value lambda.expression
+                                }
+            in
+            case reduced.lambdaPatterns of
+                [] ->
+                    reduced.result
+
+                _ :: _ ->
+                    Expression.LambdaExpression
+                        { args = reduced.lambdaPatterns
+                        , expression = Node.empty reduced.result
+                        }
+
+        _ ->
+            Expression.LambdaExpression lambda
 
 
 normalizePattern : ModuleNameLookupTable -> Node Pattern -> Node Pattern
@@ -404,7 +533,7 @@ type Comparison
     | Unconfirmed
 
 
-compare : Infer.Resources a -> Node Expression -> Node Expression -> Comparison
+compare : Resources a -> Node Expression -> Node Expression -> Comparison
 compare resources leftNode right =
     compareHelp
         (normalize resources leftNode)

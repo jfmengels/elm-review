@@ -15,6 +15,7 @@ all =
         , ceilingTests
         , floorTests
         , truncateTests
+        , absTests
         , minTests
         , maxTests
         , compareTests
@@ -405,7 +406,7 @@ a = round 1.1
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Basics.round on a number literal can be evaluated"
-                            , details = [ "You replace this call by the resulting Int value." ]
+                            , details = [ "You can replace this call by the resulting Int value." ]
                             , under = "round"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -524,7 +525,7 @@ a = ceiling 0.9
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Basics.ceiling on a number literal can be evaluated"
-                            , details = [ "You replace this call by the resulting Int value." ]
+                            , details = [ "You can replace this call by the resulting Int value." ]
                             , under = "ceiling"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -643,7 +644,7 @@ a = floor 1.1
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Basics.floor on a number literal can be evaluated"
-                            , details = [ "You replace this call by the resulting Int value." ]
+                            , details = [ "You can replace this call by the resulting Int value." ]
                             , under = "floor"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -762,7 +763,7 @@ a = truncate 1.1
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Basics.truncate on a number literal can be evaluated"
-                            , details = [ "You replace this call by the resulting Int value." ]
+                            , details = [ "You can replace this call by the resulting Int value." ]
                             , under = "truncate"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -804,6 +805,196 @@ a = identity
         ]
 
 
+absTests : Test
+absTests =
+    describe "Basics.abs"
+        [ test "should not report okay function calls" <|
+            \() ->
+                """module A exposing (..)
+a0 = abs
+a1 = abs n
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectNoErrors
+        , test "should replace abs 3 by 3" <|
+            \() ->
+                """module A exposing (..)
+a = abs 3
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Basics.abs on a number literal can be evaluated"
+                            , details = [ "You can replace this call by the resulting absolute value." ]
+                            , under = "abs"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = 3
+"""
+                        ]
+        , test "should replace abs 3e6 by 3e6" <|
+            \() ->
+                """module A exposing (..)
+a = abs 3e6
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Basics.abs on a number literal can be evaluated"
+                            , details = [ "You can replace this call by the resulting absolute value." ]
+                            , under = "abs"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = 3e6
+"""
+                        ]
+        , test "should replace abs 0x1 by 0x1" <|
+            \() ->
+                """module A exposing (..)
+a = abs 0x1
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Basics.abs on a number literal can be evaluated"
+                            , details = [ "You can replace this call by the resulting absolute value." ]
+                            , under = "abs"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = 0x1
+"""
+                        ]
+        , test "should replace abs (abs n) by abs n" <|
+            \() ->
+                """module A exposing (..)
+a = Basics.abs (abs n)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary Basics.abs after Basics.abs"
+                            , details = [ "You can remove this additional operation." ]
+                            , under = "Basics.abs"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (abs n)
+"""
+                        ]
+        , test "should replace Basics.abs <| abs <| f <| n by abs <| f <| n" <|
+            \() ->
+                """module A exposing (..)
+a = Basics.abs <| abs <| f <| n
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary Basics.abs after Basics.abs"
+                            , details = [ "You can remove this additional operation." ]
+                            , under = "Basics.abs"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = abs <| f <| n
+"""
+                        ]
+        , test "should replace n |> f |> abs |> Basics.abs by n |> f |> abs" <|
+            \() ->
+                """module A exposing (..)
+a = n |> f |> abs |> Basics.abs
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary Basics.abs after Basics.abs"
+                            , details = [ "You can remove this additional operation." ]
+                            , under = "Basics.abs"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = n |> f |> abs
+"""
+                        ]
+        , test "should replace abs << abs by abs" <|
+            \() ->
+                """module A exposing (..)
+a = Basics.abs << abs
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary Basics.abs after Basics.abs"
+                            , details = [ "You can remove this additional operation." ]
+                            , under = "Basics.abs"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = abs
+"""
+                        ]
+        , test "should replace abs -n by abs n" <|
+            \() ->
+                """module A exposing (..)
+a = abs -n
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Basics.abs on a negated value makes the negation unnecessary"
+                            , details = [ "You can remove the negation of the value given to the abs call." ]
+                            , under = "abs"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = abs n
+"""
+                        ]
+        , test "should replace abs (negate n) by abs n" <|
+            \() ->
+                """module A exposing (..)
+a = abs (negate n)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Basics.abs on a negated value makes the negation unnecessary"
+                            , details = [ "You can remove the negation of the value given to the abs call." ]
+                            , under = "abs"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = abs n
+"""
+                        ]
+        , test "should replace abs (if c then x |> f |> negate else -(y |> f)) by abs (if c then x |> f else y |> f)" <|
+            \() ->
+                """module A exposing (..)
+a = abs (if c then x |> f |> negate else -(y |> f))
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Basics.abs on a negated value makes the negation unnecessary"
+                            , details = [ "You can remove the negation of the value given to the abs call." ]
+                            , under = "abs"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = abs (if c then (x |> f) else (y |> f))
+"""
+                        ]
+        , test "should replace abs << negate by abs" <|
+            \() ->
+                """module A exposing (..)
+a = abs << negate
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary Basics.negate before Basics.abs"
+                            , details = [ "You can remove the composition with negate." ]
+                            , under = "abs"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = abs
+"""
+                        ]
+        ]
+
+
 minTests : Test
 minTests =
     describe "Basics.min"
@@ -833,6 +1024,22 @@ a = min n n
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 a = n
+"""
+                        ]
+        , test "should replace min n -n by -(abs n)" <|
+            \() ->
+                """module A exposing (..)
+a = min n -n
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Basics.min with a first value that is equal to negative the second value results in the its negative absolute value"
+                            , details = [ "You can replace this call by the negated Basics.abs on either its first or second argument." ]
+                            , under = "min"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = -(abs n)
 """
                         ]
         , test "should replace min (min n m) n by n" <|
@@ -1059,6 +1266,22 @@ a = max n n
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 a = n
+"""
+                        ]
+        , test "should replace max n -n by abs n" <|
+            \() ->
+                """module A exposing (..)
+a = max n -n
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Basics.max with a first value that is equal to negative the second value results in the its absolute value"
+                            , details = [ "You can replace this call by Basics.abs on either its first or second argument." ]
+                            , under = "max"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (abs n)
 """
                         ]
         , test "should replace max (max (max o p) n) (max m n) by max (max o p) (max m n)" <|
