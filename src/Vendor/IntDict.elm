@@ -1,6 +1,6 @@
 module Vendor.IntDict exposing
     ( IntDict
-    , empty, insert, update
+    , empty, insert, remove, update
     , member, get
     , keys
     )
@@ -43,7 +43,7 @@ Dictionary equality with `(==)` is unreliable and should not be used.
 
 # Build
 
-@docs empty, insert, update
+@docs empty, insert, remove, update
 
 
 # Query
@@ -339,6 +339,62 @@ update key alter dict =
 
                 else
                     inner i.prefix (update key alter i.left) i.right
+
+            else
+                -- we have to join a new leaf with the current diverging Inner node
+                join key (alteredNode Nothing) i.prefix.prefixBits dict
+
+
+{-| Update the value of a dictionary for a specific key with a given function.
+-}
+remove : Int -> (Maybe v -> Maybe v) -> IntDict v -> IntDict v
+remove key alter dict =
+    let
+        alteredNode mv =
+            case always Nothing mv of
+                -- handle this centrally
+                Just v ->
+                    leaf key v
+
+                Nothing ->
+                    empty
+
+        -- The inner constructor will do the rest
+        join k1 l k2 r =
+            -- precondition: k1 /= k2
+            let
+                prefix =
+                    lcp k1 k2
+            in
+            if
+                isBranchingBitSet prefix k2
+                -- if so, r will be the right child
+            then
+                inner prefix l r
+
+            else
+                inner prefix r l
+    in
+    case dict of
+        Empty () ->
+            alteredNode Nothing
+
+        Leaf l ->
+            if l.key == key then
+                alteredNode (Just l.value)
+                -- This updates or removes the leaf with the same key
+
+            else
+                join key (alteredNode Nothing) l.key dict
+
+        -- This potentially inserts a new node
+        Inner i ->
+            if prefixMatches i.prefix key then
+                if isBranchingBitSet i.prefix key then
+                    inner i.prefix i.left (remove key alter i.right)
+
+                else
+                    inner i.prefix (remove key alter i.left) i.right
 
             else
                 -- we have to join a new leaf with the current diverging Inner node

@@ -163,7 +163,7 @@ remove : NodeId -> Graph n -> Graph n
 remove nodeId ((Graph rep) as graph) =
     if IntDict.member nodeId rep then
         rep
-            |> IntDict.update nodeId (always Nothing)
+            |> IntDict.remove nodeId (always Nothing)
             |> Graph
 
     else
