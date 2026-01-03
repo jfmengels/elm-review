@@ -155,7 +155,7 @@ moduleVisitor schema =
         |> Rule.withDeclarationEnterVisitor (\node context -> ( [], declarationVisitor node context ))
         |> Rule.withExpressionEnterVisitor (\node context -> ( [], expressionVisitor node context ))
         |> Rule.withCaseBranchEnterVisitor (\caseBlock casePattern context -> ( [], caseBranchEnterVisitor caseBlock casePattern context ))
-        |> Rule.withCaseBranchExitVisitor (\caseBlock casePattern context -> ( [], caseBranchExitVisitor caseBlock casePattern context ))
+        |> Rule.withCaseBranchExitVisitor (\_ _ context -> ( [], caseBranchExitVisitor context ))
 
 
 
@@ -824,8 +824,8 @@ caseBranchEnterVisitor caseExpression ( casePattern, body ) moduleContext =
     }
 
 
-caseBranchExitVisitor : Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> ModuleContext -> ModuleContext
-caseBranchExitVisitor _ _ moduleContext =
+caseBranchExitVisitor : ModuleContext -> ModuleContext
+caseBranchExitVisitor moduleContext =
     { moduleContext | constructorsToIgnore = List.drop 1 moduleContext.constructorsToIgnore }
 
 
