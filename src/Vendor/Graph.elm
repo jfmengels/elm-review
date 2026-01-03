@@ -187,21 +187,11 @@ applyEdgeDiff nodeId diff graphRep =
     let
         updateIncomingAdjacency : Int -> IntDict (NodeContext n) -> IntDict (NodeContext n)
         updateIncomingAdjacency updatedId =
-            let
-                updateLbl : NodeContext n -> NodeContext n
-                updateLbl =
-                    updateIncomingEdge
-            in
-            IntDict.update updatedId (Maybe.map updateLbl)
+            IntDict.update updatedId (Maybe.map updateIncomingEdge)
 
         updateOutgoingAdjacency : Int -> IntDict (NodeContext n) -> IntDict (NodeContext n)
         updateOutgoingAdjacency updatedId =
-            let
-                updateLbl : NodeContext n -> NodeContext n
-                updateLbl =
-                    updateOutgoingEdge
-            in
-            IntDict.update updatedId (Maybe.map updateLbl)
+            IntDict.update updatedId (Maybe.map updateOutgoingEdge)
 
         -- ignores edges to nodes not in the graph
         updateIncomingEdge : { a | incoming : IntSet } -> { a | incoming : IntSet }
