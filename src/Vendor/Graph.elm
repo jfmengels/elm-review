@@ -203,8 +203,8 @@ remove nodeId ((Graph rep) as graph) =
             let
                 diff : EdgeDiff
                 diff =
-                    { outgoing = IntSet.foldl IntSet.remove IntSet.empty node.incoming
-                    , incoming = IntSet.foldl IntSet.remove IntSet.empty node.outgoing
+                    { outgoing = IntSet.empty
+                    , incoming = IntSet.empty
                     }
             in
             rep
