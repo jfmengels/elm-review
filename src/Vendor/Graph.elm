@@ -156,21 +156,21 @@ type alias EdgeDiff =
     }
 
 
-collect : EdgeUpdate -> IntSet -> IntDict EdgeUpdate -> IntDict EdgeUpdate
-collect edgeUpdate adj updates =
-    IntSet.foldl (collectUpdates edgeUpdate) updates adj
+collect : IntSet -> IntDict EdgeUpdate -> IntDict EdgeUpdate
+collect adj updates =
+    IntSet.foldl collectUpdates updates adj
 
 
-collectUpdates : EdgeUpdate -> Int -> IntDict EdgeUpdate -> IntDict EdgeUpdate
-collectUpdates edgeUpdate updatedId =
+collectUpdates : Int -> IntDict EdgeUpdate -> IntDict EdgeUpdate
+collectUpdates updatedId =
     let
         replaceUpdate old_ =
-            case ( old_, edgeUpdate ) of
-                ( Just Remove, Remove ) ->
+            case old_ of
+                Just Remove ->
                     Vendor.Graph.Hack.crashHack "Graph.computeEdgeDiff: Collected two removals for the same edge. This is an error in the implementation of Graph and you should file a bug report!"
 
-                ( Nothing, eu ) ->
-                    Just eu
+                Nothing ->
+                    Just Remove
     in
     IntDict.update updatedId replaceUpdate
 
@@ -225,8 +225,8 @@ remove nodeId ((Graph rep) as graph) =
         Just node ->
             let
                 diff =
-                    { outgoing = IntDict.empty |> collect Remove node.incoming
-                    , incoming = IntDict.empty |> collect Remove node.outgoing
+                    { outgoing = IntDict.empty |> collect node.incoming
+                    , incoming = IntDict.empty |> collect node.outgoing
                     }
             in
             rep
