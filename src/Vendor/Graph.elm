@@ -72,6 +72,7 @@ representation.
 -}
 
 import Vendor.Fifo as Fifo
+import Vendor.Graph.Hack
 import Vendor.IntDict as IntDict exposing (IntDict)
 
 
@@ -186,10 +187,10 @@ computeEdgeDiff old new =
                                 Just (Insert newLbl)
 
                         ( Just (Remove _), Remove _ ) ->
-                            crashHack "Graph.computeEdgeDiff: Collected two removals for the same edge. This is an error in the implementation of Graph and you should file a bug report!"
+                            Vendor.Graph.Hack.crashHack "Graph.computeEdgeDiff: Collected two removals for the same edge. This is an error in the implementation of Graph and you should file a bug report!"
 
                         ( Just (Insert _), _ ) ->
-                            crashHack "Graph.computeEdgeDiff: Collected inserts before removals. This is an error in the implementation of Graph and you should file a bug report!"
+                            Vendor.Graph.Hack.crashHack "Graph.computeEdgeDiff: Collected inserts before removals. This is an error in the implementation of Graph and you should file a bug report!"
 
                         ( Nothing, eu ) ->
                             Just eu
@@ -426,16 +427,11 @@ type AcyclicGraph n e
 -}
 
 
-crashHack : String -> a
-crashHack _ =
-    crashHack ""
-
-
 unsafeGet : String -> NodeId -> Graph n e -> NodeContext n e
 unsafeGet msg id graph =
     case get id graph of
         Nothing ->
-            crashHack msg
+            Vendor.Graph.Hack.crashHack msg
 
         Just ctx ->
             ctx

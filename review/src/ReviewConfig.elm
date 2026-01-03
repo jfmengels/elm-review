@@ -26,16 +26,17 @@ import NoMissingTypeExpose
 import NoPrematureLetComputation
 import NoSimpleLetBody
 import NoUnnecessaryTrailingUnderscore
+import NoUnused.CustomTypeConstructorArgs
 import NoUnused.CustomTypeConstructors
 import NoUnused.Dependencies
 import NoUnused.Exports
 import NoUnused.Parameters
 import NoUnused.Patterns
 import NoUnused.Variables
-import Review.Rule as Rule exposing (Rule)
 import Review.FilePattern as FilePattern
-import NoUnused.CustomTypeConstructorArgs
+import Review.Rule as Rule exposing (Rule)
 import Simplify
+
 
 config : List Rule
 config =
@@ -67,7 +68,10 @@ config =
     , NoUnused.Exports.rule
         |> Rule.ignoreErrorsForDirectories [ "tests/Fn" ]
     , NoUnused.Parameters.rule
-        |> Rule.ignoreErrorsForFiles [ "src/Review/Rule.elm" ]
+        |> Rule.ignoreErrorsForFiles
+            [ "src/Review/Rule.elm"
+            , "src/Vendor/Graph/Hack.elm"
+            ]
     , NoUnused.Patterns.rule
 
     --, NoUnnecessaryTrailingUnderscore.rule
