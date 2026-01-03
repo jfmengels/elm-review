@@ -1,10 +1,10 @@
 module Vendor.IntSet exposing
     ( IntSet
-    , empty, insert, remove
+    , empty, insert
     , member, findMin
     , intersect
     , keys
-    , foldl, foldlFlipped
+    , foldl
     )
 
 {-|
@@ -45,7 +45,7 @@ Dictionary equality with `(==)` is unreliable and should not be used.
 
 # Build
 
-@docs empty, insert, remove
+@docs empty, insert
 
 
 # Query
@@ -65,7 +65,7 @@ Dictionary equality with `(==)` is unreliable and should not be used.
 
 # Transform
 
-@docs foldl, foldlFlipped
+@docs foldl
 
 
 # String representation
@@ -317,54 +317,6 @@ update key keep dict =
                 join key (alteredNode ()) i.prefix.prefixBits dict
 
 
-remove : Int -> IntSet -> IntSet
-remove key dict =
-    let
-        alteredNode () =
-            empty
-
-        -- The inner constructor will do the rest
-        join k1 l k2 r =
-            -- precondition: k1 /= k2
-            let
-                prefix =
-                    lcp k1 k2
-            in
-            if
-                isBranchingBitSet prefix k2
-                -- if so, r will be the right child
-            then
-                inner prefix l r
-
-            else
-                inner prefix r l
-    in
-    case dict of
-        Empty () ->
-            alteredNode ()
-
-        Leaf leafKey ->
-            if leafKey == key then
-                alteredNode ()
-                -- This updates or removes the leaf with the same key
-
-            else
-                join key (alteredNode ()) leafKey dict
-
-        -- This potentially inserts a new node
-        Inner i ->
-            if prefixMatches i.prefix key then
-                if isBranchingBitSet i.prefix key then
-                    inner i.prefix i.left (remove key i.right)
-
-                else
-                    inner i.prefix (remove key i.left) i.right
-
-            else
-                -- we have to join a new leaf with the current diverging Inner node
-                join key (alteredNode ()) i.prefix.prefixBits dict
-
-
 
 -- QUERY
 
@@ -429,14 +381,6 @@ foldl f acc dict =
 
         Inner i ->
             foldl f (foldl f acc i.left) i.right
-
-
-{-| Fold over the key-value pairs in a dictionary, in order from lowest
-key to highest key.
--}
-foldlFlipped : (Int -> a -> a) -> IntSet -> a -> a
-foldlFlipped f dict acc =
-    foldl f acc dict
 
 
 {-| Fold over the keys pairs in a dictionary, in order from highest

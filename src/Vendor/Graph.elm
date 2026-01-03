@@ -150,29 +150,6 @@ type Graph n
 -- the internal invariants of the graph.
 
 
-applyEdgeDiff : NodeId -> GraphRep n -> GraphRep n
-applyEdgeDiff nodeId graphRep =
-    let
-        updateIncomingAdjacency : Int -> IntDict (NodeContext n) -> IntDict (NodeContext n)
-        updateIncomingAdjacency updatedId =
-            IntDict.update updatedId (Maybe.map updateIncomingEdge)
-
-        updateOutgoingAdjacency : Int -> IntDict (NodeContext n) -> IntDict (NodeContext n)
-        updateOutgoingAdjacency updatedId =
-            IntDict.update updatedId (Maybe.map updateOutgoingEdge)
-
-        -- ignores edges to nodes not in the graph
-        updateIncomingEdge : NodeContext n -> NodeContext n
-        updateIncomingEdge ctx =
-            { node = ctx.node, incoming = IntSet.remove nodeId ctx.incoming, outgoing = ctx.outgoing }
-
-        updateOutgoingEdge : NodeContext n -> NodeContext n
-        updateOutgoingEdge ctx =
-            { node = ctx.node, incoming = ctx.incoming, outgoing = IntSet.remove nodeId ctx.outgoing }
-    in
-    graphRep
-
-
 {-| Analogous to `Dict.remove`, `remove nodeId graph` returns a version of `graph`
 without a node with id `nodeId`. If there was no node with that id, then remove
 is a no-op:
@@ -186,7 +163,6 @@ remove : NodeId -> Graph n -> Graph n
 remove nodeId ((Graph rep) as graph) =
     if IntDict.member nodeId rep then
         rep
-            |> applyEdgeDiff nodeId
             |> IntDict.update nodeId (always Nothing)
             |> Graph
 
