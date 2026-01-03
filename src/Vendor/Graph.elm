@@ -206,11 +206,11 @@ applyEdgeDiff nodeId diff graphRep =
         -- ignores edges to nodes not in the graph
         updateIncomingEdge : Bool -> { a | incoming : IntSet } -> { a | incoming : IntSet }
         updateIncomingEdge keep node =
-            { node | incoming = IntSet.update nodeId keep node.incoming }
+            { node | incoming = IntSet.remove nodeId keep node.incoming }
 
         updateOutgoingEdge : Bool -> { a | outgoing : IntSet } -> { a | outgoing : IntSet }
         updateOutgoingEdge keep node =
-            { node | outgoing = IntSet.update nodeId keep node.outgoing }
+            { node | outgoing = IntSet.remove nodeId keep node.outgoing }
     in
     graphRep
         |> IntDict.foldl updateIncomingAdjacency diff.incoming

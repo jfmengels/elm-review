@@ -1,6 +1,6 @@
 module Vendor.IntSet exposing
     ( IntSet
-    , empty, insert, update
+    , empty, insert, remove
     , member, findMin
     , intersect
     , keys
@@ -45,7 +45,7 @@ Dictionary equality with `(==)` is unreliable and should not be used.
 
 # Build
 
-@docs empty, insert, update
+@docs empty, insert, remove
 
 
 # Query
@@ -311,6 +311,54 @@ update key keep dict =
 
                 else
                     inner i.prefix (update key keep i.left) i.right
+
+            else
+                -- we have to join a new leaf with the current diverging Inner node
+                join key (alteredNode ()) i.prefix.prefixBits dict
+
+
+remove : Int -> Bool -> IntSet -> IntSet
+remove key keep dict =
+    let
+        alteredNode () =
+            empty
+
+        -- The inner constructor will do the rest
+        join k1 l k2 r =
+            -- precondition: k1 /= k2
+            let
+                prefix =
+                    lcp k1 k2
+            in
+            if
+                isBranchingBitSet prefix k2
+                -- if so, r will be the right child
+            then
+                inner prefix l r
+
+            else
+                inner prefix r l
+    in
+    case dict of
+        Empty () ->
+            alteredNode ()
+
+        Leaf leafKey ->
+            if leafKey == key then
+                alteredNode ()
+                -- This updates or removes the leaf with the same key
+
+            else
+                join key (alteredNode ()) leafKey dict
+
+        -- This potentially inserts a new node
+        Inner i ->
+            if prefixMatches i.prefix key then
+                if isBranchingBitSet i.prefix key then
+                    inner i.prefix i.left (remove key keep i.right)
+
+                else
+                    inner i.prefix (remove key keep i.left) i.right
 
             else
                 -- we have to join a new leaf with the current diverging Inner node
