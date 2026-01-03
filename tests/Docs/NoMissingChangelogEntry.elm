@@ -121,7 +121,7 @@ defaults =
 
 -}
 withPathToChangelog : String -> Configuration -> Configuration
-withPathToChangelog changelogPath _ =
+withPathToChangelog changelogPath (Configuration _) =
     Configuration { changelogPath = Just changelogPath }
 
 
