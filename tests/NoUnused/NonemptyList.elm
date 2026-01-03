@@ -2,7 +2,7 @@ module NoUnused.NonemptyList exposing
     ( Nonempty(..)
     , fromElement
     , head
-    , cons, pop
+    , cons, pop, headAndPop
     , mapHead
     )
 
@@ -31,7 +31,7 @@ available.
 
 # Convert
 
-@docs cons, pop
+@docs cons, pop, headAndPop
 
 
 # Map
@@ -105,8 +105,13 @@ cons y (Nonempty x xs) =
 
 {-| Pop and discard the head, or do nothing for a singleton list. Useful if you
 want to exhaust a list but hang on to the last item indefinitely.
-pop (Nonempty 3 [ 2, 1 ]) --> Nonempty 2 [1]
-pop (Nonempty 1 []) --> Nonempty 1 []
+
+    pop (Nonempty 3 [ 2, 1 ])
+    --> Nonempty 2 [1]
+
+    pop (Nonempty 1 [])
+    --> Nonempty 1 []
+
 -}
 pop : Nonempty a -> Nonempty a
 pop ((Nonempty _ xs) as untouched) =
@@ -116,6 +121,18 @@ pop ((Nonempty _ xs) as untouched) =
 
         y :: ys ->
             Nonempty y ys
+
+
+{-| Get the `head` and `pop` to discard the head, or do nothing for a singleton list.
+-}
+headAndPop : Nonempty a -> ( a, Nonempty a )
+headAndPop ((Nonempty x xs) as untouched) =
+    case xs of
+        [] ->
+            ( x, untouched )
+
+        y :: ys ->
+            ( x, Nonempty y ys )
 
 
 {-| Map the head to a value of the same type

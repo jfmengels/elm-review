@@ -1,10 +1,32 @@
-module List.Extra exposing (dictToListFilterAndMap, dictToListMap, find, findMap, findMapWithIndex, indexedFilterMap, insertAllJusts, listFilterThenMapInto)
+module List.Extra exposing
+    ( dictToListFilterAndMap
+    , dictToListMap
+    , find
+    , findMap
+    , findMapWithIndex
+    , findNeighboring
+    , getNeighboring
+    , indexedFilterMap
+    , insertAllJusts
+    , listFilterThenMapInto
+    , maybeCons
+    )
 
 {-| Some utilities.
 -}
 
 import Dict exposing (Dict)
 import Set exposing (Set)
+
+
+maybeCons : Maybe a -> List a -> List a
+maybeCons maybe list =
+    case maybe of
+        Just a ->
+            a :: list
+
+        Nothing ->
+            list
 
 
 {-| Find the first element that satisfies a predicate and return
@@ -60,6 +82,49 @@ findMapWithIndexHelp mapper index list =
 
                 Nothing ->
                     findMapWithIndexHelp mapper (index + 1) rest
+
+
+getNeighboring : Int -> List a -> Maybe ( a, { before : Maybe a, after : Maybe a } )
+getNeighboring index list =
+    getNeighboringAfter Nothing index list
+
+
+getNeighboringAfter : Maybe a -> Int -> List a -> Maybe ( a, { before : Maybe a, after : Maybe a } )
+getNeighboringAfter before index list =
+    if index == 0 then
+        case list of
+            [] ->
+                Nothing
+
+            a :: after ->
+                Just ( a, { before = before, after = List.head after } )
+
+    else
+        case list of
+            [] ->
+                Nothing
+
+            a :: after ->
+                getNeighboringAfter (Just a) (index - 1) after
+
+
+findNeighboring : (Int -> a -> Bool) -> List a -> Maybe ( a, { before : Maybe a, after : Maybe a } )
+findNeighboring predicate list =
+    findNeighboringAfter Nothing 0 predicate list
+
+
+findNeighboringAfter : Maybe a -> Int -> (Int -> a -> Bool) -> List a -> Maybe ( a, { before : Maybe a, after : Maybe a } )
+findNeighboringAfter before index predicate list =
+    case list of
+        [] ->
+            Nothing
+
+        a :: after ->
+            if predicate index a then
+                Just ( a, { before = before, after = List.head after } )
+
+            else
+                findNeighboringAfter (Just a) (index + 1) predicate after
 
 
 indexedFilterMap : (Int -> a -> Maybe b) -> Int -> List a -> List b -> List b

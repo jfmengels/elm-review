@@ -1400,7 +1400,7 @@ collectExposedElementsForAllHelp docsReferences canRemoveExposed maybePreviousRa
                             Node.range nextNode
 
                         Nothing ->
-                            Range.emptyRange
+                            Range.empty
 
                 newAcc : Dict String ExposedElement
                 newAcc =
