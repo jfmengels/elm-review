@@ -144,23 +144,14 @@ type Graph n
 
 
 {- BUILD -}
-
-
-type alias EdgeDiff =
-    { incoming : IntSet
-    , outgoing : IntSet
-    }
-
-
-
 -- applies an EdgeDiff to the graphRep, where nodeId is adjacent
 -- to all touched edges. incoming and outgoing is wrt. to the node set (e.g.
 -- flipped wrt. nodeId). This is the most critical function, as it can mess up
 -- the internal invariants of the graph.
 
 
-applyEdgeDiff : NodeId -> EdgeDiff -> GraphRep n -> GraphRep n
-applyEdgeDiff nodeId diff graphRep =
+applyEdgeDiff : NodeId -> GraphRep n -> GraphRep n
+applyEdgeDiff nodeId graphRep =
     let
         updateIncomingAdjacency : Int -> IntDict (NodeContext n) -> IntDict (NodeContext n)
         updateIncomingAdjacency updatedId =
@@ -180,8 +171,8 @@ applyEdgeDiff nodeId diff graphRep =
             { node = ctx.node, incoming = ctx.incoming, outgoing = IntSet.remove nodeId ctx.outgoing }
     in
     graphRep
-        |> IntSet.foldlFlipped updateIncomingAdjacency diff.incoming
-        |> IntSet.foldlFlipped updateOutgoingAdjacency diff.outgoing
+        |> IntSet.foldlFlipped updateIncomingAdjacency IntSet.empty
+        |> IntSet.foldlFlipped updateOutgoingAdjacency IntSet.empty
 
 
 {-| Analogous to `Dict.remove`, `remove nodeId graph` returns a version of `graph`
@@ -196,15 +187,8 @@ is a no-op:
 remove : NodeId -> Graph n -> Graph n
 remove nodeId ((Graph rep) as graph) =
     if IntDict.member nodeId rep then
-        let
-            diff : EdgeDiff
-            diff =
-                { outgoing = IntSet.empty
-                , incoming = IntSet.empty
-                }
-        in
         rep
-            |> applyEdgeDiff nodeId diff
+            |> applyEdgeDiff nodeId
             |> IntDict.update nodeId (always Nothing)
             |> Graph
 
