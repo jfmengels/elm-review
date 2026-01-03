@@ -152,16 +152,6 @@ type alias EdgeDiff =
     }
 
 
-collect : IntSet -> IntSet -> IntSet
-collect adj updates =
-    IntSet.foldl collectUpdates updates adj
-
-
-collectUpdates : Int -> IntSet -> IntSet
-collectUpdates updatedId set =
-    IntSet.remove updatedId set
-
-
 
 -- applies an EdgeDiff to the graphRep, where nodeId is adjacent
 -- to all touched edges. incoming and outgoing is wrt. to the node set (e.g.
@@ -211,9 +201,10 @@ remove nodeId ((Graph rep) as graph) =
 
         Just node ->
             let
+                diff : EdgeDiff
                 diff =
-                    { outgoing = collect node.incoming IntSet.empty
-                    , incoming = collect node.outgoing IntSet.empty
+                    { outgoing = IntSet.foldl IntSet.remove IntSet.empty node.incoming
+                    , incoming = IntSet.foldl IntSet.remove IntSet.empty node.outgoing
                     }
             in
             rep
