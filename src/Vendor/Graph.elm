@@ -195,12 +195,12 @@ applyEdgeDiff nodeId diff graphRep =
 
         -- ignores edges to nodes not in the graph
         updateIncomingEdge : NodeContext n -> NodeContext n
-        updateIncomingEdge node =
-            { node | incoming = IntSet.remove nodeId node.incoming }
+        updateIncomingEdge ctx =
+            { node = ctx.node, incoming = IntSet.remove nodeId ctx.incoming, outgoing = ctx.outgoing }
 
         updateOutgoingEdge : NodeContext n -> NodeContext n
-        updateOutgoingEdge node =
-            { node | outgoing = IntSet.remove nodeId node.outgoing }
+        updateOutgoingEdge ctx =
+            { node = ctx.node, incoming = ctx.incoming, outgoing = IntSet.remove nodeId ctx.outgoing }
     in
     graphRep
         |> IntDict.foldl updateIncomingAdjacency diff.incoming
