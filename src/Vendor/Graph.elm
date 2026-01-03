@@ -185,27 +185,21 @@ collectUpdates edgeUpdate updatedId =
 applyEdgeDiff : NodeId -> EdgeDiff -> GraphRep n -> GraphRep n
 applyEdgeDiff nodeId diff graphRep =
     let
-        edgeUpdateToMaybe : EdgeUpdate -> Bool
-        edgeUpdateToMaybe edgeUpdate =
-            case edgeUpdate of
-                Remove ->
-                    False
-
-        updateIncomingAdjacency : Int -> EdgeUpdate -> IntDict (NodeContext n) -> IntDict (NodeContext n)
-        updateIncomingAdjacency updatedId edgeUpdate =
+        updateIncomingAdjacency : Int -> IntDict (NodeContext n) -> IntDict (NodeContext n)
+        updateIncomingAdjacency updatedId =
             let
                 updateLbl : NodeContext n -> NodeContext n
                 updateLbl =
-                    updateIncomingEdge (edgeUpdateToMaybe edgeUpdate)
+                    updateIncomingEdge False
             in
             IntDict.update updatedId (Maybe.map updateLbl)
 
-        updateOutgoingAdjacency : Int -> EdgeUpdate -> IntDict (NodeContext n) -> IntDict (NodeContext n)
-        updateOutgoingAdjacency updatedId edgeUpdate =
+        updateOutgoingAdjacency : Int -> IntDict (NodeContext n) -> IntDict (NodeContext n)
+        updateOutgoingAdjacency updatedId =
             let
                 updateLbl : NodeContext n -> NodeContext n
                 updateLbl =
-                    updateOutgoingEdge (edgeUpdateToMaybe edgeUpdate)
+                    updateOutgoingEdge False
             in
             IntDict.update updatedId (Maybe.map updateLbl)
 
