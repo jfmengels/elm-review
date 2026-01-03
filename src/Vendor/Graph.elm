@@ -190,7 +190,7 @@ applyEdgeDiff nodeId diff graphRep =
             let
                 updateLbl : NodeContext n -> NodeContext n
                 updateLbl =
-                    updateIncomingEdge False
+                    updateIncomingEdge
             in
             IntDict.update updatedId (Maybe.map updateLbl)
 
@@ -199,18 +199,18 @@ applyEdgeDiff nodeId diff graphRep =
             let
                 updateLbl : NodeContext n -> NodeContext n
                 updateLbl =
-                    updateOutgoingEdge False
+                    updateOutgoingEdge
             in
             IntDict.update updatedId (Maybe.map updateLbl)
 
         -- ignores edges to nodes not in the graph
-        updateIncomingEdge : Bool -> { a | incoming : IntSet } -> { a | incoming : IntSet }
-        updateIncomingEdge keep node =
-            { node | incoming = IntSet.remove nodeId keep node.incoming }
+        updateIncomingEdge : { a | incoming : IntSet } -> { a | incoming : IntSet }
+        updateIncomingEdge node =
+            { node | incoming = IntSet.remove nodeId node.incoming }
 
-        updateOutgoingEdge : Bool -> { a | outgoing : IntSet } -> { a | outgoing : IntSet }
-        updateOutgoingEdge keep node =
-            { node | outgoing = IntSet.remove nodeId keep node.outgoing }
+        updateOutgoingEdge : { a | outgoing : IntSet } -> { a | outgoing : IntSet }
+        updateOutgoingEdge node =
+            { node | outgoing = IntSet.remove nodeId node.outgoing }
     in
     graphRep
         |> IntDict.foldl updateIncomingAdjacency diff.incoming

@@ -317,8 +317,8 @@ update key keep dict =
                 join key (alteredNode ()) i.prefix.prefixBits dict
 
 
-remove : Int -> Bool -> IntSet -> IntSet
-remove key keep dict =
+remove : Int -> IntSet -> IntSet
+remove key dict =
     let
         alteredNode () =
             empty
@@ -355,10 +355,10 @@ remove key keep dict =
         Inner i ->
             if prefixMatches i.prefix key then
                 if isBranchingBitSet i.prefix key then
-                    inner i.prefix i.left (remove key keep i.right)
+                    inner i.prefix i.left (remove key i.right)
 
                 else
-                    inner i.prefix (remove key keep i.left) i.right
+                    inner i.prefix (remove key i.left) i.right
 
             else
                 -- we have to join a new leaf with the current diverging Inner node
