@@ -249,7 +249,47 @@ a collision.
 -}
 insert : Int -> v -> IntDict v -> IntDict v
 insert key value dict =
-    update key (always (Just value)) dict
+    let
+        -- The inner constructor will do the rest
+        join k1 l k2 r =
+            -- precondition: k1 /= k2
+            let
+                prefix =
+                    lcp k1 k2
+            in
+            if
+                isBranchingBitSet prefix k2
+                -- if so, r will be the right child
+            then
+                inner prefix l r
+
+            else
+                inner prefix r l
+    in
+    case dict of
+        Empty () ->
+            leaf key value
+
+        Leaf l ->
+            if l.key == key then
+                leaf key value
+                -- This updates or removes the leaf with the same key
+
+            else
+                join key (leaf key value) l.key dict
+
+        -- This potentially inserts a new node
+        Inner i ->
+            if prefixMatches i.prefix key then
+                if isBranchingBitSet i.prefix key then
+                    inner i.prefix i.left (insert key value i.right)
+
+                else
+                    inner i.prefix (insert key value i.left) i.right
+
+            else
+                -- we have to join a new leaf with the current diverging Inner node
+                join key (leaf key value) i.prefix.prefixBits dict
 
 
 {-| Update the value of a dictionary for a specific key with a given function.
