@@ -1271,7 +1271,7 @@ expressionEnterVisitor (Node nodeRange node) context =
                                     case function.signature of
                                         Just (Node _ signature) ->
                                             collectModuleNamesFromTypeAnnotation
-                                                context
+                                                newContext
                                                 [ signature.typeAnnotation ]
                                                 withDeclarationModuleName
 
