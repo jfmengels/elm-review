@@ -347,10 +347,10 @@ update key alter dict =
 
 {-| Update the value of a dictionary for a specific key with a given function.
 -}
-remove : Int -> (Maybe v -> Maybe v) -> IntDict v -> IntDict v
-remove key alter dict =
+remove : Int -> IntDict v -> IntDict v
+remove key dict =
     let
-        alteredNode mv =
+        alteredNode =
             empty
 
         -- The inner constructor will do the rest
@@ -371,28 +371,28 @@ remove key alter dict =
     in
     case dict of
         Empty () ->
-            alteredNode Nothing
+            alteredNode
 
         Leaf l ->
             if l.key == key then
-                alteredNode (Just l.value)
+                alteredNode
                 -- This updates or removes the leaf with the same key
 
             else
-                join key (alteredNode Nothing) l.key dict
+                join key alteredNode l.key dict
 
         -- This potentially inserts a new node
         Inner i ->
             if prefixMatches i.prefix key then
                 if isBranchingBitSet i.prefix key then
-                    inner i.prefix i.left (remove key alter i.right)
+                    inner i.prefix i.left (remove key i.right)
 
                 else
-                    inner i.prefix (remove key alter i.left) i.right
+                    inner i.prefix (remove key i.left) i.right
 
             else
                 -- we have to join a new leaf with the current diverging Inner node
-                join key (alteredNode Nothing) i.prefix.prefixBits dict
+                join key alteredNode i.prefix.prefixBits dict
 
 
 
