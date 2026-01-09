@@ -111,21 +111,18 @@ type IntSet
 
 inner : KeyPrefix -> IntSet -> IntSet -> IntSet
 inner p l r =
-    case l of
-        Empty () ->
-            r
+    if l == empty then
+        r
 
-        _ ->
-            case r of
-                Empty () ->
-                    l
+    else if r == empty then
+        l
 
-                _ ->
-                    Inner
-                        { prefix = p
-                        , left = l
-                        , right = r
-                        }
+    else
+        Inner
+            { prefix = p
+            , left = l
+            , right = r
+            }
 
 
 
