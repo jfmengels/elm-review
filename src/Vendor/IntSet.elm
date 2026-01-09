@@ -240,9 +240,11 @@ insert : Int -> IntSet -> IntSet
 insert key dict =
     let
         -- The inner constructor will do the rest
+        join : Int -> IntSet
         join k2 =
             -- precondition: k1 /= k2
             let
+                prefix : KeyPrefix
                 prefix =
                     lcp key k2
             in

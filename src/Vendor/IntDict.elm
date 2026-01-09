@@ -227,8 +227,10 @@ a collision.
 insert : Int -> v -> IntDict v -> IntDict v
 insert key value dict =
     let
+        join : Int -> IntDict v
         join k2 =
             let
+                prefix : KeyPrefix
                 prefix =
                     lcp key k2
             in
