@@ -260,16 +260,9 @@ a collision.
 -}
 insert : Int -> IntSet -> IntSet
 insert key dict =
-    update key True dict
-
-
-{-| Update the value of a dictionary for a specific key with a given function.
--}
-update : Int -> Bool -> IntSet -> IntSet
-update key keep dict =
     let
         alteredNode () =
-            if keep then
+            if True then
                 leaf key
 
             else
@@ -307,10 +300,10 @@ update key keep dict =
         Inner i ->
             if prefixMatches i.prefix key then
                 if isBranchingBitSet i.prefix key then
-                    inner i.prefix i.left (update key keep i.right)
+                    inner i.prefix i.left (insert key i.right)
 
                 else
-                    inner i.prefix (update key keep i.left) i.right
+                    inner i.prefix (insert key i.left) i.right
 
             else
                 -- we have to join a new leaf with the current diverging Inner node
