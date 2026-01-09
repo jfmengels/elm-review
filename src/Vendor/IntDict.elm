@@ -252,38 +252,35 @@ insert key value dict =
             let
                 prefix =
                     lcp k1 k2
-
-                l =
-                    leaf key value
             in
             if
                 isBranchingBitSet prefix k2
                 -- if so, r will be the right child
             then
-                if l == empty then
+                if leaf key value == empty then
                     r
 
                 else if r == empty then
-                    l
+                    leaf key value
 
                 else
                     Inner
                         { prefix = prefix
-                        , left = l
+                        , left = leaf key value
                         , right = r
                         }
 
             else if r == empty then
-                l
+                leaf key value
 
-            else if l == empty then
+            else if leaf key value == empty then
                 r
 
             else
                 Inner
                     { prefix = prefix
                     , left = r
-                    , right = l
+                    , right = leaf key value
                     }
     in
     case dict of
