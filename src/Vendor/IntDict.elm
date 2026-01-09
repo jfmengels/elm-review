@@ -327,45 +327,45 @@ remove key dict =
             else
                 dict
 
-        Inner i ->
-            if prefixMatches i.prefix key then
-                if isBranchingBitSet i.prefix key then
-                    (\p l r ->
-                        if l == empty then
-                            r
+        Inner { prefix, left, right } ->
+            if prefixMatches prefix key then
+                if isBranchingBitSet prefix key then
+                    let
+                        r : IntDict v
+                        r =
+                            remove key right
+                    in
+                    if left == empty then
+                        r
 
-                        else if r == empty then
-                            l
+                    else if r == empty then
+                        left
 
-                        else
-                            Inner
-                                { prefix = p
-                                , left = l
-                                , right = r
-                                }
-                    )
-                        i.prefix
-                        i.left
-                        (remove key i.right)
+                    else
+                        Inner
+                            { prefix = prefix
+                            , left = left
+                            , right = r
+                            }
 
                 else
-                    (\p l r ->
-                        if l == empty then
-                            r
+                    let
+                        l : IntDict v
+                        l =
+                            remove key left
+                    in
+                    if l == empty then
+                        right
 
-                        else if r == empty then
-                            l
+                    else if right == empty then
+                        l
 
-                        else
-                            Inner
-                                { prefix = p
-                                , left = l
-                                , right = r
-                                }
-                    )
-                        i.prefix
-                        (remove key i.left)
-                        i.right
+                    else
+                        Inner
+                            { prefix = prefix
+                            , left = l
+                            , right = right
+                            }
 
             else
                 dict
