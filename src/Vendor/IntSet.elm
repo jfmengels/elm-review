@@ -261,9 +261,6 @@ a collision.
 insert : Int -> IntSet -> IntSet
 insert key dict =
     let
-        alteredNode () =
-            leaf key
-
         -- The inner constructor will do the rest
         join k1 l k2 r =
             -- precondition: k1 /= k2
@@ -282,15 +279,15 @@ insert key dict =
     in
     case dict of
         Empty () ->
-            alteredNode ()
+            leaf key
 
         Leaf leafKey ->
             if leafKey == key then
-                alteredNode ()
+                leaf key
                 -- This updates or removes the leaf with the same key
 
             else
-                join key (alteredNode ()) leafKey dict
+                join key (leaf key) leafKey dict
 
         -- This potentially inserts a new node
         Inner i ->
@@ -303,7 +300,7 @@ insert key dict =
 
             else
                 -- we have to join a new leaf with the current diverging Inner node
-                join key (alteredNode ()) i.prefix.prefixBits dict
+                join key (leaf key) i.prefix.prefixBits dict
 
 
 
