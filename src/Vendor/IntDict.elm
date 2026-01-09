@@ -101,25 +101,6 @@ type IntDict v
 -- `or` 0 is similar to `mod` <32bits>
 -- SMART CONSTRUCTORS
 -- not exported
-
-
-inner : KeyPrefix -> IntDict v -> IntDict v -> IntDict v
-inner p l r =
-    if l == empty then
-        r
-
-    else if r == empty then
-        l
-
-    else
-        Inner
-            { prefix = p
-            , left = l
-            , right = r
-            }
-
-
-
 -- exported as the singleton alias
 
 
@@ -349,10 +330,42 @@ remove key dict =
         Inner i ->
             if prefixMatches i.prefix key then
                 if isBranchingBitSet i.prefix key then
-                    inner i.prefix i.left (remove key i.right)
+                    (\p l r ->
+                        if l == empty then
+                            r
+
+                        else if r == empty then
+                            l
+
+                        else
+                            Inner
+                                { prefix = p
+                                , left = l
+                                , right = r
+                                }
+                    )
+                        i.prefix
+                        i.left
+                        (remove key i.right)
 
                 else
-                    inner i.prefix (remove key i.left) i.right
+                    (\p l r ->
+                        if l == empty then
+                            r
+
+                        else if r == empty then
+                            l
+
+                        else
+                            Inner
+                                { prefix = p
+                                , left = l
+                                , right = r
+                                }
+                    )
+                        i.prefix
+                        (remove key i.left)
+                        i.right
 
             else
                 dict
