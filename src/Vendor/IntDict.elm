@@ -257,18 +257,11 @@ insert key value dict =
                 isBranchingBitSet prefix k2
                 -- if so, r will be the right child
             then
-                if dict == empty then
-                    leaf key value
-
-                else
-                    Inner
-                        { prefix = prefix
-                        , left = leaf key value
-                        , right = dict
-                        }
-
-            else if dict == empty then
-                leaf key value
+                Inner
+                    { prefix = prefix
+                    , left = leaf key value
+                    , right = dict
+                    }
 
             else
                 Inner
