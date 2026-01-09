@@ -360,7 +360,23 @@ remove key dict =
                 isBranchingBitSet prefix k2
                 -- if so, r will be the right child
             then
-                inner prefix empty r
+                (\p l r_ ->
+                    if l == empty then
+                        r_
+
+                    else if r_ == empty then
+                        l
+
+                    else
+                        Inner
+                            { prefix = p
+                            , left = l
+                            , right = r_
+                            }
+                )
+                    prefix
+                    empty
+                    r
 
             else
                 inner prefix r empty
