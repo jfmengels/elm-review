@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [2.16.2] - 2026-01-09
+
 - Fixed an issue where `ModuleNameLookupTable` would sometimes yield an incorrect result for values in let expressions appearing after another let declaration without arguments, when the argument is an argument but is named the same as an imported value.
 
 ## [2.16.1] - 2025-12-30
@@ -275,7 +277,8 @@ Help would be appreciated to fill the blanks!
 [`Review.Rule.errorFixFailure`]: https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule#errorFixFailure
 [`Review.Test.ignoredFilesImpactResults`]: https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule-Test#ignoredFilesImpactResults
 
-[Unreleased]: https://github.com/jfmengels/elm-review/compare/v2.16.1...HEAD
+[Unreleased]: https://github.com/jfmengels/elm-review/compare/v2.16.2...HEAD
+[2.16.2]: https://github.com/jfmengels/elm-review/releases/tag/2.16.2
 [2.16.1]: https://github.com/jfmengels/elm-review/releases/tag/2.16.1
 [2.16.0]: https://github.com/jfmengels/elm-review/releases/tag/2.16.0
 [2.15.5]: https://github.com/jfmengels/elm-review/releases/tag/2.15.5
