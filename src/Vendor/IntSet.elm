@@ -259,11 +259,11 @@ insert : Int -> IntSet -> IntSet
 insert key dict =
     let
         -- The inner constructor will do the rest
-        join k1 k2 =
+        join k2 =
             -- precondition: k1 /= k2
             let
                 prefix =
-                    lcp k1 k2
+                    lcp key k2
             in
             if
                 isBranchingBitSet prefix k2
@@ -284,7 +284,7 @@ insert key dict =
                 -- This updates or removes the leaf with the same key
 
             else
-                join key leafKey
+                join leafKey
 
         -- This potentially inserts a new node
         Inner i ->
@@ -297,7 +297,7 @@ insert key dict =
 
             else
                 -- we have to join a new leaf with the current diverging Inner node
-                join key i.prefix.prefixBits
+                join i.prefix.prefixBits
 
 
 
