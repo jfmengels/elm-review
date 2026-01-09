@@ -314,8 +314,12 @@ check graph id backSet =
         backEdges : IntSet
         backEdges =
             IntSet.intersect ctx.outgoing backSetWithId
+
+        minFromSets : Maybe Int
+        minFromSets =
+            IntSet.findMin backEdges
     in
-    case IntSet.findMin backEdges of
+    case minFromSets of
         Nothing ->
             Ok backSetWithId
 
