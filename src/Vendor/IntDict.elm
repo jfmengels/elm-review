@@ -350,9 +350,6 @@ update key alter dict =
 remove : Int -> IntDict v -> IntDict v
 remove key dict =
     let
-        alteredNode =
-            empty
-
         -- The inner constructor will do the rest
         join k1 l k2 r =
             -- precondition: k1 /= k2
@@ -371,17 +368,15 @@ remove key dict =
     in
     case dict of
         Empty () ->
-            alteredNode
+            empty
 
         Leaf l ->
             if l.key == key then
-                alteredNode
-                -- This updates or removes the leaf with the same key
+                empty
 
             else
-                join key alteredNode l.key dict
+                join key empty l.key dict
 
-        -- This potentially inserts a new node
         Inner i ->
             if prefixMatches i.prefix key then
                 if isBranchingBitSet i.prefix key then
@@ -392,7 +387,7 @@ remove key dict =
 
             else
                 -- we have to join a new leaf with the current diverging Inner node
-                join key alteredNode i.prefix.prefixBits dict
+                join key empty i.prefix.prefixBits dict
 
 
 
