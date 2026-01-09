@@ -362,8 +362,11 @@ remove key dict =
             then
                 r
 
+            else if r == empty then
+                empty
+
             else
-                inner prefix r empty
+                r
     in
     case dict of
         Empty () ->
