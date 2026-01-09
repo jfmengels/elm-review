@@ -304,7 +304,7 @@ update key alter dict =
                 isBranchingBitSet prefix k2
                 -- if so, r will be the right child
             then
-                inner prefix empty r
+                r
 
             else
                 inner prefix r empty
