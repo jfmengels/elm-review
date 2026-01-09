@@ -257,10 +257,32 @@ insert key value dict =
                 isBranchingBitSet prefix k2
                 -- if so, r will be the right child
             then
-                inner prefix l r
+                if l == empty then
+                    r
+
+                else if r == empty then
+                    l
+
+                else
+                    Inner
+                        { prefix = prefix
+                        , left = l
+                        , right = r
+                        }
 
             else
-                inner prefix r l
+                if r == empty then
+                    l
+
+                else if l == empty then
+                    r
+
+                else
+                    Inner
+                        { prefix = prefix
+                        , left = r
+                        , right = l
+                        }
     in
     case dict of
         Empty () ->
@@ -269,7 +291,6 @@ insert key value dict =
         Leaf l ->
             if l.key == key then
                 leaf key value
-                -- This updates or removes the leaf with the same key
 
             else
                 join key (leaf key value) l.key dict
