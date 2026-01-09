@@ -1,7 +1,7 @@
 module Vendor.IntSet exposing
     ( IntSet
     , empty, insert
-    , member, findMin
+    , member
     , intersect
     , keys
     , foldl
@@ -50,7 +50,7 @@ Dictionary equality with `(==)` is unreliable and should not be used.
 
 # Query
 
-@docs member, findMin
+@docs member
 
 
 # Combine
@@ -107,25 +107,6 @@ type IntSet
 -- `or` 0 is similar to `mod` <32bits>
 -- SMART CONSTRUCTORS
 -- not exported
-
-
-inner : KeyPrefix -> IntSet -> IntSet -> IntSet
-inner p l r =
-    if l == empty then
-        r
-
-    else if r == empty then
-        l
-
-    else
-        Inner
-            { prefix = p
-            , left = l
-            , right = r
-            }
-
-
-
 -- exported as the singleton alias
 
 
@@ -331,21 +312,6 @@ member key dict =
                 member key i.left
 
 
-{-| Find the minimum key and value in the dictionary.
--}
-findMin : IntSet -> Maybe Int
-findMin dict =
-    case dict of
-        Empty () ->
-            Nothing
-
-        Leaf key ->
-            Just key
-
-        Inner i ->
-            findMin i.left
-
-
 
 -- TRANSFORM
 
@@ -465,34 +431,39 @@ determineBranchRelation l r =
 {-| Keep a key-value pair when its key appears in the second dictionary.
 Preference is given to values in the first dictionary.
 -}
-intersect : IntSet -> IntSet -> IntSet
+intersect : IntSet -> IntSet -> Maybe Int
 intersect l r =
     case ( l, r ) of
         ( Empty (), _ ) ->
-            empty
+            Nothing
 
         ( _, Empty () ) ->
-            empty
+            Nothing
 
         ( Leaf key, _ ) ->
             if member key r then
-                l
+                Just key
 
             else
-                empty
+                Nothing
 
         ( _, Leaf key ) ->
             if member key l then
-                leaf key
+                Just key
 
             else
-                empty
+                Nothing
 
         ( Inner il, Inner ir ) ->
             case determineBranchRelation il ir of
                 SamePrefix ->
                     -- Intersect both left and right sub trees
-                    inner il.prefix (intersect il.left ir.left) (intersect il.right ir.right)
+                    case intersect il.left ir.left of
+                        Nothing ->
+                            intersect il.right ir.right
+
+                        justKey ->
+                            justKey
 
                 Parent Left Right ->
                     intersect il.right r
@@ -507,7 +478,7 @@ intersect l r =
                     intersect l ir.left
 
                 Disjunct ->
-                    empty
+                    Nothing
 
 
 

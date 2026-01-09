@@ -310,16 +310,8 @@ check graph id backSet =
         ctx : NodeContext n
         ctx =
             unsafeGet error id graph
-
-        backEdges : IntSet
-        backEdges =
-            IntSet.intersect ctx.outgoing backSetWithId
-
-        minFromSets : Maybe Int
-        minFromSets =
-            IntSet.findMin backEdges
     in
-    case minFromSets of
+    case IntSet.intersect ctx.outgoing backSetWithId of
         Nothing ->
             Ok backSetWithId
 
