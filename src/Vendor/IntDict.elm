@@ -322,10 +322,10 @@ mapKey key alter dict =
         Inner { prefix, left, right } ->
             if prefixMatches prefix key then
                 if isBranchingBitSet prefix key then
-                    inner prefix left (mapKey key alter right)
+                    Inner { prefix = prefix, left = left, right = mapKey key alter right }
 
                 else
-                    inner prefix (mapKey key alter left) right
+                    Inner { prefix = prefix, left = mapKey key alter left, right = right }
 
             else
                 dict
