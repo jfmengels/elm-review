@@ -105,19 +105,18 @@ type IntDict v
 
 inner : KeyPrefix -> IntDict v -> IntDict v -> IntDict v
 inner p l r =
-    case ( l, r ) of
-        ( Empty (), _ ) ->
-            r
+    if l == empty then
+        r
 
-        ( _, Empty () ) ->
-            l
+    else if r == empty then
+        l
 
-        _ ->
-            Inner
-                { prefix = p
-                , left = l
-                , right = r
-                }
+    else
+        Inner
+            { prefix = p
+            , left = l
+            , right = r
+            }
 
 
 
