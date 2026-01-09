@@ -160,14 +160,10 @@ is a no-op:
 
 -}
 remove : NodeId -> Graph n -> Graph n
-remove nodeId ((Graph rep) as graph) =
-    if IntDict.member nodeId rep then
-        rep
-            |> IntDict.remove nodeId
-            |> Graph
-
-    else
-        graph
+remove nodeId (Graph rep) =
+    rep
+        |> IntDict.remove nodeId
+        |> Graph
 
 
 
