@@ -246,17 +246,12 @@ a collision.
 insert : Int -> v -> IntDict v -> IntDict v
 insert key value dict =
     let
-        -- The inner constructor will do the rest
         join k2 =
-            -- precondition: k1 /= k2
             let
                 prefix =
                     lcp key k2
             in
-            if
-                isBranchingBitSet prefix k2
-                -- if so, r will be the right child
-            then
+            if isBranchingBitSet prefix k2 then
                 Inner
                     { prefix = prefix
                     , left = leaf key value
@@ -281,7 +276,6 @@ insert key value dict =
             else
                 join l.key
 
-        -- This potentially inserts a new node
         Inner i ->
             if prefixMatches i.prefix key then
                 if isBranchingBitSet i.prefix key then
@@ -291,7 +285,6 @@ insert key value dict =
                     inner i.prefix (insert key value i.left) i.right
 
             else
-                -- we have to join a new leaf with the current diverging Inner node
                 join i.prefix.prefixBits
 
 
