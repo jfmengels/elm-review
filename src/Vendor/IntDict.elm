@@ -298,22 +298,15 @@ insert key value dict =
                         (insert key value i.right)
 
                 else
-                    (\p r ->
-                        if insert key value i.left == empty then
-                            r
+                    if i.right == empty then
+                        insert key value i.left
 
-                        else if r == empty then
-                            insert key value i.left
-
-                        else
-                            Inner
-                                { prefix = p
-                                , left = insert key value i.left
-                                , right = r
-                                }
-                    )
-                        i.prefix
-                        i.right
+                    else
+                        Inner
+                            { prefix = i.prefix
+                            , left = insert key value i.left
+                            , right = i.right
+                            }
 
             else
                 join i.prefix.prefixBits
