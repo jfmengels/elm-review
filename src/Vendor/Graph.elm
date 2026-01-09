@@ -224,8 +224,8 @@ fromNodesAndEdges nodeRep edges_ =
                     }
             in
             rep
-                |> IntDict.update edge.from (Maybe.map updateOutgoing)
-                |> IntDict.update edge.to (Maybe.map updateIncoming)
+                |> IntDict.update edge.from updateOutgoing
+                |> IntDict.update edge.to updateIncoming
 
         addEdgeIfValid : Edge -> IntDict (NodeContext n) -> IntDict (NodeContext n)
         addEdgeIfValid edge rep =

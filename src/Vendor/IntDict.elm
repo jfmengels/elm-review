@@ -290,14 +290,14 @@ insert key value dict =
 
 {-| Update the value of a dictionary for a specific key with a given function.
 -}
-update : Int -> (Maybe v -> Maybe v) -> IntDict v -> IntDict v
+update : Int -> (v -> v) -> IntDict v -> IntDict v
 update key alter dict =
     let
         alteredNode mv =
-            case alter mv of
+            case mv of
                 -- handle this centrally
                 Just v ->
-                    leaf key v
+                    leaf key (alter v)
 
                 Nothing ->
                     empty
