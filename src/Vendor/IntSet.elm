@@ -280,7 +280,7 @@ insert key dict =
 
         Leaf leafKey ->
             if leafKey == key then
-                leaf key
+                dict
                 -- This updates or removes the leaf with the same key
 
             else
