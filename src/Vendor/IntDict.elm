@@ -293,15 +293,6 @@ insert key value dict =
 update : Int -> (v -> v) -> IntDict v -> IntDict v
 update key alter dict =
     let
-        alteredNode mv =
-            case mv of
-                -- handle this centrally
-                Just v ->
-                    leaf key (alter v)
-
-                Nothing ->
-                    empty
-
         -- The inner constructor will do the rest
         join k1 l k2 r =
             -- precondition: k1 /= k2
@@ -324,8 +315,7 @@ update key alter dict =
 
         Leaf l ->
             if l.key == key then
-                alteredNode (Just l.value)
-                -- This updates or removes the leaf with the same key
+                leaf key (alter l.value)
 
             else
                 join key empty l.key dict
