@@ -320,7 +320,7 @@ update key alter dict =
     in
     case dict of
         Empty () ->
-            alteredNode Nothing
+            empty
 
         Leaf l ->
             if l.key == key then
@@ -328,7 +328,7 @@ update key alter dict =
                 -- This updates or removes the leaf with the same key
 
             else
-                join key (alteredNode Nothing) l.key dict
+                join key empty l.key dict
 
         -- This potentially inserts a new node
         Inner i ->
@@ -341,7 +341,7 @@ update key alter dict =
 
             else
                 -- we have to join a new leaf with the current diverging Inner node
-                join key (alteredNode Nothing) i.prefix.prefixBits dict
+                join key empty i.prefix.prefixBits dict
 
 
 {-| Update the value of a dictionary for a specific key with a given function.
