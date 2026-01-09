@@ -262,11 +262,7 @@ insert : Int -> IntSet -> IntSet
 insert key dict =
     let
         alteredNode () =
-            if True then
-                leaf key
-
-            else
-                empty
+            leaf key
 
         -- The inner constructor will do the rest
         join k1 l k2 r =
