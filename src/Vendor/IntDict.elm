@@ -298,22 +298,21 @@ insert key value dict =
                         (insert key value i.right)
 
                 else
-                    (\p l r ->
-                        if l == empty then
+                    (\p r ->
+                        if insert key value i.left == empty then
                             r
 
                         else if r == empty then
-                            l
+                            insert key value i.left
 
                         else
                             Inner
                                 { prefix = p
-                                , left = l
+                                , left = insert key value i.left
                                 , right = r
                                 }
                     )
                         i.prefix
-                        (insert key value i.left)
                         i.right
 
             else
