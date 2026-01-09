@@ -319,13 +319,13 @@ mapKey key alter dict =
                 dict
 
         -- This potentially inserts a new node
-        Inner i ->
-            if prefixMatches i.prefix key then
-                if isBranchingBitSet i.prefix key then
-                    inner i.prefix i.left (mapKey key alter i.right)
+        Inner { prefix, left, right } ->
+            if prefixMatches prefix key then
+                if isBranchingBitSet prefix key then
+                    inner prefix left (mapKey key alter right)
 
                 else
-                    inner i.prefix (mapKey key alter i.left) i.right
+                    inner prefix (mapKey key alter left) right
 
             else
                 dict
