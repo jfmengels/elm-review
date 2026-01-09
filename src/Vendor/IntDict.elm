@@ -1,6 +1,6 @@
 module Vendor.IntDict exposing
     ( IntDict
-    , empty, insert, remove, update
+    , empty, insert, remove, mapKey
     , member, get
     , keys
     )
@@ -26,7 +26,7 @@ which in turn implements Okasaki and Gill's [Fast mergable integer maps](http://
 
 As noted in the [references](http://ittc.ku.edu/~andygill/papers/IntMap98.pdf), here are some runtimes:
 
-_O(min(n, W))_: `insert`, `update`, `remove`, `get`, `member`
+_O(min(n, W))_: `insert`, `mapKey`, `remove`, `get`, `member`
 
 _O(n + m)_: `uniteWith`, `union`, `intersection`, `diff`, `merge`
 
@@ -43,7 +43,7 @@ Dictionary equality with `(==)` is unreliable and should not be used.
 
 # Build
 
-@docs empty, insert, remove, update
+@docs empty, insert, remove, mapKey
 
 
 # Query
@@ -290,8 +290,8 @@ insert key value dict =
 
 {-| Update the value of a dictionary for a specific key with a given function.
 -}
-update : Int -> (v -> v) -> IntDict v -> IntDict v
-update key alter dict =
+mapKey : Int -> (v -> v) -> IntDict v -> IntDict v
+mapKey key alter dict =
     case dict of
         Empty () ->
             empty
@@ -307,10 +307,10 @@ update key alter dict =
         Inner i ->
             if prefixMatches i.prefix key then
                 if isBranchingBitSet i.prefix key then
-                    inner i.prefix i.left (update key alter i.right)
+                    inner i.prefix i.left (mapKey key alter i.right)
 
                 else
-                    inner i.prefix (update key alter i.left) i.right
+                    inner i.prefix (mapKey key alter i.left) i.right
 
             else
                 dict
