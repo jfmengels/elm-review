@@ -360,10 +360,7 @@ remove key dict =
                 isBranchingBitSet prefix k2
                 -- if so, r will be the right child
             then
-                (\r_ ->
-                    r_
-                )
-                    r
+                r
 
             else
                 inner prefix r empty
