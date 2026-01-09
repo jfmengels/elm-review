@@ -279,34 +279,25 @@ insert key value dict =
         Inner i ->
             if prefixMatches i.prefix key then
                 if isBranchingBitSet i.prefix key then
-                    (\p l r ->
-                        if l == empty then
-                            r
-
-                        else if r == empty then
-                            l
-
-                        else
-                            Inner
-                                { prefix = p
-                                , left = l
-                                , right = r
-                                }
-                    )
-                        i.prefix
-                        i.left
-                        (insert key value i.right)
-
-                else
-                    if i.right == empty then
-                        insert key value i.left
+                    if i.left == empty then
+                        insert key value i.right
 
                     else
                         Inner
                             { prefix = i.prefix
-                            , left = insert key value i.left
-                            , right = i.right
+                            , left = i.left
+                            , right = insert key value i.right
                             }
+
+                else if i.right == empty then
+                    insert key value i.left
+
+                else
+                    Inner
+                        { prefix = i.prefix
+                        , left = insert key value i.left
+                        , right = i.right
+                        }
 
             else
                 join i.prefix.prefixBits
