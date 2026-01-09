@@ -348,26 +348,6 @@ update key alter dict =
 -}
 remove : Int -> IntDict v -> IntDict v
 remove key dict =
-    let
-        -- The inner constructor will do the rest
-        join k1 k2 r =
-            -- precondition: k1 /= k2
-            let
-                prefix =
-                    lcp k1 k2
-            in
-            if
-                isBranchingBitSet prefix k2
-                -- if so, r will be the right child
-            then
-                r
-
-            else if r == empty then
-                empty
-
-            else
-                r
-    in
     case dict of
         Empty () ->
             empty
@@ -377,7 +357,7 @@ remove key dict =
                 empty
 
             else
-                join key l.key dict
+                dict
 
         Inner i ->
             if prefixMatches i.prefix key then
@@ -388,8 +368,7 @@ remove key dict =
                     inner i.prefix (remove key i.left) i.right
 
             else
-                -- we have to join a new leaf with the current diverging Inner node
-                join key i.prefix.prefixBits dict
+                dict
 
 
 
