@@ -215,11 +215,13 @@ signBit =
 
 
 isBranchingBitSet : KeyPrefix -> Int -> Bool
-isBranchingBitSet p =
-    Bitwise.xor signBit
+isBranchingBitSet p n =
+    (n
+        |> Bitwise.xor signBit
         -- This is a hack that fixes the ordering of keys.
-        >> Bitwise.and p.branchingBit
-        >> (/=) 0
+        |> Bitwise.and p.branchingBit
+    )
+        /= 0
 
 
 
