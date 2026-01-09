@@ -311,7 +311,7 @@ check graph id backSet =
         ctx =
             unsafeGet error id graph
     in
-    case IntSet.intersect ctx.outgoing backSetWithId of
+    case IntSet.getSharedKey ctx.outgoing backSetWithId of
         Nothing ->
             Ok backSetWithId
 

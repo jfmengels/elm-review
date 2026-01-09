@@ -2,7 +2,7 @@ module Vendor.IntSet exposing
     ( IntSet
     , empty, insert
     , member
-    , intersect
+    , getSharedKey
     , keys
     , foldl
     )
@@ -55,7 +55,7 @@ Dictionary equality with `(==)` is unreliable and should not be used.
 
 # Combine
 
-@docs intersect
+@docs getSharedKey
 
 
 # Lists
@@ -424,15 +424,8 @@ determineBranchRelation l r =
             Disjunct
 
 
-
--- `Right` --> `r` is the left child.
-
-
-{-| Keep a key-value pair when its key appears in the second dictionary.
-Preference is given to values in the first dictionary.
--}
-intersect : IntSet -> IntSet -> Maybe Int
-intersect l r =
+getSharedKey : IntSet -> IntSet -> Maybe Int
+getSharedKey l r =
     case ( l, r ) of
         ( Empty (), _ ) ->
             Nothing
@@ -458,24 +451,24 @@ intersect l r =
             case determineBranchRelation il ir of
                 SamePrefix ->
                     -- Intersect both left and right sub trees
-                    case intersect il.left ir.left of
+                    case getSharedKey il.left ir.left of
                         Nothing ->
-                            intersect il.right ir.right
+                            getSharedKey il.right ir.right
 
                         justKey ->
                             justKey
 
                 Parent Left Right ->
-                    intersect il.right r
+                    getSharedKey il.right r
 
                 Parent Right Right ->
-                    intersect l ir.right
+                    getSharedKey l ir.right
 
                 Parent Left Left ->
-                    intersect il.left r
+                    getSharedKey il.left r
 
                 Parent Right Left ->
-                    intersect l ir.left
+                    getSharedKey l ir.left
 
                 Disjunct ->
                     Nothing
