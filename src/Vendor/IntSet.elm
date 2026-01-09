@@ -290,10 +290,10 @@ insert key dict =
         Inner i ->
             if prefixMatches i.prefix key then
                 if isBranchingBitSet i.prefix key then
-                    inner i.prefix i.left (insert key i.right)
+                    Inner { prefix = i.prefix, left = i.left, right = insert key i.right }
 
                 else
-                    inner i.prefix (insert key i.left) i.right
+                    Inner { prefix = i.prefix, left = insert key i.left, right = i.right }
 
             else
                 -- we have to join a new leaf with the current diverging Inner node
