@@ -377,7 +377,7 @@ import Review.Project.Valid as ValidProject exposing (ValidProject)
 import Review.RequestedData as RequestedData exposing (RequestedData(..))
 import Unicode
 import Vendor.Graph as Graph exposing (Graph)
-import Vendor.IntDict as IntDict
+import Vendor.IntSet as IntSet
 import Vendor.Zipper as Zipper exposing (Zipper)
 
 
@@ -5024,7 +5024,7 @@ type alias Folder projectContext moduleContext =
 
 
 type alias GraphModule =
-    Graph.NodeContext FilePath ()
+    Graph.NodeContext FilePath
 
 
 {-| TODO Breaking change: Remove the type variable and hardcode `Error {}` when Error has been moved to a separate module in v3.
@@ -5613,7 +5613,7 @@ type alias DataToComputeSingleModule =
     , project : ValidProject
     , moduleZipper : Zipper GraphModule
     , fixedErrors : FixedErrors
-    , incoming : Graph.Adjacency ()
+    , incoming : Graph.Adjacency
     }
 
 
@@ -5645,7 +5645,7 @@ computeModule params =
             computeModule newParams
 
 
-computeWhatsRequiredToAnalyze : ValidProject -> OpaqueProjectModule -> Graph.Adjacency () -> List RuleProjectVisitor -> ( List (AvailableData -> RuleModuleVisitor), RequestedData, List RuleProjectVisitor )
+computeWhatsRequiredToAnalyze : ValidProject -> OpaqueProjectModule -> Graph.Adjacency -> List RuleProjectVisitor -> ( List (AvailableData -> RuleModuleVisitor), RequestedData, List RuleProjectVisitor )
 computeWhatsRequiredToAnalyze project module_ incoming ruleProjectVisitors =
     let
         filePath : String
@@ -5922,7 +5922,7 @@ computeProjectContextHashes :
     TraversalAndFolder projectContext moduleContext
     -> ValidProject
     -> Dict String (ModuleCacheEntry projectContext)
-    -> Graph.Adjacency ()
+    -> Graph.Adjacency
     -> List (ContextHash projectContext)
     -> ComparableContextHash projectContext
 computeProjectContextHashes traversalAndFolder project cache incoming initial =
@@ -5932,12 +5932,12 @@ computeProjectContextHashes traversalAndFolder project cache incoming initial =
 
         TraverseImportedModulesFirst _ ->
             let
-                graph : Graph FilePath ()
+                graph : Graph FilePath
                 graph =
                     ValidProject.moduleGraph project
             in
-            IntDict.foldl
-                (\key _ acc ->
+            IntSet.foldl
+                (\key acc ->
                     case
                         Graph.get key graph
                             |> Maybe.andThen (\graphModule -> Dict.get graphModule.node.label cache)
@@ -5957,7 +5957,7 @@ computeProjectContext :
     TraversalAndFolder projectContext moduleContext
     -> ValidProject
     -> Dict String (ModuleCacheEntry projectContext)
-    -> Graph.Adjacency ()
+    -> Graph.Adjacency
     -> projectContext
     -> projectContext
 computeProjectContext traversalAndFolder project cache incoming initial =
@@ -5967,12 +5967,12 @@ computeProjectContext traversalAndFolder project cache incoming initial =
 
         TraverseImportedModulesFirst { foldProjectContexts } ->
             let
-                graph : Graph FilePath ()
+                graph : Graph FilePath
                 graph =
                     ValidProject.moduleGraph project
             in
-            IntDict.foldl
-                (\key _ accContext ->
+            IntSet.foldl
+                (\key accContext ->
                     case
                         Graph.get key graph
                             |> Maybe.andThen (\graphModule -> Dict.get graphModule.node.label cache)
@@ -6044,7 +6044,7 @@ getFolderFromTraversal traversalAndFolder =
 
 
 type FixedFile
-    = FixedElmModule { source : String, ast : File } (Zipper (Graph.NodeContext FilePath ()))
+    = FixedElmModule { source : String, ast : File } (Zipper (Graph.NodeContext FilePath))
     | RemovedElmModule
     | FixedElmJson
     | FixedReadme
@@ -6102,7 +6102,7 @@ type FindFixResult
     | FoundFix RuleProjectVisitor ( PostFixStatus, { project : ValidProject, fixedFile : FixedFile, error : ReviewError } )
 
 
-findFix : ReviewOptionsData -> ValidProject -> (List (Error {}) -> RuleProjectVisitor) -> List (Error {}) -> FixedErrors -> Maybe (Zipper (Graph.NodeContext FilePath ())) -> FindFixResult
+findFix : ReviewOptionsData -> ValidProject -> (List (Error {}) -> RuleProjectVisitor) -> List (Error {}) -> FixedErrors -> Maybe (Zipper (Graph.NodeContext FilePath)) -> FindFixResult
 findFix reviewOptions project updateErrors errors fixedErrors maybeModuleZipper =
     case InternalOptions.shouldApplyFix reviewOptions of
         Nothing ->
@@ -6144,7 +6144,7 @@ findFixHelp :
     -> ({ ruleName : String, filePath : String, message : String, details : List String, range : Range } -> Bool)
     -> List (Error {})
     -> List (Error {})
-    -> Maybe (Zipper (Graph.NodeContext FilePath ()))
+    -> Maybe (Zipper (Graph.NodeContext FilePath))
     -> FindFixHelpResult
 findFixHelp project supportsFileDeletion fixablePredicate errors accErrors maybeModuleZipper =
     case errors of
@@ -6173,7 +6173,7 @@ findFixHelp project supportsFileDeletion fixablePredicate errors accErrors maybe
                                     findFixHelp project supportsFileDeletion fixablePredicate restOfErrors (nonAppliedError :: accErrors) maybeModuleZipper
 
 
-applyFixes : Maybe (Zipper (Graph.NodeContext FilePath ())) -> Error {} -> List ( FileTarget, FixKind ) -> { project : ValidProject, fixedFile : FixedFile } -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
+applyFixes : Maybe (Zipper (Graph.NodeContext FilePath)) -> Error {} -> List ( FileTarget, FixKind ) -> { project : ValidProject, fixedFile : FixedFile } -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
 applyFixes maybeModuleZipper err fixes acc =
     case fixes of
         [] ->
@@ -6223,7 +6223,7 @@ earlierFixedFile a b =
                 b
 
 
-applyFix : ValidProject -> Maybe (Zipper (Graph.NodeContext FilePath ())) -> Error {} -> ( FileTarget, FixKind ) -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
+applyFix : ValidProject -> Maybe (Zipper (Graph.NodeContext FilePath)) -> Error {} -> ( FileTarget, FixKind ) -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
 applyFix project maybeModuleZipper err ( target, fixes ) =
     case fixes of
         ErrorFixes.Edit edits ->
@@ -6233,7 +6233,7 @@ applyFix project maybeModuleZipper err ( target, fixes ) =
             applyFileDeletionFix project err target
 
 
-applyEditFix : ValidProject -> Maybe (Zipper (Graph.NodeContext FilePath ())) -> Error {} -> FileTarget -> List Edit -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
+applyEditFix : ValidProject -> Maybe (Zipper (Graph.NodeContext FilePath)) -> Error {} -> FileTarget -> List Edit -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
 applyEditFix project maybeModuleZipper err target edits =
     case target of
         FileTarget.Module targetPath ->
@@ -6319,7 +6319,7 @@ fixTriesToDeleteFiles list =
         list
 
 
-applySingleModuleFix : ValidProject -> Maybe (Zipper (Graph.NodeContext FilePath ())) -> Error {} -> String -> List Edit -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
+applySingleModuleFix : ValidProject -> Maybe (Zipper (Graph.NodeContext FilePath)) -> Error {} -> String -> List Edit -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
 applySingleModuleFix project maybeModuleZipper ((Error headError) as err) targetPath edits =
     case ValidProject.getModuleByPath targetPath project of
         Nothing ->
@@ -6637,7 +6637,7 @@ type alias RuleProjectVisitorOperations =
     , readmeVisitor : Maybe (ValidProject -> Maybe { readmeKey : ReadmeKey, content : String } -> ( List (Error {}), RuleProjectVisitor ))
     , extraFilesVisitor : Maybe (ValidProject -> ExtraFileData -> ( List (Error {}), RuleProjectVisitor ))
     , dependenciesVisitor : Maybe (ValidProject -> { all : Dict String Review.Project.Dependency.Dependency, direct : Dict String Review.Project.Dependency.Dependency } -> ( List (Error {}), RuleProjectVisitor ))
-    , createModuleVisitorFromProjectVisitor : Maybe (ValidProject -> String -> ContentHash -> Graph.Adjacency () -> Maybe (AvailableData -> RuleModuleVisitor))
+    , createModuleVisitorFromProjectVisitor : Maybe (ValidProject -> String -> ContentHash -> Graph.Adjacency -> Maybe (AvailableData -> RuleModuleVisitor))
     , finalProjectEvaluation : Maybe (() -> ( List (Error {}), RuleProjectVisitor ))
     , dataExtractVisitor : ReviewOptionsData -> Dict String Encode.Value -> ( Dict String Encode.Value, RuleProjectVisitor )
     , getErrorsForModule : String -> List (Error {})
@@ -7045,7 +7045,7 @@ createModuleVisitorFromProjectVisitor :
     ProjectRuleSchemaData projectContext moduleContext
     -> (ProjectRuleCache projectContext -> RuleProjectVisitor)
     -> RuleProjectVisitorHidden projectContext
-    -> Maybe (ValidProject -> String -> ContentHash -> Graph.Adjacency () -> Maybe (AvailableData -> RuleModuleVisitor))
+    -> Maybe (ValidProject -> String -> ContentHash -> Graph.Adjacency -> Maybe (AvailableData -> RuleModuleVisitor))
 createModuleVisitorFromProjectVisitor schema raise hidden =
     case mergeModuleVisitors schema.name schema.initialProjectContext schema.moduleContextCreator schema.moduleVisitors of
         Nothing ->
@@ -7077,7 +7077,7 @@ createModuleVisitorFromProjectVisitorHelp :
     -> ValidProject
     -> String
     -> ContentHash
-    -> Graph.Adjacency ()
+    -> Graph.Adjacency
     -> Maybe (AvailableData -> RuleModuleVisitor)
 createModuleVisitorFromProjectVisitorHelp schema raise hidden traversalAndFolder ( ModuleRuleSchema moduleRuleSchema, moduleContextCreator ) =
     \project filePath moduleContentHash incoming ->
