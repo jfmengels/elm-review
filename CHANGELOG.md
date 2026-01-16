@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Fixed an issue where `ModuleNameLookupTable` would sometimes yield an incorrect result for values in let expressions appearing after another let declaration with a case expression.
+
 ## [2.16.2] - 2026-01-09
 
 - Fixed an issue where `ModuleNameLookupTable` would sometimes yield an incorrect result for values in let expressions appearing after another let declaration without arguments, when the argument is an argument but is named the same as an imported value.

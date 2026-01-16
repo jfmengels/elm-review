@@ -42,12 +42,12 @@ type alias Context =
     , exposedAliases : List Elm.Docs.Alias
     , exposedValues : List Elm.Docs.Value
     , lookupTable : ModuleNameLookupTableBuilder
+    , branches : List ( Range, Dict String VariableInfo )
     }
 
 
 type alias Scope =
     { names : Dict String VariableInfo
-    , branches : List ( Range, Dict String VariableInfo )
     , caseToExit : Range
     }
 
@@ -70,7 +70,6 @@ type VariableType
 emptyScope : Scope
 emptyScope =
     { names = Dict.empty
-    , branches = []
     , caseToExit = Range.empty
     }
 
@@ -403,6 +402,7 @@ fromProjectToModule modules =
     , exposedAliases = []
     , exposedValues = []
     , lookupTable = Builder.empty
+    , branches = []
     }
 
 
@@ -1181,20 +1181,16 @@ collectModuleNamesFromPattern context patternsToVisit acc =
 popScopeEnter : Node Expression -> Context -> Context
 popScopeEnter (Node range _) context =
     let
-        currentScope : Scope
-        currentScope =
-            NonEmpty.head context.scopes
-
         caseExpression : Maybe ( Range, Dict String VariableInfo )
         caseExpression =
-            ListExtra.find (\( branchRange, _ ) -> range == branchRange) currentScope.branches
+            ListExtra.find (\( branchRange, _ ) -> range == branchRange) context.branches
     in
     case caseExpression of
         Nothing ->
             context
 
         Just ( _, names ) ->
-            { context | scopes = NonEmpty.cons { emptyScope | names = names, caseToExit = range } context.scopes }
+            { context | scopes = NonEmpty.cons { names = names, caseToExit = range } context.scopes }
 
 
 popScopeExit : Node Expression -> Context -> Context
@@ -1247,7 +1243,7 @@ expressionEnterVisitor (Node nodeRange node) context =
                                     , branches = branches
                                     }
                         )
-                        { names = Dict.empty, branches = [] }
+                        { names = Dict.empty, branches = context.branches }
                         letExpression.declarations
 
                 newContext : Context
@@ -1256,10 +1252,10 @@ expressionEnterVisitor (Node nodeRange node) context =
                         | scopes =
                             NonEmpty.cons
                                 { names = newScope.names
-                                , branches = newScope.branches
                                 , caseToExit = Range.empty
                                 }
                                 context.scopes
+                        , branches = newScope.branches
                     }
 
                 lookupTable : ModuleNameLookupTableBuilder
@@ -1305,11 +1301,11 @@ expressionEnterVisitor (Node nodeRange node) context =
                             , collectModuleNamesFromPattern context [ pattern ] lookupTableAcc
                             )
                         )
-                        ( [], context.lookupTable )
+                        ( context.branches, context.lookupTable )
                         caseBlock.cases
             in
             { context
-                | scopes = NonEmpty.mapHead (\scope -> { scope | branches = branches }) context.scopes
+                | branches = branches
                 , lookupTable = lookupTable
             }
 
@@ -1344,13 +1340,13 @@ expressionEnterVisitor (Node nodeRange node) context =
                 newScope : Scope
                 newScope =
                     { names = Dict.empty
-                    , branches = [ ( range, names ) ]
                     , caseToExit = range
                     }
             in
             { context
                 | lookupTable = collectModuleNamesFromPattern context args context.lookupTable
                 , scopes = NonEmpty.cons newScope context.scopes
+                , branches = ( range, names ) :: context.branches
             }
 
         Expression.PrefixOperator op ->
@@ -1427,7 +1423,7 @@ expressionExitVisitor (Node _ node) context =
             { context | scopes = NonEmpty.pop context.scopes }
 
         Expression.CaseExpression _ ->
-            { context | scopes = NonEmpty.mapHead (\scope -> { scope | branches = [] }) context.scopes }
+            context
 
         Expression.LambdaExpression _ ->
             { context | scopes = NonEmpty.pop context.scopes }

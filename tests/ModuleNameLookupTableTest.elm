@@ -339,6 +339,46 @@ view a =
                             , under = "module"
                             }
                         ]
+        , test "should not get confused about let declaration coming after a let destructuring" <|
+            \() ->
+                let
+                    lookupFunction : ModuleNameLookupTable -> Range -> Maybe ModuleName
+                    lookupFunction =
+                        ModuleNameLookupTable.moduleNameAt
+
+                    rule : Rule
+                    rule =
+                        createRule
+                            (Rule.withExpressionEnterVisitor (expressionVisitor lookupFunction)
+                                >> Rule.withDeclarationEnterVisitor (declarationVisitor lookupFunction)
+                            )
+                in
+                """module A exposing (fn)
+import ConfusingOrigin exposing (css)
+fn =
+    let
+        {} =
+            case {} of
+                {} ->
+                    {}
+
+        value css x =
+            css x
+    in
+    value
+"""
+                    |> Review.Test.runWithProjectData project rule
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = """
+<nothing>.css -> <nothing>.css
+<nothing>.x -> <nothing>.x
+<nothing>.value -> <nothing>.value
+"""
+                            , details = [ "details" ]
+                            , under = "module"
+                            }
+                        ]
         ]
 
 
