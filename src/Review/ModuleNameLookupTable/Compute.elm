@@ -147,10 +147,10 @@ computeHelp cacheKey moduleName module_ project =
         modulesByModuleName =
             ValidProject.modulesByModuleName project
 
-        ( imported, projectCacheWithComputedImports ) =
+        ( imported, newModules ) =
             List.foldl
                 (\node acc -> computeImportedModulesDocs modulesByModuleName deps node acc)
-                ( preludeModuleDocs deps, projectCache )
+                ( preludeModuleDocs deps, projectCache.modules )
                 moduleAst.imports
 
         ( lookupTable, modules ) =
@@ -170,7 +170,7 @@ computeHelp cacheKey moduleName module_ project =
                 , values = moduleContext.exposedValues
                 , binops = []
                 }
-                projectCacheWithComputedImports.modules
+                newModules
             )
 
         newProjectCache : ProjectCache
@@ -182,7 +182,7 @@ computeHelp cacheKey moduleName module_ project =
                     { key = cacheKey
                     , lookupTable = lookupTable
                     }
-                    projectCacheWithComputedImports.lookupTables
+                    projectCache.lookupTables
             }
     in
     ( lookupTable, ValidProject.updateProjectCache newProjectCache project )
@@ -193,18 +193,18 @@ computeOnlyModuleDocs :
     -> OpaqueProjectModule
     -> Dict ModuleName OpaqueProjectModule
     -> Dict ModuleName Elm.Docs.Module
-    -> ProjectCache
-    -> ( Elm.Docs.Module, ProjectCache )
-computeOnlyModuleDocs moduleName module_ modulesByModuleName deps projectCache =
+    -> Dict ModuleName Elm.Docs.Module
+    -> ( Elm.Docs.Module, Dict ModuleName Elm.Docs.Module )
+computeOnlyModuleDocs moduleName module_ modulesByModuleName deps accModules =
     let
         moduleAst : Elm.Syntax.File.File
         moduleAst =
             ProjectModule.ast module_
 
-        ( imported, projectCacheWithComputedImports ) =
+        ( imported, modulesWithImportedModules ) =
             List.foldl
                 (\node acc -> computeImportedModulesDocs modulesByModuleName deps node acc)
-                ( preludeModuleDocs deps, projectCache )
+                ( preludeModuleDocs deps, accModules )
                 moduleAst.imports
 
         moduleContext : Context
@@ -224,9 +224,9 @@ computeOnlyModuleDocs moduleName module_ modulesByModuleName deps projectCache =
 
         modules : Dict ModuleName Elm.Docs.Module
         modules =
-            Dict.insert moduleName moduleDocs projectCacheWithComputedImports.modules
+            Dict.insert moduleName moduleDocs modulesWithImportedModules
     in
-    ( moduleDocs, { projectCache | modules = modules } )
+    ( moduleDocs, modules )
 
 
 computeImplicitlyImportedElements :
@@ -340,36 +340,36 @@ computeImportedModulesDocs :
     Dict ModuleName OpaqueProjectModule
     -> Dict ModuleName Elm.Docs.Module
     -> Node Import
-    -> ( Dict ModuleName Elm.Docs.Module, ProjectCache )
-    -> ( Dict ModuleName Elm.Docs.Module, ProjectCache )
-computeImportedModulesDocs modulesByModuleName deps (Node _ import_) ( accImported, accProjectCache ) =
+    -> ( Dict ModuleName Elm.Docs.Module, Dict ModuleName Elm.Docs.Module )
+    -> ( Dict ModuleName Elm.Docs.Module, Dict ModuleName Elm.Docs.Module )
+computeImportedModulesDocs modulesByModuleName deps (Node _ import_) ( accImported, accModules ) =
     let
         importedModuleName : ModuleName
         importedModuleName =
             Node.value import_.moduleName
     in
-    case Dict.get importedModuleName accProjectCache.modules of
+    case Dict.get importedModuleName accModules of
         Just importedModule ->
-            ( Dict.insert importedModuleName importedModule accImported, accProjectCache )
+            ( Dict.insert importedModuleName importedModule accImported, accModules )
 
         Nothing ->
             case Dict.get importedModuleName modulesByModuleName of
                 Just importedModule ->
                     let
-                        ( importedModuleDocs, newProjectCacheAcc ) =
-                            computeOnlyModuleDocs importedModuleName importedModule modulesByModuleName deps accProjectCache
+                        ( importedModuleDocs, modules ) =
+                            computeOnlyModuleDocs importedModuleName importedModule modulesByModuleName deps accModules
                     in
                     ( Dict.insert importedModuleName importedModuleDocs accImported
-                    , newProjectCacheAcc
+                    , modules
                     )
 
                 Nothing ->
                     case Dict.get importedModuleName deps of
                         Just importedModule ->
-                            ( Dict.insert importedModuleName importedModule accImported, accProjectCache )
+                            ( Dict.insert importedModuleName importedModule accImported, accModules )
 
                         Nothing ->
-                            ( accImported, accProjectCache )
+                            ( accImported, accModules )
 
 
 computeDependencies : ValidProject -> Dict ModuleName Elm.Docs.Module
