@@ -42,7 +42,7 @@ type alias Context =
     , exposedAliases : List Elm.Docs.Alias
     , exposedValues : List Elm.Docs.Value
     , lookupTable : ModuleNameLookupTableBuilder
-    , branches : List ( Range, Scope )
+    , branches : NonEmpty ( Range, Scope )
     , caseToExit : NonEmpty Range
     }
 
@@ -394,7 +394,7 @@ fromProjectToModule modules =
     , exposedAliases = []
     , exposedValues = []
     , lookupTable = Builder.empty
-    , branches = []
+    , branches = NonEmpty.fromElement ( Range.empty, Dict.empty )
     , caseToExit = NonEmpty.fromElement Range.empty
     }
 
@@ -438,7 +438,6 @@ visitExpressions node context =
         visitExpressions
         newContext
         (expressionChildren node)
-        |> expressionExitVisitor node
         |> popScopeExit node
 
 
@@ -1174,19 +1173,18 @@ collectModuleNamesFromPattern context patternsToVisit acc =
 popScopeEnter : Node Expression -> Context -> Context
 popScopeEnter (Node range _) context =
     let
-        caseExpression : Maybe ( Range, Scope )
-        caseExpression =
-            ListExtra.find (\( branchRange, _ ) -> range == branchRange) context.branches
+        ( branchRange, scope ) =
+            NonEmpty.head context.branches
     in
-    case caseExpression of
-        Nothing ->
-            context
+    if range == branchRange then
+        { context
+            | scopes = NonEmpty.cons scope context.scopes
+            , caseToExit = NonEmpty.cons range context.caseToExit
+            , branches = NonEmpty.pop context.branches
+        }
 
-        Just ( _, scope ) ->
-            { context
-                | scopes = NonEmpty.cons scope context.scopes
-                , caseToExit = NonEmpty.cons range context.caseToExit
-            }
+    else
+        context
 
 
 popScopeExit : Node Expression -> Context -> Context
@@ -1206,9 +1204,9 @@ expressionEnterVisitor (Node nodeRange node) context =
     case node of
         Expression.LetExpression letExpression ->
             let
-                let_ : { scope : Scope, branches : List ( Range, Scope ) }
+                let_ : { scope : Scope, branches : NonEmpty ( Range, Scope ) }
                 let_ =
-                    List.foldl
+                    List.foldr
                         (\(Node _ declaration) { scope, branches } ->
                             case declaration of
                                 Expression.LetFunction function ->
@@ -1229,7 +1227,7 @@ expressionEnterVisitor (Node nodeRange node) context =
                                             collectNamesFromPattern PatternVariable arguments Dict.empty
                                     in
                                     { scope = newScope
-                                    , branches = ( Node.range expression, namesInBranch ) :: branches
+                                    , branches = NonEmpty.cons ( Node.range expression, namesInBranch ) branches
                                     }
 
                                 Expression.LetDestructuring pattern _ ->
@@ -1281,12 +1279,13 @@ expressionEnterVisitor (Node nodeRange node) context =
         Expression.CaseExpression caseBlock ->
             let
                 ( branches, lookupTable ) =
-                    List.foldl
+                    List.foldr
                         (\( pattern, Node expressionRange _ ) ( branchesAcc, lookupTableAcc ) ->
-                            ( ( expressionRange
-                              , collectNamesFromPattern PatternVariable [ pattern ] Dict.empty
-                              )
-                                :: branchesAcc
+                            ( NonEmpty.cons
+                                ( expressionRange
+                                , collectNamesFromPattern PatternVariable [ pattern ] Dict.empty
+                                )
+                                branchesAcc
                             , collectModuleNamesFromPattern context [ pattern ] lookupTableAcc
                             )
                         )
@@ -1328,7 +1327,7 @@ expressionEnterVisitor (Node nodeRange node) context =
             in
             { context
                 | lookupTable = collectModuleNamesFromPattern context args context.lookupTable
-                , branches = ( range, names ) :: context.branches
+                , branches = NonEmpty.cons ( range, names ) context.branches
                 , caseToExit = NonEmpty.cons range context.caseToExit
             }
 
@@ -1397,19 +1396,6 @@ collectModuleNamesFromTypeAnnotation context typeAnnotationsToVisit acc =
 
         [] ->
             acc
-
-
-expressionExitVisitor : Node Expression -> Context -> Context
-expressionExitVisitor (Node _ node) context =
-    case node of
-        Expression.LetExpression _ ->
-            { context | scopes = NonEmpty.pop context.scopes }
-
-        Expression.CaseExpression _ ->
-            context
-
-        _ ->
-            context
 
 
 {-| Get the name of the module where a value was defined.
