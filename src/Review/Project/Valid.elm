@@ -17,7 +17,6 @@ module Review.Project.Valid exposing
     , getModuleByPath
     , moduleGraph
     , moduleZipper
-    , modulesByModuleName
     , parse
     , projectCache
     , readme
@@ -56,7 +55,6 @@ type ValidProject
 
 type alias ValidProjectData =
     { modulesByPath : Dict String OpaqueProjectModule
-    , modulesByModuleName : Dict ModuleName OpaqueProjectModule
     , elmJson : Maybe ( { path : String, raw : String, project : Elm.Project.Project }, ContentHash )
     , readme : Maybe ( { path : String, content : String }, ContentHash )
     , extraFiles : Dict {- path -} String {- content -} String
@@ -143,7 +141,6 @@ fromProjectAndGraph moduleGraph_ acyclicGraph (Project project) =
     in
     ValidProject
         { modulesByPath = project.modules
-        , modulesByModuleName = computeModulesByModuleName project.modules
         , elmJson = project.elmJson
         , readme = project.readme
         , extraFiles = project.extraFiles
@@ -190,16 +187,6 @@ computeDependencyModules directDependencies_ =
         )
         Set.empty
         directDependencies_
-
-
-computeModulesByModuleName : Dict a OpaqueProjectModule -> Dict ModuleName OpaqueProjectModule
-computeModulesByModuleName modules =
-    Dict.foldl
-        (\_ module_ acc ->
-            Dict.insert (ProjectModule.moduleName module_) module_ acc
-        )
-        Dict.empty
-        modules
 
 
 duplicateModuleNames : Dict ModuleName String -> List OpaqueProjectModule -> Maybe { moduleName : ModuleName, paths : List String }
@@ -383,11 +370,6 @@ directDependencies (ValidProject project) =
 moduleGraph : ValidProject -> Graph FilePath
 moduleGraph (ValidProject project) =
     project.moduleGraph
-
-
-modulesByModuleName : ValidProject -> Dict ModuleName OpaqueProjectModule
-modulesByModuleName (ValidProject project) =
-    project.modulesByModuleName
 
 
 getModuleByPath : String -> ValidProject -> Maybe OpaqueProjectModule
