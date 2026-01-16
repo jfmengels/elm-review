@@ -7,10 +7,10 @@ import Review.Cache.ContentHash exposing (ContentHash)
 import Review.ModuleNameLookupTable exposing (ModuleNameLookupTable)
 
 
-type ProjectCache
+type ProjectCache context
     = ProjectCache
         { elmJsonContentHash : Maybe ContentHash
-        , dependenciesModules : Maybe (Dict ModuleName Elm.Docs.Module)
+        , dependencies : Maybe { deps : Dict ModuleName Elm.Docs.Module, baseModuleContext : context }
         , modules : Dict ModuleName Elm.Docs.Module
         , lookupTables : Dict ModuleName { key : ModuleCacheKey, lookupTable : ModuleNameLookupTable }
         }
@@ -22,11 +22,11 @@ type alias ModuleCacheKey =
     }
 
 
-empty : ProjectCache
+empty : ProjectCache context
 empty =
     ProjectCache
         { elmJsonContentHash = Nothing
-        , dependenciesModules = Nothing
+        , dependencies = Nothing
         , modules = Dict.empty
         , lookupTables = Dict.empty
         }

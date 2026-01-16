@@ -38,6 +38,7 @@ import Review.Cache.ContentHash as ContentHash exposing (ContentHash)
 import Review.FilePath exposing (FilePath)
 import Review.Fix.FixProblem as FixProblem exposing (FixProblem)
 import Review.ImportCycle as ImportCycle
+import Review.ModuleNameLookupTable.ComputeContext as ComputeContext
 import Review.Project.Dependency as Dependency exposing (Dependency)
 import Review.Project.Internal exposing (Project(..))
 import Review.Project.InvalidProjectError as InvalidProjectError exposing (InvalidProjectError)
@@ -64,7 +65,7 @@ type alias ValidProjectData =
     , directDependencies : Dict String Dependency
     , dependencyModules : Set ModuleName
     , sourceDirectories : List String
-    , projectCache : ProjectCache
+    , projectCache : ProjectCache ComputeContext.Context
     , moduleGraph : Graph FilePath
     , sortedModules : List (Graph.NodeContext FilePath)
     }
@@ -382,7 +383,7 @@ doesModuleExist path (ValidProject project) =
     Dict.member path project.modulesByPath
 
 
-projectCache : ValidProject -> ProjectCache
+projectCache : ValidProject -> ProjectCache ComputeContext.Context
 projectCache (ValidProject project) =
     project.projectCache
 
@@ -392,7 +393,7 @@ moduleZipper (ValidProject project) =
     unsafeCreateZipper project.sortedModules
 
 
-updateProjectCache : ProjectCache -> ValidProject -> ValidProject
+updateProjectCache : ProjectCache ComputeContext.Context -> ValidProject -> ValidProject
 updateProjectCache projectCache_ (ValidProject project) =
     ValidProject { project | projectCache = projectCache_ }
 

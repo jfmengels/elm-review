@@ -91,19 +91,28 @@ computeHelp cacheKey moduleName module_ project =
         elmJsonContentHash =
             ValidProject.elmJsonHash project
 
-        deps : Dict ModuleName Elm.Docs.Module
-        deps =
+        ({ deps, baseModuleContext } as depsCache) =
             -- TODO Only invalidate the lookup tables the dependencies in elm.json have changed?
-            case projectCache.dependenciesModules of
-                Just depsFromCache ->
+            let
+                computeDepsAndBaseModuleContext : () -> { deps : Dict ModuleName Elm.Docs.Module, baseModuleContext : Context }
+                computeDepsAndBaseModuleContext () =
+                    let
+                        deps_ : Dict ModuleName Elm.Docs.Module
+                        deps_ =
+                            computeDependencies project
+                    in
+                    { deps = deps_, baseModuleContext = computeBaseModule (preludeModuleDocs deps_) }
+            in
+            case projectCache.dependencies of
+                Just cache ->
                     if elmJsonContentHash == projectCache.elmJsonContentHash then
-                        depsFromCache
+                        cache
 
                     else
-                        computeDependencies project
+                        computeDepsAndBaseModuleContext ()
 
                 Nothing ->
-                    computeDependencies project
+                    computeDepsAndBaseModuleContext ()
 
         moduleDocs : { projectModules : Dict ModuleName Elm.Docs.Module, deps : Dict ModuleName Elm.Docs.Module }
         moduleDocs =
@@ -113,12 +122,12 @@ computeHelp cacheKey moduleName module_ project =
         imported =
             List.foldl
                 (\node acc -> computeImportedModulesDocs moduleDocs node acc)
-                (preludeModuleDocs deps)
+                baseModuleContext.modules
                 moduleAst.imports
 
         moduleContext : Context
         moduleContext =
-            fromProjectToModule imported
+            { baseModuleContext | modules = imported }
                 |> collectModuleDocs moduleAst
                 |> collectLookupTable moduleAst.declarations
 
@@ -135,10 +144,10 @@ computeHelp cacheKey moduleName module_ project =
                 projectCache.modules
             )
 
-        newProjectCache : ProjectCache
+        newProjectCache : ProjectCache Context
         newProjectCache =
             ProjectCache
-                { dependenciesModules = Just deps
+                { dependencies = Just depsCache
                 , elmJsonContentHash = elmJsonContentHash
                 , modules = modules
                 , lookupTables =
@@ -299,28 +308,30 @@ computeDependencies project =
             Dict.empty
 
 
-fromProjectToModule : Dict ModuleName Elm.Docs.Module -> Context
-fromProjectToModule modules =
-    { scopes = NonEmpty.fromElement Dict.empty
-    , localTypes = Set.empty
-    , importAliases = Dict.empty
-    , importedFunctions = Dict.empty
-    , importedTypes = Dict.empty
-    , modules = modules
-    , exposesEverything = False
-    , exposedNames = Set.empty
-    , exposedUnions = []
-    , exposedAliases = []
-    , exposedValues = []
-    , lookupTable = Builder.empty
-    , branches = NonEmpty.fromElement ( Range.empty, Dict.empty )
-    , caseToExit = NonEmpty.fromElement Range.empty
-    }
+computeBaseModule : Dict ModuleName Elm.Docs.Module -> Context
+computeBaseModule elmCorePreludeModules =
+    List.foldl importVisitor
+        { scopes = NonEmpty.fromElement Dict.empty
+        , localTypes = Set.empty
+        , importAliases = Dict.empty
+        , importedFunctions = Dict.empty
+        , importedTypes = Dict.empty
+        , modules = elmCorePreludeModules
+        , exposesEverything = False
+        , exposedNames = Set.empty
+        , exposedUnions = []
+        , exposedAliases = []
+        , exposedValues = []
+        , lookupTable = Builder.empty
+        , branches = NonEmpty.fromElement ( Range.empty, Dict.empty )
+        , caseToExit = NonEmpty.fromElement Range.empty
+        }
+        elmCorePrelude
 
 
 collectModuleDocs : Elm.Syntax.File.File -> Context -> Context
 collectModuleDocs ast context =
-    List.foldl importVisitor context (elmCorePrelude ++ ast.imports)
+    List.foldl importVisitor context ast.imports
         |> moduleDefinitionVisitor ast.moduleDefinition
         |> declarationListVisitor ast.declarations
 
