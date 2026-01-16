@@ -43,12 +43,12 @@ type alias Context =
     , exposedValues : List Elm.Docs.Value
     , lookupTable : ModuleNameLookupTableBuilder
     , branches : List ( Range, Dict String VariableInfo )
+    , caseToExit : NonEmpty Range
     }
 
 
 type alias Scope =
     { names : Dict String VariableInfo
-    , caseToExit : Range
     }
 
 
@@ -70,7 +70,6 @@ type VariableType
 emptyScope : Scope
 emptyScope =
     { names = Dict.empty
-    , caseToExit = Range.empty
     }
 
 
@@ -403,6 +402,7 @@ fromProjectToModule modules =
     , exposedValues = []
     , lookupTable = Builder.empty
     , branches = []
+    , caseToExit = NonEmpty.fromElement Range.empty
     }
 
 
@@ -1190,18 +1190,19 @@ popScopeEnter (Node range _) context =
             context
 
         Just ( _, names ) ->
-            { context | scopes = NonEmpty.cons { names = names, caseToExit = range } context.scopes }
+            { context
+                | scopes = NonEmpty.cons { names = names } context.scopes
+                , caseToExit = NonEmpty.cons range context.caseToExit
+            }
 
 
 popScopeExit : Node Expression -> Context -> Context
 popScopeExit (Node range _) context =
-    let
-        currentScope : Scope
-        currentScope =
-            NonEmpty.head context.scopes
-    in
-    if range == currentScope.caseToExit then
-        { context | scopes = NonEmpty.pop context.scopes }
+    if range == NonEmpty.head context.caseToExit then
+        { context
+            | scopes = NonEmpty.pop context.scopes
+            , caseToExit = NonEmpty.pop context.caseToExit
+        }
 
     else
         context
@@ -1249,12 +1250,7 @@ expressionEnterVisitor (Node nodeRange node) context =
                 newContext : Context
                 newContext =
                     { context
-                        | scopes =
-                            NonEmpty.cons
-                                { names = newScope.names
-                                , caseToExit = Range.empty
-                                }
-                                context.scopes
+                        | scopes = NonEmpty.cons { names = newScope.names } context.scopes
                         , branches = newScope.branches
                     }
 
@@ -1340,13 +1336,13 @@ expressionEnterVisitor (Node nodeRange node) context =
                 newScope : Scope
                 newScope =
                     { names = Dict.empty
-                    , caseToExit = range
                     }
             in
             { context
                 | lookupTable = collectModuleNamesFromPattern context args context.lookupTable
                 , scopes = NonEmpty.cons newScope context.scopes
                 , branches = ( range, names ) :: context.branches
+                , caseToExit = NonEmpty.cons range context.caseToExit
             }
 
         Expression.PrefixOperator op ->
