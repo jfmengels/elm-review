@@ -95,9 +95,9 @@ computeHelp cacheKey moduleName module_ project =
         deps =
             -- TODO Only invalidate the lookup tables the dependencies in elm.json have changed?
             case projectCache.dependenciesModules of
-                Just cache ->
-                    if elmJsonContentHash == cache.elmJsonContentHash then
-                        cache.deps
+                Just depsFromCache ->
+                    if elmJsonContentHash == projectCache.elmJsonContentHash then
+                        depsFromCache
 
                     else
                         computeDependencies project
@@ -138,7 +138,8 @@ computeHelp cacheKey moduleName module_ project =
         newProjectCache : ProjectCache
         newProjectCache =
             ProjectCache
-                { dependenciesModules = Just { elmJsonContentHash = elmJsonContentHash, deps = deps }
+                { dependenciesModules = Just deps
+                , elmJsonContentHash = elmJsonContentHash
                 , modules = modules
                 , lookupTables =
                     Dict.insert moduleName
