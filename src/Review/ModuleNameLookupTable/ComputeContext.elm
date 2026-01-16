@@ -1,14 +1,11 @@
 module Review.ModuleNameLookupTable.ComputeContext exposing
     ( Context
     , Scope
-    , VariableInfo
-    , VariableType(..)
     )
 
 import Dict exposing (Dict)
 import Elm.Docs
 import Elm.Syntax.ModuleName exposing (ModuleName)
-import Elm.Syntax.Node exposing (Node)
 import Elm.Syntax.Range exposing (Range)
 import NonEmpty exposing (NonEmpty)
 import Review.ModuleNameLookupTable.Builder exposing (ModuleNameLookupTableBuilder)
@@ -34,19 +31,4 @@ type alias Context =
 
 
 type alias Scope =
-    Dict String VariableInfo
-
-
-type alias VariableInfo =
-    { variableType : VariableType
-    , node : Node String
-    }
-
-
-type VariableType
-    = TopLevelVariable
-    | CustomTypeConstructor
-    | FunctionParameter
-    | LetVariable
-    | PatternVariable
-    | Port
+    Set String

@@ -20,7 +20,7 @@ import Elm.Type
 import NonEmpty exposing (NonEmpty)
 import Review.Cache.ContentHash exposing (ContentHash)
 import Review.ModuleNameLookupTable.Builder as Builder exposing (ModuleNameLookupTableBuilder)
-import Review.ModuleNameLookupTable.ComputeContext exposing (Context, Scope, VariableInfo, VariableType(..))
+import Review.ModuleNameLookupTable.ComputeContext exposing (Context, Scope)
 import Review.ModuleNameLookupTable.Internal exposing (ModuleNameLookupTable)
 import Review.Project.Dependency
 import Review.Project.ProjectCache as ProjectCache exposing (ProjectCache)
@@ -313,7 +313,7 @@ computeDependencies project =
 computeBaseModule : Dict ModuleName Elm.Docs.Module -> Context
 computeBaseModule elmCorePreludeModules =
     List.foldl importVisitor
-        { scopes = NonEmpty.fromElement Dict.empty
+        { scopes = NonEmpty.fromElement Set.empty
         , localTypes = Set.empty
         , importAliases = Dict.empty
         , importedFunctions = Dict.empty
@@ -325,7 +325,7 @@ computeBaseModule elmCorePreludeModules =
         , exposedAliases = []
         , exposedValues = []
         , lookupTable = Builder.empty
-        , branches = NonEmpty.fromElement ( Range.empty, Dict.empty )
+        , branches = NonEmpty.fromElement ( Range.empty, Set.empty )
         , caseToExit = NonEmpty.fromElement Range.empty
         }
         elmCorePrelude
@@ -514,10 +514,7 @@ registerDeclaration (Node declarationRange declaration) innerContext =
                         |> .name
             in
             innerContext
-                |> addToScope
-                    { variableType = TopLevelVariable
-                    , node = nameNode
-                    }
+                |> addToScope (Node.value nameNode)
                 |> registerIfExposed (\name ctx -> registerExposedValue function name ctx) nameNode
 
         Declaration.AliasDeclaration alias ->
@@ -526,11 +523,7 @@ registerDeclaration (Node declarationRange declaration) innerContext =
                 registerAlias ctx =
                     case Node.value alias.typeAnnotation of
                         TypeAnnotation.Record _ ->
-                            addToScope
-                                { variableType = TopLevelVariable
-                                , node = alias.name
-                                }
-                                ctx
+                            addToScope (Node.value alias.name) ctx
 
                         _ ->
                             ctx
@@ -542,11 +535,7 @@ registerDeclaration (Node declarationRange declaration) innerContext =
         Declaration.CustomTypeDeclaration { name, constructors } ->
             List.foldl
                 (\(Node _ constructor) innerContext_ ->
-                    addToScope
-                        { variableType = CustomTypeConstructor
-                        , node = constructor.name
-                        }
-                        innerContext_
+                    addToScope (Node.value constructor.name) innerContext_
                 )
                 { innerContext | localTypes = Set.insert (Node.value name) innerContext.localTypes }
                 constructors
@@ -554,10 +543,7 @@ registerDeclaration (Node declarationRange declaration) innerContext =
 
         Declaration.PortDeclaration signature ->
             innerContext
-                |> addToScope
-                    { variableType = Port
-                    , node = signature.name
-                    }
+                |> addToScope (Node.value signature.name)
                 |> registerIfExposed
                     (\name ctx ->
                         registerExposedValue { documentation = Nothing, signature = Just (Node declarationRange signature) } name ctx
@@ -572,13 +558,13 @@ registerDeclaration (Node declarationRange declaration) innerContext =
             innerContext
 
 
-addToScope : { variableType : VariableType, node : Node String } -> Context -> Context
-addToScope variableInfo innerContext =
+addToScope : String -> Context -> Context
+addToScope name innerContext =
     let
         newScopes : NonEmpty Scope
         newScopes =
             NonEmpty.mapHead
-                (\scope -> registerVariableInScope variableInfo scope)
+                (\scope -> Set.insert name scope)
                 innerContext.scopes
     in
     { innerContext | scopes = newScopes }
@@ -694,11 +680,6 @@ recordUpdateToDocsType innerContext updates =
             )
         )
         updates
-
-
-registerVariableInScope : VariableInfo -> Scope -> Scope
-registerVariableInScope variableInfo scope =
-    Dict.insert (Node.value variableInfo.node) variableInfo scope
 
 
 
@@ -996,69 +977,52 @@ declarationExitVisitor (Node _ node) context =
 
 parameters : List (Node Pattern) -> Scope
 parameters patterns =
-    collectNamesFromPattern FunctionParameter patterns Dict.empty
+    collectNamesFromPattern patterns Set.empty
 
 
-collectNamesFromPattern : VariableType -> List (Node Pattern) -> Scope -> Scope
-collectNamesFromPattern variableType patternsToVisit acc =
+collectNamesFromPattern : List (Node Pattern) -> Scope -> Scope
+collectNamesFromPattern patternsToVisit acc =
     case patternsToVisit of
-        (Node range pattern) :: restOfPatternsToVisit ->
+        (Node _ pattern) :: restOfPatternsToVisit ->
             case pattern of
                 Pattern.VarPattern name ->
-                    collectNamesFromPattern variableType
+                    collectNamesFromPattern
                         restOfPatternsToVisit
-                        (Dict.insert
-                            name
-                            { node = Node range name
-                            , variableType = variableType
-                            }
-                            acc
-                        )
+                        (Set.insert name acc)
 
                 Pattern.NamedPattern _ subPatterns ->
-                    collectNamesFromPattern variableType (List.append subPatterns restOfPatternsToVisit) acc
+                    collectNamesFromPattern (List.append subPatterns restOfPatternsToVisit) acc
 
                 Pattern.RecordPattern names ->
-                    collectNamesFromPattern variableType
+                    collectNamesFromPattern
                         restOfPatternsToVisit
                         (List.foldl
-                            (\((Node _ name) as nameNode) subAcc ->
-                                Dict.insert
-                                    name
-                                    { node = nameNode
-                                    , variableType = variableType
-                                    }
-                                    subAcc
+                            (\(Node _ name) subAcc ->
+                                Set.insert name subAcc
                             )
                             acc
                             names
                         )
 
                 Pattern.ParenthesizedPattern subPattern ->
-                    collectNamesFromPattern variableType (subPattern :: restOfPatternsToVisit) acc
+                    collectNamesFromPattern (subPattern :: restOfPatternsToVisit) acc
 
-                Pattern.AsPattern subPattern ((Node _ aliasName) as alias) ->
-                    collectNamesFromPattern variableType
+                Pattern.AsPattern subPattern (Node _ aliasName) ->
+                    collectNamesFromPattern
                         (subPattern :: restOfPatternsToVisit)
-                        (Dict.insert
-                            aliasName
-                            { node = alias
-                            , variableType = variableType
-                            }
-                            acc
-                        )
+                        (Set.insert aliasName acc)
 
                 Pattern.TuplePattern subPatterns ->
-                    collectNamesFromPattern variableType (List.append subPatterns restOfPatternsToVisit) acc
+                    collectNamesFromPattern (List.append subPatterns restOfPatternsToVisit) acc
 
                 Pattern.UnConsPattern left right ->
-                    collectNamesFromPattern variableType (left :: right :: restOfPatternsToVisit) acc
+                    collectNamesFromPattern (left :: right :: restOfPatternsToVisit) acc
 
                 Pattern.ListPattern subPatterns ->
-                    collectNamesFromPattern variableType (List.append subPatterns restOfPatternsToVisit) acc
+                    collectNamesFromPattern (List.append subPatterns restOfPatternsToVisit) acc
 
                 _ ->
-                    collectNamesFromPattern variableType restOfPatternsToVisit acc
+                    collectNamesFromPattern restOfPatternsToVisit acc
 
         [] ->
             acc
@@ -1143,26 +1107,22 @@ expressionEnterVisitor (Node nodeRange node) context =
 
                                         newScope : Scope
                                         newScope =
-                                            registerVariableInScope
-                                                { variableType = LetVariable
-                                                , node = name
-                                                }
-                                                scope
+                                            Set.insert (Node.value name) scope
 
                                         namesInBranch : Scope
                                         namesInBranch =
-                                            collectNamesFromPattern PatternVariable arguments Dict.empty
+                                            collectNamesFromPattern arguments Set.empty
                                     in
                                     { scope = newScope
                                     , branches = NonEmpty.cons ( Node.range expression, namesInBranch ) branches
                                     }
 
                                 Expression.LetDestructuring pattern _ ->
-                                    { scope = collectNamesFromPattern LetVariable [ pattern ] scope
+                                    { scope = collectNamesFromPattern [ pattern ] scope
                                     , branches = branches
                                     }
                         )
-                        { scope = Dict.empty, branches = context.branches }
+                        { scope = Set.empty, branches = context.branches }
                         letExpression.declarations
 
                 newContext : Context
@@ -1210,7 +1170,7 @@ expressionEnterVisitor (Node nodeRange node) context =
                         (\( pattern, Node expressionRange _ ) ( branchesAcc, lookupTableAcc ) ->
                             ( NonEmpty.cons
                                 ( expressionRange
-                                , collectNamesFromPattern PatternVariable [ pattern ] Dict.empty
+                                , collectNamesFromPattern [ pattern ] Set.empty
                                 )
                                 branchesAcc
                             , collectModuleNamesFromPattern context [ pattern ] lookupTableAcc
@@ -1250,7 +1210,7 @@ expressionEnterVisitor (Node nodeRange node) context =
 
                 names : Scope
                 names =
-                    collectNamesFromPattern PatternVariable args Dict.empty
+                    collectNamesFromPattern args Set.empty
             in
             { context
                 | lookupTable = collectModuleNamesFromPattern context args context.lookupTable
@@ -1457,7 +1417,7 @@ isTypeDeclaredInModule typeName module_ =
 
 isInScope : String -> NonEmpty Scope -> Bool
 isInScope name scopes =
-    NonEmpty.any (Dict.member name) scopes
+    NonEmpty.any (Set.member name) scopes
 
 
 joinModuleName : ModuleName -> String
