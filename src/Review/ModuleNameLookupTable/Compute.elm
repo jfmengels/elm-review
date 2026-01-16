@@ -20,6 +20,7 @@ import Elm.Type
 import NonEmpty exposing (NonEmpty)
 import Review.Cache.ContentHash exposing (ContentHash)
 import Review.ModuleNameLookupTable.Builder as Builder exposing (ModuleNameLookupTableBuilder)
+import Review.ModuleNameLookupTable.ComputeContext exposing (Context, Scope, VariableInfo, VariableType(..))
 import Review.ModuleNameLookupTable.Internal exposing (ModuleNameLookupTable)
 import Review.Project.Dependency
 import Review.Project.ProjectCache as ProjectCache exposing (ProjectCache(..))
@@ -27,43 +28,6 @@ import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModu
 import Review.Project.Valid as ValidProject exposing (ValidProject)
 import Set exposing (Set)
 import Vendor.ListExtra as ListExtra
-
-
-type alias Context =
-    { scopes : NonEmpty Scope
-    , localTypes : Set String
-    , importAliases : Dict String (List ModuleName)
-    , importedFunctions : Dict String ModuleName
-    , importedTypes : Dict String ModuleName
-    , modules : Dict ModuleName Elm.Docs.Module
-    , exposesEverything : Bool
-    , exposedNames : Set String
-    , exposedUnions : List Elm.Docs.Union
-    , exposedAliases : List Elm.Docs.Alias
-    , exposedValues : List Elm.Docs.Value
-    , lookupTable : ModuleNameLookupTableBuilder
-    , branches : NonEmpty ( Range, Scope )
-    , caseToExit : NonEmpty Range
-    }
-
-
-type alias Scope =
-    Dict String VariableInfo
-
-
-type alias VariableInfo =
-    { variableType : VariableType
-    , node : Node String
-    }
-
-
-type VariableType
-    = TopLevelVariable
-    | CustomTypeConstructor
-    | FunctionParameter
-    | LetVariable
-    | PatternVariable
-    | Port
 
 
 compute : ModuleName -> OpaqueProjectModule -> ValidProject -> ( ModuleNameLookupTable, ValidProject )
