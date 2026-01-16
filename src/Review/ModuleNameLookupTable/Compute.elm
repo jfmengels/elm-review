@@ -94,7 +94,8 @@ computeHelp cacheKey moduleName module_ project =
             ValidProject.elmJsonHash project
 
         ({ deps, baseModuleContext } as depsCache) =
-            -- TODO Only invalidate the lookup tables the dependencies in elm.json have changed?
+            -- TODO Only invalidate the lookup tables if the dependencies in elm.json have changed?
+            -- i.e. if only the description has changed but not the dependencies
             let
                 computeDepsAndBaseModuleContext : () -> { deps : Dict ModuleName Elm.Docs.Module, baseModuleContext : Context }
                 computeDepsAndBaseModuleContext () =
