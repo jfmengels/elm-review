@@ -92,7 +92,7 @@ compute moduleName module_ project =
            This data is about 3). In practice and because of how this algorithm is computed,
            if we have `import A exposing (a, b, C, D(..))`, then only a change to D's constructors
            can cause the lookup table to be different. So we only need to store the names of the elements that were
-           imported "implicitly", though `exposing (..)` or `exposing (D(..))`.
+           imported "implicitly", through `exposing (..)` or `exposing (D(..))`.
         -}
         implicitImports : Dict String (List ProjectCache.ImportedElement)
         implicitImports =
