@@ -573,11 +573,13 @@ registerDeclaration (Node declarationRange declaration) innerContext =
 
 
 addToScope : { variableType : VariableType, node : Node String } -> Context -> Context
-addToScope variableData innerContext =
+addToScope variableInfo innerContext =
     let
         newScopes : NonEmpty Scope
         newScopes =
-            registerVariable variableData innerContext.scopes
+            NonEmpty.mapHead
+                (\scope -> registerVariableInScope variableInfo scope)
+                innerContext.scopes
     in
     { innerContext | scopes = newScopes }
 
@@ -692,13 +694,6 @@ recordUpdateToDocsType innerContext updates =
             )
         )
         updates
-
-
-registerVariable : VariableInfo -> NonEmpty Scope -> NonEmpty Scope
-registerVariable variableInfo scopes =
-    NonEmpty.mapHead
-        (\scope -> registerVariableInScope variableInfo scope)
-        scopes
 
 
 registerVariableInScope : VariableInfo -> Scope -> Scope
