@@ -47,7 +47,7 @@ type alias Context =
 
 type alias Scope =
     { names : Dict String VariableInfo
-    , cases : List ( Range, Dict String VariableInfo )
+    , branches : List ( Range, Dict String VariableInfo )
     , caseToExit : Range
     }
 
@@ -70,7 +70,7 @@ type VariableType
 emptyScope : Scope
 emptyScope =
     { names = Dict.empty
-    , cases = []
+    , branches = []
     , caseToExit = Range.empty
     }
 
@@ -1187,7 +1187,7 @@ popScopeEnter (Node range _) context =
 
         caseExpression : Maybe ( Range, Dict String VariableInfo )
         caseExpression =
-            ListExtra.find (\( branchRange, _ ) -> range == branchRange) currentScope.cases
+            ListExtra.find (\( branchRange, _ ) -> range == branchRange) currentScope.branches
     in
     case caseExpression of
         Nothing ->
@@ -1238,7 +1238,7 @@ expressionEnterVisitor (Node nodeRange node) context =
                                         names =
                                             collectNamesFromPattern PatternVariable arguments Dict.empty
                                     in
-                                    { withLetVariable | cases = ( Node.range expression, names ) :: withLetVariable.cases }
+                                    { withLetVariable | branches = ( Node.range expression, names ) :: withLetVariable.branches }
 
                                 Expression.LetDestructuring pattern _ ->
                                     { scope | names = collectNamesFromPattern LetVariable [ pattern ] scope.names }
@@ -1283,13 +1283,13 @@ expressionEnterVisitor (Node nodeRange node) context =
 
         Expression.CaseExpression caseBlock ->
             let
-                ( cases, lookupTable ) =
+                ( branches, lookupTable ) =
                     List.foldl
-                        (\( pattern, Node expressionRange _ ) ( casesAcc, lookupTableAcc ) ->
+                        (\( pattern, Node expressionRange _ ) ( branchesAcc, lookupTableAcc ) ->
                             ( ( expressionRange
                               , collectNamesFromPattern PatternVariable [ pattern ] Dict.empty
                               )
-                                :: casesAcc
+                                :: branchesAcc
                             , collectModuleNamesFromPattern context [ pattern ] lookupTableAcc
                             )
                         )
@@ -1297,7 +1297,7 @@ expressionEnterVisitor (Node nodeRange node) context =
                         caseBlock.cases
             in
             { context
-                | scopes = NonEmpty.mapHead (\scope -> { scope | cases = cases }) context.scopes
+                | scopes = NonEmpty.mapHead (\scope -> { scope | branches = branches }) context.scopes
                 , lookupTable = lookupTable
             }
 
@@ -1332,7 +1332,7 @@ expressionEnterVisitor (Node nodeRange node) context =
                 newScope : Scope
                 newScope =
                     { names = Dict.empty
-                    , cases = [ ( range, names ) ]
+                    , branches = [ ( range, names ) ]
                     , caseToExit = range
                     }
             in
@@ -1415,7 +1415,7 @@ expressionExitVisitor (Node _ node) context =
             { context | scopes = NonEmpty.pop context.scopes }
 
         Expression.CaseExpression _ ->
-            { context | scopes = NonEmpty.mapHead (\scope -> { scope | cases = [] }) context.scopes }
+            { context | scopes = NonEmpty.mapHead (\scope -> { scope | branches = [] }) context.scopes }
 
         Expression.LambdaExpression _ ->
             { context | scopes = NonEmpty.pop context.scopes }
