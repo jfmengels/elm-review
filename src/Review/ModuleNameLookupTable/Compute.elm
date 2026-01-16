@@ -376,8 +376,16 @@ computeDependencies : ValidProject -> Dict ModuleName Elm.Docs.Module
 computeDependencies project =
     project
         |> ValidProject.directDependencies
-        |> Dict.foldl (\_ dep acc -> List.append (Review.Project.Dependency.modules dep) acc) []
-        |> List.foldl (\dependencyModule acc -> Dict.insert (String.split "." dependencyModule.name) dependencyModule acc) Dict.empty
+        |> Dict.foldl
+            (\_ dep acc ->
+                List.foldl
+                    (\dependencyModule subAcc ->
+                        Dict.insert (String.split "." dependencyModule.name) dependencyModule subAcc
+                    )
+                    acc
+                    (Review.Project.Dependency.modules dep)
+            )
+            Dict.empty
 
 
 fromProjectToModule : Dict ModuleName Elm.Docs.Module -> Context
