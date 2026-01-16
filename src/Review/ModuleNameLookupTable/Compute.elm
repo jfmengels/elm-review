@@ -42,14 +42,13 @@ type alias Context =
     , exposedAliases : List Elm.Docs.Alias
     , exposedValues : List Elm.Docs.Value
     , lookupTable : ModuleNameLookupTableBuilder
-    , branches : List ( Range, Dict String VariableInfo )
+    , branches : List ( Range, Scope )
     , caseToExit : NonEmpty Range
     }
 
 
 type alias Scope =
-    { names : Dict String VariableInfo
-    }
+    Dict String VariableInfo
 
 
 type alias VariableInfo =
@@ -65,12 +64,6 @@ type VariableType
     | LetVariable
     | PatternVariable
     | Port
-
-
-emptyScope : Scope
-emptyScope =
-    { names = Dict.empty
-    }
 
 
 compute : ModuleName -> OpaqueProjectModule -> ValidProject -> ( ModuleNameLookupTable, ValidProject )
@@ -389,7 +382,7 @@ computeDependencies project =
 
 fromProjectToModule : Dict ModuleName Elm.Docs.Module -> Context
 fromProjectToModule modules =
-    { scopes = NonEmpty.fromElement emptyScope
+    { scopes = NonEmpty.fromElement Dict.empty
     , localTypes = Set.empty
     , importAliases = Dict.empty
     , importedFunctions = Dict.empty
@@ -779,7 +772,7 @@ registerVariable variableInfo scopes =
 
 registerVariableInScope : VariableInfo -> Scope -> Scope
 registerVariableInScope variableInfo scope =
-    { scope | names = Dict.insert (Node.value variableInfo.node) variableInfo scope.names }
+    Dict.insert (Node.value variableInfo.node) variableInfo scope
 
 
 
@@ -1020,7 +1013,7 @@ declarationEnterVisitor (Node _ node) context =
 
                 newScope : Scope
                 newScope =
-                    { emptyScope | names = parameters functionDeclaration.arguments }
+                    parameters functionDeclaration.arguments
 
                 newContext : Context
                 newContext =
@@ -1075,12 +1068,12 @@ declarationExitVisitor (Node _ node) context =
             context
 
 
-parameters : List (Node Pattern) -> Dict String VariableInfo
+parameters : List (Node Pattern) -> Scope
 parameters patterns =
     collectNamesFromPattern FunctionParameter patterns Dict.empty
 
 
-collectNamesFromPattern : VariableType -> List (Node Pattern) -> Dict String VariableInfo -> Dict String VariableInfo
+collectNamesFromPattern : VariableType -> List (Node Pattern) -> Scope -> Scope
 collectNamesFromPattern variableType patternsToVisit acc =
     case patternsToVisit of
         (Node range pattern) :: restOfPatternsToVisit ->
@@ -1181,7 +1174,7 @@ collectModuleNamesFromPattern context patternsToVisit acc =
 popScopeEnter : Node Expression -> Context -> Context
 popScopeEnter (Node range _) context =
     let
-        caseExpression : Maybe ( Range, Dict String VariableInfo )
+        caseExpression : Maybe ( Range, Scope )
         caseExpression =
             ListExtra.find (\( branchRange, _ ) -> range == branchRange) context.branches
     in
@@ -1189,9 +1182,9 @@ popScopeEnter (Node range _) context =
         Nothing ->
             context
 
-        Just ( _, names ) ->
+        Just ( _, scope ) ->
             { context
-                | scopes = NonEmpty.cons { names = names } context.scopes
+                | scopes = NonEmpty.cons scope context.scopes
                 , caseToExit = NonEmpty.cons range context.caseToExit
             }
 
@@ -1213,45 +1206,45 @@ expressionEnterVisitor (Node nodeRange node) context =
     case node of
         Expression.LetExpression letExpression ->
             let
-                newScope : { names : Dict String VariableInfo, branches : List ( Range, Dict String VariableInfo ) }
-                newScope =
+                let_ : { scope : Scope, branches : List ( Range, Scope ) }
+                let_ =
                     List.foldl
-                        (\(Node _ declaration) { names, branches } ->
+                        (\(Node _ declaration) { scope, branches } ->
                             case declaration of
                                 Expression.LetFunction function ->
                                     let
                                         { name, expression, arguments } =
                                             Node.value function.declaration
 
-                                        newNames : Dict String VariableInfo
-                                        newNames =
-                                            Dict.insert (Node.value name)
+                                        newScope : Scope
+                                        newScope =
+                                            registerVariableInScope
                                                 { variableType = LetVariable
                                                 , node = name
                                                 }
-                                                names
+                                                scope
 
-                                        namesInBranch : Dict String VariableInfo
+                                        namesInBranch : Scope
                                         namesInBranch =
                                             collectNamesFromPattern PatternVariable arguments Dict.empty
                                     in
-                                    { names = newNames
+                                    { scope = newScope
                                     , branches = ( Node.range expression, namesInBranch ) :: branches
                                     }
 
                                 Expression.LetDestructuring pattern _ ->
-                                    { names = collectNamesFromPattern LetVariable [ pattern ] names
+                                    { scope = collectNamesFromPattern LetVariable [ pattern ] scope
                                     , branches = branches
                                     }
                         )
-                        { names = Dict.empty, branches = context.branches }
+                        { scope = Dict.empty, branches = context.branches }
                         letExpression.declarations
 
                 newContext : Context
                 newContext =
                     { context
-                        | scopes = NonEmpty.cons { names = newScope.names } context.scopes
-                        , branches = newScope.branches
+                        | scopes = NonEmpty.cons let_.scope context.scopes
+                        , branches = let_.branches
                     }
 
                 lookupTable : ModuleNameLookupTableBuilder
@@ -1329,18 +1322,12 @@ expressionEnterVisitor (Node nodeRange node) context =
                 range =
                     Node.range expression
 
-                names : Dict String VariableInfo
+                names : Scope
                 names =
                     collectNamesFromPattern PatternVariable args Dict.empty
-
-                newScope : Scope
-                newScope =
-                    { names = Dict.empty
-                    }
             in
             { context
                 | lookupTable = collectModuleNamesFromPattern context args context.lookupTable
-                , scopes = NonEmpty.cons newScope context.scopes
                 , branches = ( range, names ) :: context.branches
                 , caseToExit = NonEmpty.cons range context.caseToExit
             }
@@ -1420,9 +1407,6 @@ expressionExitVisitor (Node _ node) context =
 
         Expression.CaseExpression _ ->
             context
-
-        Expression.LambdaExpression _ ->
-            { context | scopes = NonEmpty.pop context.scopes }
 
         _ ->
             context
@@ -1560,7 +1544,7 @@ isTypeDeclaredInModule typeName module_ =
 
 isInScope : String -> NonEmpty Scope -> Bool
 isInScope name scopes =
-    NonEmpty.any (.names >> Dict.member name) scopes
+    NonEmpty.any (Dict.member name) scopes
 
 
 joinModuleName : ModuleName -> String
