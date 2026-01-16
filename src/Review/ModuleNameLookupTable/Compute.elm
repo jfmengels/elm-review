@@ -1216,39 +1216,51 @@ expressionEnterVisitor (Node nodeRange node) context =
     case node of
         Expression.LetExpression letExpression ->
             let
-                newScope : Scope
+                newScope : { names : Dict String VariableInfo, branches : List ( Range, Dict String VariableInfo ) }
                 newScope =
                     List.foldl
-                        (\(Node _ declaration) scope ->
+                        (\(Node _ declaration) { names, branches } ->
                             case declaration of
                                 Expression.LetFunction function ->
                                     let
                                         { name, expression, arguments } =
                                             Node.value function.declaration
 
-                                        withLetVariable : Scope
-                                        withLetVariable =
-                                            registerVariableInScope
+                                        newNames : Dict String VariableInfo
+                                        newNames =
+                                            Dict.insert (Node.value name)
                                                 { variableType = LetVariable
                                                 , node = name
                                                 }
-                                                scope
+                                                names
 
-                                        names : Dict String VariableInfo
-                                        names =
+                                        namesInBranch : Dict String VariableInfo
+                                        namesInBranch =
                                             collectNamesFromPattern PatternVariable arguments Dict.empty
                                     in
-                                    { withLetVariable | branches = ( Node.range expression, names ) :: withLetVariable.branches }
+                                    { names = newNames
+                                    , branches = ( Node.range expression, namesInBranch ) :: branches
+                                    }
 
                                 Expression.LetDestructuring pattern _ ->
-                                    { scope | names = collectNamesFromPattern LetVariable [ pattern ] scope.names }
+                                    { names = collectNamesFromPattern LetVariable [ pattern ] names
+                                    , branches = branches
+                                    }
                         )
-                        emptyScope
+                        { names = Dict.empty, branches = [] }
                         letExpression.declarations
 
                 newContext : Context
                 newContext =
-                    { context | scopes = NonEmpty.cons newScope context.scopes }
+                    { context
+                        | scopes =
+                            NonEmpty.cons
+                                { names = newScope.names
+                                , branches = newScope.branches
+                                , caseToExit = Range.empty
+                                }
+                                context.scopes
+                    }
 
                 lookupTable : ModuleNameLookupTableBuilder
                 lookupTable =
