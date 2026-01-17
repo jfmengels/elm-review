@@ -1,19 +1,19 @@
-module Review.Project.ProjectCache exposing (ImportedElement, ModuleCacheKey, ProjectCache(..), empty, typeElement, valueElement)
+module Review.Project.ProjectCache exposing (ImportedElement, ModuleCacheKey, ProjectCache, empty, typeElement, valueElement)
 
 import Dict exposing (Dict)
 import Elm.Docs
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Review.Cache.ContentHash exposing (ContentHash)
 import Review.ModuleNameLookupTable exposing (ModuleNameLookupTable)
+import Review.ModuleNameLookupTable.ComputeContext as ComputeContext
 
 
-type ProjectCache context
-    = ProjectCache
-        { elmJsonContentHash : Maybe ContentHash
-        , dependencies : Maybe { deps : Dict ModuleName Elm.Docs.Module, baseModuleContext : context }
-        , modules : Dict ModuleName Elm.Docs.Module
-        , lookupTables : Dict ModuleName { key : ModuleCacheKey, lookupTable : ModuleNameLookupTable }
-        }
+type alias ProjectCache =
+    { elmJsonContentHash : Maybe ContentHash
+    , dependencies : Maybe { deps : Dict ModuleName Elm.Docs.Module, baseModuleContext : ComputeContext.Context }
+    , modules : Dict ModuleName Elm.Docs.Module
+    , lookupTables : Dict ModuleName { key : ModuleCacheKey, lookupTable : ModuleNameLookupTable }
+    }
 
 
 type alias ModuleCacheKey =
@@ -22,14 +22,13 @@ type alias ModuleCacheKey =
     }
 
 
-empty : ProjectCache context
+empty : ProjectCache
 empty =
-    ProjectCache
-        { elmJsonContentHash = Nothing
-        , dependencies = Nothing
-        , modules = Dict.empty
-        , lookupTables = Dict.empty
-        }
+    { elmJsonContentHash = Nothing
+    , dependencies = Nothing
+    , modules = Dict.empty
+    , lookupTables = Dict.empty
+    }
 
 
 type alias ImportedElement =

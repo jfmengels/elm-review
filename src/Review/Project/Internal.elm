@@ -14,7 +14,6 @@ import Elm.Project
 import Path
 import Review.Cache.ContentHash exposing (ContentHash)
 import Review.FilePath exposing (FilePath)
-import Review.ModuleNameLookupTable.ComputeContext as ComputeContext
 import Review.Project.Dependency exposing (Dependency)
 import Review.Project.ProjectCache exposing (ProjectCache)
 import Review.Project.ProjectModule exposing (OpaqueProjectModule)
@@ -35,7 +34,7 @@ type alias ProjectInternals =
     , dependencies : Dict String Dependency
     , moduleGraph : Maybe (Graph FilePath)
     , sourceDirectories : List String
-    , cache : ProjectCache ComputeContext.Context
+    , cache : ProjectCache
     }
 
 

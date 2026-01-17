@@ -23,7 +23,7 @@ import Review.ModuleNameLookupTable.Builder as Builder exposing (ModuleNameLooku
 import Review.ModuleNameLookupTable.ComputeContext exposing (Context, Scope, VariableInfo, VariableType(..))
 import Review.ModuleNameLookupTable.Internal exposing (ModuleNameLookupTable)
 import Review.Project.Dependency
-import Review.Project.ProjectCache as ProjectCache exposing (ProjectCache(..))
+import Review.Project.ProjectCache as ProjectCache exposing (ProjectCache)
 import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModule)
 import Review.Project.Valid as ValidProject exposing (ValidProject)
 import Set exposing (Set)
@@ -33,7 +33,8 @@ import Vendor.ListExtra as ListExtra
 compute : ModuleName -> OpaqueProjectModule -> ValidProject -> ( ModuleNameLookupTable, ValidProject )
 compute moduleName module_ project =
     let
-        (ProjectCache projectCache) =
+        projectCache : ProjectCache
+        projectCache =
             ValidProject.projectCache project
 
         {- This will be used as the cache key in terms of the imports.
@@ -80,7 +81,8 @@ compute moduleName module_ project =
 computeHelp : ProjectCache.ModuleCacheKey -> ModuleName -> OpaqueProjectModule -> ValidProject -> ( ModuleNameLookupTable, ValidProject )
 computeHelp cacheKey moduleName module_ project =
     let
-        (ProjectCache projectCache) =
+        projectCache : ProjectCache
+        projectCache =
             ValidProject.projectCache project
 
         moduleAst : Elm.Syntax.File.File
@@ -144,19 +146,18 @@ computeHelp cacheKey moduleName module_ project =
                 projectCache.modules
             )
 
-        newProjectCache : ProjectCache Context
+        newProjectCache : ProjectCache
         newProjectCache =
-            ProjectCache
-                { dependencies = Just depsCache
-                , elmJsonContentHash = elmJsonContentHash
-                , modules = modules
-                , lookupTables =
-                    Dict.insert moduleName
-                        { key = cacheKey
-                        , lookupTable = lookupTable
-                        }
-                        projectCache.lookupTables
-                }
+            { dependencies = Just depsCache
+            , elmJsonContentHash = elmJsonContentHash
+            , modules = modules
+            , lookupTables =
+                Dict.insert moduleName
+                    { key = cacheKey
+                    , lookupTable = lookupTable
+                    }
+                    projectCache.lookupTables
+            }
     in
     ( lookupTable, ValidProject.updateProjectCache newProjectCache project )
 
