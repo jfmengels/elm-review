@@ -32,7 +32,7 @@ These helper function will move from either side of a `Zipper`
 
 -}
 
-import Vendor.NonEmpty as NE exposing (NonEmpty)
+import Array exposing (Array)
 
 
 {-| Zipper type.
@@ -45,23 +45,7 @@ internal invariants.
 
 -}
 type Zipper a
-    = Zipper Int (List a) a (List a)
-
-
-{-| Init `Zipper` from `NonEmpty` list type.
-
-    fromNonEmpty ( 1, [ 2, 3 ] )
-    |> current
-    --> 1
-
-    fromNonEmpty ( 1, [ 2, 3 ] )
-    |> toList
-    --> [ 1, 2, 3 ]
-
--}
-fromNonEmpty : NonEmpty a -> Zipper a
-fromNonEmpty ( h, t ) =
-    Zipper 0 [] h t
+    = Zipper (Array a) Int a
 
 
 {-| Init `Zipper` from `List`.
@@ -75,8 +59,13 @@ This operation is not successful for `[]`
 
 -}
 fromList : List a -> Maybe (Zipper a)
-fromList =
-    Maybe.map fromNonEmpty << NE.fromList
+fromList list =
+    case list of
+        current_ :: _ ->
+            Just (Zipper (Array.fromList list) 0 current_)
+
+        [] ->
+            Nothing
 
 
 
@@ -91,12 +80,12 @@ fromList =
 
 -}
 current : Zipper a -> a
-current (Zipper _ _ f _) =
-    f
+current (Zipper _ _ current_) =
+    current_
 
 
 position : Zipper a -> Int
-position (Zipper pos _ _ _) =
+position (Zipper _ pos _) =
     pos
 
 
@@ -117,13 +106,8 @@ position (Zipper pos _ _ _) =
 
 -}
 next : Zipper a -> Maybe (Zipper a)
-next (Zipper pos p f n) =
-    case n of
-        [] ->
-            Nothing
-
-        h :: t ->
-            Just <| Zipper (pos + 1) (f :: p) h t
+next (Zipper array pos _) =
+    setPosition (pos + 1) array
 
 
 {-| Move focus to next value.
@@ -139,13 +123,17 @@ next (Zipper pos p f n) =
 
 -}
 prev : Zipper a -> Maybe (Zipper a)
-prev (Zipper pos p f n) =
-    case p of
-        [] ->
-            Nothing
+prev (Zipper array pos _) =
+    setPosition (pos + 1) array
 
-        h :: t ->
-            Just <| Zipper (pos - 1) t h <| f :: n
+
+setPosition : Int -> Array a -> Maybe (Zipper a)
+setPosition pos array =
+    Array.get pos array
+        |> Maybe.map
+            (\next_ ->
+                Zipper array pos next_
+            )
 
 
 
@@ -161,18 +149,9 @@ prev (Zipper pos p f n) =
 
 -}
 start : Zipper a -> Zipper a
-start =
-    toEndHelper prev
-
-
-toEndHelper : (a -> Maybe a) -> a -> a
-toEndHelper f acc =
-    case f acc of
-        Just val ->
-            toEndHelper f val
-
-        Nothing ->
-            acc
+start ((Zipper array _ _) as zipper) =
+    setPosition 0 array
+        |> Maybe.withDefault zipper
 
 
 
@@ -199,8 +178,8 @@ toEndHelper f acc =
 -}
 focusr : (a -> Bool) -> Zipper a -> Maybe (Zipper a)
 focusr fc zipper =
-    if fc <| current zipper then
-        Just <| zipper
+    if fc (current zipper) then
+        Just zipper
 
     else
         case next zipper of
@@ -231,8 +210,8 @@ focusr fc zipper =
 -}
 focusl : (a -> Bool) -> Zipper a -> Maybe (Zipper a)
 focusl fc zipper =
-    if fc <| current zipper then
-        Just <| zipper
+    if fc (current zipper) then
+        Just zipper
 
     else
         case prev zipper of
