@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [2.16.3] - 2026-01-20
+
 - Fixed an issue where `ModuleNameLookupTable` would sometimes yield an incorrect result for values in let expressions appearing after another let declaration with a case expression.
 
 ## [2.16.2] - 2026-01-09
@@ -279,7 +281,8 @@ Help would be appreciated to fill the blanks!
 [`Review.Rule.errorFixFailure`]: https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule#errorFixFailure
 [`Review.Test.ignoredFilesImpactResults`]: https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule-Test#ignoredFilesImpactResults
 
-[Unreleased]: https://github.com/jfmengels/elm-review/compare/v2.16.2...HEAD
+[Unreleased]: https://github.com/jfmengels/elm-review/compare/v2.16.3...HEAD
+[2.16.3]: https://github.com/jfmengels/elm-review/releases/tag/2.16.3
 [2.16.2]: https://github.com/jfmengels/elm-review/releases/tag/2.16.2
 [2.16.1]: https://github.com/jfmengels/elm-review/releases/tag/2.16.1
 [2.16.0]: https://github.com/jfmengels/elm-review/releases/tag/2.16.0
