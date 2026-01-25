@@ -41,6 +41,7 @@ import Review.ImportCycle as ImportCycle
 import Review.Project.Dependency as Dependency exposing (Dependency)
 import Review.Project.Internal exposing (Project(..))
 import Review.Project.InvalidProjectError as InvalidProjectError exposing (InvalidProjectError)
+import Review.Project.ModuleIds as ModuleIds exposing (ModuleId)
 import Review.Project.ProjectCache exposing (ProjectCache)
 import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModule)
 import Set exposing (Set)
@@ -233,22 +234,17 @@ duplicateModuleNames visitedModules projectModules =
 buildModuleGraph : Dict a OpaqueProjectModule -> Graph FilePath
 buildModuleGraph mods =
     let
-        moduleIds : Dict ModuleName Int
+        moduleIds : Dict ModuleName ModuleId
         moduleIds =
             Dict.foldl
-                (\_ module_ ( index, dict ) ->
-                    ( index + 1
-                    , Dict.insert
-                        (ProjectModule.moduleName module_)
-                        index
-                        dict
-                    )
+                (\_ module_ ids ->
+                    ModuleIds.add (ProjectModule.moduleName module_) ids
                 )
-                ( 0, Dict.empty )
+                ModuleIds.empty
                 mods
-                |> Tuple.second
+                |> ModuleIds.moduleNameToId
 
-        getModuleId : ModuleName -> Int
+        getModuleId : ModuleName -> ModuleId
         getModuleId moduleName =
             case Dict.get moduleName moduleIds of
                 Just moduleId ->
@@ -261,7 +257,7 @@ buildModuleGraph mods =
             Dict.foldl
                 (\_ module_ ( accNodes, resEdges ) ->
                     let
-                        moduleId : Int
+                        moduleId : ModuleId
                         moduleId =
                             getModuleId <| ProjectModule.moduleName module_
 
