@@ -404,8 +404,16 @@ addParsedModule { path, source, ast } maybeModuleZipper (ValidProject project) =
                 modulesByPath : Dict FilePath OpaqueProjectModule
                 modulesByPath =
                     Dict.insert path module_ project.modulesByPath
+
+                previousFileImports : Set ModuleName
+                previousFileImports =
+                    importedModulesSet (ProjectModule.ast existingModule) project.dependencyModules
+
+                newFileImports : Set ModuleName
+                newFileImports =
+                    importedModulesSet ast project.dependencyModules
             in
-            if importedModulesSet (ProjectModule.ast existingModule) project.dependencyModules == importedModulesSet ast project.dependencyModules then
+            if previousFileImports == newFileImports then
                 let
                     -- Imports haven't changed, we don't need to recompute the zipper or the graph
                     newModuleZipper : Zipper (Graph.NodeContext FilePath)
