@@ -207,29 +207,29 @@ empty =
 
 fromNodesAndEdges : IntDict (NodeContext n) -> List Edge -> Graph n
 fromNodesAndEdges nodes edges =
-    let
-        addEdge : Edge -> IntDict (NodeContext n) -> IntDict (NodeContext n)
-        addEdge edge rep =
-            let
-                updateOutgoing : NodeContext n -> NodeContext n
-                updateOutgoing ctx =
-                    { node = ctx.node
-                    , incoming = ctx.incoming
-                    , outgoing = IntSet.insert edge.to ctx.outgoing
-                    }
-
-                updateIncoming : NodeContext n -> NodeContext n
-                updateIncoming ctx =
-                    { node = ctx.node
-                    , incoming = IntSet.insert edge.from ctx.incoming
-                    , outgoing = ctx.outgoing
-                    }
-            in
-            rep
-                |> IntDict.mapKey edge.from updateOutgoing
-                |> IntDict.mapKey edge.to updateIncoming
-    in
     Graph (List.foldl addEdge nodes edges)
+
+
+addEdge : Edge -> IntDict (NodeContext n) -> IntDict (NodeContext n)
+addEdge edge rep =
+    let
+        updateOutgoing : NodeContext n -> NodeContext n
+        updateOutgoing ctx =
+            { node = ctx.node
+            , incoming = ctx.incoming
+            , outgoing = IntSet.insert edge.to ctx.outgoing
+            }
+
+        updateIncoming : NodeContext n -> NodeContext n
+        updateIncoming ctx =
+            { node = ctx.node
+            , incoming = IntSet.insert edge.from ctx.incoming
+            , outgoing = ctx.outgoing
+            }
+    in
+    rep
+        |> IntDict.mapKey edge.from updateOutgoing
+        |> IntDict.mapKey edge.to updateIncoming
 
 
 addNode : Node n -> IntDict (NodeContext n) -> IntDict (NodeContext n)
