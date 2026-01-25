@@ -7,7 +7,7 @@ module Vendor.Graph exposing
     , NeighborSelector, alongIncomingEdges
     , BfsNodeVisitor, guidedBfs
     , topologicalSort
-    , empty
+    , empty, removeEdge
     )
 
 {-| This module contains the primitives to build, update and traverse graphs.
@@ -224,6 +224,28 @@ addEdge edge rep =
         updateIncoming ctx =
             { node = ctx.node
             , incoming = IntSet.insert edge.from ctx.incoming
+            , outgoing = ctx.outgoing
+            }
+    in
+    rep
+        |> IntDict.mapKey edge.from updateOutgoing
+        |> IntDict.mapKey edge.to updateIncoming
+
+
+removeEdge : Edge -> IntDict (NodeContext n) -> IntDict (NodeContext n)
+removeEdge edge rep =
+    let
+        updateOutgoing : NodeContext n -> NodeContext n
+        updateOutgoing ctx =
+            { node = ctx.node
+            , incoming = ctx.incoming
+            , outgoing = IntSet.remove edge.to ctx.outgoing
+            }
+
+        updateIncoming : NodeContext n -> NodeContext n
+        updateIncoming ctx =
+            { node = ctx.node
+            , incoming = IntSet.remove edge.from ctx.incoming
             , outgoing = ctx.outgoing
             }
     in
