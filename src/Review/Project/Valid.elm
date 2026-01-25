@@ -412,8 +412,16 @@ addParsedModule { path, source, ast } maybeModuleZipper (ValidProject project) =
                 newFileImports : Set ModuleName
                 newFileImports =
                     importedModulesSet ast project.dependencyModules
+
+                addedImports : Set ModuleName
+                addedImports =
+                    Set.diff newFileImports previousFileImports
+
+                removedImports : Set ModuleName
+                removedImports =
+                    Set.diff previousFileImports newFileImports
             in
-            if previousFileImports == newFileImports then
+            if Set.isEmpty addedImports && Set.isEmpty removedImports then
                 let
                     -- Imports haven't changed, we don't need to recompute the zipper or the graph
                     newModuleZipper : Zipper (Graph.NodeContext FilePath)
