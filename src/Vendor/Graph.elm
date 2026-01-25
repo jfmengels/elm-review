@@ -228,26 +228,13 @@ fromNodesAndEdges nodes edges =
             rep
                 |> IntDict.mapKey edge.from updateOutgoing
                 |> IntDict.mapKey edge.to updateIncoming
-
-        addEdgeIfValid : Edge -> IntDict (NodeContext n) -> IntDict (NodeContext n)
-        addEdgeIfValid edge rep =
-            if IntDict.member edge.from rep && IntDict.member edge.to rep then
-                addEdge edge rep
-
-            else
-                rep
     in
-    Graph (List.foldl addEdgeIfValid nodes edges)
+    Graph (List.foldl addEdge nodes edges)
 
 
 addNode : Node n -> IntDict (NodeContext n) -> IntDict (NodeContext n)
 addNode n intDict =
     IntDict.insert n.id (NodeContext n IntSet.empty IntSet.empty) intDict
-
-
-
-{- TRANSFORMS -}
-{- CHARACTERIZATION -}
 
 
 {-| `AcyclicGraph` wraps a `Graph` and witnesses the fact that
