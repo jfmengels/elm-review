@@ -240,25 +240,6 @@ a collision.
 -}
 insert : Int -> IntSet -> IntSet
 insert key dict =
-    let
-        -- The inner constructor will do the rest
-        join : Int -> IntSet
-        join k2 =
-            -- precondition: k1 /= k2
-            let
-                prefix : KeyPrefix
-                prefix =
-                    lcp key k2
-            in
-            if
-                isBranchingBitSet prefix k2
-                -- if so, r will be the right child
-            then
-                Inner { prefix = prefix, left = leaf key, right = dict }
-
-            else
-                Inner { prefix = prefix, left = dict, right = leaf key }
-    in
     case dict of
         Empty () ->
             leaf key
@@ -269,7 +250,7 @@ insert key dict =
                 -- This updates or removes the leaf with the same key
 
             else
-                join leafKey
+                join key leafKey dict
 
         -- This potentially inserts a new node
         Inner i ->
@@ -282,7 +263,25 @@ insert key dict =
 
             else
                 -- we have to join a new leaf with the current diverging Inner node
-                join i.prefix.prefixBits
+                join key i.prefix.prefixBits dict
+
+
+join : Int -> Int -> IntSet -> IntSet
+join key k2 dict =
+    -- precondition: k1 /= k2
+    let
+        prefix : KeyPrefix
+        prefix =
+            lcp key k2
+    in
+    if
+        isBranchingBitSet prefix k2
+        -- if so, r will be the right child
+    then
+        Inner { prefix = prefix, left = leaf key, right = dict }
+
+    else
+        Inner { prefix = prefix, left = dict, right = leaf key }
 
 
 
