@@ -394,20 +394,20 @@ determineBranchRelation l r =
 
         rp =
             r.prefix
-
-        -- l.prefixBits and modifiedRightPrefix are guaranteed to be different
-        childEdge branchPrefix c =
-            if isBranchingBitSet branchPrefix c.prefix.prefixBits then
-                Right
-
-            else
-                Left
     in
     if lp == rp then
         SamePrefix
 
     else
         let
+            -- l.prefixBits and modifiedRightPrefix are guaranteed to be different
+            childEdge branchPrefix c =
+                if isBranchingBitSet branchPrefix c.prefix.prefixBits then
+                    Right
+
+                else
+                    Left
+
             mask =
                 -- this is the region where we want to force different bits
                 highestBitSet (mostSignificantBranchingBit lp.branchingBit rp.branchingBit)
