@@ -4,6 +4,7 @@ module Review.Project.ModuleIds exposing
     , add
     , addAndGet
     , empty
+    , get
     , moduleNameToId
     )
 
@@ -55,6 +56,11 @@ addAndGet moduleName ((ModuleIds ids) as untouched) =
                 , moduleNameToId = Dict.insert moduleName ids.nextId ids.moduleNameToId
                 }
             )
+
+
+get : ModuleName -> ModuleIds -> Maybe ModuleId
+get moduleName (ModuleIds ids) =
+    Dict.get moduleName ids.moduleNameToId
 
 
 moduleNameToId : ModuleIds -> Dict ModuleName ModuleId
