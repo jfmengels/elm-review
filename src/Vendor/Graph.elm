@@ -195,8 +195,8 @@ get nodeId (Graph rep) =
     nodeIds graph == [1, 2]
 
 -}
-nodeIds : Graph n -> List NodeId
-nodeIds (Graph rep) =
+allNodeIds : Graph n -> List NodeId
+allNodeIds (Graph rep) =
     IntDict.keys rep
 
 
@@ -448,7 +448,7 @@ examples on how to use `dfs`.
 -}
 dfs : List NodeId -> Graph n -> List NodeId
 dfs acc graph =
-    guidedDfs alongOutgoingEdges (nodeIds graph) acc graph
+    guidedDfs alongOutgoingEdges (allNodeIds graph) acc graph
 
 
 
