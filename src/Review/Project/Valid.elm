@@ -41,7 +41,7 @@ import Review.ImportCycle as ImportCycle
 import Review.Project.Dependency as Dependency exposing (Dependency)
 import Review.Project.Internal exposing (Project(..))
 import Review.Project.InvalidProjectError as InvalidProjectError exposing (InvalidProjectError)
-import Review.Project.ModuleIds as ModuleIds exposing (ModuleId, ModuleIds)
+import Review.Project.ModuleIds as ModuleIds exposing (ModuleIds)
 import Review.Project.ProjectCache exposing (ProjectCache)
 import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModule)
 import Set exposing (Set)
@@ -234,63 +234,51 @@ duplicateModuleNames visitedModules projectModules =
 buildModuleGraph : Dict a OpaqueProjectModule -> Graph FilePath
 buildModuleGraph mods =
     let
-        moduleIds : ModuleIds
-        moduleIds =
-            Dict.foldl
-                (\_ module_ ids ->
-                    ModuleIds.add (ProjectModule.moduleName module_) ids
-                )
-                ModuleIds.empty
-                mods
-
-        getModuleId : ModuleName -> Maybe ModuleId
-        getModuleId moduleName =
-            ModuleIds.get moduleName moduleIds
-
         { nodes, edges } =
             Dict.foldl
                 (\_ module_ acc ->
                     let
-                        moduleId : ModuleId
-                        moduleId =
-                            ProjectModule.moduleName module_
-                                |> getModuleId
-                                |> Maybe.withDefault 0
+                        ( moduleId, moduleIdsWithCurrent ) =
+                            ModuleIds.addAndGet
+                                (ProjectModule.moduleName module_)
+                                acc.moduleIds
 
                         newNodes : IntDict (Graph.NodeContext FilePath)
                         newNodes =
                             Graph.addNode (Graph.Node moduleId (ProjectModule.path module_)) acc.nodes
 
-                        newEdges : List Graph.Edge
-                        newEdges =
+                        result : { edges : List Graph.Edge, moduleIds : ModuleIds }
+                        result =
                             addEdges
-                                getModuleId
                                 module_
                                 moduleId
+                                moduleIdsWithCurrent
                                 acc.edges
                     in
                     { nodes = newNodes
-                    , edges = newEdges
+                    , edges = result.edges
+                    , moduleIds = result.moduleIds
                     }
                 )
-                { nodes = IntDict.empty, edges = [] }
+                { nodes = IntDict.empty, edges = [], moduleIds = ModuleIds.empty }
                 mods
     in
     Graph.fromNodesAndEdges nodes edges
 
 
-addEdges : (ModuleName -> Maybe Int) -> OpaqueProjectModule -> Int -> List Graph.Edge -> List Graph.Edge
-addEdges getModuleId module_ moduleId initialEdges =
+addEdges : OpaqueProjectModule -> Int -> ModuleIds -> List Graph.Edge -> { edges : List Graph.Edge, moduleIds : ModuleIds }
+addEdges module_ moduleId initialModuleIds initialEdges =
     List.foldl
         (\(Node _ { moduleName }) acc ->
-            case getModuleId (Node.value moduleName) of
-                Just importedModuleId ->
-                    Graph.Edge importedModuleId moduleId :: acc
-
-                Nothing ->
-                    acc
+            let
+                ( importedModuleId, moduleIds ) =
+                    ModuleIds.addAndGet (Node.value moduleName) acc.moduleIds
+            in
+            { edges = Graph.Edge importedModuleId moduleId :: acc.edges
+            , moduleIds = moduleIds
+            }
         )
-        initialEdges
+        { edges = initialEdges, moduleIds = initialModuleIds }
         (ProjectModule.ast module_).imports
 
 
