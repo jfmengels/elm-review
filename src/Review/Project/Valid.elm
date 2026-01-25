@@ -508,8 +508,8 @@ importedModulesSet : Elm.Syntax.File.File -> Set ModuleName -> Set ModuleName
 importedModulesSet ast dependencyModules =
     Set.diff
         (List.foldl
-            (\import_ set ->
-                Set.insert (Node.value (Node.value import_).moduleName) set
+            (\(Node _ { moduleName }) set ->
+                Set.insert (Node.value moduleName) set
             )
             Set.empty
             ast.imports
