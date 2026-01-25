@@ -7,6 +7,7 @@ module Vendor.Graph exposing
     , NeighborSelector, alongIncomingEdges
     , BfsNodeVisitor, guidedBfs
     , topologicalSort
+    , empty
     )
 
 {-| This module contains the primitives to build, update and traverse graphs.
@@ -197,6 +198,11 @@ get nodeId (Graph rep) =
 nodeIds : Graph n -> List NodeId
 nodeIds (Graph rep) =
     IntDict.keys rep
+
+
+empty : Graph n
+empty =
+    Graph IntDict.empty
 
 
 fromNodesAndEdges : IntDict (NodeContext n) -> List Edge -> Graph n

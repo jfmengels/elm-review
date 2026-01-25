@@ -80,7 +80,7 @@ toRegularProject (ValidProject validProject) =
         , extraFiles = validProject.extraFiles
         , extraFilesContentHashes = validProject.extraFilesContentHashes
         , dependencies = validProject.dependencies
-        , moduleGraph = Just validProject.moduleGraph
+        , moduleGraph = validProject.moduleGraph
         , sourceDirectories = validProject.sourceDirectories
         , cache = validProject.projectCache
         }
