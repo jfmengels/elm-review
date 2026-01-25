@@ -5,6 +5,7 @@ module Vendor.IntSet exposing
     , getSharedKey
     , keys
     , foldl
+    , remove
     )
 
 {-|
@@ -264,6 +265,65 @@ insert key set =
             else
                 -- we have to join a new leaf with the current diverging Inner node
                 join key i.prefix.prefixBits set
+
+
+{-| Update the value of a dictionary for a specific key with a given function.
+-}
+remove : Int -> IntSet -> IntSet
+remove key dict =
+    case dict of
+        Empty () ->
+            empty
+
+        Leaf leafKey ->
+            if leafKey == key then
+                empty
+
+            else
+                dict
+
+        Inner { prefix, left, right } ->
+            if prefixMatches prefix key then
+                if isBranchingBitSet prefix key then
+                    let
+                        r : IntSet
+                        r =
+                            remove key right
+                    in
+                    if left == empty then
+                        r
+
+                    else if r == empty then
+                        left
+
+                    else
+                        Inner
+                            { prefix = prefix
+                            , left = left
+                            , right = r
+                            }
+
+                else
+                    let
+                        l : IntSet
+                        l =
+                            remove key left
+                    in
+                    if l == empty then
+                        right
+
+                    else if right == empty then
+                        l
+
+                    else
+                        Inner
+                            { prefix = prefix
+                            , left = l
+                            , right = right
+                            }
+
+            else
+                dict
 
 
 join : Int -> Int -> IntSet -> IntSet
