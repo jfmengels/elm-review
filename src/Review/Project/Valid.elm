@@ -506,15 +506,21 @@ removeModule path (ValidProject project) =
 
 importedModulesSet : Elm.Syntax.File.File -> Set ModuleName -> Set ModuleName
 importedModulesSet ast dependencyModules =
-    Set.diff
-        (List.foldl
-            (\(Node _ { moduleName }) set ->
-                Set.insert (Node.value moduleName) set
-            )
-            Set.empty
-            ast.imports
+    List.foldl
+        (\(Node _ { moduleName }) set ->
+            let
+                name : ModuleName
+                name =
+                    Node.value moduleName
+            in
+            if Set.member name dependencyModules then
+                set
+
+            else
+                Set.insert name set
         )
-        dependencyModules
+        Set.empty
+        ast.imports
 
 
 advanceZipper : FilePath -> Zipper (Graph.NodeContext FilePath) -> Zipper (Graph.NodeContext FilePath) -> Zipper (Graph.NodeContext FilePath)
