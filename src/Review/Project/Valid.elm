@@ -401,9 +401,9 @@ addParsedModule { path, source, ast } maybeModuleZipper (ValidProject project) =
                         , isInSourceDirectories = List.any (\dir -> String.startsWith (Path.makeOSAgnostic dir) osAgnosticPath) project.sourceDirectories
                         }
 
-                newProject : ValidProjectData
-                newProject =
-                    { project | modulesByPath = Dict.insert path module_ project.modulesByPath }
+                modulesByPath : Dict FilePath OpaqueProjectModule
+                modulesByPath =
+                    Dict.insert path module_ project.modulesByPath
             in
             if importedModulesSet (ProjectModule.ast existingModule) project.dependencyModules == importedModulesSet ast project.dependencyModules then
                 let
@@ -418,23 +418,23 @@ addParsedModule { path, source, ast } maybeModuleZipper (ValidProject project) =
                                 let
                                     moduleZipper_ : Zipper (Graph.NodeContext FilePath)
                                     moduleZipper_ =
-                                        unsafeCreateZipper newProject.sortedModules
+                                        unsafeCreateZipper project.sortedModules
                                 in
                                 Zipper.focusr (\mod -> mod.node.label == path) moduleZipper_
                                     -- Should not happen :/
                                     |> Maybe.withDefault moduleZipper_
                 in
-                Ok ( ValidProject newProject, newModuleZipper )
+                Ok ( ValidProject { project | modulesByPath = modulesByPath }, newModuleZipper )
 
             else
                 let
                     graph : Graph FilePath
                     graph =
-                        buildModuleGraph newProject.modulesByPath
+                        buildModuleGraph modulesByPath
                 in
                 case Graph.checkAcyclic graph of
                     Err edge ->
-                        ImportCycle.findCycle newProject.modulesByPath graph edge
+                        ImportCycle.findCycle modulesByPath graph edge
                             |> FixProblem.CreatesImportCycle
                             |> Err
 
@@ -462,7 +462,7 @@ addParsedModule { path, source, ast } maybeModuleZipper (ValidProject project) =
                                             -- Should not happen :/
                                             |> Maybe.withDefault moduleZipper_
                         in
-                        Ok ( ValidProject { newProject | moduleGraph = graph, sortedModules = sortedModules }, newModuleZipper )
+                        Ok ( ValidProject { project | moduleGraph = graph, sortedModules = sortedModules, modulesByPath = modulesByPath }, newModuleZipper )
 
         Nothing ->
             -- We don't support adding new files at the moment.
