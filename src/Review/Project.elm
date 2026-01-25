@@ -85,6 +85,7 @@ import Review.Project.Dependency as Dependency exposing (Dependency)
 import Review.Project.Internal as Internal exposing (Project, ProjectInternals)
 import Review.Project.ProjectCache as ProjectCache
 import Review.Project.ProjectModule as ProjectModule
+import Vendor.Graph as Graph
 
 
 
@@ -115,7 +116,7 @@ new =
         , extraFiles = Dict.empty
         , extraFilesContentHashes = Dict.empty
         , dependencies = Dict.empty
-        , moduleGraph = Nothing
+        , moduleGraph = Graph.empty
         , sourceDirectories = [ "src/" ]
         , cache = ProjectCache.empty
         }
@@ -726,4 +727,6 @@ diffElmFiles2 { before, after } list =
 
 forceModuleGraphRecomputation : Project -> Project
 forceModuleGraphRecomputation (Internal.Project project) =
-    Internal.Project { project | moduleGraph = Nothing }
+    -- TODO Remove
+    -- Internal.Project { project | moduleGraph = Nothing }
+    Internal.Project project
