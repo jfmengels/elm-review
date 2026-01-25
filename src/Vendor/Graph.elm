@@ -206,7 +206,7 @@ empty =
 
 
 fromNodesAndEdges : IntDict (NodeContext n) -> List Edge -> Graph n
-fromNodesAndEdges nodeRep edges_ =
+fromNodesAndEdges nodes edges =
     let
         addEdge : Edge -> IntDict (NodeContext n) -> IntDict (NodeContext n)
         addEdge edge rep =
@@ -237,7 +237,7 @@ fromNodesAndEdges nodeRep edges_ =
             else
                 rep
     in
-    Graph (List.foldl addEdgeIfValid nodeRep edges_)
+    Graph (List.foldl addEdgeIfValid nodes edges)
 
 
 addNode : Node n -> IntDict (NodeContext n) -> IntDict (NodeContext n)
