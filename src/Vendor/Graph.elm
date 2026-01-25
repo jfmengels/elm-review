@@ -271,22 +271,22 @@ unsafeGet msg id graph =
 checkForBackEdges : Graph n -> List NodeId -> Result Edge (AcyclicGraph n)
 checkForBackEdges graph ordering =
     checkOrdering graph ordering IntSet.empty
-        |> Result.map (\_ -> AcyclicGraph graph ordering)
+        |> Result.map (\() -> AcyclicGraph graph ordering)
 
 
-checkOrdering : Graph n -> List Int -> IntSet -> Result Edge IntSet
+checkOrdering : Graph n -> List Int -> IntSet -> Result Edge ()
 checkOrdering graph ordering set =
     case ordering of
         [] ->
-            Ok set
+            Ok ()
 
         id :: rest ->
             case check graph id set of
                 Ok newSet ->
                     checkOrdering graph rest newSet
 
-                err ->
-                    err
+                Err err ->
+                    Err err
 
 
 check : Graph n -> Int -> IntSet -> Result Edge IntSet
