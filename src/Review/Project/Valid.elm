@@ -247,9 +247,9 @@ buildModuleGraph mods =
         getModuleId moduleName =
             ModuleIds.get moduleName moduleIds
 
-        ( nodes, edges ) =
+        { nodes, edges } =
             Dict.foldl
-                (\_ module_ ( accNodes, resEdges ) ->
+                (\_ module_ acc ->
                     let
                         moduleId : ModuleId
                         moduleId =
@@ -259,21 +259,21 @@ buildModuleGraph mods =
 
                         newNodes : IntDict (Graph.NodeContext FilePath)
                         newNodes =
-                            Graph.addNode (Graph.Node moduleId (ProjectModule.path module_)) accNodes
+                            Graph.addNode (Graph.Node moduleId (ProjectModule.path module_)) acc.nodes
 
-                        newResEdges : List Graph.Edge
-                        newResEdges =
+                        newEdges : List Graph.Edge
+                        newEdges =
                             addEdges
                                 getModuleId
                                 module_
                                 moduleId
-                                resEdges
+                                acc.edges
                     in
-                    ( newNodes
-                    , newResEdges
-                    )
+                    { nodes = newNodes
+                    , edges = newEdges
+                    }
                 )
-                ( IntDict.empty, [] )
+                { nodes = IntDict.empty, edges = [] }
                 mods
     in
     Graph.fromNodesAndEdges nodes edges
