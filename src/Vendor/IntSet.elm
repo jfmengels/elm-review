@@ -239,18 +239,18 @@ empty =
 a collision.
 -}
 insert : Int -> IntSet -> IntSet
-insert key dict =
-    case dict of
+insert key set =
+    case set of
         Empty () ->
             leaf key
 
         Leaf leafKey ->
             if leafKey == key then
-                dict
+                set
                 -- This updates or removes the leaf with the same key
 
             else
-                join key leafKey dict
+                join key leafKey set
 
         -- This potentially inserts a new node
         Inner i ->
@@ -263,11 +263,11 @@ insert key dict =
 
             else
                 -- we have to join a new leaf with the current diverging Inner node
-                join key i.prefix.prefixBits dict
+                join key i.prefix.prefixBits set
 
 
 join : Int -> Int -> IntSet -> IntSet
-join key k2 dict =
+join key k2 set =
     -- precondition: k1 /= k2
     let
         prefix : KeyPrefix
@@ -278,10 +278,10 @@ join key k2 dict =
         isBranchingBitSet prefix k2
         -- if so, r will be the right child
     then
-        Inner { prefix = prefix, left = leaf key, right = dict }
+        Inner { prefix = prefix, left = leaf key, right = set }
 
     else
-        Inner { prefix = prefix, left = dict, right = leaf key }
+        Inner { prefix = prefix, left = set, right = leaf key }
 
 
 
