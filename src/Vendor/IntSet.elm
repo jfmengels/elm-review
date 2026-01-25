@@ -430,52 +430,54 @@ determineBranchRelation l r =
 
 getSharedKey : IntSet -> IntSet -> Maybe Int
 getSharedKey l r =
-    case ( l, r ) of
-        ( Empty (), _ ) ->
+    case l of
+        Empty () ->
             Nothing
 
-        ( _, Empty () ) ->
-            Nothing
-
-        ( Leaf key, _ ) ->
+        Leaf key ->
             if member key r then
                 Just key
 
             else
                 Nothing
 
-        ( _, Leaf key ) ->
-            if member key l then
-                Just key
-
-            else
-                Nothing
-
-        ( Inner il, Inner ir ) ->
-            case determineBranchRelation il ir of
-                SamePrefix ->
-                    -- Intersect both left and right sub trees
-                    case getSharedKey il.left ir.left of
-                        Nothing ->
-                            getSharedKey il.right ir.right
-
-                        justKey ->
-                            justKey
-
-                Parent Left Right ->
-                    getSharedKey il.right r
-
-                Parent Right Right ->
-                    getSharedKey l ir.right
-
-                Parent Left Left ->
-                    getSharedKey il.left r
-
-                Parent Right Left ->
-                    getSharedKey l ir.left
-
-                Disjunct ->
+        Inner il ->
+            case r of
+                Empty () ->
                     Nothing
+
+                Leaf key ->
+                    if member key l then
+                        Just key
+
+                    else
+                        Nothing
+
+                Inner ir ->
+                    case determineBranchRelation il ir of
+                        SamePrefix ->
+                            -- Intersect both left and right sub trees
+                            case getSharedKey il.left ir.left of
+                                Nothing ->
+                                    getSharedKey il.right ir.right
+
+                                justKey ->
+                                    justKey
+
+                        Parent Left Right ->
+                            getSharedKey il.right r
+
+                        Parent Right Right ->
+                            getSharedKey l ir.right
+
+                        Parent Left Left ->
+                            getSharedKey il.left r
+
+                        Parent Right Left ->
+                            getSharedKey l ir.left
+
+                        Disjunct ->
+                            Nothing
 
 
 
