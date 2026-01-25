@@ -41,7 +41,7 @@ import Review.ImportCycle as ImportCycle
 import Review.Project.Dependency as Dependency exposing (Dependency)
 import Review.Project.Internal exposing (Project(..))
 import Review.Project.InvalidProjectError as InvalidProjectError exposing (InvalidProjectError)
-import Review.Project.ModuleIds as ModuleIds exposing (ModuleId)
+import Review.Project.ModuleIds as ModuleIds exposing (ModuleId, ModuleIds)
 import Review.Project.ProjectCache exposing (ProjectCache)
 import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModule)
 import Set exposing (Set)
@@ -234,7 +234,7 @@ duplicateModuleNames visitedModules projectModules =
 buildModuleGraph : Dict a OpaqueProjectModule -> Graph FilePath
 buildModuleGraph mods =
     let
-        moduleIds : Dict ModuleName ModuleId
+        moduleIds : ModuleIds
         moduleIds =
             Dict.foldl
                 (\_ module_ ids ->
@@ -242,16 +242,10 @@ buildModuleGraph mods =
                 )
                 ModuleIds.empty
                 mods
-                |> ModuleIds.moduleNameToId
 
-        getModuleId : ModuleName -> ModuleId
+        getModuleId : ModuleName -> Maybe ModuleId
         getModuleId moduleName =
-            case Dict.get moduleName moduleIds of
-                Just moduleId ->
-                    moduleId
-
-                Nothing ->
-                    getModuleId moduleName
+            ModuleIds.get moduleName moduleIds
 
         ( nodes, edges ) =
             Dict.foldl
@@ -259,7 +253,9 @@ buildModuleGraph mods =
                     let
                         moduleId : ModuleId
                         moduleId =
-                            getModuleId <| ProjectModule.moduleName module_
+                            ProjectModule.moduleName module_
+                                |> getModuleId
+                                |> Maybe.withDefault 0
 
                         newNodes : IntDict (Graph.NodeContext FilePath)
                         newNodes =
@@ -268,7 +264,7 @@ buildModuleGraph mods =
                         newResEdges : List Graph.Edge
                         newResEdges =
                             addEdges
-                                (\moduleName -> Dict.get moduleName moduleIds)
+                                getModuleId
                                 module_
                                 moduleId
                                 resEdges
