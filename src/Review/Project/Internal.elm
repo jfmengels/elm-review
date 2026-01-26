@@ -81,28 +81,25 @@ endWithSlash dir =
 updateGraph :
     OpaqueProjectModule
     -> Maybe OpaqueProjectModule
-    ->
-        { project
-            | moduleIds : ModuleIds
-            , dependencyModules : Set ModuleName
-            , moduleGraph : Graph FilePath
-        }
+    -> Set ModuleName
+    -> ModuleIds
+    -> Graph FilePath
     -> ( Graph FilePath, ModuleIds )
-updateGraph module_ maybeExistingModule project =
+updateGraph module_ maybeExistingModule dependencyModules baseModuleIds baseModuleGraph =
     let
         ( moduleId, moduleIds ) =
-            ModuleIds.addAndGet (ProjectModule.moduleName module_) project.moduleIds
+            ModuleIds.addAndGet (ProjectModule.moduleName module_) baseModuleIds
     in
     case maybeExistingModule of
         Just existingModule ->
             let
                 previousFileImports : Set ModuleName
                 previousFileImports =
-                    importedModulesSet (ProjectModule.ast existingModule) project.dependencyModules
+                    importedModulesSet (ProjectModule.ast existingModule) dependencyModules
 
                 newFileImports : Set ModuleName
                 newFileImports =
-                    importedModulesSet (ProjectModule.ast module_) project.dependencyModules
+                    importedModulesSet (ProjectModule.ast module_) dependencyModules
 
                 addedImports : Set ModuleName
                 addedImports =
@@ -114,7 +111,7 @@ updateGraph module_ maybeExistingModule project =
             in
             if Set.isEmpty addedImports && Set.isEmpty removedImports then
                 -- Imports haven't changed, we don't need to recompute the zipper or the graph
-                ( project.moduleGraph, moduleIds )
+                ( baseModuleGraph, moduleIds )
 
             else
                 let
@@ -122,7 +119,7 @@ updateGraph module_ maybeExistingModule project =
                     moduleGraph =
                         Set.foldl
                             (\moduleName subGraph ->
-                                case ModuleIds.get moduleName project.moduleIds of
+                                case ModuleIds.get moduleName baseModuleIds of
                                     Just importedModuleId ->
                                         Graph.addEdge (Graph.Edge importedModuleId moduleId) subGraph
 
@@ -131,14 +128,14 @@ updateGraph module_ maybeExistingModule project =
                             )
                             (Set.foldl
                                 (\moduleName subGraph ->
-                                    case ModuleIds.get moduleName project.moduleIds of
+                                    case ModuleIds.get moduleName baseModuleIds of
                                         Just importedModuleId ->
                                             Graph.removeEdge (Graph.Edge importedModuleId moduleId) subGraph
 
                                         Nothing ->
                                             subGraph
                                 )
-                                project.moduleGraph
+                                baseModuleGraph
                                 removedImports
                             )
                             addedImports
@@ -156,8 +153,8 @@ updateGraph module_ maybeExistingModule project =
                                 moduleName =
                                     Node.value import_.moduleName
                             in
-                            if Set.member moduleName project.dependencyModules then
-                                case ModuleIds.get moduleName project.moduleIds of
+                            if Set.member moduleName dependencyModules then
+                                case ModuleIds.get moduleName baseModuleIds of
                                     Just importedModuleId ->
                                         Graph.addEdge (Graph.Edge importedModuleId moduleId) subGraph
 
@@ -167,7 +164,7 @@ updateGraph module_ maybeExistingModule project =
                             else
                                 subGraph
                         )
-                        project.moduleGraph
+                        baseModuleGraph
                         (ProjectModule.ast module_).imports
             in
             ( moduleGraph, moduleIds )
