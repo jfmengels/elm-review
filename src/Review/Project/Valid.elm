@@ -77,6 +77,7 @@ toRegularProject (ValidProject validProject) =
     Project
         { modules = validProject.modulesByPath
         , modulesThatFailedToParse = []
+        , moduleIds = validProject.moduleIds
         , elmJson = validProject.elmJson
         , readme = validProject.readme
         , extraFiles = validProject.extraFiles
@@ -109,8 +110,7 @@ parse ((Project p) as project) =
             Nothing ->
                 let
                     ( graph, moduleIds ) =
-                        -- TODO Use p.moduleIds
-                        buildModuleGraph p.modules ModuleIds.empty
+                        buildModuleGraph p.modules p.moduleIds
                 in
                 case Graph.checkAcyclic graph of
                     Err edge ->
