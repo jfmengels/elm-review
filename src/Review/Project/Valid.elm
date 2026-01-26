@@ -68,6 +68,7 @@ type alias ValidProjectData =
     , projectCache : ProjectCache
     , moduleGraph : Graph FilePath
     , sortedModules : List (Graph.NodeContext FilePath)
+    , moduleIds : ModuleIds
     }
 
 
@@ -107,9 +108,9 @@ parse ((Project p) as project) =
 
             Nothing ->
                 let
-                    graph : Graph FilePath
-                    graph =
-                        buildModuleGraph p.modules
+                    ( graph, moduleIds ) =
+                        -- TODO Use p.moduleIds
+                        buildModuleGraph p.modules ModuleIds.empty
                 in
                 case Graph.checkAcyclic graph of
                     Err edge ->
@@ -118,7 +119,7 @@ parse ((Project p) as project) =
                             |> Err
 
                     Ok acyclicGraph ->
-                        Ok (fromProjectAndGraph graph acyclicGraph project)
+                        Ok (fromProjectAndGraph graph acyclicGraph moduleIds project)
 
 
 {-| This is unsafe because we assume that there are some modules. We do check for this earlier in the exposed functions.
@@ -133,8 +134,8 @@ unsafeCreateZipper sortedModules =
             unsafeCreateZipper sortedModules
 
 
-fromProjectAndGraph : Graph FilePath -> Graph.AcyclicGraph FilePath -> Project -> ValidProject
-fromProjectAndGraph moduleGraph_ acyclicGraph (Project project) =
+fromProjectAndGraph : Graph FilePath -> Graph.AcyclicGraph FilePath -> ModuleIds -> Project -> ValidProject
+fromProjectAndGraph moduleGraph_ acyclicGraph moduleIds (Project project) =
     let
         directDependencies_ : Dict String Dependency
         directDependencies_ =
@@ -154,6 +155,7 @@ fromProjectAndGraph moduleGraph_ acyclicGraph (Project project) =
         , projectCache = project.cache
         , moduleGraph = moduleGraph_
         , sortedModules = Graph.topologicalSort acyclicGraph
+        , moduleIds = moduleIds
         }
 
 
@@ -231,10 +233,10 @@ duplicateModuleNames visitedModules projectModules =
                         }
 
 
-buildModuleGraph : Dict a OpaqueProjectModule -> Graph FilePath
-buildModuleGraph mods =
+buildModuleGraph : Dict a OpaqueProjectModule -> ModuleIds -> ( Graph FilePath, ModuleIds )
+buildModuleGraph mods baseModuleIds =
     let
-        { nodes, edges } =
+        { nodes, edges, moduleIds } =
             Dict.foldl
                 (\_ module_ acc ->
                     let
@@ -260,10 +262,12 @@ buildModuleGraph mods =
                     , moduleIds = result.moduleIds
                     }
                 )
-                { nodes = IntDict.empty, edges = [], moduleIds = ModuleIds.empty }
+                { nodes = IntDict.empty, edges = [], moduleIds = baseModuleIds }
                 mods
     in
-    Graph.fromNodesAndEdges nodes edges
+    ( Graph.fromNodesAndEdges nodes edges
+    , moduleIds
+    )
 
 
 addEdges : OpaqueProjectModule -> Int -> ModuleIds -> List Graph.Edge -> { edges : List Graph.Edge, moduleIds : ModuleIds }
@@ -444,9 +448,8 @@ addParsedModule { path, source, ast } maybeModuleZipper (ValidProject project) =
 
             else
                 let
-                    graph : Graph FilePath
-                    graph =
-                        buildModuleGraph modulesByPath
+                    ( graph, moduleIds ) =
+                        buildModuleGraph modulesByPath project.moduleIds
                 in
                 case Graph.checkAcyclic graph of
                     Err edge ->
@@ -478,7 +481,16 @@ addParsedModule { path, source, ast } maybeModuleZipper (ValidProject project) =
                                             -- Should not happen :/
                                             |> Maybe.withDefault moduleZipper_
                         in
-                        Ok ( ValidProject { project | moduleGraph = graph, sortedModules = sortedModules, modulesByPath = modulesByPath }, newModuleZipper )
+                        Ok
+                            ( ValidProject
+                                { project
+                                    | moduleGraph = graph
+                                    , sortedModules = sortedModules
+                                    , modulesByPath = modulesByPath
+                                    , moduleIds = moduleIds
+                                }
+                            , newModuleZipper
+                            )
 
         Nothing ->
             -- We don't support adding new files at the moment.
@@ -499,9 +511,8 @@ removeModule path (ValidProject project) =
             modulesByPath =
                 Dict.remove path project.modulesByPath
 
-            graph : Graph FilePath
-            graph =
-                buildModuleGraph modulesByPath
+            ( graph, moduleIds ) =
+                buildModuleGraph modulesByPath project.moduleIds
         in
         case Graph.checkAcyclic graph |> Result.map Graph.topologicalSort of
             Err edge ->
@@ -511,7 +522,13 @@ removeModule path (ValidProject project) =
                     |> Err
 
             Ok sortedModules ->
-                ValidProject { project | modulesByPath = modulesByPath, moduleGraph = graph, sortedModules = sortedModules }
+                ValidProject
+                    { project
+                        | modulesByPath = modulesByPath
+                        , moduleGraph = graph
+                        , sortedModules = sortedModules
+                        , moduleIds = moduleIds
+                    }
                     |> Ok
 
     else
