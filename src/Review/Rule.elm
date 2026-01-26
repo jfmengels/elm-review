@@ -6174,10 +6174,15 @@ findFixHelp project supportsFileDeletion fixablePredicate errors accErrors maybe
 
 
 applyFixes : Maybe (Zipper (Graph.NodeContext FilePath)) -> Error {} -> List ( FileTarget, FixKind ) -> { project : ValidProject, fixedFile : FixedFile } -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
-applyFixes maybeModuleZipper err fixes acc =
+applyFixes maybeModuleZipper ((Error baseError) as err) fixes acc =
     case fixes of
         [] ->
-            Ok acc
+            case ValidProject.checkGraph acc.project of
+                Ok updatedProject ->
+                    Ok { project = updatedProject, fixedFile = acc.fixedFile }
+
+                Err fixProblem ->
+                    Err (Error (markFixesAsProblem fixProblem baseError))
 
         fix :: rest ->
             case applyFix acc.project maybeModuleZipper err fix of
