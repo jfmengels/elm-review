@@ -7,7 +7,7 @@ module Vendor.Graph exposing
     , NeighborSelector, alongIncomingEdges
     , BfsNodeVisitor, guidedBfs
     , topologicalSort
-    , empty, removeEdge
+    , addEdge, empty, removeEdge
     )
 
 {-| This module contains the primitives to build, update and traverse graphs.
@@ -207,11 +207,11 @@ empty =
 
 fromNodesAndEdges : IntDict (NodeContext n) -> List Edge -> Graph n
 fromNodesAndEdges nodes edges =
-    Graph (List.foldl addEdge nodes edges)
+    List.foldl addEdge (Graph nodes) edges
 
 
-addEdge : Edge -> IntDict (NodeContext n) -> IntDict (NodeContext n)
-addEdge edge rep =
+addEdge : Edge -> Graph n -> Graph n
+addEdge edge (Graph rep) =
     let
         updateOutgoing : NodeContext n -> NodeContext n
         updateOutgoing ctx =
@@ -230,10 +230,11 @@ addEdge edge rep =
     rep
         |> IntDict.mapKey edge.from updateOutgoing
         |> IntDict.mapKey edge.to updateIncoming
+        |> Graph
 
 
-removeEdge : Edge -> IntDict (NodeContext n) -> IntDict (NodeContext n)
-removeEdge edge rep =
+removeEdge : Edge -> Graph n -> Graph n
+removeEdge edge (Graph rep) =
     let
         updateOutgoing : NodeContext n -> NodeContext n
         updateOutgoing ctx =
@@ -252,6 +253,7 @@ removeEdge edge rep =
     rep
         |> IntDict.mapKey edge.from updateOutgoing
         |> IntDict.mapKey edge.to updateIncoming
+        |> Graph
 
 
 addNode : Node n -> IntDict (NodeContext n) -> IntDict (NodeContext n)
