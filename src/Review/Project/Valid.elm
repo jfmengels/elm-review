@@ -5,6 +5,7 @@ module Review.Project.Valid exposing
     , addExtraFile
     , addParsedModule
     , addReadme
+    , checkGraph
     , dependencies
     , dependenciesHash
     , directDependencies
@@ -524,6 +525,19 @@ addParsedModule { path, source, ast } maybeModuleZipper (ValidProject project) =
             -- We don't support adding new files at the moment.
             -- TODO Support creating a new file (only in known source-directories?)
             Err (FixProblem.Unchanged { filePath = path, edits = [] })
+
+
+checkGraph : ValidProject -> Result FixProblem ValidProject
+checkGraph (ValidProject project) =
+    case Graph.checkAcyclic project.moduleGraph |> Result.map Graph.topologicalSort of
+        Err edge ->
+            ImportCycle.findCycle project.modulesByPath project.moduleGraph edge
+                |> FixProblem.CreatesImportCycle
+                |> Err
+
+        Ok sortedModules ->
+            ValidProject { project | sortedModules = sortedModules }
+                |> Ok
 
 
 {-| Add an already parsed module to the project. This module will then be analyzed by the rules.
