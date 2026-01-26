@@ -83,6 +83,7 @@ import Review.Cache.ContentHash as ContentHash
 import Review.FileParser as FileParser
 import Review.Project.Dependency as Dependency exposing (Dependency)
 import Review.Project.Internal as Internal exposing (Project, ProjectInternals)
+import Review.Project.ModuleIds as ModuleIds
 import Review.Project.ProjectCache as ProjectCache
 import Review.Project.ProjectModule as ProjectModule
 import Vendor.Graph as Graph
@@ -111,6 +112,7 @@ new =
     Internal.Project
         { modules = Dict.empty
         , modulesThatFailedToParse = []
+        , moduleIds = ModuleIds.empty
         , elmJson = Nothing
         , readme = Nothing
         , extraFiles = Dict.empty

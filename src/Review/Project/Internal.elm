@@ -15,6 +15,7 @@ import Path
 import Review.Cache.ContentHash exposing (ContentHash)
 import Review.FilePath exposing (FilePath)
 import Review.Project.Dependency exposing (Dependency)
+import Review.Project.ModuleIds exposing (ModuleIds)
 import Review.Project.ProjectCache exposing (ProjectCache)
 import Review.Project.ProjectModule exposing (OpaqueProjectModule)
 import Vendor.Graph exposing (Graph)
@@ -27,6 +28,7 @@ type Project
 type alias ProjectInternals =
     { modules : Dict String OpaqueProjectModule
     , modulesThatFailedToParse : List { path : String, source : String }
+    , moduleIds : ModuleIds
     , elmJson : Maybe ( { path : String, raw : String, project : Elm.Project.Project }, ContentHash )
     , readme : Maybe ( { path : String, content : String }, ContentHash )
     , extraFiles : Dict {- path -} String {- content -} String
