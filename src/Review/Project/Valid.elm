@@ -389,8 +389,15 @@ addParsedModule :
     -> ValidProject
     -> Result FixProblem ( ValidProject, Zipper (Graph.NodeContext FilePath) )
 addParsedModule { path, source, ast } maybeModuleZipper (ValidProject project) =
-    case Dict.get path project.modulesByPath of
-        Just existingModule ->
+    case
+        Dict.get path project.modulesByPath
+            |> Maybe.andThen
+                (\mod ->
+                    ModuleIds.get (ProjectModule.moduleName mod) project.moduleIds
+                        |> Maybe.map (Tuple.pair mod)
+                )
+    of
+        Just ( existingModule, moduleId ) ->
             let
                 osAgnosticPath : String
                 osAgnosticPath =
@@ -448,8 +455,30 @@ addParsedModule { path, source, ast } maybeModuleZipper (ValidProject project) =
 
             else
                 let
-                    ( graph, moduleIds ) =
-                        buildModuleGraph modulesByPath project.moduleIds
+                    graph : Graph FilePath
+                    graph =
+                        Set.foldl
+                            (\moduleName subGraph ->
+                                case ModuleIds.get moduleName project.moduleIds of
+                                    Just importedModuleId ->
+                                        Graph.addEdge (Graph.Edge importedModuleId moduleId) subGraph
+
+                                    Nothing ->
+                                        subGraph
+                            )
+                            (Set.foldl
+                                (\moduleName subGraph ->
+                                    case ModuleIds.get moduleName project.moduleIds of
+                                        Just importedModuleId ->
+                                            Graph.removeEdge (Graph.Edge importedModuleId moduleId) subGraph
+
+                                        Nothing ->
+                                            subGraph
+                                )
+                                project.moduleGraph
+                                removedImports
+                            )
+                            addedImports
                 in
                 case Graph.checkAcyclic graph of
                     Err edge ->
@@ -487,7 +516,6 @@ addParsedModule { path, source, ast } maybeModuleZipper (ValidProject project) =
                                     | moduleGraph = graph
                                     , sortedModules = sortedModules
                                     , modulesByPath = modulesByPath
-                                    , moduleIds = moduleIds
                                 }
                             , newModuleZipper
                             )
