@@ -3,6 +3,7 @@ module Review.Project.ProjectModule exposing
     , path, source, ast, contentHash, moduleName, isInSourceDirectories
     , setIsInSourceDirectories
     , ProjectModule, toRecord
+    , moduleId
     )
 
 {-| Represents a parsed file.
@@ -22,6 +23,7 @@ import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Review.Cache.ContentHash as ContentHash exposing (ContentHash)
 import Review.FilePath exposing (FilePath)
+import Review.Project.ModuleIds exposing (ModuleId)
 
 
 type OpaqueProjectModule
@@ -35,6 +37,7 @@ type alias ProjectModule =
     , moduleName : ModuleName
     , contentHash : ContentHash
     , isInSourceDirectories : Bool
+    , moduleId : ModuleId
     }
 
 
@@ -43,6 +46,7 @@ create :
     , source : String
     , ast : Elm.Syntax.File.File
     , isInSourceDirectories : Bool
+    , moduleId : ModuleId
     }
     -> OpaqueProjectModule
 create params =
@@ -56,6 +60,7 @@ create params =
                 |> Elm.Syntax.Module.moduleName
         , contentHash = ContentHash.hash params.source
         , isInSourceDirectories = params.isInSourceDirectories
+        , moduleId = params.moduleId
         }
 
 
@@ -100,6 +105,11 @@ contentHash (OpaqueProjectModule module_) =
 isInSourceDirectories : OpaqueProjectModule -> Bool
 isInSourceDirectories (OpaqueProjectModule module_) =
     module_.isInSourceDirectories
+
+
+moduleId : OpaqueProjectModule -> ModuleId
+moduleId (OpaqueProjectModule module_) =
+    module_.moduleId
 
 
 setIsInSourceDirectories : Bool -> OpaqueProjectModule -> OpaqueProjectModule

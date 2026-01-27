@@ -5786,6 +5786,7 @@ findFixInComputeModuleResults ({ reviewOptions, module_, project, moduleZipper, 
                                                     { path = filePath
                                                     , source = source
                                                     , ast = ast
+                                                    , moduleId = moduleId
                                                     , isInSourceDirectories = ProjectModule.isInSourceDirectories module_
                                                     }
                                             , project = fixResult.project

@@ -1,6 +1,8 @@
 module Path exposing (makeOSAgnostic)
 
+import Review.FilePath exposing (FilePath)
 
-makeOSAgnostic : String -> String
+
+makeOSAgnostic : FilePath -> FilePath
 makeOSAgnostic path =
     String.replace "\\" "/" path
