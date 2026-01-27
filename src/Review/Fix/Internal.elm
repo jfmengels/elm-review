@@ -164,7 +164,7 @@ editModule edits module_ =
                     Ok
                         { source = fixedSourceCode
                         , ast = ast
-                        , moduleId = 0 -- TODO ProjectModule.moduleId module_
+                        , moduleId = ProjectModule.moduleId module_
                         }
 
                 Err parsingErrors ->

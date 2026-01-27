@@ -78,14 +78,18 @@ import Dict exposing (Dict)
 import Elm.Package
 import Elm.Project
 import Elm.Syntax.File
+import Elm.Syntax.Module
+import Elm.Syntax.ModuleName exposing (ModuleName)
+import Elm.Syntax.Node as Node
 import Path
 import Review.Cache.ContentHash as ContentHash
 import Review.FileParser as FileParser
+import Review.FilePath exposing (FilePath)
 import Review.Project.Dependency as Dependency exposing (Dependency)
 import Review.Project.Internal as Internal exposing (Project, ProjectInternals)
 import Review.Project.ModuleIds as ModuleIds
 import Review.Project.ProjectCache as ProjectCache
-import Review.Project.ProjectModule as ProjectModule
+import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModule)
 import Vendor.Graph as Graph
 
 
@@ -147,20 +151,12 @@ addModule : { path : String, source : String } -> Project -> Project
 addModule { path, source } project =
     case FileParser.parse source of
         Ok ast ->
-            let
-                osAgnosticPath : String
-                osAgnosticPath =
-                    Path.makeOSAgnostic path
-            in
             project
                 |> addModuleToProject
-                    (ProjectModule.create
-                        { path = path
-                        , source = source
-                        , ast = ast
-                        , isInSourceDirectories = List.any (\dir -> String.startsWith (Path.makeOSAgnostic dir) osAgnosticPath) (Internal.sourceDirectories project)
-                        }
-                    )
+                    { path = path
+                    , source = source
+                    , ast = ast
+                    }
                 |> removeFileFromFilesThatFailedToParse path
                 |> forceModuleGraphRecomputation
 
@@ -178,27 +174,47 @@ addModule { path, source } project =
 -}
 addParsedModule : { path : String, source : String, ast : Elm.Syntax.File.File } -> Project -> Project
 addParsedModule { path, source, ast } project =
-    let
-        osAgnosticPath : String
-        osAgnosticPath =
-            Path.makeOSAgnostic path
-    in
     project
         |> removeFileFromFilesThatFailedToParse path
         |> addModuleToProject
-            (ProjectModule.create
-                { path = path
-                , source = source
-                , ast = ast
-                , isInSourceDirectories = List.any (\dir -> String.startsWith (Path.makeOSAgnostic dir) osAgnosticPath) (Internal.sourceDirectories project)
-                }
-            )
+            { path = path
+            , source = source
+            , ast = ast
+            }
         |> forceModuleGraphRecomputation
 
 
-addModuleToProject : ProjectModule.OpaqueProjectModule -> Project -> Project
-addModuleToProject module_ (Internal.Project project) =
-    Internal.Project { project | modules = Dict.insert (ProjectModule.path module_) module_ project.modules }
+addModuleToProject : { path : String, source : String, ast : Elm.Syntax.File.File } -> Project -> Project
+addModuleToProject { path, source, ast } (Internal.Project project) =
+    let
+        osAgnosticPath : FilePath
+        osAgnosticPath =
+            Path.makeOSAgnostic path
+
+        moduleName : ModuleName
+        moduleName =
+            ast.moduleDefinition
+                |> Node.value
+                |> Elm.Syntax.Module.moduleName
+
+        ( moduleId, moduleIds ) =
+            ModuleIds.addAndGet moduleName project.moduleIds
+
+        module_ : OpaqueProjectModule
+        module_ =
+            ProjectModule.create
+                { path = path
+                , source = source
+                , ast = ast
+                , isInSourceDirectories = List.any (\dir -> String.startsWith (Path.makeOSAgnostic dir) osAgnosticPath) project.sourceDirectories
+                , moduleId = moduleId
+                }
+    in
+    Internal.Project
+        { project
+            | moduleIds = moduleIds
+            , modules = Dict.insert (ProjectModule.path module_) module_ project.modules
+        }
 
 
 addFileThatFailedToParse : { path : String, source : String } -> Project -> Project

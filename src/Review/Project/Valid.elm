@@ -410,6 +410,7 @@ addParsedModule { path, source, ast } maybeModuleZipper (ValidProject project) =
                         { path = path
                         , source = source
                         , ast = ast
+                        , moduleId = ProjectModule.moduleId existingModule
                         , isInSourceDirectories = List.any (\dir -> String.startsWith (Path.makeOSAgnostic dir) osAgnosticPath) project.sourceDirectories
                         }
 
