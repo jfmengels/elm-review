@@ -6327,7 +6327,7 @@ applySingleModuleFix project maybeModuleZipper ((Error headError) as err) target
 
         Just file ->
             case
-                InternalFix.editModule edits (ProjectModule.path file) (ProjectModule.source file)
+                InternalFix.editModule edits file
                     |> Result.andThen
                         (\fixResult ->
                             ValidProject.addParsedModule { path = targetPath, source = fixResult.source, ast = fixResult.ast } maybeModuleZipper project
