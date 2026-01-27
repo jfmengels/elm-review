@@ -5647,16 +5647,11 @@ computeModule params =
 
 computeWhatsRequiredToAnalyze : ValidProject -> OpaqueProjectModule -> Graph.Adjacency -> List RuleProjectVisitor -> ( List (AvailableData -> RuleModuleVisitor), RequestedData, List RuleProjectVisitor )
 computeWhatsRequiredToAnalyze project module_ incoming ruleProjectVisitors =
-    let
-        filePath : FilePath
-        filePath =
-            ProjectModule.path module_
-    in
     List.foldl
         (\((RuleProjectVisitor ruleProjectVisitor) as rule) ( with, requestedAcc, without ) ->
             case ruleProjectVisitor.createModuleVisitorFromProjectVisitor of
                 Just moduleVisitorCreator ->
-                    case moduleVisitorCreator project filePath (ProjectModule.contentHash module_) incoming of
+                    case moduleVisitorCreator project module_ incoming of
                         Just moduleVisitor ->
                             ( moduleVisitor :: with
                             , RequestedData.combineJust ruleProjectVisitor.requestedData requestedAcc
@@ -6642,7 +6637,7 @@ type alias RuleProjectVisitorOperations =
     , readmeVisitor : Maybe (ValidProject -> Maybe { readmeKey : ReadmeKey, content : String } -> ( List (Error {}), RuleProjectVisitor ))
     , extraFilesVisitor : Maybe (ValidProject -> ExtraFileData -> ( List (Error {}), RuleProjectVisitor ))
     , dependenciesVisitor : Maybe (ValidProject -> { all : Dict String Review.Project.Dependency.Dependency, direct : Dict String Review.Project.Dependency.Dependency } -> ( List (Error {}), RuleProjectVisitor ))
-    , createModuleVisitorFromProjectVisitor : Maybe (ValidProject -> FilePath -> ContentHash -> Graph.Adjacency -> Maybe (AvailableData -> RuleModuleVisitor))
+    , createModuleVisitorFromProjectVisitor : Maybe (ValidProject -> OpaqueProjectModule -> Graph.Adjacency -> Maybe (AvailableData -> RuleModuleVisitor))
     , finalProjectEvaluation : Maybe (() -> ( List (Error {}), RuleProjectVisitor ))
     , dataExtractVisitor : ReviewOptionsData -> Dict String Encode.Value -> ( Dict String Encode.Value, RuleProjectVisitor )
     , getErrorsForModule : String -> List (Error {})
@@ -7050,7 +7045,7 @@ createModuleVisitorFromProjectVisitor :
     ProjectRuleSchemaData projectContext moduleContext
     -> (ProjectRuleCache projectContext -> RuleProjectVisitor)
     -> RuleProjectVisitorHidden projectContext
-    -> Maybe (ValidProject -> FilePath -> ContentHash -> Graph.Adjacency -> Maybe (AvailableData -> RuleModuleVisitor))
+    -> Maybe (ValidProject -> OpaqueProjectModule -> Graph.Adjacency -> Maybe (AvailableData -> RuleModuleVisitor))
 createModuleVisitorFromProjectVisitor schema raise hidden =
     case mergeModuleVisitors schema.name schema.initialProjectContext schema.moduleContextCreator schema.moduleVisitors of
         Nothing ->
@@ -7080,13 +7075,20 @@ createModuleVisitorFromProjectVisitorHelp :
     -> TraversalAndFolder projectContext moduleContext
     -> ( ModuleRuleSchema schemaState moduleContext, ContextCreator projectContext moduleContext )
     -> ValidProject
-    -> FilePath
-    -> ContentHash
+    -> OpaqueProjectModule
     -> Graph.Adjacency
     -> Maybe (AvailableData -> RuleModuleVisitor)
 createModuleVisitorFromProjectVisitorHelp schema raise hidden traversalAndFolder ( ModuleRuleSchema moduleRuleSchema, moduleContextCreator ) =
-    \project filePath moduleContentHash incoming ->
+    \project module_ incoming ->
         let
+            filePath : String
+            filePath =
+                ProjectModule.path module_
+
+            moduleContentHash : ContentHash
+            moduleContentHash =
+                ProjectModule.contentHash module_
+
             ( initialProjectContextHash, initialProjectContext ) =
                 findInitialInputContext hidden.cache AfterProjectFilesStep schema.initialProjectContext
 
