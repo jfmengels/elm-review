@@ -5302,7 +5302,7 @@ type Step
     | Readme
     | ExtraFiles
     | Dependencies
-    | Modules (Maybe (Zipper GraphModule))
+    | Modules (Maybe (Zipper FilePath))
     | FinalProjectEvaluation
     | EndAnalysis
 
@@ -5316,7 +5316,7 @@ type StepToComputeContext
 
 
 type NextStep
-    = ModuleVisitStep (Maybe (Zipper GraphModule))
+    = ModuleVisitStep (Maybe (Zipper FilePath))
     | BackToElmJson
     | BackToReadme
     | BackToExtraFiles
@@ -5612,7 +5612,7 @@ type alias DataToComputeSingleModule =
     , ruleProjectVisitors : List RuleProjectVisitor
     , module_ : OpaqueProjectModule
     , project : ValidProject
-    , moduleZipper : Zipper GraphModule
+    , moduleZipper : Zipper FilePath
     , fixedErrors : FixedErrors
     }
 
@@ -5794,7 +5794,7 @@ findFixInComputeModuleResults ({ reviewOptions, module_, project, moduleZipper, 
                                             }
 
                                     else
-                                        case Zipper.focusl (\mod -> mod.node.label == filePath) moduleZipper of
+                                        case Zipper.focusl (\path -> path == filePath) moduleZipper of
                                             Just newModuleZipper ->
                                                 ContinueWithNextStep
                                                     { project = fixResult.project
@@ -5854,7 +5854,7 @@ findFixInComputeModuleResults ({ reviewOptions, module_, project, moduleZipper, 
 
 computeModules :
     ReviewOptionsData
-    -> Maybe (Zipper GraphModule)
+    -> Maybe (Zipper FilePath)
     -> ValidProject
     -> List RuleProjectVisitor
     -> FixedErrors
@@ -5984,17 +5984,18 @@ computeProjectContext traversalAndFolder project cache incoming initial =
 
 computeModuleAndCacheResult :
     ReviewOptionsData
-    -> Zipper GraphModule
+    -> Zipper FilePath
     -> ValidProject
     -> List RuleProjectVisitor
     -> FixedErrors
     -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, nextStep : NextStep, fixedErrors : FixedErrors }
 computeModuleAndCacheResult reviewOptions moduleZipper project ruleProjectVisitors fixedErrors =
     let
-        { node } =
+        filePath : FilePath
+        filePath =
             Zipper.current moduleZipper
     in
-    case ValidProject.getModuleByPath node.label project of
+    case ValidProject.getModuleByPath filePath project of
         Nothing ->
             { project = project
             , ruleProjectVisitors = ruleProjectVisitors
@@ -6038,7 +6039,7 @@ getFolderFromTraversal traversalAndFolder =
 
 
 type FixedFile
-    = FixedElmModule { source : String, ast : File, moduleId : ModuleId } (Zipper (Graph.NodeContext FilePath))
+    = FixedElmModule { source : String, ast : File, moduleId : ModuleId } (Zipper FilePath)
     | RemovedElmModule
     | FixedElmJson
     | FixedReadme
@@ -6096,7 +6097,7 @@ type FindFixResult
     | FoundFix RuleProjectVisitor ( PostFixStatus, { project : ValidProject, fixedFile : FixedFile, error : ReviewError } )
 
 
-findFix : ReviewOptionsData -> ValidProject -> (List (Error {}) -> RuleProjectVisitor) -> List (Error {}) -> FixedErrors -> Maybe (Zipper (Graph.NodeContext FilePath)) -> FindFixResult
+findFix : ReviewOptionsData -> ValidProject -> (List (Error {}) -> RuleProjectVisitor) -> List (Error {}) -> FixedErrors -> Maybe (Zipper FilePath) -> FindFixResult
 findFix reviewOptions project updateErrors errors fixedErrors maybeModuleZipper =
     case InternalOptions.shouldApplyFix reviewOptions of
         Nothing ->
@@ -6138,7 +6139,7 @@ findFixHelp :
     -> ({ ruleName : String, filePath : String, message : String, details : List String, range : Range } -> Bool)
     -> List (Error {})
     -> List (Error {})
-    -> Maybe (Zipper (Graph.NodeContext FilePath))
+    -> Maybe (Zipper FilePath)
     -> FindFixHelpResult
 findFixHelp project supportsFileDeletion fixablePredicate errors accErrors maybeModuleZipper =
     case errors of
@@ -6167,7 +6168,7 @@ findFixHelp project supportsFileDeletion fixablePredicate errors accErrors maybe
                                     findFixHelp project supportsFileDeletion fixablePredicate restOfErrors (nonAppliedError :: accErrors) maybeModuleZipper
 
 
-applyFixes : Maybe (Zipper (Graph.NodeContext FilePath)) -> Error {} -> List ( FileTarget, FixKind ) -> { project : ValidProject, fixedFile : FixedFile } -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
+applyFixes : Maybe (Zipper FilePath) -> Error {} -> List ( FileTarget, FixKind ) -> { project : ValidProject, fixedFile : FixedFile } -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
 applyFixes maybeModuleZipper ((Error baseError) as err) fixes acc =
     case fixes of
         [] ->
@@ -6222,7 +6223,7 @@ earlierFixedFile a b =
                 b
 
 
-applyFix : ValidProject -> Maybe (Zipper (Graph.NodeContext FilePath)) -> Error {} -> ( FileTarget, FixKind ) -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
+applyFix : ValidProject -> Maybe (Zipper FilePath) -> Error {} -> ( FileTarget, FixKind ) -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
 applyFix project maybeModuleZipper err ( target, fixes ) =
     case fixes of
         ErrorFixes.Edit edits ->
@@ -6232,7 +6233,7 @@ applyFix project maybeModuleZipper err ( target, fixes ) =
             applyFileDeletionFix project err target
 
 
-applyEditFix : ValidProject -> Maybe (Zipper (Graph.NodeContext FilePath)) -> Error {} -> FileTarget -> List Edit -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
+applyEditFix : ValidProject -> Maybe (Zipper FilePath) -> Error {} -> FileTarget -> List Edit -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
 applyEditFix project maybeModuleZipper err target edits =
     case target of
         FileTarget.Module targetPath ->
@@ -6318,7 +6319,7 @@ fixTriesToDeleteFiles list =
         list
 
 
-applySingleModuleFix : ValidProject -> Maybe (Zipper (Graph.NodeContext FilePath)) -> Error {} -> String -> List Edit -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
+applySingleModuleFix : ValidProject -> Maybe (Zipper FilePath) -> Error {} -> String -> List Edit -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
 applySingleModuleFix project maybeModuleZipper ((Error headError) as err) targetPath edits =
     case ValidProject.getModuleByPath targetPath project of
         Nothing ->

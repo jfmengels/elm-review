@@ -372,9 +372,9 @@ projectCache (ValidProject project) =
     project.projectCache
 
 
-moduleZipper : ValidProject -> Zipper (Graph.NodeContext FilePath)
+moduleZipper : ValidProject -> Zipper FilePath
 moduleZipper (ValidProject project) =
-    unsafeCreateZipper project.sortedModules
+    unsafeCreateZipper (List.map (\m -> m.node.label) project.sortedModules)
 
 
 updateProjectCache : ProjectCache -> ValidProject -> ValidProject
@@ -386,9 +386,9 @@ updateProjectCache projectCache_ (ValidProject project) =
 -}
 addParsedModule :
     { path : FilePath, source : String, ast : Elm.Syntax.File.File }
-    -> Maybe (Zipper (Graph.NodeContext FilePath))
+    -> Maybe (Zipper FilePath)
     -> ValidProject
-    -> Result FixProblem ( ValidProject, Zipper (Graph.NodeContext FilePath) )
+    -> Result FixProblem ( ValidProject, Zipper FilePath )
 addParsedModule { path, source, ast } maybeModuleZipper (ValidProject project) =
     case
         Dict.get path project.modulesByPath
@@ -437,7 +437,7 @@ addParsedModule { path, source, ast } maybeModuleZipper (ValidProject project) =
             if Set.isEmpty addedImports && Set.isEmpty removedImports then
                 let
                     -- Imports haven't changed, we don't need to recompute the zipper or the graph
-                    newModuleZipper : Zipper (Graph.NodeContext FilePath)
+                    newModuleZipper : Zipper FilePath
                     newModuleZipper =
                         case maybeModuleZipper of
                             Just moduleZipper_ ->
@@ -445,11 +445,11 @@ addParsedModule { path, source, ast } maybeModuleZipper (ValidProject project) =
 
                             Nothing ->
                                 let
-                                    moduleZipper_ : Zipper (Graph.NodeContext FilePath)
+                                    moduleZipper_ : Zipper FilePath
                                     moduleZipper_ =
-                                        unsafeCreateZipper project.sortedModules
+                                        unsafeCreateZipper (List.map (\m -> m.node.label) project.sortedModules)
                                 in
-                                Zipper.focusr (\mod -> mod.node.label == path) moduleZipper_
+                                Zipper.focusr (\filePath -> filePath == path) moduleZipper_
                                     -- Should not happen :/
                                     |> Maybe.withDefault moduleZipper_
                 in
@@ -494,11 +494,11 @@ addParsedModule { path, source, ast } maybeModuleZipper (ValidProject project) =
                             sortedModules =
                                 Graph.topologicalSort acyclicGraph
 
-                            moduleZipper_ : Zipper (Graph.NodeContext FilePath)
+                            moduleZipper_ : Zipper FilePath
                             moduleZipper_ =
-                                unsafeCreateZipper sortedModules
+                                unsafeCreateZipper (List.map (\m -> m.node.label) sortedModules)
 
-                            newModuleZipper : Zipper (Graph.NodeContext FilePath)
+                            newModuleZipper : Zipper FilePath
                             newModuleZipper =
                                 case maybeModuleZipper of
                                     Just prevModuleZipper ->
@@ -508,7 +508,7 @@ addParsedModule { path, source, ast } maybeModuleZipper (ValidProject project) =
 
                                     Nothing ->
                                         -- We were not evaluating modules. Create a zipper and move to the touched module name
-                                        Zipper.focusr (\mod -> mod.node.label == path) moduleZipper_
+                                        Zipper.focusr (\filePath -> filePath == path) moduleZipper_
                                             -- Should not happen :/
                                             |> Maybe.withDefault moduleZipper_
                         in
@@ -599,14 +599,14 @@ importedModulesSet ast dependencyModules =
         ast.imports
 
 
-advanceZipper : FilePath -> Zipper (Graph.NodeContext FilePath) -> Zipper (Graph.NodeContext FilePath) -> Zipper (Graph.NodeContext FilePath)
+advanceZipper : FilePath -> Zipper FilePath -> Zipper FilePath -> Zipper FilePath
 advanceZipper path oldZipper newZipper =
     let
         current : FilePath
         current =
-            (Zipper.current newZipper).node.label
+            Zipper.current newZipper
     in
-    if current == path || current /= (Zipper.current oldZipper).node.label then
+    if current == path || current /= Zipper.current oldZipper then
         newZipper
 
     else
