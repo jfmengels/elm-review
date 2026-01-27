@@ -7081,7 +7081,7 @@ createModuleVisitorFromProjectVisitorHelp :
     -> Graph.Adjacency
     -> Maybe (AvailableData -> RuleModuleVisitor)
 createModuleVisitorFromProjectVisitorHelp schema raise hidden traversalAndFolder ( ModuleRuleSchema moduleRuleSchema, moduleContextCreator ) =
-    \project module_ incoming ->
+    \project module_ _ ->
         let
             filePath : String
             filePath =
@@ -7090,6 +7090,18 @@ createModuleVisitorFromProjectVisitorHelp schema raise hidden traversalAndFolder
             moduleContentHash : ContentHash
             moduleContentHash =
                 ProjectModule.contentHash module_
+
+            graph : Graph FilePath
+            graph =
+                ValidProject.moduleGraph project
+
+            moduleId : ModuleId
+            moduleId =
+                ProjectModule.moduleId module_
+
+            incoming : Graph.Adjacency
+            incoming =
+                Graph.get moduleId graph |> Maybe.map .incoming |> Maybe.withDefault IntSet.empty
 
             ( initialProjectContextHash, initialProjectContext ) =
                 findInitialInputContext hidden.cache AfterProjectFilesStep schema.initialProjectContext
