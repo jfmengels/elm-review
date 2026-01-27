@@ -24,14 +24,7 @@ import Review.Cache.ContentHash as ContentHash exposing (ContentHash)
 
 
 type OpaqueProjectModule
-    = OpaqueProjectModule
-        { path : String
-        , source : String
-        , moduleName : ModuleName
-        , ast : Elm.Syntax.File.File
-        , contentHash : ContentHash
-        , isInSourceDirectories : Bool
-        }
+    = OpaqueProjectModule ProjectModule
 
 
 type alias ProjectModule =
