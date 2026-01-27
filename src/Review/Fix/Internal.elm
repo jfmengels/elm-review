@@ -11,8 +11,10 @@ import Elm.Project
 import Elm.Syntax.File exposing (File)
 import Elm.Syntax.Range exposing (Location, Range)
 import Json.Decode as Decode
+import Review.FilePath exposing (FilePath)
 import Review.Fix.Edit exposing (Edit(..))
 import Review.Fix.FixProblem as FixProblem exposing (FixProblem)
+import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModule)
 import Unicode
 
 
@@ -147,9 +149,14 @@ applyEdits filePath edits sourceCode =
 
 {-| Apply the changes on the source code.
 -}
-editModule : List Edit -> String -> String -> Result FixProblem.FixProblem { source : String, ast : File }
-editModule edits filePath originalSourceCode =
-    case applyEdits filePath edits originalSourceCode of
+editModule : List Edit -> OpaqueProjectModule -> Result FixProblem.FixProblem { source : String, ast : File }
+editModule edits file =
+    let
+        filePath : FilePath
+        filePath =
+            ProjectModule.path file
+    in
+    case applyEdits filePath edits (ProjectModule.source file) of
         Ok fixedSourceCode ->
             case Parser.parseToFile fixedSourceCode of
                 Ok ast ->

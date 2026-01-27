@@ -21,6 +21,7 @@ import Elm.Syntax.Module
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Review.Cache.ContentHash as ContentHash exposing (ContentHash)
+import Review.FilePath exposing (FilePath)
 
 
 type OpaqueProjectModule
@@ -71,7 +72,7 @@ positionAsInt { row, column } =
     row * 1000000 + column
 
 
-path : OpaqueProjectModule -> String
+path : OpaqueProjectModule -> FilePath
 path (OpaqueProjectModule module_) =
     module_.path
 
