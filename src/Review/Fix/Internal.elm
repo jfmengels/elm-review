@@ -14,6 +14,7 @@ import Json.Decode as Decode
 import Review.FilePath exposing (FilePath)
 import Review.Fix.Edit exposing (Edit(..))
 import Review.Fix.FixProblem as FixProblem exposing (FixProblem)
+import Review.Project.ModuleIds exposing (ModuleId)
 import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModule)
 import Unicode
 
@@ -149,18 +150,22 @@ applyEdits filePath edits sourceCode =
 
 {-| Apply the changes on the source code.
 -}
-editModule : List Edit -> OpaqueProjectModule -> Result FixProblem.FixProblem { source : String, ast : File }
-editModule edits file =
+editModule : List Edit -> OpaqueProjectModule -> Result FixProblem.FixProblem { source : String, ast : File, moduleId : ModuleId }
+editModule edits module_ =
     let
         filePath : FilePath
         filePath =
-            ProjectModule.path file
+            ProjectModule.path module_
     in
-    case applyEdits filePath edits (ProjectModule.source file) of
+    case applyEdits filePath edits (ProjectModule.source module_) of
         Ok fixedSourceCode ->
             case Parser.parseToFile fixedSourceCode of
                 Ok ast ->
-                    Ok { source = fixedSourceCode, ast = ast }
+                    Ok
+                        { source = fixedSourceCode
+                        , ast = ast
+                        , moduleId = 0 -- TODO ProjectModule.moduleId module_
+                        }
 
                 Err parsingErrors ->
                     Err (FixProblem.InvalidElm { filePath = filePath, source = fixedSourceCode, edits = edits, parsingErrors = parsingErrors })
