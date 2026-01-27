@@ -5614,7 +5614,6 @@ type alias DataToComputeSingleModule =
     , project : ValidProject
     , moduleZipper : Zipper GraphModule
     , fixedErrors : FixedErrors
-    , incoming : Graph.Adjacency
     }
 
 
@@ -5624,7 +5623,7 @@ computeModule :
 computeModule params =
     let
         ( inputRuleModuleVisitors, requestedData, rulesNotToRun ) =
-            computeWhatsRequiredToAnalyze params.project params.module_ params.incoming params.ruleProjectVisitors
+            computeWhatsRequiredToAnalyze params.project params.module_ params.ruleProjectVisitors
 
         paramsAfterVisit : DataToComputeSingleModule
         paramsAfterVisit =
@@ -5646,13 +5645,13 @@ computeModule params =
             computeModule newParams
 
 
-computeWhatsRequiredToAnalyze : ValidProject -> OpaqueProjectModule -> Graph.Adjacency -> List RuleProjectVisitor -> ( List (AvailableData -> RuleModuleVisitor), RequestedData, List RuleProjectVisitor )
-computeWhatsRequiredToAnalyze project module_ incoming ruleProjectVisitors =
+computeWhatsRequiredToAnalyze : ValidProject -> OpaqueProjectModule -> List RuleProjectVisitor -> ( List (AvailableData -> RuleModuleVisitor), RequestedData, List RuleProjectVisitor )
+computeWhatsRequiredToAnalyze project module_ ruleProjectVisitors =
     List.foldl
         (\((RuleProjectVisitor ruleProjectVisitor) as rule) ( with, requestedAcc, without ) ->
             case ruleProjectVisitor.createModuleVisitorFromProjectVisitor of
                 Just moduleVisitorCreator ->
-                    case moduleVisitorCreator project module_ incoming of
+                    case moduleVisitorCreator project module_ of
                         Just moduleVisitor ->
                             ( moduleVisitor :: with
                             , RequestedData.combineJust ruleProjectVisitor.requestedData requestedAcc
@@ -5738,7 +5737,7 @@ findFixInComputeModuleResults :
     -> List RuleProjectVisitor
     -> List RuleProjectVisitor
     -> ComputeModuleFindFixResult projectContext moduleContext
-findFixInComputeModuleResults ({ reviewOptions, module_, project, moduleZipper, fixedErrors, incoming } as params) remainingRules rulesSoFar =
+findFixInComputeModuleResults ({ reviewOptions, module_, project, moduleZipper, fixedErrors } as params) remainingRules rulesSoFar =
     case remainingRules of
         [] ->
             ContinueWithNextStep
@@ -5792,7 +5791,6 @@ findFixInComputeModuleResults ({ reviewOptions, module_, project, moduleZipper, 
                                             , project = fixResult.project
                                             , moduleZipper = newModuleZipper_
                                             , fixedErrors = newFixedErrors
-                                            , incoming = incoming
                                             }
 
                                     else
@@ -5993,7 +5991,7 @@ computeModuleAndCacheResult :
     -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, nextStep : NextStep, fixedErrors : FixedErrors }
 computeModuleAndCacheResult reviewOptions moduleZipper project ruleProjectVisitors fixedErrors =
     let
-        { node, incoming } =
+        { node } =
             Zipper.current moduleZipper
     in
     case ValidProject.getModuleByPath node.label project of
@@ -6012,7 +6010,6 @@ computeModuleAndCacheResult reviewOptions moduleZipper project ruleProjectVisito
                 , project = project
                 , moduleZipper = moduleZipper
                 , fixedErrors = fixedErrors
-                , incoming = incoming
                 }
 
 
@@ -6639,7 +6636,7 @@ type alias RuleProjectVisitorOperations =
     , readmeVisitor : Maybe (ValidProject -> Maybe { readmeKey : ReadmeKey, content : String } -> ( List (Error {}), RuleProjectVisitor ))
     , extraFilesVisitor : Maybe (ValidProject -> ExtraFileData -> ( List (Error {}), RuleProjectVisitor ))
     , dependenciesVisitor : Maybe (ValidProject -> { all : Dict String Review.Project.Dependency.Dependency, direct : Dict String Review.Project.Dependency.Dependency } -> ( List (Error {}), RuleProjectVisitor ))
-    , createModuleVisitorFromProjectVisitor : Maybe (ValidProject -> OpaqueProjectModule -> Graph.Adjacency -> Maybe (AvailableData -> RuleModuleVisitor))
+    , createModuleVisitorFromProjectVisitor : Maybe (ValidProject -> OpaqueProjectModule -> Maybe (AvailableData -> RuleModuleVisitor))
     , finalProjectEvaluation : Maybe (() -> ( List (Error {}), RuleProjectVisitor ))
     , dataExtractVisitor : ReviewOptionsData -> Dict String Encode.Value -> ( Dict String Encode.Value, RuleProjectVisitor )
     , getErrorsForModule : String -> List (Error {})
@@ -7047,7 +7044,7 @@ createModuleVisitorFromProjectVisitor :
     ProjectRuleSchemaData projectContext moduleContext
     -> (ProjectRuleCache projectContext -> RuleProjectVisitor)
     -> RuleProjectVisitorHidden projectContext
-    -> Maybe (ValidProject -> OpaqueProjectModule -> Graph.Adjacency -> Maybe (AvailableData -> RuleModuleVisitor))
+    -> Maybe (ValidProject -> OpaqueProjectModule -> Maybe (AvailableData -> RuleModuleVisitor))
 createModuleVisitorFromProjectVisitor schema raise hidden =
     case mergeModuleVisitors schema.name schema.initialProjectContext schema.moduleContextCreator schema.moduleVisitors of
         Nothing ->
@@ -7078,10 +7075,9 @@ createModuleVisitorFromProjectVisitorHelp :
     -> ( ModuleRuleSchema schemaState moduleContext, ContextCreator projectContext moduleContext )
     -> ValidProject
     -> OpaqueProjectModule
-    -> Graph.Adjacency
     -> Maybe (AvailableData -> RuleModuleVisitor)
 createModuleVisitorFromProjectVisitorHelp schema raise hidden traversalAndFolder ( ModuleRuleSchema moduleRuleSchema, moduleContextCreator ) =
-    \project module_ _ ->
+    \project module_ ->
         let
             filePath : String
             filePath =
