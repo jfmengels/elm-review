@@ -34,6 +34,16 @@ type OpaqueProjectModule
         }
 
 
+type alias ProjectModule =
+    { path : String
+    , source : String
+    , ast : Elm.Syntax.File.File
+    , moduleName : ModuleName
+    , contentHash : ContentHash
+    , isInSourceDirectories : Bool
+    }
+
+
 create :
     { path : String
     , source : String
@@ -101,16 +111,6 @@ isInSourceDirectories (OpaqueProjectModule module_) =
 setIsInSourceDirectories : Bool -> OpaqueProjectModule -> OpaqueProjectModule
 setIsInSourceDirectories isInSourceDirectories_ (OpaqueProjectModule module_) =
     OpaqueProjectModule { module_ | isInSourceDirectories = isInSourceDirectories_ }
-
-
-type alias ProjectModule =
-    { path : String
-    , source : String
-    , ast : Elm.Syntax.File.File
-    , moduleName : ModuleName
-    , contentHash : ContentHash
-    , isInSourceDirectories : Bool
-    }
 
 
 toRecord : OpaqueProjectModule -> ProjectModule
