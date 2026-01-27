@@ -19,7 +19,7 @@ import Path
 import Review.Cache.ContentHash exposing (ContentHash)
 import Review.FilePath exposing (FilePath)
 import Review.Project.Dependency exposing (Dependency)
-import Review.Project.ModuleIds as ModuleIds exposing (ModuleId, ModuleIds)
+import Review.Project.ModuleIds as ModuleIds exposing (ModuleIds)
 import Review.Project.ProjectCache exposing (ProjectCache)
 import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModule)
 import Set exposing (Set)
