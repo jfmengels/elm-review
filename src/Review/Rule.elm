@@ -372,6 +372,7 @@ import Review.Options.Internal as InternalOptions exposing (ReviewOptionsData, R
 import Review.Project.Dependency
 import Review.Project.Internal exposing (Project)
 import Review.Project.InvalidProjectError as InvalidProjectError
+import Review.Project.ModuleIds exposing (ModuleId)
 import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModule)
 import Review.Project.Valid as ValidProject exposing (ValidProject)
 import Review.RequestedData as RequestedData exposing (RequestedData(..))
@@ -5770,7 +5771,7 @@ findFixInComputeModuleResults ({ reviewOptions, module_, project, moduleZipper, 
 
                         ShouldContinue newFixedErrors ->
                             case fixResult.fixedFile of
-                                FixedElmModule { source, ast } newModuleZipper_ ->
+                                FixedElmModule { source, ast, moduleId } newModuleZipper_ ->
                                     let
                                         filePath : FilePath
                                         filePath =
@@ -6039,7 +6040,7 @@ getFolderFromTraversal traversalAndFolder =
 
 
 type FixedFile
-    = FixedElmModule { source : String, ast : File } (Zipper (Graph.NodeContext FilePath))
+    = FixedElmModule { source : String, ast : File, moduleId : ModuleId } (Zipper (Graph.NodeContext FilePath))
     | RemovedElmModule
     | FixedElmJson
     | FixedReadme
