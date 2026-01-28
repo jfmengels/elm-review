@@ -1,6 +1,7 @@
 module Review.WorkList exposing
     ( WorkList
     , fromSortedModules
+    , recomputeModules
     , touchedElmJson
     , touchedExtraFiles
     , touchedModule
@@ -14,6 +15,8 @@ module Review.WorkList exposing
 
 import Review.FilePath exposing (FilePath)
 import Set exposing (Set)
+import Vendor.Graph as Graph exposing (Graph)
+import Vendor.IntSet as IntSet
 
 
 type alias WorkList =
@@ -35,6 +38,51 @@ fromSortedModules sortedModules =
     , touchedModules = Set.fromList sortedModules
     , modules = sortedModules
     }
+
+
+recomputeModules : Graph FilePath -> List (Graph.NodeContext FilePath) -> WorkList -> WorkList
+recomputeModules graph sortedModules workList =
+    { elmJson = workList.elmJson
+    , readme = workList.readme
+    , extraFiles = workList.extraFiles
+    , dependencies = workList.dependencies
+    , touchedModules = workList.touchedModules
+    , modules = recomputeModulesHelp graph sortedModules workList.touchedModules []
+    }
+
+
+recomputeModulesHelp : Graph FilePath -> List (Graph.NodeContext FilePath) -> Set FilePath -> List FilePath -> List FilePath
+recomputeModulesHelp graph modules touchedModules acc =
+    case modules of
+        [] ->
+            List.reverse acc
+
+        mod :: rest ->
+            recomputeModulesHelp
+                graph
+                rest
+                touchedModules
+                (if
+                    Set.member mod.node.label touchedModules
+                        || IntSet.foldl
+                            (\key isMember ->
+                                isMember
+                                    || (case Graph.get key graph of
+                                            Just importedModule ->
+                                                Set.member importedModule.node.label touchedModules
+
+                                            Nothing ->
+                                                False
+                                       )
+                            )
+                            False
+                            mod.incoming
+                 then
+                    mod.node.label :: acc
+
+                 else
+                    acc
+                )
 
 
 visitedElmJson : WorkList -> WorkList
