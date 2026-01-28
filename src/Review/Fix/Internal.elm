@@ -150,7 +150,7 @@ applyEdits filePath edits sourceCode =
 
 {-| Apply the changes on the source code.
 -}
-editModule : List Edit -> OpaqueProjectModule -> Result FixProblem.FixProblem { source : String, ast : File, moduleId : ModuleId }
+editModule : List Edit -> OpaqueProjectModule -> Result FixProblem { source : String, ast : File, moduleId : ModuleId }
 editModule edits module_ =
     let
         filePath : FilePath
@@ -201,7 +201,7 @@ applyIndividualEdits lines linesAfter edits =
 
 {-| Apply the changes on the elm.json file.
 -}
-editElmJson : List Edit -> String -> Result FixProblem.FixProblem { raw : String, project : Elm.Project.Project }
+editElmJson : List Edit -> String -> Result FixProblem { raw : String, project : Elm.Project.Project }
 editElmJson edits originalSourceCode =
     case applyEdits "elm.json" edits originalSourceCode of
         Ok resultAfterFix ->
