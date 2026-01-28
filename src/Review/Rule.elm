@@ -376,6 +376,7 @@ import Review.Project.ModuleIds exposing (ModuleId)
 import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModule)
 import Review.Project.Valid as ValidProject exposing (ValidProject)
 import Review.RequestedData as RequestedData exposing (RequestedData(..))
+import Review.WorkList as WorkList
 import Unicode
 import Vendor.Graph as Graph exposing (Graph)
 import Vendor.IntSet as IntSet
@@ -5334,7 +5335,7 @@ computeElmJson :
 computeElmJson reviewOptions project fixedErrors elmJsonData remainingRules accRules =
     case remainingRules of
         [] ->
-            { project = project
+            { project = ValidProject.updateWorkList WorkList.visitedElmJson project
             , step = Readme
             , ruleProjectVisitors = accRules
             , fixedErrors = fixedErrors
@@ -5385,7 +5386,7 @@ computeReadme :
 computeReadme reviewOptions project fixedErrors readmeData remainingRules accRules =
     case remainingRules of
         [] ->
-            { project = project
+            { project = ValidProject.updateWorkList WorkList.visitedReadme project
             , step = ExtraFiles
             , ruleProjectVisitors = accRules
             , fixedErrors = fixedErrors
@@ -5436,7 +5437,7 @@ computeExtraFiles :
 computeExtraFiles reviewOptions project fixedErrors extraFiles remainingRules accRules =
     case remainingRules of
         [] ->
-            { project = project
+            { project = ValidProject.updateWorkList WorkList.visitedExtraFiles project
             , step = Dependencies
             , ruleProjectVisitors = accRules
             , fixedErrors = fixedErrors
@@ -5487,7 +5488,7 @@ computeDependencies :
 computeDependencies reviewOptions project fixedErrors dependenciesData remainingRules accRules =
     case remainingRules of
         [] ->
-            { project = project
+            { project = ValidProject.updateWorkList WorkList.visitedDependencies project
             , ruleProjectVisitors = accRules
             , step = Modules (Just (ValidProject.moduleZipper project))
             , fixedErrors = fixedErrors
