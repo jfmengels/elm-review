@@ -5897,14 +5897,6 @@ getFolderFromTraversal traversalAndFolder =
             Just folder
 
 
-type FixedFile
-    = FixedElmModule { source : String, ast : File, moduleId : ModuleId } (Zipper FilePath)
-    | RemovedElmModule
-    | FixedElmJson
-    | FixedReadme
-    | FixedExtraFile
-
-
 type StandardFindFixResult
     = FoundNoFixesStandard RuleProjectVisitor
     | FoundFixStandard { newProject : ValidProject, newRule : RuleProjectVisitor, newFixedErrors : FixedErrors }
@@ -5922,7 +5914,7 @@ standardFindFix reviewOptions project fixedErrors updateErrors errors =
 
 type FindFixResult
     = FoundNoFixes RuleProjectVisitor
-    | FoundFix RuleProjectVisitor ( FixedErrors, { project : ValidProject, fixedFile : FixedFile, error : ReviewError } )
+    | FoundFix RuleProjectVisitor ( FixedErrors, { project : ValidProject, error : ReviewError } )
 
 
 findFix : ReviewOptionsData -> ValidProject -> (List (Error {}) -> RuleProjectVisitor) -> List (Error {}) -> FixedErrors -> Maybe (Zipper FilePath) -> FindFixResult
@@ -5950,7 +5942,7 @@ findFix reviewOptions project updateErrors errors fixedErrors maybeModuleZipper 
 
 type FindFixHelpResult
     = FoundNoFixesHelp (List (Error {}))
-    | FoundFixHelp (List (Error {})) { project : ValidProject, fixedFile : FixedFile, error : ReviewError }
+    | FoundFixHelp (List (Error {})) { project : ValidProject, error : ReviewError }
 
 
 findFixHelp :
@@ -5981,10 +5973,9 @@ findFixHelp project supportsFileDeletion fixablePredicate errors accErrors maybe
                                 applyFix project maybeModuleZipper err firstFix
                                     |> Result.andThen (\fixResult -> applyFixes maybeModuleZipper err restOfFixes fixResult)
                             of
-                                Ok fixResult ->
+                                Ok newProject ->
                                     FoundFixHelp (errors ++ accErrors)
-                                        { project = fixResult.project
-                                        , fixedFile = fixResult.fixedFile
+                                        { project = newProject
                                         , error = errorToReviewError err
                                         }
 
@@ -5992,62 +5983,23 @@ findFixHelp project supportsFileDeletion fixablePredicate errors accErrors maybe
                                     findFixHelp project supportsFileDeletion fixablePredicate restOfErrors (nonAppliedError :: accErrors) maybeModuleZipper
 
 
-applyFixes : Maybe (Zipper FilePath) -> Error {} -> List ( FileTarget, FixKind ) -> { project : ValidProject, fixedFile : FixedFile } -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
-applyFixes maybeModuleZipper ((Error baseError) as err) fixes acc =
+applyFixes : Maybe (Zipper FilePath) -> Error {} -> List ( FileTarget, FixKind ) -> ValidProject -> Result (Error {}) ValidProject
+applyFixes maybeModuleZipper ((Error baseError) as err) fixes project =
     case fixes of
         [] ->
-            case ValidProject.checkGraph acc.project of
-                Ok updatedProject ->
-                    Ok { project = updatedProject, fixedFile = acc.fixedFile }
-
-                Err fixProblem ->
-                    Err (Error (markFixesAsProblem fixProblem baseError))
+            ValidProject.checkGraph project
+                |> Result.mapError (\fixProblem -> Error (markFixesAsProblem fixProblem baseError))
 
         fix :: rest ->
-            case applyFix acc.project maybeModuleZipper err fix of
-                Ok fixResult ->
-                    applyFixes maybeModuleZipper err rest { project = fixResult.project, fixedFile = earlierFixedFile fixResult.fixedFile acc.fixedFile }
+            case applyFix project maybeModuleZipper err fix of
+                Ok newProject ->
+                    applyFixes maybeModuleZipper err rest newProject
 
                 fixResultErr ->
                     fixResultErr
 
 
-earlierFixedFile : FixedFile -> FixedFile -> FixedFile
-earlierFixedFile a b =
-    case ( a, b ) of
-        ( FixedElmJson, _ ) ->
-            FixedElmJson
-
-        ( _, FixedElmJson ) ->
-            FixedElmJson
-
-        ( FixedReadme, _ ) ->
-            FixedReadme
-
-        ( _, FixedReadme ) ->
-            FixedReadme
-
-        ( FixedExtraFile, _ ) ->
-            FixedExtraFile
-
-        ( _, FixedExtraFile ) ->
-            FixedExtraFile
-
-        ( RemovedElmModule, _ ) ->
-            RemovedElmModule
-
-        ( _, RemovedElmModule ) ->
-            RemovedElmModule
-
-        ( FixedElmModule _ zipperA, FixedElmModule _ zipperB ) ->
-            if Zipper.position zipperA <= Zipper.position zipperB then
-                a
-
-            else
-                b
-
-
-applyFix : ValidProject -> Maybe (Zipper FilePath) -> Error {} -> ( FileTarget, FixKind ) -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
+applyFix : ValidProject -> Maybe (Zipper FilePath) -> Error {} -> ( FileTarget, FixKind ) -> Result (Error {}) ValidProject
 applyFix project maybeModuleZipper err ( target, fixes ) =
     case fixes of
         ErrorFixes.Edit edits ->
@@ -6057,7 +6009,7 @@ applyFix project maybeModuleZipper err ( target, fixes ) =
             applyFileDeletionFix project err target
 
 
-applyEditFix : ValidProject -> Maybe (Zipper FilePath) -> Error {} -> FileTarget -> List Edit -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
+applyEditFix : ValidProject -> Maybe (Zipper FilePath) -> Error {} -> FileTarget -> List Edit -> Result (Error {}) ValidProject
 applyEditFix project maybeModuleZipper err target edits =
     case target of
         FileTarget.Module targetPath ->
@@ -6073,27 +6025,23 @@ applyEditFix project maybeModuleZipper err target edits =
             applyExtraFileFix project err targetPath edits
 
 
-applyFileDeletionFix : ValidProject -> Error {} -> FileTarget -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
+applyFileDeletionFix : ValidProject -> Error {} -> FileTarget -> Result (Error {}) ValidProject
 applyFileDeletionFix project (Error err) target =
     case target of
         FileTarget.Module targetPath ->
-            case ValidProject.removeModule targetPath project of
-                Ok newProject ->
-                    Ok { project = newProject, fixedFile = RemovedElmModule }
-
-                Err fixProblem ->
-                    Err (Error (markFixesAsProblem fixProblem err))
+            ValidProject.removeModule targetPath project
+                |> Result.mapError (\fixProblem -> Error (markFixesAsProblem fixProblem err))
 
         FileTarget.ExtraFile targetPath ->
-            Ok { project = ValidProject.removeExtraFile targetPath project, fixedFile = FixedExtraFile }
+            Ok (ValidProject.removeExtraFile targetPath project)
 
         FileTarget.ElmJson ->
             -- Not supported
-            Ok { project = project, fixedFile = FixedElmJson }
+            Ok project
 
         FileTarget.Readme ->
             -- Not supported
-            Ok { project = project, fixedFile = FixedReadme }
+            Ok project
 
 
 markFixesAsProblem : FixProblem -> BaseError -> BaseError
@@ -6143,7 +6091,7 @@ fixTriesToDeleteFiles list =
         list
 
 
-applySingleModuleFix : ValidProject -> Maybe (Zipper FilePath) -> Error {} -> String -> List Edit -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
+applySingleModuleFix : ValidProject -> Maybe (Zipper FilePath) -> Error {} -> String -> List Edit -> Result (Error {}) ValidProject
 applySingleModuleFix project maybeModuleZipper ((Error headError) as err) targetPath edits =
     case ValidProject.getModuleByPath targetPath project of
         Nothing ->
@@ -6155,46 +6103,31 @@ applySingleModuleFix project maybeModuleZipper ((Error headError) as err) target
                     |> Result.andThen
                         (\fixResult ->
                             ValidProject.addParsedModule { path = targetPath, source = fixResult.source, ast = fixResult.ast } maybeModuleZipper project
-                                |> Result.map
-                                    (\( newProject, newModuleZipper ) ->
-                                        { project = newProject
-                                        , fixedFile = FixedElmModule fixResult newModuleZipper
-                                        }
-                                    )
                         )
             of
                 Err fixProblem ->
                     Err (Error (markFixesAsProblem fixProblem headError))
 
-                Ok fixResult ->
-                    Ok fixResult
+                Ok ( newProject, newModuleZipper ) ->
+                    Ok newProject
 
 
-applyElmJsonFix : ValidProject -> Error {} -> List Edit -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
+applyElmJsonFix : ValidProject -> Error {} -> List Edit -> Result (Error {}) ValidProject
 applyElmJsonFix project ((Error headError) as err) fixes =
     case ValidProject.elmJson project of
         Nothing ->
             Err err
 
         Just elmJson ->
-            case
-                InternalFix.editElmJson fixes elmJson.raw
-                    |> Result.map
-                        (\fixResult ->
-                            ValidProject.addElmJson { path = elmJson.path, raw = fixResult.raw, project = fixResult.project } project
-                        )
-            of
+            case InternalFix.editElmJson fixes elmJson.raw of
                 Err fixProblem ->
                     Err (Error (markFixesAsProblem fixProblem headError))
 
-                Ok newProject ->
-                    Ok
-                        { project = newProject
-                        , fixedFile = FixedElmJson
-                        }
+                Ok fixResult ->
+                    Ok (ValidProject.addElmJson { path = elmJson.path, raw = fixResult.raw, project = fixResult.project } project)
 
 
-applyReadmeFix : ValidProject -> Error {} -> List Edit -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
+applyReadmeFix : ValidProject -> Error {} -> List Edit -> Result (Error {}) ValidProject
 applyReadmeFix project ((Error headError) as err) fixes =
     case ValidProject.readme project of
         Nothing ->
@@ -6206,13 +6139,10 @@ applyReadmeFix project ((Error headError) as err) fixes =
                     Err (Error (markFixesAsProblem fixProblem headError))
 
                 Ok content ->
-                    Ok
-                        { project = ValidProject.addReadme { path = readme.path, content = content } project
-                        , fixedFile = FixedReadme
-                        }
+                    Ok (ValidProject.addReadme { path = readme.path, content = content } project)
 
 
-applyExtraFileFix : ValidProject -> Error {} -> String -> List Edit -> Result (Error {}) { project : ValidProject, fixedFile : FixedFile }
+applyExtraFileFix : ValidProject -> Error {} -> String -> List Edit -> Result (Error {}) ValidProject
 applyExtraFileFix project ((Error headError) as err) targetPath edits =
     case Dict.get targetPath (ValidProject.extraFilesWithoutKeys project) of
         Nothing ->
@@ -6227,10 +6157,7 @@ applyExtraFileFix project ((Error headError) as err) targetPath edits =
                     if String.endsWith ".json" targetPath then
                         case Decode.decodeString Decode.value newFileContent of
                             Ok _ ->
-                                Ok
-                                    { project = ValidProject.addExtraFile { path = targetPath, content = newFileContent } project
-                                    , fixedFile = FixedExtraFile
-                                    }
+                                Ok (ValidProject.addExtraFile { path = targetPath, content = newFileContent } project)
 
                             Err decodingError ->
                                 let
@@ -6246,10 +6173,7 @@ applyExtraFileFix project ((Error headError) as err) targetPath edits =
                                 Err (Error (markFixesAsProblem fixProblem headError))
 
                     else
-                        Ok
-                            { project = ValidProject.addExtraFile { path = targetPath, content = newFileContent } project
-                            , fixedFile = FixedExtraFile
-                            }
+                        Ok (ValidProject.addExtraFile { path = targetPath, content = newFileContent } project)
 
 
 visitModuleForProjectRule : AvailableData -> List (AvailableData -> RuleModuleVisitor) -> List RuleModuleVisitor
