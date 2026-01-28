@@ -792,6 +792,13 @@ duplicateModulesGlobalError duplicate =
         |> errorToReviewError
 
 
+type alias AnalysisAccumulator =
+    { project : ValidProject
+    , ruleProjectVisitors : List RuleProjectVisitor
+    , fixedErrors : FixedErrors
+    }
+
+
 runRules :
     ReviewOptions
     -> List RuleProjectVisitor
@@ -799,7 +806,7 @@ runRules :
     -> { errors : List ReviewError, fixedErrors : Dict String (List ReviewError), rules : List Rule, project : Project, extracts : Dict String Encode.Value }
 runRules (ReviewOptionsInternal reviewOptions) ruleProjectVisitors project =
     let
-        result : { fixedErrors : FixedErrors, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject }
+        result : AnalysisAccumulator
         result =
             runProjectVisitor
                 reviewOptions
@@ -5096,7 +5103,7 @@ runProjectVisitor :
     -> List RuleProjectVisitor
     -> FixedErrors
     -> ValidProject
-    -> { fixedErrors : FixedErrors, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject }
+    -> AnalysisAccumulator
 runProjectVisitor reviewOptions initialRuleProjectVisitors initialFixedErrors initialProject =
     let
         { project, ruleProjectVisitors, fixedErrors } =
@@ -5211,8 +5218,8 @@ type alias ProjectRuleCache projectContext =
 
 computeStepsForProject :
     ReviewOptionsData
-    -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
-    -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
+    -> AnalysisAccumulator
+    -> AnalysisAccumulator
 computeStepsForProject reviewOptions { project, ruleProjectVisitors, fixedErrors } =
     if FixedErrors.count fixedErrors > 0 && not (InternalOptions.shouldContinueLookingForFixes reviewOptions fixedErrors) then
         { project = project
@@ -5314,7 +5321,7 @@ computeElmJson :
     -> Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project }
     -> List RuleProjectVisitor
     -> List RuleProjectVisitor
-    -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
+    -> AnalysisAccumulator
 computeElmJson reviewOptions project fixedErrors elmJsonData remainingRules accRules =
     case remainingRules of
         [] ->
@@ -5363,7 +5370,7 @@ computeReadme :
     -> Maybe { readmeKey : ReadmeKey, content : String }
     -> List RuleProjectVisitor
     -> List RuleProjectVisitor
-    -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
+    -> AnalysisAccumulator
 computeReadme reviewOptions project fixedErrors readmeData remainingRules accRules =
     case remainingRules of
         [] ->
@@ -5412,7 +5419,7 @@ computeExtraFiles :
     -> ExtraFileData
     -> List RuleProjectVisitor
     -> List RuleProjectVisitor
-    -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
+    -> AnalysisAccumulator
 computeExtraFiles reviewOptions project fixedErrors extraFiles remainingRules accRules =
     case remainingRules of
         [] ->
@@ -5461,7 +5468,7 @@ computeDependencies :
     -> { all : Dict String Review.Project.Dependency.Dependency, direct : Dict String Review.Project.Dependency.Dependency }
     -> List RuleProjectVisitor
     -> List RuleProjectVisitor
-    -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
+    -> AnalysisAccumulator
 computeDependencies reviewOptions project fixedErrors dependenciesData remainingRules accRules =
     case remainingRules of
         [] ->
@@ -5509,7 +5516,7 @@ computeFinalProjectEvaluation :
     -> FixedErrors
     -> List RuleProjectVisitor
     -> List RuleProjectVisitor
-    -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
+    -> AnalysisAccumulator
 computeFinalProjectEvaluation reviewOptions project fixedErrors remainingRules accRules =
     case remainingRules of
         [] ->
@@ -5592,7 +5599,7 @@ type alias DataToComputeSingleModule =
 
 computeModule :
     DataToComputeSingleModule
-    -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
+    -> AnalysisAccumulator
 computeModule params =
     let
         ( inputRuleModuleVisitors, requestedData, rulesNotToRun ) =
@@ -5702,7 +5709,7 @@ findFixInComputeModuleResults :
     DataToComputeSingleModule
     -> List RuleProjectVisitor
     -> List RuleProjectVisitor
-    -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
+    -> AnalysisAccumulator
 findFixInComputeModuleResults ({ reviewOptions, module_, project, fixedErrors } as params) remainingRules rulesSoFar =
     case remainingRules of
         [] ->
@@ -5810,7 +5817,7 @@ computeModules :
     -> ValidProject
     -> List RuleProjectVisitor
     -> FixedErrors
-    -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
+    -> AnalysisAccumulator
 computeModules reviewOptions filePath project ruleProjectVisitors fixedErrors =
     case ValidProject.getModuleByPath filePath project of
         Nothing ->
