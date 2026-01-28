@@ -5729,8 +5729,8 @@ findFixInComputeModuleResults ({ reviewOptions, module_, project, fixedErrors } 
                     ruleProjectVisitor.getErrorsForModule modulePath
             in
             case findFix reviewOptions project (\newErrors -> ruleProjectVisitor.setErrorsForModule modulePath newErrors) errors fixedErrors of
-                FoundFix newRule ( newFixedErrors, fixResult ) ->
-                    { project = fixResult.project
+                FoundFix newRule ( newFixedErrors, newProject ) ->
+                    { project = newProject
                     , ruleProjectVisitors = newRule :: (rest ++ rulesSoFar)
                     , fixedErrors = newFixedErrors
                     }
@@ -5871,13 +5871,13 @@ standardFindFix reviewOptions project fixedErrors updateErrors errors =
         FoundNoFixes newRule ->
             FoundNoFixesStandard newRule
 
-        FoundFix newRule ( newFixedErrors, fixResult ) ->
-            FoundFixStandard { newProject = fixResult.project, newRule = newRule, newFixedErrors = newFixedErrors }
+        FoundFix newRule ( newFixedErrors, newProject ) ->
+            FoundFixStandard { newProject = newProject, newRule = newRule, newFixedErrors = newFixedErrors }
 
 
 type FindFixResult
     = FoundNoFixes RuleProjectVisitor
-    | FoundFix RuleProjectVisitor ( FixedErrors, { project : ValidProject, error : ReviewError } )
+    | FoundFix RuleProjectVisitor ( FixedErrors, ValidProject )
 
 
 findFix : ReviewOptionsData -> ValidProject -> (List (Error {}) -> RuleProjectVisitor) -> List (Error {}) -> FixedErrors -> FindFixResult
@@ -5897,7 +5897,7 @@ findFix reviewOptions project updateErrors errors fixedErrors =
                         newFixedErrors =
                             FixedErrors.insert fixResult.error fixedErrors
                     in
-                    FoundFix (updateErrors errorsWithFailedFixes) ( newFixedErrors, fixResult )
+                    FoundFix (updateErrors errorsWithFailedFixes) ( newFixedErrors, fixResult.project )
                         |> Logger.log
                             reviewOptions.logger
                             (fixedError newFixedErrors { ruleName = errorRuleName fixResult.error, filePath = errorFilePath fixResult.error })
