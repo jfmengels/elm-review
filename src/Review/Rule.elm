@@ -6016,7 +6016,7 @@ computeModuleAndCacheResult reviewOptions moduleZipper project ruleProjectVisito
                 { reviewOptions = reviewOptions
                 , ruleProjectVisitors = ruleProjectVisitors
                 , module_ = module_
-                , project = project
+                , project = ValidProject.updateWorkList WorkList.visitedNextModule project
                 , moduleZipper = moduleZipper
                 , fixedErrors = fixedErrors
                 }

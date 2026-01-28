@@ -550,7 +550,11 @@ checkGraph (ValidProject project) =
                 |> Err
 
         Ok sortedModules ->
-            ValidProject { project | sortedModules = sortedModules }
+            ValidProject
+                { project
+                    | sortedModules = sortedModules
+                    , workList = WorkList.recomputeModules project.moduleGraph sortedModules project.workList
+                }
                 |> Ok
 
 
