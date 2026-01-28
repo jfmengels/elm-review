@@ -1,5 +1,6 @@
 module Review.WorkList exposing
-    ( WorkList
+    ( Step(..)
+    , WorkList
     , fromSortedModules
     , recomputeModules
     , touchedElmJson
@@ -17,6 +18,7 @@ import Review.FilePath exposing (FilePath)
 import Set exposing (Set)
 import Vendor.Graph as Graph exposing (Graph)
 import Vendor.IntSet as IntSet
+import Vendor.Zipper exposing (Zipper)
 
 
 type alias WorkList =
@@ -38,6 +40,16 @@ fromSortedModules sortedModules =
     , touchedModules = Set.fromList sortedModules
     , modules = sortedModules
     }
+
+
+type Step
+    = ElmJson
+    | Readme
+    | ExtraFiles
+    | Dependencies
+    | Modules (Maybe (Zipper FilePath))
+    | FinalProjectEvaluation
+    | EndAnalysis
 
 
 
