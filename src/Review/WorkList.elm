@@ -40,6 +40,10 @@ fromSortedModules sortedModules =
     }
 
 
+
+-- TODO Handle removing a module
+
+
 recomputeModules : Graph FilePath -> List (Graph.NodeContext FilePath) -> WorkList -> WorkList
 recomputeModules graph sortedModules workList =
     { elmJson = workList.elmJson
