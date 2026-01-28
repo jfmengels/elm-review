@@ -3,10 +3,12 @@ module Review.WorkList exposing
     , fromSortedModules
     , touchedElmJson
     , touchedExtraFiles
+    , touchedModule
     , touchedReadme
     , visitedDependencies
     , visitedElmJson
     , visitedExtraFiles
+    , visitedNextModule
     , visitedReadme
     )
 
@@ -68,6 +70,22 @@ visitedExtraFiles workList =
     }
 
 
+visitedNextModule : WorkList -> WorkList
+visitedNextModule workList =
+    case workList.modules of
+        [] ->
+            workList
+
+        filePath :: restOfModules ->
+            { elmJson = workList.elmJson
+            , readme = workList.readme
+            , extraFiles = workList.extraFiles
+            , dependencies = workList.dependencies
+            , touchedModules = Set.remove filePath workList.touchedModules
+            , modules = restOfModules
+            }
+
+
 visitedDependencies : WorkList -> WorkList
 visitedDependencies workList =
     { elmJson = workList.elmJson
@@ -108,5 +126,16 @@ touchedExtraFiles workList =
     , extraFiles = True
     , dependencies = workList.dependencies
     , touchedModules = workList.touchedModules
+    , modules = workList.modules
+    }
+
+
+touchedModule : FilePath -> WorkList -> WorkList
+touchedModule filePath workList =
+    { elmJson = workList.elmJson
+    , readme = workList.readme
+    , extraFiles = workList.extraFiles
+    , dependencies = workList.dependencies
+    , touchedModules = Set.insert filePath workList.touchedModules
     , modules = workList.modules
     }
