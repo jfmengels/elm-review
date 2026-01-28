@@ -376,7 +376,7 @@ import Review.Project.ModuleIds exposing (ModuleId)
 import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModule)
 import Review.Project.Valid as ValidProject exposing (ValidProject)
 import Review.RequestedData as RequestedData exposing (RequestedData(..))
-import Review.WorkList as WorkList exposing (Step)
+import Review.WorkList as WorkList
 import Unicode
 import Vendor.Graph as Graph exposing (Graph)
 import Vendor.IntSet as IntSet
@@ -5023,10 +5023,6 @@ type alias Folder projectContext moduleContext =
     { fromModuleToProject : ContextCreator moduleContext ( List (Error {}), projectContext )
     , foldProjectContexts : projectContext -> projectContext -> projectContext
     }
-
-
-type alias GraphModule =
-    Graph.NodeContext FilePath
 
 
 {-| TODO Breaking change: Remove the type variable and hardcode `Error {}` when Error has been moved to a separate module in v3.
