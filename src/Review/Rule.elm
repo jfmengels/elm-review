@@ -5782,20 +5782,11 @@ findFixInComputeModuleResults ({ reviewOptions, module_, project, moduleZipper, 
                                             }
 
                                     else
-                                        case Zipper.focusl (\path -> path == filePath) moduleZipper of
-                                            Just newModuleZipper ->
-                                                ContinueWithNextStep
-                                                    { project = fixResult.project
-                                                    , ruleProjectVisitors = newRule :: (rest ++ rulesSoFar)
-                                                    , fixedErrors = newFixedErrors
-                                                    }
-
-                                            Nothing ->
-                                                ContinueWithNextStep
-                                                    { project = project
-                                                    , ruleProjectVisitors = newRule :: (rest ++ rulesSoFar)
-                                                    , fixedErrors = fixedErrors
-                                                    }
+                                        ContinueWithNextStep
+                                            { project = fixResult.project
+                                            , ruleProjectVisitors = newRule :: (rest ++ rulesSoFar)
+                                            , fixedErrors = newFixedErrors
+                                            }
 
                                 RemovedElmModule ->
                                     ContinueWithNextStep
