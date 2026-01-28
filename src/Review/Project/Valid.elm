@@ -17,7 +17,6 @@ module Review.Project.Valid exposing
     , extraFilesWithoutKeys
     , getModuleByPath
     , moduleGraph
-    , moduleZipper
     , parse
     , projectCache
     , readme
@@ -51,7 +50,6 @@ import Review.WorkList as WorkList exposing (WorkList)
 import Set exposing (Set)
 import Vendor.Graph as Graph exposing (Graph)
 import Vendor.IntDict as IntDict exposing (IntDict)
-import Vendor.Zipper as Zipper exposing (Zipper)
 
 
 type ValidProject
@@ -125,18 +123,6 @@ parse ((Project p) as project) =
 
                     Ok acyclicGraph ->
                         Ok (fromProjectAndGraph graph acyclicGraph moduleIds project)
-
-
-{-| This is unsafe because we assume that there are some modules. We do check for this earlier in the exposed functions.
--}
-unsafeCreateZipper : List a -> Zipper a
-unsafeCreateZipper sortedModules =
-    case Zipper.fromList sortedModules of
-        Just zipper ->
-            zipper
-
-        Nothing ->
-            unsafeCreateZipper sortedModules
 
 
 fromProjectAndGraph : Graph FilePath -> Graph.AcyclicGraph FilePath -> ModuleIds -> Project -> ValidProject
@@ -381,11 +367,6 @@ projectCache (ValidProject project) =
     project.projectCache
 
 
-moduleZipper : ValidProject -> Zipper FilePath
-moduleZipper (ValidProject project) =
-    unsafeCreateZipper (List.map (\m -> m.node.label) project.sortedModules)
-
-
 workList : ValidProject -> WorkList
 workList (ValidProject project) =
     project.workList
@@ -405,10 +386,9 @@ updateProjectCache projectCache_ (ValidProject project) =
 -}
 addParsedModule :
     { path : FilePath, source : String, ast : Elm.Syntax.File.File }
-    -> Maybe (Zipper FilePath)
     -> ValidProject
-    -> Result FixProblem ( ValidProject, Zipper FilePath )
-addParsedModule { path, source, ast } maybeModuleZipper (ValidProject project) =
+    -> Result FixProblem ValidProject
+addParsedModule { path, source, ast } (ValidProject project) =
     case
         Dict.get path project.modulesByPath
             |> Maybe.andThen
@@ -454,31 +434,12 @@ addParsedModule { path, source, ast } maybeModuleZipper (ValidProject project) =
                     Set.diff previousFileImports newFileImports
             in
             if Set.isEmpty addedImports && Set.isEmpty removedImports then
-                let
-                    -- Imports haven't changed, we don't need to recompute the zipper or the graph
-                    newModuleZipper : Zipper FilePath
-                    newModuleZipper =
-                        case maybeModuleZipper of
-                            Just moduleZipper_ ->
-                                moduleZipper_
-
-                            Nothing ->
-                                let
-                                    moduleZipper_ : Zipper FilePath
-                                    moduleZipper_ =
-                                        unsafeCreateZipper (List.map (\m -> m.node.label) project.sortedModules)
-                                in
-                                Zipper.focusr (\filePath -> filePath == path) moduleZipper_
-                                    -- Should not happen :/
-                                    |> Maybe.withDefault moduleZipper_
-                in
                 Ok
-                    ( ValidProject
+                    (ValidProject
                         { project
                             | modulesByPath = modulesByPath
                             , workList = WorkList.touchedModule path project.workList
                         }
-                    , newModuleZipper
                     )
 
             else
@@ -519,34 +480,15 @@ addParsedModule { path, source, ast } maybeModuleZipper (ValidProject project) =
                             sortedModules : List (Graph.NodeContext FilePath)
                             sortedModules =
                                 Graph.topologicalSort acyclicGraph
-
-                            moduleZipper_ : Zipper FilePath
-                            moduleZipper_ =
-                                unsafeCreateZipper (List.map (\m -> m.node.label) sortedModules)
-
-                            newModuleZipper : Zipper FilePath
-                            newModuleZipper =
-                                case maybeModuleZipper of
-                                    Just prevModuleZipper ->
-                                        -- We were evaluating modules. Take the new zipper but move it to the first
-                                        -- of either the touched module or the first module that is different for the 2 zippers
-                                        advanceZipper path (Zipper.start prevModuleZipper) moduleZipper_
-
-                                    Nothing ->
-                                        -- We were not evaluating modules. Create a zipper and move to the touched module name
-                                        Zipper.focusr (\filePath -> filePath == path) moduleZipper_
-                                            -- Should not happen :/
-                                            |> Maybe.withDefault moduleZipper_
                         in
                         Ok
-                            ( ValidProject
+                            (ValidProject
                                 { project
                                     | moduleGraph = graph
                                     , sortedModules = sortedModules
                                     , modulesByPath = modulesByPath
                                     , workList = WorkList.touchedModule path project.workList
                                 }
-                            , newModuleZipper
                             )
 
         Nothing ->
@@ -628,26 +570,6 @@ importedModulesSet ast dependencyModules =
         )
         Set.empty
         ast.imports
-
-
-advanceZipper : FilePath -> Zipper FilePath -> Zipper FilePath -> Zipper FilePath
-advanceZipper path oldZipper newZipper =
-    let
-        current : FilePath
-        current =
-            Zipper.current newZipper
-    in
-    if current == path || current /= Zipper.current oldZipper then
-        newZipper
-
-    else
-        case Maybe.map2 Tuple.pair (Zipper.next oldZipper) (Zipper.next newZipper) of
-            Just ( old, new ) ->
-                advanceZipper path old new
-
-            Nothing ->
-                -- Should not happen
-                newZipper
 
 
 {-| Add the content of the `README.md` file to the project, making it

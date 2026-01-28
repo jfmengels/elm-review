@@ -5591,7 +5591,6 @@ type alias DataToComputeSingleModule =
     , ruleProjectVisitors : List RuleProjectVisitor
     , module_ : OpaqueProjectModule
     , project : ValidProject
-    , moduleZipper : Zipper FilePath
     , fixedErrors : FixedErrors
     }
 
@@ -5709,7 +5708,7 @@ findFixInComputeModuleResults :
     -> List RuleProjectVisitor
     -> List RuleProjectVisitor
     -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
-findFixInComputeModuleResults ({ reviewOptions, module_, project, moduleZipper, fixedErrors } as params) remainingRules rulesSoFar =
+findFixInComputeModuleResults ({ reviewOptions, module_, project, fixedErrors } as params) remainingRules rulesSoFar =
     case remainingRules of
         [] ->
             { project = project
@@ -5727,7 +5726,7 @@ findFixInComputeModuleResults ({ reviewOptions, module_, project, moduleZipper, 
                 errors =
                     ruleProjectVisitor.getErrorsForModule modulePath
             in
-            case findFix reviewOptions project (\newErrors -> ruleProjectVisitor.setErrorsForModule modulePath newErrors) errors fixedErrors (Just moduleZipper) of
+            case findFix reviewOptions project (\newErrors -> ruleProjectVisitor.setErrorsForModule modulePath newErrors) errors fixedErrors of
                 FoundFix newRule ( newFixedErrors, fixResult ) ->
                     { project = fixResult.project
                     , ruleProjectVisitors = newRule :: (rest ++ rulesSoFar)
@@ -5868,7 +5867,6 @@ computeModuleAndCacheResult reviewOptions moduleZipper project ruleProjectVisito
                 , ruleProjectVisitors = ruleProjectVisitors
                 , module_ = module_
                 , project = ValidProject.updateWorkList WorkList.visitedNextModule project
-                , moduleZipper = moduleZipper
                 , fixedErrors = fixedErrors
                 }
 
@@ -5904,7 +5902,7 @@ type StandardFindFixResult
 
 standardFindFix : ReviewOptionsData -> ValidProject -> FixedErrors -> (List (Error {}) -> RuleProjectVisitor) -> List (Error {}) -> StandardFindFixResult
 standardFindFix reviewOptions project fixedErrors updateErrors errors =
-    case findFix reviewOptions project updateErrors errors fixedErrors Nothing of
+    case findFix reviewOptions project updateErrors errors fixedErrors of
         FoundNoFixes newRule ->
             FoundNoFixesStandard newRule
 
@@ -5917,14 +5915,14 @@ type FindFixResult
     | FoundFix RuleProjectVisitor ( FixedErrors, { project : ValidProject, error : ReviewError } )
 
 
-findFix : ReviewOptionsData -> ValidProject -> (List (Error {}) -> RuleProjectVisitor) -> List (Error {}) -> FixedErrors -> Maybe (Zipper FilePath) -> FindFixResult
-findFix reviewOptions project updateErrors errors fixedErrors maybeModuleZipper =
+findFix : ReviewOptionsData -> ValidProject -> (List (Error {}) -> RuleProjectVisitor) -> List (Error {}) -> FixedErrors -> FindFixResult
+findFix reviewOptions project updateErrors errors fixedErrors =
     case InternalOptions.shouldApplyFix reviewOptions of
         Nothing ->
             FoundNoFixes (updateErrors errors)
 
         Just fixablePredicate ->
-            case findFixHelp project reviewOptions.supportFileRemoval fixablePredicate errors [] maybeModuleZipper of
+            case findFixHelp project reviewOptions.supportFileRemoval fixablePredicate errors [] of
                 FoundNoFixesHelp errorsWithFailedFixes ->
                     FoundNoFixes (updateErrors errorsWithFailedFixes)
 
@@ -5951,9 +5949,8 @@ findFixHelp :
     -> ({ ruleName : String, filePath : String, message : String, details : List String, range : Range } -> Bool)
     -> List (Error {})
     -> List (Error {})
-    -> Maybe (Zipper FilePath)
     -> FindFixHelpResult
-findFixHelp project supportsFileDeletion fixablePredicate errors accErrors maybeModuleZipper =
+findFixHelp project supportsFileDeletion fixablePredicate errors accErrors =
     case errors of
         [] ->
             FoundNoFixesHelp accErrors
@@ -5961,17 +5958,17 @@ findFixHelp project supportsFileDeletion fixablePredicate errors accErrors maybe
         err :: restOfErrors ->
             case isFixable supportsFileDeletion fixablePredicate err of
                 Err updatedError ->
-                    findFixHelp project supportsFileDeletion fixablePredicate restOfErrors (updatedError :: accErrors) maybeModuleZipper
+                    findFixHelp project supportsFileDeletion fixablePredicate restOfErrors (updatedError :: accErrors)
 
                 Ok fixes ->
                     case fixes of
                         [] ->
-                            findFixHelp project supportsFileDeletion fixablePredicate restOfErrors (err :: accErrors) maybeModuleZipper
+                            findFixHelp project supportsFileDeletion fixablePredicate restOfErrors (err :: accErrors)
 
                         firstFix :: restOfFixes ->
                             case
-                                applyFix project maybeModuleZipper err firstFix
-                                    |> Result.andThen (\fixResult -> applyFixes maybeModuleZipper err restOfFixes fixResult)
+                                applyFix project err firstFix
+                                    |> Result.andThen (\newProject -> applyFixes err restOfFixes newProject)
                             of
                                 Ok newProject ->
                                     FoundFixHelp (errors ++ accErrors)
@@ -5980,40 +5977,40 @@ findFixHelp project supportsFileDeletion fixablePredicate errors accErrors maybe
                                         }
 
                                 Err nonAppliedError ->
-                                    findFixHelp project supportsFileDeletion fixablePredicate restOfErrors (nonAppliedError :: accErrors) maybeModuleZipper
+                                    findFixHelp project supportsFileDeletion fixablePredicate restOfErrors (nonAppliedError :: accErrors)
 
 
-applyFixes : Maybe (Zipper FilePath) -> Error {} -> List ( FileTarget, FixKind ) -> ValidProject -> Result (Error {}) ValidProject
-applyFixes maybeModuleZipper ((Error baseError) as err) fixes project =
+applyFixes : Error {} -> List ( FileTarget, FixKind ) -> ValidProject -> Result (Error {}) ValidProject
+applyFixes ((Error baseError) as err) fixes project =
     case fixes of
         [] ->
             ValidProject.checkGraph project
                 |> Result.mapError (\fixProblem -> Error (markFixesAsProblem fixProblem baseError))
 
         fix :: rest ->
-            case applyFix project maybeModuleZipper err fix of
+            case applyFix project err fix of
                 Ok newProject ->
-                    applyFixes maybeModuleZipper err rest newProject
+                    applyFixes err rest newProject
 
                 fixResultErr ->
                     fixResultErr
 
 
-applyFix : ValidProject -> Maybe (Zipper FilePath) -> Error {} -> ( FileTarget, FixKind ) -> Result (Error {}) ValidProject
-applyFix project maybeModuleZipper err ( target, fixes ) =
+applyFix : ValidProject -> Error {} -> ( FileTarget, FixKind ) -> Result (Error {}) ValidProject
+applyFix project err ( target, fixes ) =
     case fixes of
         ErrorFixes.Edit edits ->
-            applyEditFix project maybeModuleZipper err target edits
+            applyEditFix project err target edits
 
         ErrorFixes.Remove ->
             applyFileDeletionFix project err target
 
 
-applyEditFix : ValidProject -> Maybe (Zipper FilePath) -> Error {} -> FileTarget -> List Edit -> Result (Error {}) ValidProject
-applyEditFix project maybeModuleZipper err target edits =
+applyEditFix : ValidProject -> Error {} -> FileTarget -> List Edit -> Result (Error {}) ValidProject
+applyEditFix project err target edits =
     case target of
         FileTarget.Module targetPath ->
-            applySingleModuleFix project maybeModuleZipper err targetPath edits
+            applySingleModuleFix project err targetPath edits
 
         FileTarget.ElmJson ->
             applyElmJsonFix project err edits
@@ -6091,25 +6088,19 @@ fixTriesToDeleteFiles list =
         list
 
 
-applySingleModuleFix : ValidProject -> Maybe (Zipper FilePath) -> Error {} -> String -> List Edit -> Result (Error {}) ValidProject
-applySingleModuleFix project maybeModuleZipper ((Error headError) as err) targetPath edits =
+applySingleModuleFix : ValidProject -> Error {} -> String -> List Edit -> Result (Error {}) ValidProject
+applySingleModuleFix project ((Error headError) as err) targetPath edits =
     case ValidProject.getModuleByPath targetPath project of
         Nothing ->
             Err err
 
         Just file ->
-            case
-                InternalFix.editModule edits file
-                    |> Result.andThen
-                        (\fixResult ->
-                            ValidProject.addParsedModule { path = targetPath, source = fixResult.source, ast = fixResult.ast } maybeModuleZipper project
-                        )
-            of
-                Err fixProblem ->
-                    Err (Error (markFixesAsProblem fixProblem headError))
-
-                Ok ( newProject, newModuleZipper ) ->
-                    Ok newProject
+            InternalFix.editModule edits file
+                |> Result.andThen
+                    (\fixResult ->
+                        ValidProject.addParsedModule { path = targetPath, source = fixResult.source, ast = fixResult.ast } project
+                    )
+                |> Result.mapError (\fixProblem -> Error (markFixesAsProblem fixProblem headError))
 
 
 applyElmJsonFix : ValidProject -> Error {} -> List Edit -> Result (Error {}) ValidProject
