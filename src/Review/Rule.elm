@@ -5876,13 +5876,13 @@ findFix reviewOptions project updateErrors errors fixedErrors =
                 FoundNoFixesHelp errorsWithFailedFixes ->
                     FoundNoFixes (updateErrors errorsWithFailedFixes)
 
-                FoundFixHelp errorsWithFailedFixes fixResult ->
+                FoundFixHelp fixResult ->
                     let
                         newFixedErrors : FixedErrors
                         newFixedErrors =
                             FixedErrors.insert fixResult.error fixedErrors
                     in
-                    FoundFix { rule = updateErrors errorsWithFailedFixes, project = fixResult.project, fixedErrors = newFixedErrors }
+                    FoundFix { rule = updateErrors fixResult.errorsWithFailedFixes, project = fixResult.project, fixedErrors = newFixedErrors }
                         |> Logger.log
                             reviewOptions.logger
                             (fixedError newFixedErrors { ruleName = errorRuleName fixResult.error, filePath = errorFilePath fixResult.error })
@@ -5890,7 +5890,7 @@ findFix reviewOptions project updateErrors errors fixedErrors =
 
 type FindFixHelpResult
     = FoundNoFixesHelp (List (Error {}))
-    | FoundFixHelp (List (Error {})) { project : ValidProject, error : ReviewError }
+    | FoundFixHelp { project : ValidProject, error : ReviewError, errorsWithFailedFixes : List (Error {}) }
 
 
 findFixHelp :
@@ -5921,9 +5921,10 @@ findFixHelp project supportsFileDeletion fixablePredicate errors accErrors =
                                     |> Result.andThen (\newProject -> applyFixes err restOfFixes newProject)
                             of
                                 Ok newProject ->
-                                    FoundFixHelp (errors ++ accErrors)
+                                    FoundFixHelp
                                         { project = newProject
                                         , error = errorToReviewError err
+                                        , errorsWithFailedFixes = errors ++ accErrors
                                         }
 
                                 Err nonAppliedError ->
