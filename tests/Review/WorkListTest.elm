@@ -1,7 +1,7 @@
 module Review.WorkListTest exposing (all)
 
 import Expect
-import Review.WorkList as WorkList
+import Review.WorkList as WorkList exposing (WorkList)
 import Test exposing (Test, describe, test)
 import Vendor.Graph as Graph exposing (Graph)
 import Vendor.IntDict as IntDict
@@ -38,4 +38,41 @@ all =
                             |> WorkList.fromSortedModules
                             |> .modules
                             |> Expect.equalLists [ "A", "B", "C" ]
+        , test "should visit the modules in order" <|
+            \() ->
+                let
+                    workList : WorkList
+                    workList =
+                        [ "A", "B", "C" ]
+                            |> WorkList.fromSortedModules
+                            |> WorkList.visitedElmJson
+                            |> WorkList.visitedReadme
+                            |> WorkList.visitedExtraFiles
+                            |> WorkList.visitedDependencies
+                in
+                Expect.all
+                    [ \() ->
+                        workList
+                            |> WorkList.nextStep
+                            |> Expect.equal (WorkList.Module "A")
+                    , \() ->
+                        workList
+                            |> WorkList.visitedNextModule
+                            |> WorkList.nextStep
+                            |> Expect.equal (WorkList.Module "B")
+                    , \() ->
+                        workList
+                            |> WorkList.visitedNextModule
+                            |> WorkList.visitedNextModule
+                            |> WorkList.nextStep
+                            |> Expect.equal (WorkList.Module "C")
+                    , \() ->
+                        workList
+                            |> WorkList.visitedNextModule
+                            |> WorkList.visitedNextModule
+                            |> WorkList.visitedNextModule
+                            |> WorkList.nextStep
+                            |> Expect.equal WorkList.FinalProjectEvaluation
+                    ]
+                    ()
         ]
