@@ -26,6 +26,7 @@ module Review.Project.Valid exposing
     , removeModule
     , toRegularProject
     , updateProjectCache
+    , updateWorkList
     )
 
 import Dict exposing (Dict)
@@ -45,6 +46,7 @@ import Review.Project.InvalidProjectError as InvalidProjectError exposing (Inval
 import Review.Project.ModuleIds as ModuleIds exposing (ModuleIds)
 import Review.Project.ProjectCache exposing (ProjectCache)
 import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModule)
+import Review.WorkList as WorkList exposing (WorkList)
 import Set exposing (Set)
 import Vendor.Graph as Graph exposing (Graph)
 import Vendor.IntDict as IntDict exposing (IntDict)
@@ -70,6 +72,7 @@ type alias ValidProjectData =
     , moduleGraph : Graph FilePath
     , sortedModules : List (Graph.NodeContext FilePath)
     , moduleIds : ModuleIds
+    , workList : WorkList
     }
 
 
@@ -141,6 +144,10 @@ fromProjectAndGraph moduleGraph_ acyclicGraph moduleIds (Project project) =
         directDependencies_ : Dict String Dependency
         directDependencies_ =
             computeDirectDependencies project
+
+        sortedModules : List (Graph.NodeContext FilePath)
+        sortedModules =
+            Graph.topologicalSort acyclicGraph
     in
     ValidProject
         { modulesByPath = project.modules
@@ -155,8 +162,9 @@ fromProjectAndGraph moduleGraph_ acyclicGraph moduleIds (Project project) =
         , sourceDirectories = project.sourceDirectories
         , projectCache = project.cache
         , moduleGraph = moduleGraph_
-        , sortedModules = Graph.topologicalSort acyclicGraph
+        , sortedModules = sortedModules
         , moduleIds = moduleIds
+        , workList = WorkList.fromSortedModules (List.map (\m -> m.node.label) sortedModules)
         }
 
 
@@ -375,6 +383,11 @@ projectCache (ValidProject project) =
 moduleZipper : ValidProject -> Zipper FilePath
 moduleZipper (ValidProject project) =
     unsafeCreateZipper (List.map (\m -> m.node.label) project.sortedModules)
+
+
+updateWorkList : (WorkList -> WorkList) -> ValidProject -> ValidProject
+updateWorkList fn (ValidProject project) =
+    ValidProject { project | workList = fn project.workList }
 
 
 updateProjectCache : ProjectCache -> ValidProject -> ValidProject
@@ -626,7 +639,11 @@ available for rules to access using
 -}
 addReadme : { path : String, content : String } -> ValidProject -> ValidProject
 addReadme readme_ (ValidProject project) =
-    ValidProject { project | readme = Just ( readme_, ContentHash.hash readme_.content ) }
+    ValidProject
+        { project
+            | readme = Just ( readme_, ContentHash.hash readme_.content )
+            , workList = WorkList.touchedReadme project.workList
+        }
 
 
 {-| Add an extra file to the project.
@@ -643,6 +660,7 @@ addExtraFile file (ValidProject project) =
             | extraFiles = Dict.insert file.path file.content project.extraFiles
             , extraFilesContentHashes = extraFilesContentHashes
             , extraFilesContentHash = ContentHash.combine extraFilesContentHashes
+            , workList = WorkList.touchedExtraFiles project.workList
         }
 
 
@@ -660,9 +678,14 @@ removeExtraFile path (ValidProject project) =
             | extraFiles = Dict.remove path project.extraFiles
             , extraFilesContentHashes = extraFilesContentHashes
             , extraFilesContentHash = ContentHash.combine extraFilesContentHashes
+            , workList = WorkList.touchedExtraFiles project.workList
         }
 
 
 addElmJson : { path : String, raw : String, project : Elm.Project.Project } -> ValidProject -> ValidProject
 addElmJson elmJson_ (ValidProject project) =
-    ValidProject { project | elmJson = Just ( elmJson_, ContentHash.hash elmJson_.raw ) }
+    ValidProject
+        { project
+            | elmJson = Just ( elmJson_, ContentHash.hash elmJson_.raw )
+            , workList = WorkList.touchedElmJson project.workList
+        }
