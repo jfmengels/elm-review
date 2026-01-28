@@ -5950,7 +5950,7 @@ applyFixes ((Error baseError) as err) fixes project =
                 Ok newProject ->
                     applyFixes err rest newProject
 
-                fixResultErr ->
+                (Err _) as fixResultErr ->
                     fixResultErr
 
 
