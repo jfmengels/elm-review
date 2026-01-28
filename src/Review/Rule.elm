@@ -380,7 +380,6 @@ import Review.WorkList as WorkList
 import Unicode
 import Vendor.Graph as Graph exposing (Graph)
 import Vendor.IntSet as IntSet
-import Vendor.Zipper as Zipper exposing (Zipper)
 
 
 {-| Represents a construct able to analyze a project and report
@@ -5277,12 +5276,12 @@ computeStepsForProject reviewOptions { project, ruleProjectVisitors, fixedErrors
                     reviewOptions
                     (computeDependencies reviewOptions project fixedErrors dependenciesData ruleProjectVisitors [])
 
-            WorkList.Modules moduleZipper ->
+            WorkList.Module filePath ->
                 computeStepsForProject
                     reviewOptions
                     (computeModules
                         reviewOptions
-                        moduleZipper
+                        filePath
                         project
                         ruleProjectVisitors
                         fixedErrors
@@ -5736,38 +5735,6 @@ findFixInComputeModuleResults ({ reviewOptions, module_, project, fixedErrors } 
                         (newRule :: rulesSoFar)
 
 
-computeModules :
-    ReviewOptionsData
-    -> Maybe (Zipper FilePath)
-    -> ValidProject
-    -> List RuleProjectVisitor
-    -> FixedErrors
-    -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
-computeModules reviewOptions maybeModuleZipper initialProject ruleProjectVisitors fixedErrors =
-    case maybeModuleZipper of
-        Nothing ->
-            { project = ValidProject.updateWorkList WorkList.visitedNextModule initialProject
-            , ruleProjectVisitors = ruleProjectVisitors
-            , fixedErrors = fixedErrors
-            }
-
-        Just moduleZipper ->
-            let
-                result : { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
-                result =
-                    computeModuleAndCacheResult
-                        reviewOptions
-                        moduleZipper
-                        initialProject
-                        ruleProjectVisitors
-                        fixedErrors
-            in
-            { project = result.project
-            , ruleProjectVisitors = result.ruleProjectVisitors
-            , fixedErrors = result.fixedErrors
-            }
-
-
 computeProjectContextHashes :
     TraversalAndFolder projectContext moduleContext
     -> ValidProject
@@ -5837,19 +5804,14 @@ computeProjectContext traversalAndFolder project cache incoming initial =
                 incoming
 
 
-computeModuleAndCacheResult :
+computeModules :
     ReviewOptionsData
-    -> Zipper FilePath
+    -> FilePath
     -> ValidProject
     -> List RuleProjectVisitor
     -> FixedErrors
     -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
-computeModuleAndCacheResult reviewOptions moduleZipper project ruleProjectVisitors fixedErrors =
-    let
-        filePath : FilePath
-        filePath =
-            Zipper.current moduleZipper
-    in
+computeModules reviewOptions filePath project ruleProjectVisitors fixedErrors =
     case ValidProject.getModuleByPath filePath project of
         Nothing ->
             { project = ValidProject.updateWorkList WorkList.visitedNextModule project

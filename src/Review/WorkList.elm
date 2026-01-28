@@ -20,7 +20,6 @@ import Review.FilePath exposing (FilePath)
 import Set exposing (Set)
 import Vendor.Graph as Graph exposing (Graph)
 import Vendor.IntSet as IntSet
-import Vendor.Zipper as Zipper exposing (Zipper)
 
 
 type alias WorkList =
@@ -62,8 +61,8 @@ nextStep workList =
 
     else
         case workList.modules of
-            module_ :: _ ->
-                Modules (Zipper.fromList [ module_ ])
+            filePath :: _ ->
+                Module filePath
 
             [] ->
                 if workList.finalEvaluation then
@@ -78,7 +77,7 @@ type Step
     | Readme
     | ExtraFiles
     | Dependencies
-    | Modules (Maybe (Zipper FilePath))
+    | Module FilePath
     | FinalProjectEvaluation
     | EndAnalysis
 
