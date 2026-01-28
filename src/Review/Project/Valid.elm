@@ -391,16 +391,13 @@ addParsedModule :
     -> ValidProject
     -> Result FixProblem ValidProject
 addParsedModule { path, source, ast } (ValidProject project) =
-    case
-        Dict.get path project.modulesByPath
-            |> Maybe.andThen
-                (\mod ->
-                    ModuleIds.get (ProjectModule.moduleName mod) project.moduleIds
-                        |> Maybe.map (Tuple.pair mod)
-                )
-    of
-        Just ( existingModule, moduleId ) ->
+    case Dict.get path project.modulesByPath of
+        Just existingModule ->
             let
+                moduleId : ModuleIds.ModuleId
+                moduleId =
+                    ProjectModule.moduleId existingModule
+
                 osAgnosticPath : String
                 osAgnosticPath =
                     Path.makeOSAgnostic path
@@ -411,7 +408,7 @@ addParsedModule { path, source, ast } (ValidProject project) =
                         { path = path
                         , source = source
                         , ast = ast
-                        , moduleId = ProjectModule.moduleId existingModule
+                        , moduleId = moduleId
                         , isInSourceDirectories = List.any (\dir -> String.startsWith (Path.makeOSAgnostic dir) osAgnosticPath) project.sourceDirectories
                         }
 
