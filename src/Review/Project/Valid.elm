@@ -404,7 +404,7 @@ addParsedModule { path, source, ast } (ValidProject project) =
                         , source = source
                         , ast = ast
                         , moduleId = moduleId
-                        , isInSourceDirectories = List.any (\dir -> String.startsWith dir path) project.sourceDirectories
+                        , isInSourceDirectories = ProjectModule.isInSourceDirectories existingModule
                         }
 
                 modulesByPath : Dict FilePath OpaqueProjectModule
