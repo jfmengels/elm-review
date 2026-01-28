@@ -1,6 +1,7 @@
 module Review.WorkList exposing
     ( Step(..)
     , WorkList
+    , computedFinalEvaluationDependencies
     , fromSortedModules
     , recomputeModules
     , touchedElmJson
@@ -28,6 +29,7 @@ type alias WorkList =
     , dependencies : Bool
     , touchedModules : Set FilePath
     , modules : List FilePath
+    , finalEvaluation : Bool
     }
 
 
@@ -39,6 +41,7 @@ fromSortedModules sortedModules =
     , dependencies = True
     , touchedModules = Set.fromList sortedModules
     , modules = sortedModules
+    , finalEvaluation = True
     }
 
 
@@ -64,6 +67,7 @@ recomputeModules graph sortedModules workList =
     , dependencies = workList.dependencies
     , touchedModules = workList.touchedModules
     , modules = recomputeModulesHelp graph sortedModules workList.touchedModules []
+    , finalEvaluation = workList.finalEvaluation
     }
 
 
@@ -109,6 +113,7 @@ visitedElmJson workList =
     , dependencies = workList.dependencies
     , touchedModules = workList.touchedModules
     , modules = workList.modules
+    , finalEvaluation = workList.finalEvaluation
     }
 
 
@@ -120,6 +125,7 @@ visitedReadme workList =
     , dependencies = workList.dependencies
     , touchedModules = workList.touchedModules
     , modules = workList.modules
+    , finalEvaluation = workList.finalEvaluation
     }
 
 
@@ -131,6 +137,7 @@ visitedExtraFiles workList =
     , dependencies = workList.dependencies
     , touchedModules = workList.touchedModules
     , modules = workList.modules
+    , finalEvaluation = workList.finalEvaluation
     }
 
 
@@ -147,6 +154,7 @@ visitedNextModule workList =
             , dependencies = workList.dependencies
             , touchedModules = Set.remove filePath workList.touchedModules
             , modules = restOfModules
+            , finalEvaluation = workList.finalEvaluation
             }
 
 
@@ -158,6 +166,19 @@ visitedDependencies workList =
     , dependencies = False
     , touchedModules = workList.touchedModules
     , modules = workList.modules
+    , finalEvaluation = workList.finalEvaluation
+    }
+
+
+computedFinalEvaluationDependencies : WorkList -> WorkList
+computedFinalEvaluationDependencies workList =
+    { elmJson = workList.elmJson
+    , readme = workList.readme
+    , extraFiles = workList.extraFiles
+    , dependencies = workList.dependencies
+    , touchedModules = workList.touchedModules
+    , modules = workList.modules
+    , finalEvaluation = False
     }
 
 
@@ -169,6 +190,7 @@ touchedElmJson workList =
     , dependencies = workList.dependencies
     , touchedModules = workList.touchedModules
     , modules = workList.modules
+    , finalEvaluation = True
     }
 
 
@@ -180,6 +202,7 @@ touchedReadme workList =
     , dependencies = workList.dependencies
     , touchedModules = workList.touchedModules
     , modules = workList.modules
+    , finalEvaluation = True
     }
 
 
@@ -191,6 +214,7 @@ touchedExtraFiles workList =
     , dependencies = workList.dependencies
     , touchedModules = workList.touchedModules
     , modules = workList.modules
+    , finalEvaluation = True
     }
 
 
@@ -202,4 +226,5 @@ touchedModule filePath workList =
     , dependencies = workList.dependencies
     , touchedModules = Set.insert filePath workList.touchedModules
     , modules = workList.modules
+    , finalEvaluation = True
     }
