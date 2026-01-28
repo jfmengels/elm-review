@@ -5220,82 +5220,89 @@ computeStepsForProject :
     -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors, step : Step }
     -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
 computeStepsForProject reviewOptions { project, ruleProjectVisitors, fixedErrors, step } =
-    case ValidProject.workList project |> WorkList.nextStep of
-        WorkList.ElmJson ->
-            let
-                elmJsonData : Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project }
-                elmJsonData =
-                    Maybe.map
-                        (\elmJson ->
-                            { elmJsonKey = ElmJsonKey elmJson
-                            , project = elmJson.project
-                            }
-                        )
-                        (ValidProject.elmJson project)
-            in
-            computeStepsForProject
-                reviewOptions
-                (computeElmJson reviewOptions project fixedErrors elmJsonData ruleProjectVisitors [])
+    if step == WorkList.EndAnalysis then
+        { project = project
+        , ruleProjectVisitors = ruleProjectVisitors
+        , fixedErrors = fixedErrors
+        }
 
-        WorkList.Readme ->
-            let
-                readmeData : Maybe { readmeKey : ReadmeKey, content : String }
-                readmeData =
-                    Maybe.map
-                        (\readme ->
-                            { readmeKey = ReadmeKey readme.path
-                            , content = readme.content
-                            }
-                        )
-                        (ValidProject.readme project)
-            in
-            computeStepsForProject
-                reviewOptions
-                (computeReadme reviewOptions project fixedErrors readmeData ruleProjectVisitors [])
-
-        WorkList.ExtraFiles ->
-            let
-                extraFiles : ExtraFileData
-                extraFiles =
-                    ValidProject.extraFiles ExtraFileKey project
-            in
-            computeStepsForProject
-                reviewOptions
-                (computeExtraFiles reviewOptions project fixedErrors extraFiles ruleProjectVisitors [])
-
-        WorkList.Dependencies ->
-            let
-                dependenciesData : { all : Dict String Review.Project.Dependency.Dependency, direct : Dict String Review.Project.Dependency.Dependency }
-                dependenciesData =
-                    { all = ValidProject.dependencies project
-                    , direct = ValidProject.directDependencies project
-                    }
-            in
-            computeStepsForProject
-                reviewOptions
-                (computeDependencies reviewOptions project fixedErrors dependenciesData ruleProjectVisitors [])
-
-        WorkList.Modules moduleZipper ->
-            computeStepsForProject
-                reviewOptions
-                (computeModules
+    else
+        case ValidProject.workList project |> WorkList.nextStep of
+            WorkList.ElmJson ->
+                let
+                    elmJsonData : Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project }
+                    elmJsonData =
+                        Maybe.map
+                            (\elmJson ->
+                                { elmJsonKey = ElmJsonKey elmJson
+                                , project = elmJson.project
+                                }
+                            )
+                            (ValidProject.elmJson project)
+                in
+                computeStepsForProject
                     reviewOptions
-                    moduleZipper
-                    project
-                    ruleProjectVisitors
-                    fixedErrors
-                )
+                    (computeElmJson reviewOptions project fixedErrors elmJsonData ruleProjectVisitors [])
 
-        WorkList.FinalProjectEvaluation ->
-            computeStepsForProject
-                reviewOptions
-                (computeFinalProjectEvaluation reviewOptions project fixedErrors ruleProjectVisitors [])
+            WorkList.Readme ->
+                let
+                    readmeData : Maybe { readmeKey : ReadmeKey, content : String }
+                    readmeData =
+                        Maybe.map
+                            (\readme ->
+                                { readmeKey = ReadmeKey readme.path
+                                , content = readme.content
+                                }
+                            )
+                            (ValidProject.readme project)
+                in
+                computeStepsForProject
+                    reviewOptions
+                    (computeReadme reviewOptions project fixedErrors readmeData ruleProjectVisitors [])
 
-        WorkList.EndAnalysis ->
-            { project = project
-            , ruleProjectVisitors = ruleProjectVisitors
-            , fixedErrors = fixedErrors
-            }
+            WorkList.ExtraFiles ->
+                let
+                    extraFiles : ExtraFileData
+                    extraFiles =
+                        ValidProject.extraFiles ExtraFileKey project
+                in
+                computeStepsForProject
+                    reviewOptions
+                    (computeExtraFiles reviewOptions project fixedErrors extraFiles ruleProjectVisitors [])
+
+            WorkList.Dependencies ->
+                let
+                    dependenciesData : { all : Dict String Review.Project.Dependency.Dependency, direct : Dict String Review.Project.Dependency.Dependency }
+                    dependenciesData =
+                        { all = ValidProject.dependencies project
+                        , direct = ValidProject.directDependencies project
+                        }
+                in
+                computeStepsForProject
+                    reviewOptions
+                    (computeDependencies reviewOptions project fixedErrors dependenciesData ruleProjectVisitors [])
+
+            WorkList.Modules moduleZipper ->
+                computeStepsForProject
+                    reviewOptions
+                    (computeModules
+                        reviewOptions
+                        moduleZipper
+                        project
+                        ruleProjectVisitors
+                        fixedErrors
+                    )
+
+            WorkList.FinalProjectEvaluation ->
+                computeStepsForProject
+                    reviewOptions
+                    (computeFinalProjectEvaluation reviewOptions project fixedErrors ruleProjectVisitors [])
+
+            WorkList.EndAnalysis ->
+                { project = project
+                , ruleProjectVisitors = ruleProjectVisitors
+                , fixedErrors = fixedErrors
+                }
 
 
 type StepToComputeContext
