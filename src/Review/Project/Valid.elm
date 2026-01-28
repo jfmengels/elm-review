@@ -27,6 +27,7 @@ module Review.Project.Valid exposing
     , toRegularProject
     , updateProjectCache
     , updateWorkList
+    , workList
     )
 
 import Dict exposing (Dict)
@@ -383,6 +384,11 @@ projectCache (ValidProject project) =
 moduleZipper : ValidProject -> Zipper FilePath
 moduleZipper (ValidProject project) =
     unsafeCreateZipper (List.map (\m -> m.node.label) project.sortedModules)
+
+
+workList : ValidProject -> WorkList
+workList (ValidProject project) =
+    project.workList
 
 
 updateWorkList : (WorkList -> WorkList) -> ValidProject -> ValidProject
