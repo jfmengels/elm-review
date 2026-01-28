@@ -5220,7 +5220,7 @@ computeStepsForProject :
     -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors, step : Step }
     -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
 computeStepsForProject reviewOptions { project, ruleProjectVisitors, fixedErrors, step } =
-    if step == WorkList.EndAnalysis then
+    if FixedErrors.count fixedErrors > 0 && not (InternalOptions.shouldContinueLookingForFixes reviewOptions fixedErrors) then
         { project = project
         , ruleProjectVisitors = ruleProjectVisitors
         , fixedErrors = fixedErrors
