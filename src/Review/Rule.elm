@@ -376,7 +376,7 @@ import Review.Project.ModuleIds exposing (ModuleId)
 import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModule)
 import Review.Project.Valid as ValidProject exposing (ValidProject)
 import Review.RequestedData as RequestedData exposing (RequestedData(..))
-import Review.WorkList as WorkList
+import Review.WorkList as WorkList exposing (Step)
 import Unicode
 import Vendor.Graph as Graph exposing (Graph)
 import Vendor.IntSet as IntSet
@@ -5107,7 +5107,7 @@ runProjectVisitor reviewOptions initialRuleProjectVisitors initialFixedErrors in
         { project, ruleProjectVisitors, fixedErrors } =
             computeStepsForProject
                 reviewOptions
-                { step = ElmJson
+                { step = WorkList.ElmJson
                 , project = initialProject
                 , ruleProjectVisitors = initialRuleProjectVisitors
                 , fixedErrors = initialFixedErrors
@@ -5221,7 +5221,7 @@ computeStepsForProject :
     -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
 computeStepsForProject reviewOptions { project, ruleProjectVisitors, fixedErrors, step } =
     case step of
-        ElmJson ->
+        WorkList.ElmJson ->
             let
                 elmJsonData : Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project }
                 elmJsonData =
@@ -5237,7 +5237,7 @@ computeStepsForProject reviewOptions { project, ruleProjectVisitors, fixedErrors
                 reviewOptions
                 (computeElmJson reviewOptions project fixedErrors elmJsonData ruleProjectVisitors [])
 
-        Readme ->
+        WorkList.Readme ->
             let
                 readmeData : Maybe { readmeKey : ReadmeKey, content : String }
                 readmeData =
@@ -5253,7 +5253,7 @@ computeStepsForProject reviewOptions { project, ruleProjectVisitors, fixedErrors
                 reviewOptions
                 (computeReadme reviewOptions project fixedErrors readmeData ruleProjectVisitors [])
 
-        ExtraFiles ->
+        WorkList.ExtraFiles ->
             let
                 extraFiles : ExtraFileData
                 extraFiles =
@@ -5263,7 +5263,7 @@ computeStepsForProject reviewOptions { project, ruleProjectVisitors, fixedErrors
                 reviewOptions
                 (computeExtraFiles reviewOptions project fixedErrors extraFiles ruleProjectVisitors [])
 
-        Dependencies ->
+        WorkList.Dependencies ->
             let
                 dependenciesData : { all : Dict String Review.Project.Dependency.Dependency, direct : Dict String Review.Project.Dependency.Dependency }
                 dependenciesData =
@@ -5275,7 +5275,7 @@ computeStepsForProject reviewOptions { project, ruleProjectVisitors, fixedErrors
                 reviewOptions
                 (computeDependencies reviewOptions project fixedErrors dependenciesData ruleProjectVisitors [])
 
-        Modules moduleZipper ->
+        WorkList.Modules moduleZipper ->
             computeStepsForProject
                 reviewOptions
                 (computeModules
@@ -5286,26 +5286,16 @@ computeStepsForProject reviewOptions { project, ruleProjectVisitors, fixedErrors
                     fixedErrors
                 )
 
-        FinalProjectEvaluation ->
+        WorkList.FinalProjectEvaluation ->
             computeStepsForProject
                 reviewOptions
                 (computeFinalProjectEvaluation reviewOptions project fixedErrors ruleProjectVisitors [])
 
-        EndAnalysis ->
+        WorkList.EndAnalysis ->
             { project = project
             , ruleProjectVisitors = ruleProjectVisitors
             , fixedErrors = fixedErrors
             }
-
-
-type Step
-    = ElmJson
-    | Readme
-    | ExtraFiles
-    | Dependencies
-    | Modules (Maybe (Zipper FilePath))
-    | FinalProjectEvaluation
-    | EndAnalysis
 
 
 type StepToComputeContext
@@ -5336,7 +5326,7 @@ computeElmJson reviewOptions project fixedErrors elmJsonData remainingRules accR
     case remainingRules of
         [] ->
             { project = ValidProject.updateWorkList WorkList.visitedElmJson project
-            , step = Readme
+            , step = WorkList.Readme
             , ruleProjectVisitors = accRules
             , fixedErrors = fixedErrors
             }
@@ -5387,7 +5377,7 @@ computeReadme reviewOptions project fixedErrors readmeData remainingRules accRul
     case remainingRules of
         [] ->
             { project = ValidProject.updateWorkList WorkList.visitedReadme project
-            , step = ExtraFiles
+            , step = WorkList.ExtraFiles
             , ruleProjectVisitors = accRules
             , fixedErrors = fixedErrors
             }
@@ -5438,7 +5428,7 @@ computeExtraFiles reviewOptions project fixedErrors extraFiles remainingRules ac
     case remainingRules of
         [] ->
             { project = ValidProject.updateWorkList WorkList.visitedExtraFiles project
-            , step = Dependencies
+            , step = WorkList.Dependencies
             , ruleProjectVisitors = accRules
             , fixedErrors = fixedErrors
             }
@@ -5490,7 +5480,7 @@ computeDependencies reviewOptions project fixedErrors dependenciesData remaining
         [] ->
             { project = ValidProject.updateWorkList WorkList.visitedDependencies project
             , ruleProjectVisitors = accRules
-            , step = Modules (Just (ValidProject.moduleZipper project))
+            , step = WorkList.Modules (Just (ValidProject.moduleZipper project))
             , fixedErrors = fixedErrors
             }
 
@@ -5540,7 +5530,7 @@ computeFinalProjectEvaluation reviewOptions project fixedErrors remainingRules a
         [] ->
             { project = project
             , ruleProjectVisitors = accRules
-            , step = EndAnalysis
+            , step = WorkList.EndAnalysis
             , fixedErrors = fixedErrors
             }
 
@@ -5868,7 +5858,7 @@ computeModules reviewOptions maybeModuleZipper initialProject ruleProjectVisitor
         Nothing ->
             { project = ValidProject.updateWorkList WorkList.visitedNextModule initialProject
             , ruleProjectVisitors = ruleProjectVisitors
-            , step = FinalProjectEvaluation
+            , step = WorkList.FinalProjectEvaluation
             , fixedErrors = fixedErrors
             }
 
@@ -5895,28 +5885,28 @@ computeModules reviewOptions maybeModuleZipper initialProject ruleProjectVisitor
                 BackToElmJson ->
                     { project = result.project
                     , ruleProjectVisitors = result.ruleProjectVisitors
-                    , step = ElmJson
+                    , step = WorkList.ElmJson
                     , fixedErrors = result.fixedErrors
                     }
 
                 BackToReadme ->
                     { project = result.project
                     , ruleProjectVisitors = result.ruleProjectVisitors
-                    , step = Readme
+                    , step = WorkList.Readme
                     , fixedErrors = result.fixedErrors
                     }
 
                 BackToExtraFiles ->
                     { project = result.project
                     , ruleProjectVisitors = result.ruleProjectVisitors
-                    , step = ExtraFiles
+                    , step = WorkList.ExtraFiles
                     , fixedErrors = result.fixedErrors
                     }
 
                 NextStepAbort ->
                     { project = result.project
                     , ruleProjectVisitors = result.ruleProjectVisitors
-                    , step = EndAnalysis
+                    , step = WorkList.EndAnalysis
                     , fixedErrors = result.fixedErrors
                     }
 
@@ -6075,26 +6065,26 @@ standardFindFix reviewOptions project fixedErrors updateErrors errors =
                 ( newFixedErrors, step ) =
                     case postFixStatus of
                         ShouldAbort newFixedErrors_ ->
-                            ( newFixedErrors_, EndAnalysis )
+                            ( newFixedErrors_, WorkList.EndAnalysis )
 
                         ShouldContinue newFixedErrors_ ->
                             ( newFixedErrors_
                             , case fixResult.fixedFile of
                                 FixedElmJson ->
-                                    ElmJson
+                                    WorkList.ElmJson
 
                                 FixedReadme ->
-                                    Readme
+                                    WorkList.Readme
 
                                 FixedExtraFile ->
-                                    ExtraFiles
+                                    WorkList.ExtraFiles
 
                                 FixedElmModule _ zipper ->
-                                    Modules (Just zipper)
+                                    WorkList.Modules (Just zipper)
 
                                 RemovedElmModule ->
                                     -- TODO MULTIFILE-FIXES Move to a more optimal starting position.
-                                    Modules Nothing
+                                    WorkList.Modules Nothing
                             )
             in
             FoundFixStandard { newProject = fixResult.project, newRule = newRule, newFixedErrors = newFixedErrors, step = step }
