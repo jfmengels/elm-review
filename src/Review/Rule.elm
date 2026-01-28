@@ -5107,8 +5107,7 @@ runProjectVisitor reviewOptions initialRuleProjectVisitors initialFixedErrors in
         { project, ruleProjectVisitors, fixedErrors } =
             computeStepsForProject
                 reviewOptions
-                { step = WorkList.ElmJson
-                , project = initialProject
+                { project = initialProject
                 , ruleProjectVisitors = initialRuleProjectVisitors
                 , fixedErrors = initialFixedErrors
                 }
@@ -5217,9 +5216,9 @@ type alias ProjectRuleCache projectContext =
 
 computeStepsForProject :
     ReviewOptionsData
-    -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors, step : Step }
     -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
-computeStepsForProject reviewOptions { project, ruleProjectVisitors, fixedErrors, step } =
+    -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
+computeStepsForProject reviewOptions { project, ruleProjectVisitors, fixedErrors } =
     if FixedErrors.count fixedErrors > 0 && not (InternalOptions.shouldContinueLookingForFixes reviewOptions fixedErrors) then
         { project = project
         , ruleProjectVisitors = ruleProjectVisitors
@@ -5328,12 +5327,11 @@ computeElmJson :
     -> Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project }
     -> List RuleProjectVisitor
     -> List RuleProjectVisitor
-    -> { project : ValidProject, step : Step, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
+    -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
 computeElmJson reviewOptions project fixedErrors elmJsonData remainingRules accRules =
     case remainingRules of
         [] ->
             { project = ValidProject.updateWorkList WorkList.visitedElmJson project
-            , step = WorkList.Readme
             , ruleProjectVisitors = accRules
             , fixedErrors = fixedErrors
             }
@@ -5346,10 +5344,9 @@ computeElmJson reviewOptions project fixedErrors elmJsonData remainingRules accR
                             visitor project elmJsonData
                     in
                     case standardFindFix reviewOptions project fixedErrors updatedRule.setErrorsForElmJson errors of
-                        FoundFixStandard { newProject, newRule, newFixedErrors, step } ->
+                        FoundFixStandard { newProject, newRule, newFixedErrors } ->
                             { project = newProject
                             , ruleProjectVisitors = newRule :: (rest ++ accRules)
-                            , step = step
                             , fixedErrors = newFixedErrors
                             }
 
@@ -5379,12 +5376,11 @@ computeReadme :
     -> Maybe { readmeKey : ReadmeKey, content : String }
     -> List RuleProjectVisitor
     -> List RuleProjectVisitor
-    -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, step : Step, fixedErrors : FixedErrors }
+    -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
 computeReadme reviewOptions project fixedErrors readmeData remainingRules accRules =
     case remainingRules of
         [] ->
             { project = ValidProject.updateWorkList WorkList.visitedReadme project
-            , step = WorkList.ExtraFiles
             , ruleProjectVisitors = accRules
             , fixedErrors = fixedErrors
             }
@@ -5397,10 +5393,9 @@ computeReadme reviewOptions project fixedErrors readmeData remainingRules accRul
                             visitor project readmeData
                     in
                     case standardFindFix reviewOptions project fixedErrors updatedRule.setErrorsForReadme errors of
-                        FoundFixStandard { newProject, newRule, newFixedErrors, step } ->
+                        FoundFixStandard { newProject, newRule, newFixedErrors } ->
                             { project = newProject
                             , ruleProjectVisitors = newRule :: (rest ++ accRules)
-                            , step = step
                             , fixedErrors = newFixedErrors
                             }
 
@@ -5430,12 +5425,11 @@ computeExtraFiles :
     -> ExtraFileData
     -> List RuleProjectVisitor
     -> List RuleProjectVisitor
-    -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, step : Step, fixedErrors : FixedErrors }
+    -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
 computeExtraFiles reviewOptions project fixedErrors extraFiles remainingRules accRules =
     case remainingRules of
         [] ->
             { project = ValidProject.updateWorkList WorkList.visitedExtraFiles project
-            , step = WorkList.Dependencies
             , ruleProjectVisitors = accRules
             , fixedErrors = fixedErrors
             }
@@ -5448,10 +5442,9 @@ computeExtraFiles reviewOptions project fixedErrors extraFiles remainingRules ac
                             visitor project extraFiles
                     in
                     case standardFindFix reviewOptions project fixedErrors updatedRule.setErrorsForExtraFiles errors of
-                        FoundFixStandard { newProject, newRule, newFixedErrors, step } ->
+                        FoundFixStandard { newProject, newRule, newFixedErrors } ->
                             { project = newProject
                             , ruleProjectVisitors = newRule :: (rest ++ accRules)
-                            , step = step
                             , fixedErrors = newFixedErrors
                             }
 
@@ -5481,13 +5474,12 @@ computeDependencies :
     -> { all : Dict String Review.Project.Dependency.Dependency, direct : Dict String Review.Project.Dependency.Dependency }
     -> List RuleProjectVisitor
     -> List RuleProjectVisitor
-    -> { project : ValidProject, step : Step, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
+    -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
 computeDependencies reviewOptions project fixedErrors dependenciesData remainingRules accRules =
     case remainingRules of
         [] ->
             { project = ValidProject.updateWorkList WorkList.visitedDependencies project
             , ruleProjectVisitors = accRules
-            , step = WorkList.Modules (Just (ValidProject.moduleZipper project))
             , fixedErrors = fixedErrors
             }
 
@@ -5499,10 +5491,9 @@ computeDependencies reviewOptions project fixedErrors dependenciesData remaining
                             visitor project dependenciesData
                     in
                     case standardFindFix reviewOptions project fixedErrors updatedRule.setErrorsForDependencies errors of
-                        FoundFixStandard { newProject, newRule, newFixedErrors, step } ->
+                        FoundFixStandard { newProject, newRule, newFixedErrors } ->
                             { project = newProject
                             , ruleProjectVisitors = newRule :: (rest ++ accRules)
-                            , step = step
                             , fixedErrors = newFixedErrors
                             }
 
@@ -5531,13 +5522,12 @@ computeFinalProjectEvaluation :
     -> FixedErrors
     -> List RuleProjectVisitor
     -> List RuleProjectVisitor
-    -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, step : Step, fixedErrors : FixedErrors }
+    -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
 computeFinalProjectEvaluation reviewOptions project fixedErrors remainingRules accRules =
     case remainingRules of
         [] ->
             { project = ValidProject.updateWorkList WorkList.computedFinalEvaluationDependencies project
             , ruleProjectVisitors = accRules
-            , step = WorkList.EndAnalysis
             , fixedErrors = fixedErrors
             }
 
@@ -5549,10 +5539,9 @@ computeFinalProjectEvaluation reviewOptions project fixedErrors remainingRules a
                             visitor ()
                     in
                     case standardFindFix reviewOptions project fixedErrors updatedRule.setErrorsForFinalEvaluation errors of
-                        FoundFixStandard { newProject, newRule, newFixedErrors, step } ->
+                        FoundFixStandard { newProject, newRule, newFixedErrors } ->
                             { project = newProject
                             , ruleProjectVisitors = newRule :: (rest ++ accRules)
-                            , step = step
                             , fixedErrors = newFixedErrors
                             }
 
@@ -5859,13 +5848,12 @@ computeModules :
     -> ValidProject
     -> List RuleProjectVisitor
     -> FixedErrors
-    -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, step : Step, fixedErrors : FixedErrors }
+    -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
 computeModules reviewOptions maybeModuleZipper initialProject ruleProjectVisitors fixedErrors =
     case maybeModuleZipper of
         Nothing ->
             { project = ValidProject.updateWorkList WorkList.visitedNextModule initialProject
             , ruleProjectVisitors = ruleProjectVisitors
-            , step = WorkList.FinalProjectEvaluation
             , fixedErrors = fixedErrors
             }
 
@@ -5892,28 +5880,24 @@ computeModules reviewOptions maybeModuleZipper initialProject ruleProjectVisitor
                 BackToElmJson ->
                     { project = result.project
                     , ruleProjectVisitors = result.ruleProjectVisitors
-                    , step = WorkList.ElmJson
                     , fixedErrors = result.fixedErrors
                     }
 
                 BackToReadme ->
                     { project = result.project
                     , ruleProjectVisitors = result.ruleProjectVisitors
-                    , step = WorkList.Readme
                     , fixedErrors = result.fixedErrors
                     }
 
                 BackToExtraFiles ->
                     { project = result.project
                     , ruleProjectVisitors = result.ruleProjectVisitors
-                    , step = WorkList.ExtraFiles
                     , fixedErrors = result.fixedErrors
                     }
 
                 NextStepAbort ->
                     { project = result.project
                     , ruleProjectVisitors = result.ruleProjectVisitors
-                    , step = WorkList.EndAnalysis
                     , fixedErrors = result.fixedErrors
                     }
 
@@ -6058,7 +6042,7 @@ type PostFixStatus
 
 type StandardFindFixResult
     = FoundNoFixesStandard RuleProjectVisitor
-    | FoundFixStandard { newProject : ValidProject, newRule : RuleProjectVisitor, step : Step, newFixedErrors : FixedErrors }
+    | FoundFixStandard { newProject : ValidProject, newRule : RuleProjectVisitor, newFixedErrors : FixedErrors }
 
 
 standardFindFix : ReviewOptionsData -> ValidProject -> FixedErrors -> (List (Error {}) -> RuleProjectVisitor) -> List (Error {}) -> StandardFindFixResult
@@ -6069,32 +6053,16 @@ standardFindFix reviewOptions project fixedErrors updateErrors errors =
 
         FoundFix newRule ( postFixStatus, fixResult ) ->
             let
-                ( newFixedErrors, step ) =
+                newFixedErrors : FixedErrors
+                newFixedErrors =
                     case postFixStatus of
                         ShouldAbort newFixedErrors_ ->
-                            ( newFixedErrors_, WorkList.EndAnalysis )
+                            newFixedErrors_
 
                         ShouldContinue newFixedErrors_ ->
-                            ( newFixedErrors_
-                            , case fixResult.fixedFile of
-                                FixedElmJson ->
-                                    WorkList.ElmJson
-
-                                FixedReadme ->
-                                    WorkList.Readme
-
-                                FixedExtraFile ->
-                                    WorkList.ExtraFiles
-
-                                FixedElmModule _ zipper ->
-                                    WorkList.Modules (Just zipper)
-
-                                RemovedElmModule ->
-                                    -- TODO MULTIFILE-FIXES Move to a more optimal starting position.
-                                    WorkList.Modules Nothing
-                            )
+                            newFixedErrors_
             in
-            FoundFixStandard { newProject = fixResult.project, newRule = newRule, newFixedErrors = newFixedErrors, step = step }
+            FoundFixStandard { newProject = fixResult.project, newRule = newRule, newFixedErrors = newFixedErrors }
 
 
 type FindFixResult
