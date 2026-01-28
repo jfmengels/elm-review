@@ -6163,7 +6163,11 @@ findFixHelp project supportsFileDeletion fixablePredicate errors accErrors maybe
                                     |> Result.andThen (\fixResult -> applyFixes maybeModuleZipper err restOfFixes fixResult)
                             of
                                 Ok fixResult ->
-                                    FoundFixHelp (errors ++ accErrors) { project = fixResult.project, fixedFile = fixResult.fixedFile, error = errorToReviewError err }
+                                    FoundFixHelp (errors ++ accErrors)
+                                        { project = fixResult.project
+                                        , fixedFile = fixResult.fixedFile
+                                        , error = errorToReviewError err
+                                        }
 
                                 Err nonAppliedError ->
                                     findFixHelp project supportsFileDeletion fixablePredicate restOfErrors (nonAppliedError :: accErrors) maybeModuleZipper
