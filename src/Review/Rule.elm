@@ -5337,14 +5337,14 @@ computeElmJson reviewOptions project fixedErrors elmJsonData remainingRules accR
                         ( errors, RuleProjectVisitor updatedRule ) =
                             visitor project elmJsonData
                     in
-                    case standardFindFix reviewOptions project updatedRule.setErrorsForElmJson errors fixedErrors of
-                        FoundFixStandard fixResult ->
+                    case findFix reviewOptions project updatedRule.setErrorsForElmJson errors fixedErrors of
+                        FoundFix fixResult ->
                             { project = fixResult.project
                             , ruleProjectVisitors = fixResult.rule :: (rest ++ accRules)
                             , fixedErrors = fixResult.fixedErrors
                             }
 
-                        FoundNoFixesStandard newRule ->
+                        FoundNoFixes newRule ->
                             computeElmJson
                                 reviewOptions
                                 project
@@ -5386,14 +5386,14 @@ computeReadme reviewOptions project fixedErrors readmeData remainingRules accRul
                         ( errors, RuleProjectVisitor updatedRule ) =
                             visitor project readmeData
                     in
-                    case standardFindFix reviewOptions project updatedRule.setErrorsForReadme errors fixedErrors of
-                        FoundFixStandard fixResult ->
+                    case findFix reviewOptions project updatedRule.setErrorsForReadme errors fixedErrors of
+                        FoundFix fixResult ->
                             { project = fixResult.project
                             , ruleProjectVisitors = fixResult.rule :: (rest ++ accRules)
                             , fixedErrors = fixResult.fixedErrors
                             }
 
-                        FoundNoFixesStandard newRule ->
+                        FoundNoFixes newRule ->
                             computeReadme
                                 reviewOptions
                                 project
@@ -5435,14 +5435,14 @@ computeExtraFiles reviewOptions project fixedErrors extraFiles remainingRules ac
                         ( errors, RuleProjectVisitor updatedRule ) =
                             visitor project extraFiles
                     in
-                    case standardFindFix reviewOptions project updatedRule.setErrorsForExtraFiles errors fixedErrors of
-                        FoundFixStandard fixResult ->
+                    case findFix reviewOptions project updatedRule.setErrorsForExtraFiles errors fixedErrors of
+                        FoundFix fixResult ->
                             { project = fixResult.project
                             , ruleProjectVisitors = fixResult.rule :: (rest ++ accRules)
                             , fixedErrors = fixResult.fixedErrors
                             }
 
-                        FoundNoFixesStandard newRule ->
+                        FoundNoFixes newRule ->
                             computeExtraFiles
                                 reviewOptions
                                 project
@@ -5484,14 +5484,14 @@ computeDependencies reviewOptions project fixedErrors dependenciesData remaining
                         ( errors, RuleProjectVisitor updatedRule ) =
                             visitor project dependenciesData
                     in
-                    case standardFindFix reviewOptions project updatedRule.setErrorsForDependencies errors fixedErrors of
-                        FoundFixStandard fixResult ->
+                    case findFix reviewOptions project updatedRule.setErrorsForDependencies errors fixedErrors of
+                        FoundFix fixResult ->
                             { project = fixResult.project
                             , ruleProjectVisitors = fixResult.rule :: (rest ++ accRules)
                             , fixedErrors = fixResult.fixedErrors
                             }
 
-                        FoundNoFixesStandard newRule ->
+                        FoundNoFixes newRule ->
                             computeDependencies
                                 reviewOptions
                                 project
@@ -5532,14 +5532,14 @@ computeFinalProjectEvaluation reviewOptions project fixedErrors remainingRules a
                         ( errors, RuleProjectVisitor updatedRule ) =
                             visitor ()
                     in
-                    case standardFindFix reviewOptions project updatedRule.setErrorsForFinalEvaluation errors fixedErrors of
-                        FoundFixStandard fixResult ->
+                    case findFix reviewOptions project updatedRule.setErrorsForFinalEvaluation errors fixedErrors of
+                        FoundFix fixResult ->
                             { project = fixResult.project
                             , ruleProjectVisitors = fixResult.rule :: (rest ++ accRules)
                             , fixedErrors = fixResult.fixedErrors
                             }
 
-                        FoundNoFixesStandard newRule ->
+                        FoundNoFixes newRule ->
                             computeFinalProjectEvaluation
                                 reviewOptions
                                 project
@@ -5858,21 +5858,6 @@ getFolderFromTraversal traversalAndFolder =
 
         TraverseImportedModulesFirst folder ->
             Just folder
-
-
-type StandardFindFixResult
-    = FoundNoFixesStandard RuleProjectVisitor
-    | FoundFixStandard { rule : RuleProjectVisitor, project : ValidProject, fixedErrors : FixedErrors }
-
-
-standardFindFix : ReviewOptionsData -> ValidProject -> (List (Error {}) -> RuleProjectVisitor) -> List (Error {}) -> FixedErrors -> StandardFindFixResult
-standardFindFix reviewOptions project updateErrors errors fixedErrors =
-    case findFix reviewOptions project updateErrors errors fixedErrors of
-        FoundNoFixes newRule ->
-            FoundNoFixesStandard newRule
-
-        FoundFix fixResult ->
-            FoundFixStandard fixResult
 
 
 type FindFixResult
