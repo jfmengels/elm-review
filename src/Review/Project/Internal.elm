@@ -110,7 +110,7 @@ updateGraph module_ maybeExistingModule dependencyModules baseModuleIds baseModu
                     Set.diff previousFileImports newFileImports
             in
             if Set.isEmpty addedImports && Set.isEmpty removedImports then
-                -- Imports haven't changed, we don't need to recompute the zipper or the graph
+                -- Imports haven't changed, we don't need to recompute the graph
                 ( baseModuleGraph, moduleIds )
 
             else
