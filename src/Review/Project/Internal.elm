@@ -84,7 +84,10 @@ updateGraph :
     -> Set ModuleName
     -> ModuleIds
     -> Graph FilePath
-    -> ( Graph FilePath, ModuleIds )
+    ->
+        { moduleGraph : Graph FilePath
+        , moduleIds : ModuleIds
+        }
 updateGraph module_ maybeExistingModule dependencyModules baseModuleIds baseModuleGraph =
     let
         ( moduleId, moduleIds ) =
@@ -111,7 +114,9 @@ updateGraph module_ maybeExistingModule dependencyModules baseModuleIds baseModu
             in
             if Set.isEmpty addedImports && Set.isEmpty removedImports then
                 -- Imports haven't changed, we don't need to recompute the graph
-                ( baseModuleGraph, moduleIds )
+                { moduleGraph = baseModuleGraph
+                , moduleIds = moduleIds
+                }
 
             else
                 let
@@ -140,7 +145,9 @@ updateGraph module_ maybeExistingModule dependencyModules baseModuleIds baseModu
                             )
                             addedImports
                 in
-                ( moduleGraph, moduleIds )
+                { moduleGraph = moduleGraph
+                , moduleIds = moduleIds
+                }
 
         Nothing ->
             let
@@ -167,7 +174,9 @@ updateGraph module_ maybeExistingModule dependencyModules baseModuleIds baseModu
                         baseModuleGraph
                         (ProjectModule.ast module_).imports
             in
-            ( moduleGraph, moduleIds )
+            { moduleGraph = moduleGraph
+            , moduleIds = moduleIds
+            }
 
 
 importedModulesSet : Elm.Syntax.File.File -> Set ModuleName -> Set ModuleName
