@@ -112,4 +112,44 @@ all =
                             |> WorkList.recomputeModules graph sortedModules
                             |> .modules
                             |> Expect.equalLists [ "B", "C" ]
+        , test "should revisit all the dependent files of the touched files when recomputing graph, even indirect ones" <|
+            \() ->
+                let
+                    graph : Graph String
+                    graph =
+                        Graph.fromNodesAndEdges
+                            (IntDict.empty
+                                |> Graph.addNode (Graph.Node 0 "A")
+                                |> Graph.addNode (Graph.Node 3 "D")
+                                |> Graph.addNode (Graph.Node 2 "C")
+                                |> Graph.addNode (Graph.Node 1 "B")
+                            )
+                            -- edges are in the opposite direction
+                            [ { from = 0, to = 2 } -- C imports A
+                            , { from = 1, to = 2 } -- C imports B
+                            , { from = 0, to = 1 } -- B imports A
+                            , { from = 2, to = 3 } -- D imports C
+                            ]
+                in
+                case Graph.checkAcyclic graph |> Result.map Graph.topologicalSort of
+                    Err err ->
+                        Debug.todo ("Import cycle in graph: " ++ Debug.toString err)
+
+                    Ok sortedModules ->
+                        sortedModules
+                            |> List.map (\m -> m.node.label)
+                            |> WorkList.fromSortedModules
+                            |> WorkList.visitedElmJson
+                            |> WorkList.visitedReadme
+                            |> WorkList.visitedExtraFiles
+                            |> WorkList.visitedDependencies
+                            |> WorkList.visitedNextModule
+                            |> WorkList.visitedNextModule
+                            |> WorkList.visitedNextModule
+                            |> WorkList.visitedNextModule
+                            -- Has nothing to visit anymore
+                            |> WorkList.touchedModule "B"
+                            |> WorkList.recomputeModules graph sortedModules
+                            |> .modules
+                            |> Expect.equalLists [ "B", "C", "D" ]
         ]

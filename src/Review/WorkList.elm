@@ -101,31 +101,36 @@ recomputeModulesHelp graph modules touchedModules acc =
             List.reverse acc
 
         mod :: rest ->
+            let
+                ( newTouchedModules, newAcc ) =
+                    if
+                        Set.member mod.node.label touchedModules
+                            || IntSet.foldl
+                                (\key isMember ->
+                                    isMember
+                                        || (case Graph.get key graph of
+                                                Just importedModule ->
+                                                    Set.member importedModule.node.label touchedModules
+
+                                                Nothing ->
+                                                    False
+                                           )
+                                )
+                                False
+                                mod.incoming
+                    then
+                        ( Set.insert mod.node.label touchedModules
+                        , mod.node.label :: acc
+                        )
+
+                    else
+                        ( touchedModules, acc )
+            in
             recomputeModulesHelp
                 graph
                 rest
-                touchedModules
-                (if
-                    Set.member mod.node.label touchedModules
-                        || IntSet.foldl
-                            (\key isMember ->
-                                isMember
-                                    || (case Graph.get key graph of
-                                            Just importedModule ->
-                                                Set.member importedModule.node.label touchedModules
-
-                                            Nothing ->
-                                                False
-                                       )
-                            )
-                            False
-                            mod.incoming
-                 then
-                    mod.node.label :: acc
-
-                 else
-                    acc
-                )
+                newTouchedModules
+                newAcc
 
 
 visitedElmJson : WorkList -> WorkList
