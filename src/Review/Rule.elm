@@ -5748,41 +5748,11 @@ findFixInComputeModuleResults ({ reviewOptions, module_, project, moduleZipper, 
             in
             case findFix reviewOptions project (\newErrors -> ruleProjectVisitor.setErrorsForModule modulePath newErrors) errors fixedErrors (Just moduleZipper) of
                 FoundFix newRule ( newFixedErrors, fixResult ) ->
-                    case fixResult.fixedFile of
-                        FixedElmModule { source, ast, moduleId } newModuleZipper_ ->
-                            ContinueWithNextStep
-                                { project = fixResult.project
-                                , ruleProjectVisitors = newRule :: (rest ++ rulesSoFar)
-                                , fixedErrors = newFixedErrors
-                                }
-
-                        RemovedElmModule ->
-                            ContinueWithNextStep
-                                { project = fixResult.project
-                                , ruleProjectVisitors = newRule :: (rest ++ rulesSoFar)
-                                , fixedErrors = newFixedErrors
-                                }
-
-                        FixedElmJson ->
-                            ContinueWithNextStep
-                                { project = fixResult.project
-                                , ruleProjectVisitors = newRule :: (rest ++ rulesSoFar)
-                                , fixedErrors = newFixedErrors
-                                }
-
-                        FixedReadme ->
-                            ContinueWithNextStep
-                                { project = fixResult.project
-                                , ruleProjectVisitors = newRule :: (rest ++ rulesSoFar)
-                                , fixedErrors = newFixedErrors
-                                }
-
-                        FixedExtraFile ->
-                            ContinueWithNextStep
-                                { project = fixResult.project
-                                , ruleProjectVisitors = newRule :: (rest ++ rulesSoFar)
-                                , fixedErrors = newFixedErrors
-                                }
+                    ContinueWithNextStep
+                        { project = fixResult.project
+                        , ruleProjectVisitors = newRule :: (rest ++ rulesSoFar)
+                        , fixedErrors = newFixedErrors
+                        }
 
                 FoundNoFixes newRule ->
                     findFixInComputeModuleResults
