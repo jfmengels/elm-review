@@ -5826,7 +5826,7 @@ computeModules reviewOptions maybeModuleZipper initialProject ruleProjectVisitor
                         ruleProjectVisitors
                         fixedErrors
             in
-            { project = ValidProject.updateWorkList WorkList.visitedNextModule result.project
+            { project = result.project
             , ruleProjectVisitors = result.ruleProjectVisitors
             , fixedErrors = result.fixedErrors
             }
