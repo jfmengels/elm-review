@@ -5636,7 +5636,10 @@ computeModule params =
                     ( newProject, newRules ) =
                         computeModuleWithRuleVisitors params.project params.module_ inputRuleModuleVisitors requestedData rulesNotToRun
                 in
-                { params | project = newProject, ruleProjectVisitors = newRules }
+                { params
+                    | project = newProject
+                    , ruleProjectVisitors = newRules
+                }
     in
     case findFixInComputeModuleResults paramsAfterVisit paramsAfterVisit.ruleProjectVisitors [] of
         ContinueWithNextStep nextStepResult ->
@@ -5863,7 +5866,11 @@ computeModules :
 computeModules reviewOptions maybeModuleZipper initialProject ruleProjectVisitors fixedErrors =
     case maybeModuleZipper of
         Nothing ->
-            { project = initialProject, ruleProjectVisitors = ruleProjectVisitors, step = FinalProjectEvaluation, fixedErrors = fixedErrors }
+            { project = ValidProject.updateWorkList WorkList.visitedNextModule initialProject
+            , ruleProjectVisitors = ruleProjectVisitors
+            , step = FinalProjectEvaluation
+            , fixedErrors = fixedErrors
+            }
 
         Just moduleZipper ->
             let
@@ -5998,7 +6005,7 @@ computeModuleAndCacheResult reviewOptions moduleZipper project ruleProjectVisito
     in
     case ValidProject.getModuleByPath filePath project of
         Nothing ->
-            { project = project
+            { project = ValidProject.updateWorkList WorkList.visitedNextModule project
             , ruleProjectVisitors = ruleProjectVisitors
             , nextStep = ModuleVisitStep (Zipper.next moduleZipper)
             , fixedErrors = fixedErrors
@@ -6338,7 +6345,7 @@ applySingleModuleFix project maybeModuleZipper ((Error headError) as err) target
                             ValidProject.addParsedModule { path = targetPath, source = fixResult.source, ast = fixResult.ast } maybeModuleZipper project
                                 |> Result.map
                                     (\( newProject, newModuleZipper ) ->
-                                        { project = newProject
+                                        { project = ValidProject.updateWorkList (WorkList.touchedModule targetPath) newProject
                                         , fixedFile = FixedElmModule fixResult newModuleZipper
                                         }
                                     )
