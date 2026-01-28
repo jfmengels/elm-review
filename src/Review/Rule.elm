@@ -5220,7 +5220,7 @@ computeStepsForProject :
     -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors, step : Step }
     -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
 computeStepsForProject reviewOptions { project, ruleProjectVisitors, fixedErrors, step } =
-    case step of
+    case ValidProject.workList project |> WorkList.nextStep of
         WorkList.ElmJson ->
             let
                 elmJsonData : Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project }
