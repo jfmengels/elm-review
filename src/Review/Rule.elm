@@ -5528,7 +5528,7 @@ computeFinalProjectEvaluation :
 computeFinalProjectEvaluation reviewOptions project fixedErrors remainingRules accRules =
     case remainingRules of
         [] ->
-            { project = project
+            { project = ValidProject.updateWorkList WorkList.computedFinalEvaluationDependencies project
             , ruleProjectVisitors = accRules
             , step = WorkList.EndAnalysis
             , fixedErrors = fixedErrors
