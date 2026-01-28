@@ -11,6 +11,7 @@ module Review.WorkList exposing
     )
 
 import Review.FilePath exposing (FilePath)
+import Set exposing (Set)
 
 
 type alias WorkList =
@@ -18,6 +19,7 @@ type alias WorkList =
     , readme : Bool
     , extraFiles : Bool
     , dependencies : Bool
+    , touchedModules : Set FilePath
     , modules : List FilePath
     }
 
@@ -28,6 +30,7 @@ fromSortedModules sortedModules =
     , readme = True
     , extraFiles = True
     , dependencies = True
+    , touchedModules = Set.fromList sortedModules
     , modules = sortedModules
     }
 
@@ -38,6 +41,7 @@ visitedElmJson workList =
     , readme = workList.readme
     , extraFiles = workList.extraFiles
     , dependencies = workList.dependencies
+    , touchedModules = workList.touchedModules
     , modules = workList.modules
     }
 
@@ -48,6 +52,7 @@ visitedReadme workList =
     , readme = False
     , extraFiles = workList.extraFiles
     , dependencies = workList.dependencies
+    , touchedModules = workList.touchedModules
     , modules = workList.modules
     }
 
@@ -58,6 +63,7 @@ visitedExtraFiles workList =
     , readme = workList.readme
     , extraFiles = False
     , dependencies = workList.dependencies
+    , touchedModules = workList.touchedModules
     , modules = workList.modules
     }
 
@@ -68,6 +74,7 @@ visitedDependencies workList =
     , readme = workList.readme
     , extraFiles = workList.extraFiles
     , dependencies = False
+    , touchedModules = workList.touchedModules
     , modules = workList.modules
     }
 
@@ -78,6 +85,7 @@ touchedElmJson workList =
     , readme = workList.readme
     , extraFiles = workList.extraFiles
     , dependencies = workList.dependencies
+    , touchedModules = workList.touchedModules
     , modules = workList.modules
     }
 
@@ -88,6 +96,7 @@ touchedReadme workList =
     , readme = True
     , extraFiles = workList.extraFiles
     , dependencies = workList.dependencies
+    , touchedModules = workList.touchedModules
     , modules = workList.modules
     }
 
@@ -98,5 +107,6 @@ touchedExtraFiles workList =
     , readme = workList.readme
     , extraFiles = True
     , dependencies = workList.dependencies
+    , touchedModules = workList.touchedModules
     , modules = workList.modules
     }
