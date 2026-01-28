@@ -35,7 +35,6 @@ import Elm.Project
 import Elm.Syntax.File
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node(..))
-import Path
 import Review.Cache.ContentHash as ContentHash exposing (ContentHash)
 import Review.FilePath exposing (FilePath)
 import Review.Fix.FixProblem as FixProblem exposing (FixProblem)
@@ -398,10 +397,6 @@ addParsedModule { path, source, ast } (ValidProject project) =
                 moduleId =
                     ProjectModule.moduleId existingModule
 
-                osAgnosticPath : String
-                osAgnosticPath =
-                    Path.makeOSAgnostic path
-
                 module_ : OpaqueProjectModule
                 module_ =
                     ProjectModule.create
@@ -409,7 +404,7 @@ addParsedModule { path, source, ast } (ValidProject project) =
                         , source = source
                         , ast = ast
                         , moduleId = moduleId
-                        , isInSourceDirectories = List.any (\dir -> String.startsWith (Path.makeOSAgnostic dir) osAgnosticPath) project.sourceDirectories
+                        , isInSourceDirectories = List.any (\dir -> String.startsWith dir path) project.sourceDirectories
                         }
 
                 modulesByPath : Dict FilePath OpaqueProjectModule

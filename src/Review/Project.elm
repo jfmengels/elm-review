@@ -206,7 +206,7 @@ addModuleToProject { path, source, ast } (Internal.Project project) =
                 { path = path
                 , source = source
                 , ast = ast
-                , isInSourceDirectories = List.any (\dir -> String.startsWith (Path.makeOSAgnostic dir) osAgnosticPath) project.sourceDirectories
+                , isInSourceDirectories = List.any (\dir -> String.startsWith dir osAgnosticPath) project.sourceDirectories
                 , moduleId = moduleId
                 }
     in
@@ -303,13 +303,8 @@ addElmJson elmJson_ (Internal.Project project) =
             else
                 Dict.map
                     (\path module_ ->
-                        let
-                            osAgnosticPath : String
-                            osAgnosticPath =
-                                Path.makeOSAgnostic path
-                        in
                         ProjectModule.setIsInSourceDirectories
-                            (List.any (\dir -> String.startsWith dir osAgnosticPath) sourceDirectories)
+                            (List.any (\dir -> String.startsWith dir path) sourceDirectories)
                             module_
                     )
                     project.modules
