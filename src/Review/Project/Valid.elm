@@ -69,6 +69,7 @@ type alias ValidProjectData =
     , sourceDirectories : List String
     , projectCache : ProjectCache
     , moduleGraph : Graph FilePath
+    , needToRecomputeSortedModules : Bool
     , sortedModules : List (Graph.NodeContext FilePath)
     , moduleIds : ModuleIds
     , workList : WorkList
@@ -150,6 +151,7 @@ fromProjectAndGraph moduleGraph_ acyclicGraph moduleIds (Project project) =
         , projectCache = project.cache
         , moduleGraph = moduleGraph_
         , sortedModules = sortedModules
+        , needToRecomputeSortedModules = False
         , moduleIds = moduleIds
         , workList = WorkList.fromSortedModules (List.map (\m -> m.node.label) sortedModules)
         }
@@ -469,27 +471,15 @@ addParsedModule { path, source, ast } (ValidProject project) =
                             )
                             addedImports
                 in
-                case Graph.checkAcyclic graph of
-                    Err edge ->
-                        ImportCycle.findCycle modulesByPath graph edge
-                            |> FixProblem.CreatesImportCycle
-                            |> Err
-
-                    Ok acyclicGraph ->
-                        let
-                            sortedModules : List (Graph.NodeContext FilePath)
-                            sortedModules =
-                                Graph.topologicalSort acyclicGraph
-                        in
-                        Ok
-                            (ValidProject
-                                { project
-                                    | moduleGraph = graph
-                                    , sortedModules = sortedModules
-                                    , modulesByPath = modulesByPath
-                                    , workList = WorkList.touchedModule path project.workList
-                                }
-                            )
+                Ok
+                    (ValidProject
+                        { project
+                            | moduleGraph = graph
+                            , needToRecomputeSortedModules = True
+                            , modulesByPath = modulesByPath
+                            , workList = WorkList.touchedModule path project.workList
+                        }
+                    )
 
         Nothing ->
             -- We don't support adding new files at the moment.
@@ -499,19 +489,24 @@ addParsedModule { path, source, ast } (ValidProject project) =
 
 checkGraph : ValidProject -> Result FixProblem ValidProject
 checkGraph (ValidProject project) =
-    case Graph.checkAcyclic project.moduleGraph |> Result.map Graph.topologicalSort of
-        Err edge ->
-            ImportCycle.findCycle project.modulesByPath project.moduleGraph edge
-                |> FixProblem.CreatesImportCycle
-                |> Err
+    if project.needToRecomputeSortedModules then
+        case Graph.checkAcyclic project.moduleGraph |> Result.map Graph.topologicalSort of
+            Err edge ->
+                ImportCycle.findCycle project.modulesByPath project.moduleGraph edge
+                    |> FixProblem.CreatesImportCycle
+                    |> Err
 
-        Ok sortedModules ->
-            ValidProject
-                { project
-                    | sortedModules = sortedModules
-                    , workList = WorkList.recomputeModules project.moduleGraph sortedModules project.workList
-                }
-                |> Ok
+            Ok sortedModules ->
+                ValidProject
+                    { project
+                        | sortedModules = sortedModules
+                        , needToRecomputeSortedModules = False
+                        , workList = WorkList.recomputeModules project.moduleGraph sortedModules project.workList
+                    }
+                    |> Ok
+
+    else
+        Ok (ValidProject { project | workList = WorkList.recomputeModules project.moduleGraph project.sortedModules project.workList })
 
 
 {-| Add an already parsed module to the project. This module will then be analyzed by the rules.
