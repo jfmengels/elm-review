@@ -1,4 +1,4 @@
-module Review.FixAll exposing (..)
+module Review.FixAll exposing (all)
 
 import Dict exposing (Dict)
 import Docs.UpToDateReadmeLinks

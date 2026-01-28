@@ -1,4 +1,4 @@
-module NoRedundantConcatTest exposing (..)
+module NoRedundantConcatTest exposing (tests)
 
 import NoRedundantConcat
 import Review.Test
