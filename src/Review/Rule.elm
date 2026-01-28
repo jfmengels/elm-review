@@ -5606,7 +5606,7 @@ type alias DataToComputeSingleModule =
 
 computeModule :
     DataToComputeSingleModule
-    -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, nextStep : NextStep, fixedErrors : FixedErrors }
+    -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
 computeModule params =
     let
         ( inputRuleModuleVisitors, requestedData, rulesNotToRun ) =
@@ -5718,7 +5718,7 @@ computeModuleNameLookupTable requestedData project module_ =
 
 
 type ComputeModuleFindFixResult projectContext moduleContext
-    = ContinueWithNextStep { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, nextStep : NextStep, fixedErrors : FixedErrors }
+    = ContinueWithNextStep { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
     | ReComputeModule DataToComputeSingleModule
 
 
@@ -5733,7 +5733,6 @@ findFixInComputeModuleResults ({ reviewOptions, module_, project, moduleZipper, 
             ContinueWithNextStep
                 { project = project
                 , ruleProjectVisitors = rulesSoFar
-                , nextStep = ModuleVisitStep (Zipper.next moduleZipper)
                 , fixedErrors = fixedErrors
                 }
 
@@ -5754,7 +5753,6 @@ findFixInComputeModuleResults ({ reviewOptions, module_, project, moduleZipper, 
                             ContinueWithNextStep
                                 { project = fixResult.project
                                 , ruleProjectVisitors = newRule :: (rest ++ rulesSoFar)
-                                , nextStep = NextStepAbort
                                 , fixedErrors = newFixedErrors
                                 }
 
@@ -5789,7 +5787,6 @@ findFixInComputeModuleResults ({ reviewOptions, module_, project, moduleZipper, 
                                                 ContinueWithNextStep
                                                     { project = fixResult.project
                                                     , ruleProjectVisitors = newRule :: (rest ++ rulesSoFar)
-                                                    , nextStep = ModuleVisitStep (Just newModuleZipper)
                                                     , fixedErrors = newFixedErrors
                                                     }
 
@@ -5797,7 +5794,6 @@ findFixInComputeModuleResults ({ reviewOptions, module_, project, moduleZipper, 
                                                 ContinueWithNextStep
                                                     { project = project
                                                     , ruleProjectVisitors = newRule :: (rest ++ rulesSoFar)
-                                                    , nextStep = ModuleVisitStep (Zipper.next moduleZipper)
                                                     , fixedErrors = fixedErrors
                                                     }
 
@@ -5805,9 +5801,6 @@ findFixInComputeModuleResults ({ reviewOptions, module_, project, moduleZipper, 
                                     ContinueWithNextStep
                                         { project = project
                                         , ruleProjectVisitors = newRule :: (rest ++ rulesSoFar)
-
-                                        -- TODO MULTIFILE-FIXES Move to a more optimal starting position than at the very beginning.
-                                        , nextStep = ModuleVisitStep Nothing
                                         , fixedErrors = fixedErrors
                                         }
 
@@ -5815,7 +5808,6 @@ findFixInComputeModuleResults ({ reviewOptions, module_, project, moduleZipper, 
                                     ContinueWithNextStep
                                         { project = fixResult.project
                                         , ruleProjectVisitors = newRule :: (rest ++ rulesSoFar)
-                                        , nextStep = BackToElmJson
                                         , fixedErrors = FixedErrors.insert fixResult.error fixedErrors
                                         }
 
@@ -5823,7 +5815,6 @@ findFixInComputeModuleResults ({ reviewOptions, module_, project, moduleZipper, 
                                     ContinueWithNextStep
                                         { project = fixResult.project
                                         , ruleProjectVisitors = newRule :: (rest ++ rulesSoFar)
-                                        , nextStep = BackToReadme
                                         , fixedErrors = FixedErrors.insert fixResult.error fixedErrors
                                         }
 
@@ -5831,7 +5822,6 @@ findFixInComputeModuleResults ({ reviewOptions, module_, project, moduleZipper, 
                                     ContinueWithNextStep
                                         { project = fixResult.project
                                         , ruleProjectVisitors = newRule :: (rest ++ rulesSoFar)
-                                        , nextStep = BackToExtraFiles
                                         , fixedErrors = FixedErrors.insert fixResult.error fixedErrors
                                         }
 
@@ -5859,7 +5849,7 @@ computeModules reviewOptions maybeModuleZipper initialProject ruleProjectVisitor
 
         Just moduleZipper ->
             let
-                result : { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, nextStep : NextStep, fixedErrors : FixedErrors }
+                result : { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
                 result =
                     computeModuleAndCacheResult
                         reviewOptions
@@ -5868,38 +5858,10 @@ computeModules reviewOptions maybeModuleZipper initialProject ruleProjectVisitor
                         ruleProjectVisitors
                         fixedErrors
             in
-            case result.nextStep of
-                ModuleVisitStep newModuleZipper ->
-                    computeModules
-                        reviewOptions
-                        newModuleZipper
-                        result.project
-                        result.ruleProjectVisitors
-                        result.fixedErrors
-
-                BackToElmJson ->
-                    { project = result.project
-                    , ruleProjectVisitors = result.ruleProjectVisitors
-                    , fixedErrors = result.fixedErrors
-                    }
-
-                BackToReadme ->
-                    { project = result.project
-                    , ruleProjectVisitors = result.ruleProjectVisitors
-                    , fixedErrors = result.fixedErrors
-                    }
-
-                BackToExtraFiles ->
-                    { project = result.project
-                    , ruleProjectVisitors = result.ruleProjectVisitors
-                    , fixedErrors = result.fixedErrors
-                    }
-
-                NextStepAbort ->
-                    { project = result.project
-                    , ruleProjectVisitors = result.ruleProjectVisitors
-                    , fixedErrors = result.fixedErrors
-                    }
+            { project = ValidProject.updateWorkList WorkList.visitedNextModule result.project
+            , ruleProjectVisitors = result.ruleProjectVisitors
+            , fixedErrors = result.fixedErrors
+            }
 
 
 computeProjectContextHashes :
@@ -5977,7 +5939,7 @@ computeModuleAndCacheResult :
     -> ValidProject
     -> List RuleProjectVisitor
     -> FixedErrors
-    -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, nextStep : NextStep, fixedErrors : FixedErrors }
+    -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
 computeModuleAndCacheResult reviewOptions moduleZipper project ruleProjectVisitors fixedErrors =
     let
         filePath : FilePath
@@ -5988,7 +5950,6 @@ computeModuleAndCacheResult reviewOptions moduleZipper project ruleProjectVisito
         Nothing ->
             { project = ValidProject.updateWorkList WorkList.visitedNextModule project
             , ruleProjectVisitors = ruleProjectVisitors
-            , nextStep = ModuleVisitStep (Zipper.next moduleZipper)
             , fixedErrors = fixedErrors
             }
 
