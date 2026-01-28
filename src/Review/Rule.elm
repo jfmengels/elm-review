@@ -5759,61 +5759,38 @@ findFixInComputeModuleResults ({ reviewOptions, module_, project, moduleZipper, 
                         ShouldContinue newFixedErrors ->
                             case fixResult.fixedFile of
                                 FixedElmModule { source, ast, moduleId } newModuleZipper_ ->
-                                    let
-                                        filePath : FilePath
-                                        filePath =
-                                            errorFilePath fixResult.error
-                                    in
-                                    if ProjectModule.path module_ == filePath then
-                                        ReComputeModule
-                                            { reviewOptions = reviewOptions
-                                            , ruleProjectVisitors = newRule :: (rest ++ rulesSoFar)
-                                            , module_ =
-                                                ProjectModule.create
-                                                    { path = filePath
-                                                    , source = source
-                                                    , ast = ast
-                                                    , moduleId = moduleId
-                                                    , isInSourceDirectories = ProjectModule.isInSourceDirectories module_
-                                                    }
-                                            , project = fixResult.project
-                                            , moduleZipper = newModuleZipper_
-                                            , fixedErrors = newFixedErrors
-                                            }
-
-                                    else
-                                        ContinueWithNextStep
-                                            { project = fixResult.project
-                                            , ruleProjectVisitors = newRule :: (rest ++ rulesSoFar)
-                                            , fixedErrors = newFixedErrors
-                                            }
+                                    ContinueWithNextStep
+                                        { project = fixResult.project
+                                        , ruleProjectVisitors = newRule :: (rest ++ rulesSoFar)
+                                        , fixedErrors = newFixedErrors
+                                        }
 
                                 RemovedElmModule ->
                                     ContinueWithNextStep
-                                        { project = project
+                                        { project = fixResult.project
                                         , ruleProjectVisitors = newRule :: (rest ++ rulesSoFar)
-                                        , fixedErrors = fixedErrors
+                                        , fixedErrors = newFixedErrors
                                         }
 
                                 FixedElmJson ->
                                     ContinueWithNextStep
                                         { project = fixResult.project
                                         , ruleProjectVisitors = newRule :: (rest ++ rulesSoFar)
-                                        , fixedErrors = FixedErrors.insert fixResult.error fixedErrors
+                                        , fixedErrors = newFixedErrors
                                         }
 
                                 FixedReadme ->
                                     ContinueWithNextStep
                                         { project = fixResult.project
                                         , ruleProjectVisitors = newRule :: (rest ++ rulesSoFar)
-                                        , fixedErrors = FixedErrors.insert fixResult.error fixedErrors
+                                        , fixedErrors = newFixedErrors
                                         }
 
                                 FixedExtraFile ->
                                     ContinueWithNextStep
                                         { project = fixResult.project
                                         , ruleProjectVisitors = newRule :: (rest ++ rulesSoFar)
-                                        , fixedErrors = FixedErrors.insert fixResult.error fixedErrors
+                                        , fixedErrors = newFixedErrors
                                         }
 
                 FoundNoFixes newRule ->
