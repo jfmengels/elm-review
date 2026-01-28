@@ -109,19 +109,7 @@ recomputeModulesHelp graph modules touchedModules acc =
                 ( newTouchedModules, newAcc ) =
                     if
                         Set.member mod.node.label touchedModules
-                            || IntSet.foldl
-                                (\key isMember ->
-                                    isMember
-                                        || (case Graph.get key graph of
-                                                Just importedModule ->
-                                                    Set.member importedModule.node.label touchedModules
-
-                                                Nothing ->
-                                                    False
-                                           )
-                                )
-                                False
-                                mod.incoming
+                            || moduleImportsTouchedModule graph mod touchedModules
                     then
                         ( Set.insert mod.node.label touchedModules
                         , mod.node.label :: acc
@@ -135,6 +123,23 @@ recomputeModulesHelp graph modules touchedModules acc =
                 rest
                 newTouchedModules
                 newAcc
+
+
+moduleImportsTouchedModule : Graph FilePath -> Graph.NodeContext FilePath -> Set FilePath -> Bool
+moduleImportsTouchedModule graph mod touchedModules =
+    IntSet.foldl
+        (\key isMember ->
+            isMember
+                || (case Graph.get key graph of
+                        Just importedModule ->
+                            Set.member importedModule.node.label touchedModules
+
+                        Nothing ->
+                            False
+                   )
+        )
+        False
+        mod.incoming
 
 
 visitedElmJson : WorkList -> WorkList
