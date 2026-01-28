@@ -5338,10 +5338,10 @@ computeElmJson reviewOptions project fixedErrors elmJsonData remainingRules accR
                             visitor project elmJsonData
                     in
                     case standardFindFix reviewOptions project fixedErrors updatedRule.setErrorsForElmJson errors of
-                        FoundFixStandard { newProject, newRule, newFixedErrors } ->
-                            { project = newProject
-                            , ruleProjectVisitors = newRule :: (rest ++ accRules)
-                            , fixedErrors = newFixedErrors
+                        FoundFixStandard fixResult ->
+                            { project = fixResult.project
+                            , ruleProjectVisitors = fixResult.rule :: (rest ++ accRules)
+                            , fixedErrors = fixResult.fixedErrors
                             }
 
                         FoundNoFixesStandard newRule ->
@@ -5387,10 +5387,10 @@ computeReadme reviewOptions project fixedErrors readmeData remainingRules accRul
                             visitor project readmeData
                     in
                     case standardFindFix reviewOptions project fixedErrors updatedRule.setErrorsForReadme errors of
-                        FoundFixStandard { newProject, newRule, newFixedErrors } ->
-                            { project = newProject
-                            , ruleProjectVisitors = newRule :: (rest ++ accRules)
-                            , fixedErrors = newFixedErrors
+                        FoundFixStandard fixResult ->
+                            { project = fixResult.project
+                            , ruleProjectVisitors = fixResult.rule :: (rest ++ accRules)
+                            , fixedErrors = fixResult.fixedErrors
                             }
 
                         FoundNoFixesStandard newRule ->
@@ -5436,10 +5436,10 @@ computeExtraFiles reviewOptions project fixedErrors extraFiles remainingRules ac
                             visitor project extraFiles
                     in
                     case standardFindFix reviewOptions project fixedErrors updatedRule.setErrorsForExtraFiles errors of
-                        FoundFixStandard { newProject, newRule, newFixedErrors } ->
-                            { project = newProject
-                            , ruleProjectVisitors = newRule :: (rest ++ accRules)
-                            , fixedErrors = newFixedErrors
+                        FoundFixStandard fixResult ->
+                            { project = fixResult.project
+                            , ruleProjectVisitors = fixResult.rule :: (rest ++ accRules)
+                            , fixedErrors = fixResult.fixedErrors
                             }
 
                         FoundNoFixesStandard newRule ->
@@ -5485,10 +5485,10 @@ computeDependencies reviewOptions project fixedErrors dependenciesData remaining
                             visitor project dependenciesData
                     in
                     case standardFindFix reviewOptions project fixedErrors updatedRule.setErrorsForDependencies errors of
-                        FoundFixStandard { newProject, newRule, newFixedErrors } ->
-                            { project = newProject
-                            , ruleProjectVisitors = newRule :: (rest ++ accRules)
-                            , fixedErrors = newFixedErrors
+                        FoundFixStandard fixResult ->
+                            { project = fixResult.project
+                            , ruleProjectVisitors = fixResult.rule :: (rest ++ accRules)
+                            , fixedErrors = fixResult.fixedErrors
                             }
 
                         FoundNoFixesStandard newRule ->
@@ -5533,10 +5533,10 @@ computeFinalProjectEvaluation reviewOptions project fixedErrors remainingRules a
                             visitor ()
                     in
                     case standardFindFix reviewOptions project fixedErrors updatedRule.setErrorsForFinalEvaluation errors of
-                        FoundFixStandard { newProject, newRule, newFixedErrors } ->
-                            { project = newProject
-                            , ruleProjectVisitors = newRule :: (rest ++ accRules)
-                            , fixedErrors = newFixedErrors
+                        FoundFixStandard fixResult ->
+                            { project = fixResult.project
+                            , ruleProjectVisitors = fixResult.rule :: (rest ++ accRules)
+                            , fixedErrors = fixResult.fixedErrors
                             }
 
                         FoundNoFixesStandard newRule ->
@@ -5729,10 +5729,10 @@ findFixInComputeModuleResults ({ reviewOptions, module_, project, fixedErrors } 
                     ruleProjectVisitor.getErrorsForModule modulePath
             in
             case findFix reviewOptions project (\newErrors -> ruleProjectVisitor.setErrorsForModule modulePath newErrors) errors fixedErrors of
-                FoundFix newRule ( newFixedErrors, newProject ) ->
-                    { project = newProject
-                    , ruleProjectVisitors = newRule :: (rest ++ rulesSoFar)
-                    , fixedErrors = newFixedErrors
+                FoundFix fixResult ->
+                    { project = fixResult.project
+                    , ruleProjectVisitors = fixResult.rule :: (rest ++ rulesSoFar)
+                    , fixedErrors = fixResult.fixedErrors
                     }
 
                 FoundNoFixes newRule ->
@@ -5862,7 +5862,7 @@ getFolderFromTraversal traversalAndFolder =
 
 type StandardFindFixResult
     = FoundNoFixesStandard RuleProjectVisitor
-    | FoundFixStandard { newProject : ValidProject, newRule : RuleProjectVisitor, newFixedErrors : FixedErrors }
+    | FoundFixStandard { rule : RuleProjectVisitor, project : ValidProject, fixedErrors : FixedErrors }
 
 
 standardFindFix : ReviewOptionsData -> ValidProject -> FixedErrors -> (List (Error {}) -> RuleProjectVisitor) -> List (Error {}) -> StandardFindFixResult
@@ -5871,13 +5871,13 @@ standardFindFix reviewOptions project fixedErrors updateErrors errors =
         FoundNoFixes newRule ->
             FoundNoFixesStandard newRule
 
-        FoundFix newRule ( newFixedErrors, newProject ) ->
-            FoundFixStandard { newProject = newProject, newRule = newRule, newFixedErrors = newFixedErrors }
+        FoundFix fixResult ->
+            FoundFixStandard fixResult
 
 
 type FindFixResult
     = FoundNoFixes RuleProjectVisitor
-    | FoundFix RuleProjectVisitor ( FixedErrors, ValidProject )
+    | FoundFix { rule : RuleProjectVisitor, project : ValidProject, fixedErrors : FixedErrors }
 
 
 findFix : ReviewOptionsData -> ValidProject -> (List (Error {}) -> RuleProjectVisitor) -> List (Error {}) -> FixedErrors -> FindFixResult
@@ -5897,7 +5897,7 @@ findFix reviewOptions project updateErrors errors fixedErrors =
                         newFixedErrors =
                             FixedErrors.insert fixResult.error fixedErrors
                     in
-                    FoundFix (updateErrors errorsWithFailedFixes) ( newFixedErrors, fixResult.project )
+                    FoundFix { rule = updateErrors errorsWithFailedFixes, project = fixResult.project, fixedErrors = newFixedErrors }
                         |> Logger.log
                             reviewOptions.logger
                             (fixedError newFixedErrors { ruleName = errorRuleName fixResult.error, filePath = errorFilePath fixResult.error })
