@@ -6262,7 +6262,7 @@ applySingleModuleFix project maybeModuleZipper ((Error headError) as err) target
                             ValidProject.addParsedModule { path = targetPath, source = fixResult.source, ast = fixResult.ast } maybeModuleZipper project
                                 |> Result.map
                                     (\( newProject, newModuleZipper ) ->
-                                        { project = ValidProject.updateWorkList (WorkList.touchedModule targetPath) newProject
+                                        { project = newProject
                                         , fixedFile = FixedElmModule fixResult newModuleZipper
                                         }
                                     )

@@ -472,7 +472,14 @@ addParsedModule { path, source, ast } maybeModuleZipper (ValidProject project) =
                                     -- Should not happen :/
                                     |> Maybe.withDefault moduleZipper_
                 in
-                Ok ( ValidProject { project | modulesByPath = modulesByPath }, newModuleZipper )
+                Ok
+                    ( ValidProject
+                        { project
+                            | modulesByPath = modulesByPath
+                            , workList = WorkList.touchedModule path project.workList
+                        }
+                    , newModuleZipper
+                    )
 
             else
                 let
@@ -537,6 +544,7 @@ addParsedModule { path, source, ast } maybeModuleZipper (ValidProject project) =
                                     | moduleGraph = graph
                                     , sortedModules = sortedModules
                                     , modulesByPath = modulesByPath
+                                    , workList = WorkList.touchedModule path project.workList
                                 }
                             , newModuleZipper
                             )
