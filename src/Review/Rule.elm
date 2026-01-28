@@ -5312,14 +5312,6 @@ type StepToComputeContext
     | AfterProjectFilesStep
 
 
-type NextStep
-    = ModuleVisitStep (Maybe (Zipper FilePath))
-    | BackToElmJson
-    | BackToReadme
-    | BackToExtraFiles
-    | NextStepAbort
-
-
 computeElmJson :
     ReviewOptionsData
     -> ValidProject
@@ -5627,12 +5619,7 @@ computeModule params =
                     , ruleProjectVisitors = newRules
                 }
     in
-    case findFixInComputeModuleResults paramsAfterVisit paramsAfterVisit.ruleProjectVisitors [] of
-        ContinueWithNextStep nextStepResult ->
-            nextStepResult
-
-        ReComputeModule newParams ->
-            computeModule newParams
+    findFixInComputeModuleResults paramsAfterVisit paramsAfterVisit.ruleProjectVisitors []
 
 
 computeWhatsRequiredToAnalyze : ValidProject -> OpaqueProjectModule -> List RuleProjectVisitor -> ( List (AvailableData -> RuleModuleVisitor), RequestedData, List RuleProjectVisitor )
@@ -5717,24 +5704,18 @@ computeModuleNameLookupTable requestedData project module_ =
         ( ModuleNameLookupTableInternal.empty moduleName, project )
 
 
-type ComputeModuleFindFixResult projectContext moduleContext
-    = ContinueWithNextStep { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
-    | ReComputeModule DataToComputeSingleModule
-
-
 findFixInComputeModuleResults :
     DataToComputeSingleModule
     -> List RuleProjectVisitor
     -> List RuleProjectVisitor
-    -> ComputeModuleFindFixResult projectContext moduleContext
+    -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
 findFixInComputeModuleResults ({ reviewOptions, module_, project, moduleZipper, fixedErrors } as params) remainingRules rulesSoFar =
     case remainingRules of
         [] ->
-            ContinueWithNextStep
-                { project = project
-                , ruleProjectVisitors = rulesSoFar
-                , fixedErrors = fixedErrors
-                }
+            { project = project
+            , ruleProjectVisitors = rulesSoFar
+            , fixedErrors = fixedErrors
+            }
 
         (RuleProjectVisitor ruleProjectVisitor) :: rest ->
             let
@@ -5748,11 +5729,10 @@ findFixInComputeModuleResults ({ reviewOptions, module_, project, moduleZipper, 
             in
             case findFix reviewOptions project (\newErrors -> ruleProjectVisitor.setErrorsForModule modulePath newErrors) errors fixedErrors (Just moduleZipper) of
                 FoundFix newRule ( newFixedErrors, fixResult ) ->
-                    ContinueWithNextStep
-                        { project = fixResult.project
-                        , ruleProjectVisitors = newRule :: (rest ++ rulesSoFar)
-                        , fixedErrors = newFixedErrors
-                        }
+                    { project = fixResult.project
+                    , ruleProjectVisitors = newRule :: (rest ++ rulesSoFar)
+                    , fixedErrors = newFixedErrors
+                    }
 
                 FoundNoFixes newRule ->
                     findFixInComputeModuleResults
