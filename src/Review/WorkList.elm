@@ -3,6 +3,7 @@ module Review.WorkList exposing
     , WorkList
     , computedFinalEvaluationDependencies
     , fromSortedModules
+    , nextStep
     , recomputeModules
     , touchedElmJson
     , touchedExtraFiles
@@ -19,7 +20,7 @@ import Review.FilePath exposing (FilePath)
 import Set exposing (Set)
 import Vendor.Graph as Graph exposing (Graph)
 import Vendor.IntSet as IntSet
-import Vendor.Zipper exposing (Zipper)
+import Vendor.Zipper as Zipper exposing (Zipper)
 
 
 type alias WorkList =
@@ -43,6 +44,43 @@ fromSortedModules sortedModules =
     , modules = sortedModules
     , finalEvaluation = True
     }
+
+
+nextStep : WorkList -> Step
+nextStep workList =
+    if workList.elmJson then
+        ElmJson
+
+    else if workList.readme then
+        Readme
+
+    else if workList.extraFiles then
+        ExtraFiles
+
+    else if workList.dependencies then
+        Dependencies
+
+    else
+        case workList.modules of
+            module_ :: _ ->
+                Modules (Zipper.fromList [ module_ ])
+
+            [] ->
+                if workList.finalEvaluation then
+                    FinalProjectEvaluation
+
+                else
+                    EndAnalysis
+
+
+type Step
+    = ElmJson
+    | Readme
+    | ExtraFiles
+    | Dependencies
+    | Modules (Maybe (Zipper FilePath))
+    | FinalProjectEvaluation
+    | EndAnalysis
 
 
 recomputeModules : Graph FilePath -> List (Graph.NodeContext FilePath) -> WorkList -> WorkList
