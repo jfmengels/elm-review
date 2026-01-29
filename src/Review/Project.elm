@@ -151,14 +151,12 @@ addModule : { path : String, source : String } -> Project -> Project
 addModule { path, source } project =
     case FileParser.parse source of
         Ok ast ->
-            project
-                |> addModuleToProject
-                    { path = path
-                    , source = source
-                    , ast = ast
-                    }
-                |> removeFileFromFilesThatFailedToParse path
-                |> forceModuleGraphRecomputation
+            addParsedModule
+                { path = path
+                , source = source
+                , ast = ast
+                }
+                project
 
         Err _ ->
             project
