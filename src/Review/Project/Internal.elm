@@ -90,6 +90,7 @@ addModuleToGraph :
     -> Graph FilePath
     ->
         { moduleGraph : Graph FilePath
+        , moduleIds : ModuleIds
         , needToRecomputeSortedModules : Bool
         }
 addModuleToGraph module_ maybeExistingModule dependencyModules moduleIds baseModuleGraph =
@@ -115,6 +116,7 @@ addModuleToGraph module_ maybeExistingModule dependencyModules moduleIds baseMod
             if Set.isEmpty addedImports && Set.isEmpty removedImports then
                 -- Imports haven't changed, we don't need to recompute the graph
                 { moduleGraph = baseModuleGraph
+                , moduleIds = moduleIds
                 , needToRecomputeSortedModules = False
                 }
 
@@ -124,32 +126,40 @@ addModuleToGraph module_ maybeExistingModule dependencyModules moduleIds baseMod
                     moduleId =
                         ProjectModule.moduleId existingModule
 
-                    moduleGraph : Graph FilePath
-                    moduleGraph =
+                    graphAfterRemovingImports : Graph FilePath
+                    graphAfterRemovingImports =
                         Set.foldl
                             (\moduleName subGraph ->
                                 case ModuleIds.get moduleName moduleIds of
                                     Just importedModuleId ->
-                                        Graph.addEdge (Graph.Edge importedModuleId moduleId) subGraph
+                                        Graph.removeEdge (Graph.Edge importedModuleId moduleId) subGraph
 
                                     Nothing ->
                                         subGraph
                             )
-                            (Set.foldl
-                                (\moduleName subGraph ->
-                                    case ModuleIds.get moduleName moduleIds of
-                                        Just importedModuleId ->
-                                            Graph.removeEdge (Graph.Edge importedModuleId moduleId) subGraph
+                            baseModuleGraph
+                            removedImports
 
-                                        Nothing ->
-                                            subGraph
-                                )
-                                baseModuleGraph
-                                removedImports
+                    ( moduleGraph, newModuleIds ) =
+                        Set.foldl
+                            (\moduleName ( subGraph, ids ) ->
+                                if Set.member moduleName dependencyModules then
+                                    ( subGraph, ids )
+
+                                else
+                                    let
+                                        ( importedModuleId, newIds ) =
+                                            ModuleIds.addAndGet moduleName ids
+                                    in
+                                    ( Graph.addEdge (Graph.Edge importedModuleId moduleId) subGraph
+                                    , newIds
+                                    )
                             )
+                            ( graphAfterRemovingImports, moduleIds )
                             addedImports
                 in
                 { moduleGraph = moduleGraph
+                , moduleIds = newModuleIds
                 , needToRecomputeSortedModules = True
                 }
 
@@ -159,30 +169,31 @@ addModuleToGraph module_ maybeExistingModule dependencyModules moduleIds baseMod
                 moduleId =
                     ProjectModule.moduleId module_
 
-                moduleGraph : Graph FilePath
-                moduleGraph =
+                ( moduleGraph, newModuleIds ) =
                     List.foldl
-                        (\(Node _ import_) subGraph ->
+                        (\(Node _ import_) ( subGraph, ids ) ->
                             let
                                 moduleName : ModuleName
                                 moduleName =
                                     Node.value import_.moduleName
                             in
                             if Set.member moduleName dependencyModules then
-                                case ModuleIds.get moduleName moduleIds of
-                                    Just importedModuleId ->
-                                        Graph.addEdge (Graph.Edge importedModuleId moduleId) subGraph
-
-                                    Nothing ->
-                                        subGraph
+                                ( subGraph, ids )
 
                             else
-                                subGraph
+                                let
+                                    ( importedModuleId, newIds ) =
+                                        ModuleIds.addAndGet moduleName ids
+                                in
+                                ( Graph.addEdge (Graph.Edge importedModuleId moduleId) subGraph
+                                , newIds
+                                )
                         )
-                        baseModuleGraph
+                        ( Graph.addNode (Graph.Node moduleId (ProjectModule.path module_)) baseModuleGraph, moduleIds )
                         (ProjectModule.ast module_).imports
             in
             { moduleGraph = moduleGraph
+            , moduleIds = newModuleIds
             , needToRecomputeSortedModules = True
             }
 

@@ -87,7 +87,7 @@ import Review.FileParser as FileParser
 import Review.FilePath exposing (FilePath)
 import Review.Project.Dependency as Dependency exposing (Dependency)
 import Review.Project.Internal as Internal exposing (Project, ProjectInternals)
-import Review.Project.ModuleIds as ModuleIds
+import Review.Project.ModuleIds as ModuleIds exposing (ModuleIds)
 import Review.Project.ProjectCache as ProjectCache
 import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModule)
 import Review.WorkList as WorkList
@@ -194,7 +194,7 @@ addParsedModule { path, source, ast } (Internal.Project project) =
                 , moduleId = moduleId
                 }
 
-        result : { moduleGraph : Graph FilePath, needToRecomputeSortedModules : Bool }
+        result : { moduleGraph : Graph FilePath, moduleIds : ModuleIds, needToRecomputeSortedModules : Bool }
         result =
             Internal.addModuleToGraph
                 module_
@@ -203,13 +203,13 @@ addParsedModule { path, source, ast } (Internal.Project project) =
                 -- TODO (And filter out their modules if they arrive after Elm files)
                 -- project.dependencyModules
                 Set.empty
-                project.moduleIds
+                moduleIds
                 project.moduleGraph
     in
     Internal.Project
         { project
             | moduleGraph = result.moduleGraph
-            , moduleIds = moduleIds
+            , moduleIds = result.moduleIds
             , modulesByPath = Dict.insert osAgnosticPath module_ project.modulesByPath
             , modulesThatFailedToParse = Dict.remove osAgnosticPath project.modulesThatFailedToParse
             , sortedModules =

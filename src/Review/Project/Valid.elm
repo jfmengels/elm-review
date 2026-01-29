@@ -242,7 +242,7 @@ buildModuleGraph mods baseModuleIds =
 
                         newNodes : IntDict (Graph.NodeContext FilePath)
                         newNodes =
-                            Graph.addNode (Graph.Node moduleId (ProjectModule.path module_)) acc.nodes
+                            Graph.addNodeOld (Graph.Node moduleId (ProjectModule.path module_)) acc.nodes
 
                         result : { edges : List Graph.Edge, moduleIds : ModuleIds }
                         result =
@@ -409,7 +409,7 @@ addParsedModule { path, source, ast } (ValidProject project) =
                 modulesByPath =
                     Dict.insert path module_ project.modulesByPath
 
-                result : { moduleGraph : Graph FilePath, needToRecomputeSortedModules : Bool }
+                result : { moduleGraph : Graph FilePath, moduleIds : ModuleIds, needToRecomputeSortedModules : Bool }
                 result =
                     Internal.addModuleToGraph
                         module_
@@ -423,6 +423,7 @@ addParsedModule { path, source, ast } (ValidProject project) =
                     { project
                         | moduleGraph = result.moduleGraph
                         , needToRecomputeSortedModules = result.needToRecomputeSortedModules || project.needToRecomputeSortedModules
+                        , moduleIds = result.moduleIds
                         , modulesByPath = modulesByPath
                         , workList = WorkList.touchedModule path project.workList
                     }

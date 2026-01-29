@@ -6,7 +6,7 @@ module Vendor.Graph exposing
     , checkAcyclic
     , NeighborSelector, alongIncomingEdges
     , BfsNodeVisitor, guidedBfs
-    , addEdge, empty, removeEdge, removeNode
+    , addEdge, addNodeOld, empty, removeEdge, removeNode
     )
 
 {-| This module contains the primitives to build, update and traverse graphs.
@@ -254,9 +254,15 @@ removeEdge edge (Graph rep) =
         |> Graph
 
 
-addNode : Node n -> IntDict (NodeContext n) -> IntDict (NodeContext n)
-addNode n intDict =
-    IntDict.insert n.id (NodeContext n IntSet.empty IntSet.empty) intDict
+addNode : Node n -> Graph n -> Graph n
+addNode n (Graph rep) =
+    IntDict.insert n.id (NodeContext n IntSet.empty IntSet.empty) rep
+        |> Graph
+
+
+addNodeOld : { id : NodeId, label : n } -> IntDict (NodeContext n) -> IntDict (NodeContext n)
+addNodeOld n rep =
+    IntDict.insert n.id (NodeContext n IntSet.empty IntSet.empty) rep
 
 
 checkOrdering : Graph n -> List Int -> List (NodeContext n) -> IntSet -> Result Edge (List (NodeContext n))
