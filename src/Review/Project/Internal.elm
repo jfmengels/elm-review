@@ -33,7 +33,7 @@ type Project
 
 type alias ProjectInternals =
     { modules : Dict String OpaqueProjectModule
-    , modulesThatFailedToParse : List { path : String, source : String }
+    , modulesThatFailedToParse : Dict {- path -} String {- content -} String
     , moduleIds : ModuleIds
     , elmJson : Maybe ( { path : String, raw : String, project : Elm.Project.Project }, ContentHash )
     , readme : Maybe ( { path : String, content : String }, ContentHash )
