@@ -216,9 +216,9 @@ addModuleToProject { path, source, ast } (Internal.Project project) =
             | moduleGraph = result.moduleGraph
             , moduleIds = moduleIds
             , modules = Dict.insert path module_ project.modules
+            , modulesThatFailedToParse = Dict.remove path project.modulesThatFailedToParse
             , needToRecomputeSortedModules = result.needToRecomputeSortedModules || project.needToRecomputeSortedModules
         }
-        |> removeFileFromFilesThatFailedToParse path
 
 
 {-| Remove a module from the project by its path.
@@ -232,15 +232,10 @@ removeModule path project =
 
 removeFileFromProject : String -> Project -> Project
 removeFileFromProject path (Internal.Project project) =
-    Internal.Project { project | modules = Dict.remove path project.modules }
-        |> removeFileFromFilesThatFailedToParse path
-
-
-removeFileFromFilesThatFailedToParse : String -> Project -> Project
-removeFileFromFilesThatFailedToParse path (Internal.Project project) =
     Internal.Project
         { project
-            | modulesThatFailedToParse = Dict.remove path project.modulesThatFailedToParse
+            | modules = Dict.remove path project.modules
+            , modulesThatFailedToParse = Dict.remove path project.modulesThatFailedToParse
         }
 
 
