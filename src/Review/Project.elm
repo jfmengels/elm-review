@@ -90,7 +90,8 @@ import Review.Project.Internal as Internal exposing (Project, ProjectInternals)
 import Review.Project.ModuleIds as ModuleIds
 import Review.Project.ProjectCache as ProjectCache
 import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModule)
-import Vendor.Graph as Graph
+import Set
+import Vendor.Graph as Graph exposing (Graph)
 
 
 
@@ -203,11 +204,25 @@ addModuleToProject { path, source, ast } (Internal.Project project) =
                 , isInSourceDirectories = List.any (\dir -> String.startsWith dir path) project.sourceDirectories
                 , moduleId = moduleId
                 }
+
+        result : { moduleGraph : Graph FilePath, needToRecomputeSortedModules : Bool }
+        result =
+            Internal.addModuleToGraph
+                module_
+                (Dict.get path project.modules)
+                -- TODO Compute dependencyModules
+                -- TODO (And filter out their modules if they arrive after Elm files)
+                -- project.dependencyModules
+                Set.empty
+                project.moduleIds
+                project.moduleGraph
     in
     Internal.Project
         { project
-            | moduleIds = moduleIds
+            | moduleGraph = result.moduleGraph
+            , moduleIds = moduleIds
             , modules = Dict.insert path module_ project.modules
+            , needToRecomputeSortedModules = result.needToRecomputeSortedModules || project.needToRecomputeSortedModules
         }
 
 
