@@ -23,6 +23,7 @@ import Review.Project.Dependency exposing (Dependency)
 import Review.Project.ModuleIds as ModuleIds exposing (ModuleId, ModuleIds)
 import Review.Project.ProjectCache exposing (ProjectCache)
 import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModule)
+import Review.WorkList exposing (WorkList)
 import Set exposing (Set)
 import Vendor.Graph as Graph exposing (Graph)
 
@@ -44,6 +45,7 @@ type alias ProjectInternals =
     , sourceDirectories : List String
     , cache : ProjectCache
     , needToRecomputeSortedModules : Bool
+    , workList : WorkList
     }
 
 

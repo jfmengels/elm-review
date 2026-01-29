@@ -2,6 +2,7 @@ module Review.WorkList exposing
     ( Step(..)
     , WorkList
     , computedFinalEvaluationDependencies
+    , empty
     , fromSortedModules
     , nextStep
     , recomputeModules
@@ -30,6 +31,18 @@ type alias WorkList =
     , touchedModules : Set FilePath
     , modules : List FilePath
     , finalEvaluation : Bool
+    }
+
+
+empty : WorkList
+empty =
+    { elmJson = True
+    , readme = True
+    , extraFiles = True
+    , dependencies = True
+    , touchedModules = Set.empty
+    , modules = []
+    , finalEvaluation = True
     }
 
 
