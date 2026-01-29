@@ -68,10 +68,7 @@ config =
     , NoUnused.Exports.rule
         |> Rule.ignoreErrorsForDirectories [ "tests/Fn" ]
     , NoUnused.Parameters.rule
-        |> Rule.ignoreErrorsForFiles
-            [ "src/Review/Rule.elm"
-            , "src/Vendor/Graph/Hack.elm"
-            ]
+        |> Rule.ignoreErrorsForFiles [ "src/Review/Rule.elm" ]
     , NoUnused.Patterns.rule
 
     --, NoUnnecessaryTrailingUnderscore.rule
