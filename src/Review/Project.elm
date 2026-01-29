@@ -167,19 +167,12 @@ addModule { path, source } ((Internal.Project p) as project) =
 {-| Add an already parsed module to the project. This module will then be analyzed by the rules.
 -}
 addParsedModule : { path : String, source : String, ast : Elm.Syntax.File.File } -> Project -> Project
-addParsedModule { path, source, ast } project =
-    project
-        |> addModuleToProject
-            { path = Path.makeOSAgnostic path
-            , source = source
-            , ast = ast
-            }
-        |> forceModuleGraphRecomputation
-
-
-addModuleToProject : { path : String, source : String, ast : Elm.Syntax.File.File } -> Project -> Project
-addModuleToProject { path, source, ast } (Internal.Project project) =
+addParsedModule { path, source, ast } (Internal.Project project) =
     let
+        osAgnosticPath : FilePath
+        osAgnosticPath =
+            Path.makeOSAgnostic path
+
         moduleName : ModuleName
         moduleName =
             ast.moduleDefinition
@@ -192,10 +185,10 @@ addModuleToProject { path, source, ast } (Internal.Project project) =
         module_ : OpaqueProjectModule
         module_ =
             ProjectModule.create
-                { path = path
+                { path = osAgnosticPath
                 , source = source
                 , ast = ast
-                , isInSourceDirectories = List.any (\dir -> String.startsWith dir path) project.sourceDirectories
+                , isInSourceDirectories = List.any (\dir -> String.startsWith dir osAgnosticPath) project.sourceDirectories
                 , moduleId = moduleId
                 }
 
@@ -203,7 +196,7 @@ addModuleToProject { path, source, ast } (Internal.Project project) =
         result =
             Internal.addModuleToGraph
                 module_
-                (Dict.get path project.modules)
+                (Dict.get osAgnosticPath project.modules)
                 -- TODO Compute dependencyModules
                 -- TODO (And filter out their modules if they arrive after Elm files)
                 -- project.dependencyModules
@@ -215,8 +208,8 @@ addModuleToProject { path, source, ast } (Internal.Project project) =
         { project
             | moduleGraph = result.moduleGraph
             , moduleIds = moduleIds
-            , modules = Dict.insert path module_ project.modules
-            , modulesThatFailedToParse = Dict.remove path project.modulesThatFailedToParse
+            , modules = Dict.insert osAgnosticPath module_ project.modules
+            , modulesThatFailedToParse = Dict.remove osAgnosticPath project.modulesThatFailedToParse
             , needToRecomputeSortedModules = result.needToRecomputeSortedModules || project.needToRecomputeSortedModules
         }
 
