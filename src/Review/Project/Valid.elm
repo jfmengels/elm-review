@@ -113,6 +113,7 @@ parse ((Project p) as project) =
             Nothing ->
                 let
                     ( graph, moduleIds ) =
+                        -- TODO Only rebuild if necessary
                         buildModuleGraph p.modules p.moduleIds
                 in
                 case Graph.checkAcyclic graph of
