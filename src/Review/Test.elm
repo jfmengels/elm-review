@@ -418,29 +418,26 @@ runOnModulesWithProjectData project rule sources =
 runOnModulesWithProjectDataHelp : Project -> Rule -> List String -> ReviewResult
 runOnModulesWithProjectDataHelp project rule sources =
     let
-        ( projectWithModules, modulesThatFailedToParse ) =
+        projectWithModules : Project
+        projectWithModules =
             List.foldl
-                (\source ( accProject, accModulesThatFailedToParse ) ->
+                (\source accProject ->
                     case FileParser.parse source of
                         Ok ast ->
-                            ( Project.addParsedModule
+                            Project.addParsedModule
                                 { path = "src/" ++ String.join "/" (Module.moduleName (Node.value ast.moduleDefinition)) ++ ".elm"
                                 , source = source
                                 , ast = ast
                                 }
                                 accProject
-                            , accModulesThatFailedToParse
-                            )
 
                         Err _ ->
-                            ( accProject
-                            , { source = source, path = "test/DummyFilePath.elm" } :: accModulesThatFailedToParse
-                            )
+                            Project.addModule { source = source, path = "test/DummyFilePath.elm" } accProject
                 )
-                ( project, [] )
+                project
                 sources
     in
-    case modulesThatFailedToParse ++ Project.modulesThatFailedToParse projectWithModules of
+    case Project.modulesThatFailedToParse projectWithModules of
         { source } :: _ ->
             let
                 fileAndIndex : { source : String, index : Int }
