@@ -89,7 +89,7 @@ toRegularProject (ValidProject validProject) =
         , moduleGraph = validProject.moduleGraph
         , sourceDirectories = validProject.sourceDirectories
         , cache = validProject.projectCache
-        , needToRecomputeSortedModules = validProject.needToRecomputeSortedModules
+        , sortedModules = Just validProject.sortedModules
         , workList = validProject.workList
         }
 
