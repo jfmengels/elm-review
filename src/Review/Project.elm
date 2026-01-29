@@ -267,8 +267,8 @@ modulesThatFailedToParse (Internal.Project project) =
 
 -}
 precomputeModuleGraph : Project -> Project
-precomputeModuleGraph project =
-    project
+precomputeModuleGraph =
+    identity
 
 
 
