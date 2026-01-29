@@ -15,17 +15,17 @@ all =
                 let
                     graph : Graph String
                     graph =
-                        Graph.fromNodesAndEdges
-                            (IntDict.empty
-                                |> Graph.addNode (Graph.Node 0 "A")
-                                |> Graph.addNode (Graph.Node 2 "C")
-                                |> Graph.addNode (Graph.Node 1 "B")
-                            )
+                        Graph.empty
+                            |> Graph.addNode (Graph.Node 0 "A")
+                            |> Graph.addNode (Graph.Node 2 "C")
+                            |> Graph.addNode (Graph.Node 1 "B")
                             -- edges are in the opposite direction
-                            [ { from = 0, to = 2 } -- C imports A
-                            , { from = 1, to = 2 } -- C imports B
-                            , { from = 0, to = 1 } -- B imports A
-                            ]
+                            -- C imports A
+                            |> Graph.addEdge { from = 0, to = 2 }
+                            -- C imports B
+                            |> Graph.addEdge { from = 1, to = 2 }
+                            -- B imports A
+                            |> Graph.addEdge { from = 0, to = 1 }
                 in
                 case Graph.checkAcyclic graph of
                     Err err ->
@@ -79,17 +79,17 @@ all =
                 let
                     graph : Graph String
                     graph =
-                        Graph.fromNodesAndEdges
-                            (IntDict.empty
-                                |> Graph.addNode (Graph.Node 0 "A")
-                                |> Graph.addNode (Graph.Node 2 "C")
-                                |> Graph.addNode (Graph.Node 1 "B")
-                            )
+                        Graph.empty
+                            |> Graph.addNode (Graph.Node 0 "A")
+                            |> Graph.addNode (Graph.Node 2 "C")
+                            |> Graph.addNode (Graph.Node 1 "B")
                             -- edges are in the opposite direction
-                            [ { from = 0, to = 2 } -- C imports A
-                            , { from = 1, to = 2 } -- C imports B
-                            , { from = 0, to = 1 } -- B imports A
-                            ]
+                            -- C imports A
+                            |> Graph.addEdge { from = 0, to = 2 }
+                            -- C imports B
+                            |> Graph.addEdge { from = 1, to = 2 }
+                            -- B imports A
+                            |> Graph.addEdge { from = 0, to = 1 }
                 in
                 case Graph.checkAcyclic graph of
                     Err err ->
@@ -116,19 +116,20 @@ all =
                 let
                     graph : Graph String
                     graph =
-                        Graph.fromNodesAndEdges
-                            (IntDict.empty
-                                |> Graph.addNode (Graph.Node 0 "A")
-                                |> Graph.addNode (Graph.Node 3 "D")
-                                |> Graph.addNode (Graph.Node 2 "C")
-                                |> Graph.addNode (Graph.Node 1 "B")
-                            )
+                        Graph.empty
+                            |> Graph.addNode (Graph.Node 0 "A")
+                            |> Graph.addNode (Graph.Node 3 "D")
+                            |> Graph.addNode (Graph.Node 2 "C")
+                            |> Graph.addNode (Graph.Node 1 "B")
                             -- edges are in the opposite direction
-                            [ { from = 0, to = 2 } -- C imports A
-                            , { from = 1, to = 2 } -- C imports B
-                            , { from = 0, to = 1 } -- B imports A
-                            , { from = 2, to = 3 } -- D imports C
-                            ]
+                            -- C imports A
+                            |> Graph.addEdge { from = 0, to = 2 }
+                            -- C imports B
+                            |> Graph.addEdge { from = 1, to = 2 }
+                            -- B imports A
+                            |> Graph.addEdge { from = 0, to = 1 }
+                            -- D imports C
+                            |> Graph.addEdge { from = 2, to = 3 }
                 in
                 case Graph.checkAcyclic graph of
                     Err err ->

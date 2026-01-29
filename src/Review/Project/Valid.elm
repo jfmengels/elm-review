@@ -234,43 +234,6 @@ duplicateModuleNames visitedModules projectModules =
                         }
 
 
-buildModuleGraph : Dict a OpaqueProjectModule -> ModuleIds -> ( Graph FilePath, ModuleIds )
-buildModuleGraph mods baseModuleIds =
-    let
-        { nodes, edges, moduleIds } =
-            Dict.foldl
-                (\_ module_ acc ->
-                    let
-                        ( moduleId, moduleIdsWithCurrent ) =
-                            ModuleIds.addAndGet
-                                (ProjectModule.moduleName module_)
-                                acc.moduleIds
-
-                        newNodes : IntDict (Graph.NodeContext FilePath)
-                        newNodes =
-                            Graph.addNode (Graph.Node moduleId (ProjectModule.path module_)) acc.nodes
-
-                        result : { edges : List Graph.Edge, moduleIds : ModuleIds }
-                        result =
-                            addEdges
-                                module_
-                                moduleId
-                                moduleIdsWithCurrent
-                                acc.edges
-                    in
-                    { nodes = newNodes
-                    , edges = result.edges
-                    , moduleIds = result.moduleIds
-                    }
-                )
-                { nodes = IntDict.empty, edges = [], moduleIds = baseModuleIds }
-                mods
-    in
-    ( Graph.fromNodesAndEdges nodes edges
-    , moduleIds
-    )
-
-
 addEdges : OpaqueProjectModule -> Int -> ModuleIds -> List Graph.Edge -> { edges : List Graph.Edge, moduleIds : ModuleIds }
 addEdges module_ moduleId initialModuleIds initialEdges =
     List.foldl

@@ -2,7 +2,6 @@ module Vendor.Graph exposing
     ( NodeId, Node, Edge, Adjacency, NodeContext, Graph
     , addNode
     , get
-    , fromNodesAndEdges
     , checkAcyclic
     , NeighborSelector, alongIncomingEdges
     , BfsNodeVisitor, guidedBfs
@@ -203,11 +202,6 @@ empty =
     Graph IntDict.empty
 
 
-fromNodesAndEdges : IntDict (NodeContext n) -> List Edge -> Graph n
-fromNodesAndEdges nodes edges =
-    List.foldl addEdge (Graph nodes) edges
-
-
 addEdge : Edge -> Graph n -> Graph n
 addEdge edge (Graph rep) =
     let
@@ -254,9 +248,10 @@ removeEdge edge (Graph rep) =
         |> Graph
 
 
-addNode : Node n -> IntDict (NodeContext n) -> IntDict (NodeContext n)
-addNode n intDict =
-    IntDict.insert n.id (NodeContext n IntSet.empty IntSet.empty) intDict
+addNode : Node n -> Graph n -> Graph n
+addNode n (Graph rep) =
+    IntDict.insert n.id (NodeContext n IntSet.empty IntSet.empty) rep
+        |> Graph
 
 
 checkOrdering : Graph n -> List Int -> List (NodeContext n) -> IntSet -> Result Edge (List (NodeContext n))

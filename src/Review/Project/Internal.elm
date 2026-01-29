@@ -179,7 +179,7 @@ addModuleToGraph module_ maybeExistingModule dependencyModules moduleIds baseMod
                             else
                                 subGraph
                         )
-                        baseModuleGraph
+                        (Graph.addNode (Graph.Node moduleId (ProjectModule.path module_)) baseModuleGraph)
                         (ProjectModule.ast module_).imports
             in
             { moduleGraph = moduleGraph
