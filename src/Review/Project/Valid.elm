@@ -79,7 +79,7 @@ toRegularProject : ValidProject -> Project
 toRegularProject (ValidProject validProject) =
     Project
         { modules = validProject.modulesByPath
-        , modulesThatFailedToParse = []
+        , modulesThatFailedToParse = Dict.empty
         , moduleIds = validProject.moduleIds
         , elmJson = validProject.elmJson
         , readme = validProject.readme
@@ -94,8 +94,8 @@ toRegularProject (ValidProject validProject) =
 
 parse : Project -> Result InvalidProjectError ValidProject
 parse ((Project p) as project) =
-    if not (List.isEmpty p.modulesThatFailedToParse) then
-        Err (InvalidProjectError.SomeModulesFailedToParse (List.map .path p.modulesThatFailedToParse))
+    if not (Dict.isEmpty p.modulesThatFailedToParse) then
+        Err (InvalidProjectError.SomeModulesFailedToParse (Dict.keys p.modulesThatFailedToParse))
 
     else if Dict.isEmpty p.modules then
         Err InvalidProjectError.NoModulesError

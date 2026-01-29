@@ -115,7 +115,7 @@ new : Project
 new =
     Internal.Project
         { modules = Dict.empty
-        , modulesThatFailedToParse = []
+        , modulesThatFailedToParse = Dict.empty
         , moduleIds = ModuleIds.empty
         , elmJson = Nothing
         , readme = Nothing
@@ -221,7 +221,7 @@ addFileThatFailedToParse : { path : String, source : String } -> Project -> Proj
 addFileThatFailedToParse { path, source } (Internal.Project project) =
     Internal.Project
         { project
-            | modulesThatFailedToParse = { path = path, source = source } :: project.modulesThatFailedToParse
+            | modulesThatFailedToParse = Dict.insert path source project.modulesThatFailedToParse
         }
 
 
@@ -244,7 +244,7 @@ removeFileFromFilesThatFailedToParse : String -> Project -> Project
 removeFileFromFilesThatFailedToParse path (Internal.Project project) =
     Internal.Project
         { project
-            | modulesThatFailedToParse = List.filter (\file -> file.path /= path) project.modulesThatFailedToParse
+            | modulesThatFailedToParse = Dict.remove path project.modulesThatFailedToParse
         }
 
 
@@ -262,7 +262,8 @@ modules (Internal.Project project) =
 -}
 modulesThatFailedToParse : Project -> List { path : String, source : String }
 modulesThatFailedToParse (Internal.Project project) =
-    project.modulesThatFailedToParse
+    Dict.toList project.modulesThatFailedToParse
+        |> List.map (\( path, source ) -> { path = path, source = source })
 
 
 {-| Precomputes the module graph.
