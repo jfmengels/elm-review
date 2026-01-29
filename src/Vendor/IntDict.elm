@@ -1,7 +1,7 @@
 module Vendor.IntDict exposing
     ( IntDict
     , empty, insert, remove, mapKey
-    , member, get
+    , get
     , keys
     )
 
@@ -48,7 +48,7 @@ Dictionary equality with `(==)` is unreliable and should not be used.
 
 # Query
 
-@docs member, get
+@docs get
 
 
 # Combine
@@ -377,18 +377,6 @@ remove key dict =
 
 
 -- QUERY
-
-
-{-| Determine if a key is in a dictionary.
--}
-member : Int -> IntDict v -> Bool
-member key dict =
-    case get key dict of
-        Just _ ->
-            True
-
-        Nothing ->
-            False
 
 
 {-| Get the value associated with a key. If the key is not found, return

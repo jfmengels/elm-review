@@ -1,16 +1,15 @@
 module Review.Project.ProjectModule exposing
     ( OpaqueProjectModule, create
-    , path, source, ast, contentHash, moduleName, isInSourceDirectories
+    , path, source, ast, contentHash, moduleName, isInSourceDirectories, moduleId
     , setIsInSourceDirectories
     , ProjectModule, toRecord
-    , moduleId
     )
 
 {-| Represents a parsed file.
 
 @docs OpaqueProjectModule, create
 
-@docs path, source, ast, contentHash, moduleName, isInSourceDirectories
+@docs path, source, ast, contentHash, moduleName, isInSourceDirectories, moduleId
 @docs setIsInSourceDirectories
 
 @docs ProjectModule, toRecord

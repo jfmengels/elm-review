@@ -378,7 +378,7 @@ import Review.Project.Valid as ValidProject exposing (ValidProject)
 import Review.RequestedData as RequestedData exposing (RequestedData(..))
 import Review.WorkList as WorkList
 import Unicode
-import Vendor.Graph as Graph exposing (Graph)
+import Vendor.Graph as Graph
 import Vendor.IntSet as IntSet
 
 

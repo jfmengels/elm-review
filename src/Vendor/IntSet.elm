@@ -1,11 +1,11 @@
 module Vendor.IntSet exposing
     ( IntSet
     , empty, insert
+    , remove
     , member
     , getSharedKey
     , keys
     , foldl
-    , remove
     )
 
 {-|
@@ -47,6 +47,7 @@ Dictionary equality with `(==)` is unreliable and should not be used.
 # Build
 
 @docs empty, insert
+@docs remove
 
 
 # Query
@@ -67,9 +68,6 @@ Dictionary equality with `(==)` is unreliable and should not be used.
 # Transform
 
 @docs foldl
-
-
-# String representation
 
 -}
 

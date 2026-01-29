@@ -1,12 +1,11 @@
 module Vendor.Graph exposing
     ( NodeId, Node, Edge, Adjacency, NodeContext, Graph
-    , addNode
+    , empty, addNode, removeNode
+    , addEdge, removeEdge
     , get
-    , fromNodesAndEdges
     , checkAcyclic
     , NeighborSelector, alongIncomingEdges
     , BfsNodeVisitor, guidedBfs
-    , addEdge, empty, removeEdge, removeNode
     )
 
 {-| This module contains the primitives to build, update and traverse graphs.
@@ -25,7 +24,8 @@ representation.
 
 # Building
 
-@docs addNode
+@docs empty, addNode, removeNode
+@docs addEdge, removeEdge
 
 
 # Query
@@ -33,20 +33,9 @@ representation.
 @docs get
 
 
-# List representations
-
-@docs fromNodesAndEdges
-
-
-# Transforms
-
-
-# Characterization
-
-@docs AcyclicGraph, checkAcyclic
-
-
 # Traversals
+
+@docs checkAcyclic
 
 
 ## Neighbor selectors and node visitors
@@ -54,17 +43,9 @@ representation.
 @docs NeighborSelector, alongIncomingEdges
 
 
-## Depth-first
-
-
 ## Breadth-first
 
 @docs BfsNodeVisitor, guidedBfs
-
-
-# Topological Sort
-
-@docs topologicalSort
 
 -}
 
@@ -201,11 +182,6 @@ allNodeIds (Graph rep) =
 empty : Graph n
 empty =
     Graph IntDict.empty
-
-
-fromNodesAndEdges : IntDict (NodeContext n) -> List Edge -> Graph n
-fromNodesAndEdges nodes edges =
-    List.foldl addEdge (Graph nodes) edges
 
 
 addEdge : Edge -> Graph n -> Graph n

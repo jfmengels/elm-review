@@ -4,7 +4,6 @@ import Expect
 import Review.WorkList as WorkList exposing (WorkList)
 import Test exposing (Test, describe, test)
 import Vendor.Graph as Graph exposing (Graph)
-import Vendor.IntDict as IntDict
 
 
 all : Test
