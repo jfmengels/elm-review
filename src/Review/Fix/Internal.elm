@@ -150,7 +150,7 @@ applyEdits filePath edits sourceCode =
 
 {-| Apply the changes on the source code.
 -}
-editModule : List Edit -> OpaqueProjectModule -> Result FixProblem { source : String, ast : File, moduleId : ModuleId }
+editModule : List Edit -> OpaqueProjectModule -> Result FixProblem { source : String, ast : File }
 editModule edits module_ =
     let
         filePath : FilePath
@@ -164,7 +164,6 @@ editModule edits module_ =
                     Ok
                         { source = fixedSourceCode
                         , ast = ast
-                        , moduleId = ProjectModule.moduleId module_
                         }
 
                 Err parsingErrors ->
