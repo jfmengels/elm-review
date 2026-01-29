@@ -150,7 +150,7 @@ fromProjectAndGraph moduleGraph_ sortedModules moduleIds (Project project) =
         , sortedModules = sortedModules
         , needToRecomputeSortedModules = False
         , moduleIds = moduleIds
-        , workList = WorkList.fromSortedModules (List.map (\m -> m.node.label) sortedModules)
+        , workList = WorkList.recomputeModules moduleGraph_ sortedModules project.workList
         }
 
 
