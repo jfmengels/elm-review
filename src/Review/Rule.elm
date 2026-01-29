@@ -5755,15 +5755,10 @@ computeProjectContextHashes traversalAndFolder project cache incoming initial =
             ContextHash.toComparable initial
 
         TraverseImportedModulesFirst _ ->
-            let
-                graph : Graph FilePath
-                graph =
-                    ValidProject.moduleGraph project
-            in
             IntSet.foldl
                 (\key acc ->
                     case
-                        Graph.get key graph
+                        ValidProject.getGraphNode key project
                             |> Maybe.andThen (\graphModule -> Dict.get graphModule.node.label cache)
                     of
                         Just importedModuleCache ->
@@ -5790,15 +5785,10 @@ computeProjectContext traversalAndFolder project cache incoming initial =
             initial
 
         TraverseImportedModulesFirst { foldProjectContexts } ->
-            let
-                graph : Graph FilePath
-                graph =
-                    ValidProject.moduleGraph project
-            in
             IntSet.foldl
                 (\key accContext ->
                     case
-                        Graph.get key graph
+                        ValidProject.getGraphNode key project
                             |> Maybe.andThen (\graphModule -> Dict.get graphModule.node.label cache)
                     of
                         Just importedModuleCache ->
@@ -6778,17 +6768,15 @@ createModuleVisitorFromProjectVisitorHelp schema raise hidden traversalAndFolder
             moduleContentHash =
                 ProjectModule.contentHash module_
 
-            graph : Graph FilePath
-            graph =
-                ValidProject.moduleGraph project
-
             moduleId : ModuleId
             moduleId =
                 ProjectModule.moduleId module_
 
             incoming : Graph.Adjacency
             incoming =
-                Graph.get moduleId graph |> Maybe.map .incoming |> Maybe.withDefault IntSet.empty
+                ValidProject.getGraphNode moduleId project
+                    |> Maybe.map .incoming
+                    |> Maybe.withDefault IntSet.empty
 
             ( initialProjectContextHash, initialProjectContext ) =
                 findInitialInputContext hidden.cache AfterProjectFilesStep schema.initialProjectContext
