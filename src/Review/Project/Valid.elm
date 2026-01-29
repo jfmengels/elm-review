@@ -15,8 +15,8 @@ module Review.Project.Valid exposing
     , extraFiles
     , extraFilesHash
     , extraFilesWithoutKeys
+    , getGraphNode
     , getModuleByPath
-    , moduleGraph
     , parse
     , projectCache
     , readme
@@ -348,9 +348,9 @@ directDependencies (ValidProject project) =
     project.directDependencies
 
 
-moduleGraph : ValidProject -> Graph FilePath
-moduleGraph (ValidProject project) =
-    project.moduleGraph
+getGraphNode : ModuleId -> ValidProject -> Maybe (Graph.NodeContext FilePath)
+getGraphNode moduleId (ValidProject project) =
+    Graph.get moduleId project.moduleGraph
 
 
 getModuleByPath : String -> ValidProject -> Maybe OpaqueProjectModule
