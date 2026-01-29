@@ -90,6 +90,7 @@ import Review.Project.Internal as Internal exposing (Project, ProjectInternals)
 import Review.Project.ModuleIds as ModuleIds
 import Review.Project.ProjectCache as ProjectCache
 import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModule)
+import Review.WorkList as WorkList
 import Set
 import Vendor.Graph as Graph exposing (Graph)
 
@@ -127,6 +128,7 @@ new =
         , sourceDirectories = [ "src/" ]
         , cache = ProjectCache.empty
         , needToRecomputeSortedModules = False
+        , workList = WorkList.empty
         }
 
 
@@ -211,6 +213,7 @@ addParsedModule { path, source, ast } (Internal.Project project) =
             , modulesByPath = Dict.insert osAgnosticPath module_ project.modulesByPath
             , modulesThatFailedToParse = Dict.remove osAgnosticPath project.modulesThatFailedToParse
             , needToRecomputeSortedModules = result.needToRecomputeSortedModules || project.needToRecomputeSortedModules
+            , workList = WorkList.touchedModule path project.workList
         }
 
 
@@ -302,6 +305,7 @@ addElmJson elmJson_ (Internal.Project project) =
             | elmJson = Just ( elmJson_, ContentHash.hash elmJson_.raw )
             , sourceDirectories = sourceDirectories
             , modulesByPath = modules_
+            , workList = WorkList.touchedElmJson project.workList
         }
 
 
@@ -329,7 +333,11 @@ available for rules to access using
 -}
 addReadme : { path : String, content : String } -> Project -> Project
 addReadme readme_ (Internal.Project project) =
-    Internal.Project { project | readme = Just ( readme_, ContentHash.hash readme_.content ) }
+    Internal.Project
+        { project
+            | readme = Just ( readme_, ContentHash.hash readme_.content )
+            , workList = WorkList.touchedReadme project.workList
+        }
 
 
 {-| Get the contents of the `README.md` file, if available.
@@ -358,6 +366,7 @@ addExtraFiles newFiles (Internal.Project project) =
         { project
             | extraFiles = updatedExtraFiles
             , extraFilesContentHashes = extraFilesContentHashes
+            , workList = WorkList.touchedExtraFiles project.workList
         }
 
 
@@ -369,6 +378,7 @@ addExtraFile file (Internal.Project project) =
         { project
             | extraFiles = Dict.insert file.path file.source project.extraFiles
             , extraFilesContentHashes = Dict.insert file.path (ContentHash.hash file.source) project.extraFilesContentHashes
+            , workList = WorkList.touchedExtraFiles project.workList
         }
 
 
@@ -408,6 +418,7 @@ removeExtraFile filePath (Internal.Project project) =
         { project
             | extraFiles = Dict.remove filePath project.extraFiles
             , extraFilesContentHashes = Dict.remove filePath project.extraFilesContentHashes
+            , workList = WorkList.touchedExtraFiles project.workList
         }
 
 
@@ -453,6 +464,7 @@ addDependency dependency (Internal.Project project) =
                     (Dependency.name dependency)
                     dependency
                     project.dependencies
+            , workList = WorkList.touchedElmJson project.workList
         }
 
 
@@ -460,7 +472,11 @@ addDependency dependency (Internal.Project project) =
 -}
 removeDependency : String -> Project -> Project
 removeDependency dependencyName (Internal.Project project) =
-    Internal.Project { project | dependencies = Dict.remove dependencyName project.dependencies }
+    Internal.Project
+        { project
+            | dependencies = Dict.remove dependencyName project.dependencies
+            , workList = WorkList.touchedElmJson project.workList
+        }
 
 
 {-| Remove all dependencies of a project. Use this to flush the dependencies of
@@ -468,7 +484,11 @@ a project when they are changed, before re-adding them.
 -}
 removeDependencies : Project -> Project
 removeDependencies (Internal.Project project) =
-    Internal.Project { project | dependencies = Dict.empty }
+    Internal.Project
+        { project
+            | dependencies = Dict.empty
+            , workList = WorkList.touchedElmJson project.workList
+        }
 
 
 {-| Get the [dependencies](./Review-Project-Dependency#Dependency) of the project.
@@ -720,14 +740,3 @@ diffElmFiles2 { before, after } list =
         before.modulesByPath
         after.modulesByPath
         list
-
-
-
--- GRAPH CREATION
-
-
-forceModuleGraphRecomputation : Project -> Project
-forceModuleGraphRecomputation (Internal.Project project) =
-    -- TODO Remove
-    -- Internal.Project { project | moduleGraph = Nothing }
-    Internal.Project project

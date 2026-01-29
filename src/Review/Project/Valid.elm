@@ -90,6 +90,7 @@ toRegularProject (ValidProject validProject) =
         , sourceDirectories = validProject.sourceDirectories
         , cache = validProject.projectCache
         , needToRecomputeSortedModules = validProject.needToRecomputeSortedModules
+        , workList = validProject.workList
         }
 
 
