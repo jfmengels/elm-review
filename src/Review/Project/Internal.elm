@@ -3,7 +3,6 @@ module Review.Project.Internal exposing
     , ProjectInternals
     , addModuleToGraph
     , removeModuleFromGraph
-    , sourceDirectories
     , sourceDirectoriesForProject
     )
 
@@ -47,11 +46,6 @@ type alias ProjectInternals =
     , sortedModules : Maybe (List (Graph.NodeContext FilePath))
     , workList : WorkList
     }
-
-
-sourceDirectories : Project -> List String
-sourceDirectories (Project project) =
-    project.sourceDirectories
 
 
 sourceDirectoriesForProject : Elm.Project.Project -> List String
