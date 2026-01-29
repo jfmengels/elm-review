@@ -148,7 +148,7 @@ and for which a parsing error will be reported when running [`the review functio
 
 -}
 addModule : { path : String, source : String } -> Project -> Project
-addModule { path, source } project =
+addModule { path, source } ((Internal.Project p) as project) =
     case FileParser.parse source of
         Ok ast ->
             addParsedModule
@@ -159,13 +159,7 @@ addModule { path, source } project =
                 project
 
         Err _ ->
-            project
-                |> removeFileFromProject path
-                |> addFileThatFailedToParse
-                    { path = path
-                    , source = source
-                    }
-                |> forceModuleGraphRecomputation
+            Internal.Project { p | modulesThatFailedToParse = Dict.insert path source p.modulesThatFailedToParse }
 
 
 {-| Add an already parsed module to the project. This module will then be analyzed by the rules.
@@ -212,14 +206,6 @@ addModuleToProject { path, source, ast } (Internal.Project project) =
         { project
             | moduleIds = moduleIds
             , modules = Dict.insert (ProjectModule.path module_) module_ project.modules
-        }
-
-
-addFileThatFailedToParse : { path : String, source : String } -> Project -> Project
-addFileThatFailedToParse { path, source } (Internal.Project project) =
-    Internal.Project
-        { project
-            | modulesThatFailedToParse = Dict.insert path source project.modulesThatFailedToParse
         }
 
 
