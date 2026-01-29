@@ -455,7 +455,7 @@ checkGraph (ValidProject project) =
         Ok (ValidProject { project | workList = WorkList.recomputeModules project.moduleGraph project.sortedModules project.workList })
 
 
-{-| Add an already parsed module to the project. This module will then be analyzed by the rules.
+{-| Remove a module from the project.
 -}
 removeModule :
     FilePath
