@@ -217,19 +217,22 @@ addParsedModule { path, source, ast } (Internal.Project project) =
 {-| Remove a module from the project by its path.
 -}
 removeModule : String -> Project -> Project
-removeModule path project =
-    project
-        |> removeFileFromProject path
-        |> forceModuleGraphRecomputation
+removeModule path (Internal.Project project) =
+    case Dict.get path project.modules of
+        Just module_ ->
+            Internal.Project
+                { project
+                    | modules = Dict.remove path project.modules
+                    , moduleGraph = Internal.removeModuleFromGraph module_ project.moduleIds project.moduleGraph
+                    , modulesThatFailedToParse = Dict.remove path project.modulesThatFailedToParse
+                    , needToRecomputeSortedModules = True
+                }
 
-
-removeFileFromProject : String -> Project -> Project
-removeFileFromProject path (Internal.Project project) =
-    Internal.Project
-        { project
-            | modules = Dict.remove path project.modules
-            , modulesThatFailedToParse = Dict.remove path project.modulesThatFailedToParse
-        }
+        Nothing ->
+            Internal.Project
+                { project
+                    | modulesThatFailedToParse = Dict.remove path project.modulesThatFailedToParse
+                }
 
 
 {-| Get the list of modules in the project.
