@@ -86,6 +86,7 @@ updateGraph :
     -> Graph FilePath
     ->
         { moduleGraph : Graph FilePath
+        , needToRecomputeSortedModules : Bool
         , moduleIds : ModuleIds
         }
 updateGraph module_ maybeExistingModule dependencyModules baseModuleIds baseModuleGraph =
@@ -115,6 +116,7 @@ updateGraph module_ maybeExistingModule dependencyModules baseModuleIds baseModu
             if Set.isEmpty addedImports && Set.isEmpty removedImports then
                 -- Imports haven't changed, we don't need to recompute the graph
                 { moduleGraph = baseModuleGraph
+                , needToRecomputeSortedModules = False
                 , moduleIds = moduleIds
                 }
 
@@ -146,6 +148,7 @@ updateGraph module_ maybeExistingModule dependencyModules baseModuleIds baseModu
                             addedImports
                 in
                 { moduleGraph = moduleGraph
+                , needToRecomputeSortedModules = True
                 , moduleIds = moduleIds
                 }
 
@@ -175,6 +178,7 @@ updateGraph module_ maybeExistingModule dependencyModules baseModuleIds baseModu
                         (ProjectModule.ast module_).imports
             in
             { moduleGraph = moduleGraph
+            , needToRecomputeSortedModules = True
             , moduleIds = moduleIds
             }
 
