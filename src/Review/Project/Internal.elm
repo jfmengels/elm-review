@@ -1,9 +1,10 @@
 module Review.Project.Internal exposing
     ( Project(..)
     , ProjectInternals
+    , addModuleToGraph
+    , removeModuleFromGraph
     , sourceDirectories
     , sourceDirectoriesForProject
-    , updateGraph
     )
 
 {-| Holds all the information related to the project such as the contents of
@@ -78,7 +79,7 @@ endWithSlash dir =
         dir ++ "/"
 
 
-updateGraph :
+addModuleToGraph :
     OpaqueProjectModule
     -> Maybe OpaqueProjectModule
     -> Set ModuleName
@@ -89,7 +90,7 @@ updateGraph :
         , needToRecomputeSortedModules : Bool
         , moduleIds : ModuleIds
         }
-updateGraph module_ maybeExistingModule dependencyModules baseModuleIds baseModuleGraph =
+addModuleToGraph module_ maybeExistingModule dependencyModules baseModuleIds baseModuleGraph =
     case maybeExistingModule of
         Just existingModule ->
             let
@@ -184,6 +185,26 @@ updateGraph module_ maybeExistingModule dependencyModules baseModuleIds baseModu
             , needToRecomputeSortedModules = True
             , moduleIds = moduleIds
             }
+
+
+removeModuleFromGraph : OpaqueProjectModule -> ModuleIds -> Graph FilePath -> Graph FilePath
+removeModuleFromGraph module_ moduleIds baseModuleGraph =
+    let
+        moduleId : ModuleId
+        moduleId =
+            ProjectModule.moduleId module_
+    in
+    List.foldl
+        (\(Node _ { moduleName }) subGraph ->
+            case ModuleIds.get (Node.value moduleName) moduleIds of
+                Just importedModuleId ->
+                    Graph.removeEdge (Graph.Edge importedModuleId moduleId) subGraph
+
+                Nothing ->
+                    subGraph
+        )
+        (Graph.removeNode moduleId baseModuleGraph)
+        (ProjectModule.ast module_).imports
 
 
 importedModulesSet : Elm.Syntax.File.File -> Set ModuleName -> Set ModuleName

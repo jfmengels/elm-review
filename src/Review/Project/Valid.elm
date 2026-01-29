@@ -40,7 +40,7 @@ import Review.FilePath exposing (FilePath)
 import Review.Fix.FixProblem as FixProblem exposing (FixProblem)
 import Review.ImportCycle as ImportCycle
 import Review.Project.Dependency as Dependency exposing (Dependency)
-import Review.Project.Internal exposing (Project(..))
+import Review.Project.Internal as Internal exposing (Project(..))
 import Review.Project.InvalidProjectError as InvalidProjectError exposing (InvalidProjectError)
 import Review.Project.ModuleIds as ModuleIds exposing (ModuleId, ModuleIds)
 import Review.Project.ProjectCache exposing (ProjectCache)
@@ -407,67 +407,25 @@ addParsedModule { path, source, ast } (ValidProject project) =
                 modulesByPath =
                     Dict.insert path module_ project.modulesByPath
 
-                previousFileImports : Set ModuleName
-                previousFileImports =
-                    importedModulesSet (ProjectModule.ast existingModule) project.dependencyModules
-
-                newFileImports : Set ModuleName
-                newFileImports =
-                    importedModulesSet ast project.dependencyModules
-
-                addedImports : Set ModuleName
-                addedImports =
-                    Set.diff newFileImports previousFileImports
-
-                removedImports : Set ModuleName
-                removedImports =
-                    Set.diff previousFileImports newFileImports
+                result : { moduleGraph : Graph FilePath, needToRecomputeSortedModules : Bool, moduleIds : ModuleIds }
+                result =
+                    Internal.addModuleToGraph
+                        module_
+                        (Just existingModule)
+                        project.dependencyModules
+                        project.moduleIds
+                        project.moduleGraph
             in
-            if Set.isEmpty addedImports && Set.isEmpty removedImports then
-                Ok
-                    (ValidProject
-                        { project
-                            | modulesByPath = modulesByPath
-                            , workList = WorkList.touchedModule path project.workList
-                        }
-                    )
-
-            else
-                let
-                    graph : Graph FilePath
-                    graph =
-                        Set.foldl
-                            (\moduleName subGraph ->
-                                case ModuleIds.get moduleName project.moduleIds of
-                                    Just importedModuleId ->
-                                        Graph.addEdge (Graph.Edge importedModuleId moduleId) subGraph
-
-                                    Nothing ->
-                                        subGraph
-                            )
-                            (Set.foldl
-                                (\moduleName subGraph ->
-                                    case ModuleIds.get moduleName project.moduleIds of
-                                        Just importedModuleId ->
-                                            Graph.removeEdge (Graph.Edge importedModuleId moduleId) subGraph
-
-                                        Nothing ->
-                                            subGraph
-                                )
-                                project.moduleGraph
-                                removedImports
-                            )
-                            addedImports
-                in
-                Ok
-                    (ValidProject
-                        { project
-                            | moduleGraph = graph
-                            , needToRecomputeSortedModules = True
-                            , modulesByPath = modulesByPath
-                            , workList = WorkList.touchedModule path project.workList
-                        }
-                    )
+            Ok
+                (ValidProject
+                    { project
+                        | moduleGraph = result.moduleGraph
+                        , needToRecomputeSortedModules = result.needToRecomputeSortedModules || project.needToRecomputeSortedModules
+                        , moduleIds = result.moduleIds
+                        , modulesByPath = modulesByPath
+                        , workList = WorkList.touchedModule path project.workList
+                    }
+                )
 
         Nothing ->
             -- We don't support adding new files at the moment.
@@ -507,32 +465,14 @@ removeModule path (ValidProject project) =
     case Dict.get path project.modulesByPath of
         Just module_ ->
             let
-                moduleId : ModuleId
-                moduleId =
-                    ProjectModule.moduleId module_
-
                 modulesByPath : Dict FilePath OpaqueProjectModule
                 modulesByPath =
                     Dict.remove path project.modulesByPath
-
-                graph : Graph FilePath
-                graph =
-                    List.foldl
-                        (\(Node _ { moduleName }) subGraph ->
-                            case ModuleIds.get (Node.value moduleName) project.moduleIds of
-                                Just importedModuleId ->
-                                    Graph.removeEdge (Graph.Edge importedModuleId moduleId) subGraph
-
-                                Nothing ->
-                                    subGraph
-                        )
-                        (Graph.removeNode moduleId project.moduleGraph)
-                        (ProjectModule.ast module_).imports
             in
             ValidProject
                 { project
                     | modulesByPath = modulesByPath
-                    , moduleGraph = graph
+                    , moduleGraph = Internal.removeModuleFromGraph module_ project.moduleIds project.moduleGraph
                     , needToRecomputeSortedModules = True
                 }
                 |> Ok
@@ -541,25 +481,6 @@ removeModule path (ValidProject project) =
             -- File should always exist.
             FixProblem.RemovesUnknownFile path
                 |> Err
-
-
-importedModulesSet : Elm.Syntax.File.File -> Set ModuleName -> Set ModuleName
-importedModulesSet ast dependencyModules =
-    List.foldl
-        (\(Node _ { moduleName }) set ->
-            let
-                name : ModuleName
-                name =
-                    Node.value moduleName
-            in
-            if Set.member name dependencyModules then
-                set
-
-            else
-                Set.insert name set
-        )
-        Set.empty
-        ast.imports
 
 
 {-| Add the content of the `README.md` file to the project, making it
