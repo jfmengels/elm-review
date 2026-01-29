@@ -34,7 +34,6 @@ import Elm.Package
 import Elm.Project
 import Elm.Syntax.File
 import Elm.Syntax.ModuleName exposing (ModuleName)
-import Elm.Syntax.Node as Node exposing (Node(..))
 import Review.Cache.ContentHash as ContentHash exposing (ContentHash)
 import Review.FilePath exposing (FilePath)
 import Review.Fix.FixProblem as FixProblem exposing (FixProblem)
@@ -48,7 +47,6 @@ import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModu
 import Review.WorkList as WorkList exposing (WorkList)
 import Set exposing (Set)
 import Vendor.Graph as Graph exposing (Graph)
-import Vendor.IntDict as IntDict exposing (IntDict)
 
 
 type ValidProject
@@ -114,21 +112,27 @@ parse ((Project p) as project) =
 
             Nothing ->
                 let
-                    ( graph, moduleIds ) =
-                        buildModuleGraph p.modulesByPath p.moduleIds
+                    sortedModulesResult : Result Graph.Edge (List (Graph.NodeContext FilePath))
+                    sortedModulesResult =
+                        case p.sortedModules of
+                            Just sorted ->
+                                Ok sorted
+
+                            Nothing ->
+                                Graph.checkAcyclic p.moduleGraph
                 in
-                case Graph.checkAcyclic graph of
+                case sortedModulesResult of
                     Err edge ->
-                        ImportCycle.findCycle p.modulesByPath graph edge
+                        ImportCycle.findCycle p.modulesByPath p.moduleGraph edge
                             |> InvalidProjectError.ImportCycleError
                             |> Err
 
                     Ok sortedModules ->
-                        Ok (fromProjectAndGraph graph sortedModules moduleIds project)
+                        Ok (fromProjectAndGraph p.moduleGraph sortedModules project)
 
 
-fromProjectAndGraph : Graph FilePath -> List (Graph.NodeContext FilePath) -> ModuleIds -> Project -> ValidProject
-fromProjectAndGraph moduleGraph_ sortedModules moduleIds (Project project) =
+fromProjectAndGraph : Graph FilePath -> List (Graph.NodeContext FilePath) -> Project -> ValidProject
+fromProjectAndGraph moduleGraph_ sortedModules (Project project) =
     let
         directDependencies_ : Dict String Dependency
         directDependencies_ =
@@ -149,7 +153,7 @@ fromProjectAndGraph moduleGraph_ sortedModules moduleIds (Project project) =
         , moduleGraph = moduleGraph_
         , sortedModules = sortedModules
         , needToRecomputeSortedModules = False
-        , moduleIds = moduleIds
+        , moduleIds = project.moduleIds
         , workList = WorkList.recomputeModules moduleGraph_ sortedModules project.workList
         }
 
@@ -226,59 +230,6 @@ duplicateModuleNames visitedModules projectModules =
                                     []
                                     restOfModules
                         }
-
-
-buildModuleGraph : Dict a OpaqueProjectModule -> ModuleIds -> ( Graph FilePath, ModuleIds )
-buildModuleGraph mods baseModuleIds =
-    let
-        { nodes, edges, moduleIds } =
-            Dict.foldl
-                (\_ module_ acc ->
-                    let
-                        ( moduleId, moduleIdsWithCurrent ) =
-                            ModuleIds.addAndGet
-                                (ProjectModule.moduleName module_)
-                                acc.moduleIds
-
-                        newNodes : IntDict (Graph.NodeContext FilePath)
-                        newNodes =
-                            Graph.addNodeOld (Graph.Node moduleId (ProjectModule.path module_)) acc.nodes
-
-                        result : { edges : List Graph.Edge, moduleIds : ModuleIds }
-                        result =
-                            addEdges
-                                module_
-                                moduleId
-                                moduleIdsWithCurrent
-                                acc.edges
-                    in
-                    { nodes = newNodes
-                    , edges = result.edges
-                    , moduleIds = result.moduleIds
-                    }
-                )
-                { nodes = IntDict.empty, edges = [], moduleIds = baseModuleIds }
-                mods
-    in
-    ( Graph.fromNodesAndEdges nodes edges
-    , moduleIds
-    )
-
-
-addEdges : OpaqueProjectModule -> Int -> ModuleIds -> List Graph.Edge -> { edges : List Graph.Edge, moduleIds : ModuleIds }
-addEdges module_ moduleId initialModuleIds initialEdges =
-    List.foldl
-        (\(Node _ { moduleName }) acc ->
-            let
-                ( importedModuleId, moduleIds ) =
-                    ModuleIds.addAndGet (Node.value moduleName) acc.moduleIds
-            in
-            { edges = Graph.Edge importedModuleId moduleId :: acc.edges
-            , moduleIds = moduleIds
-            }
-        )
-        { edges = initialEdges, moduleIds = initialModuleIds }
-        (ProjectModule.ast module_).imports
 
 
 
