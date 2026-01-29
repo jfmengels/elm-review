@@ -121,20 +121,16 @@ parse ((Project p) as project) =
                             |> InvalidProjectError.ImportCycleError
                             |> Err
 
-                    Ok acyclicGraph ->
-                        Ok (fromProjectAndGraph graph acyclicGraph moduleIds project)
+                    Ok sortedModules ->
+                        Ok (fromProjectAndGraph graph sortedModules moduleIds project)
 
 
-fromProjectAndGraph : Graph FilePath -> Graph.AcyclicGraph FilePath -> ModuleIds -> Project -> ValidProject
-fromProjectAndGraph moduleGraph_ acyclicGraph moduleIds (Project project) =
+fromProjectAndGraph : Graph FilePath -> List (Graph.NodeContext FilePath) -> ModuleIds -> Project -> ValidProject
+fromProjectAndGraph moduleGraph_ sortedModules moduleIds (Project project) =
     let
         directDependencies_ : Dict String Dependency
         directDependencies_ =
             computeDirectDependencies project
-
-        sortedModules : List (Graph.NodeContext FilePath)
-        sortedModules =
-            Graph.topologicalSort acyclicGraph
     in
     ValidProject
         { modulesByPath = project.modules
@@ -482,7 +478,7 @@ addParsedModule { path, source, ast } (ValidProject project) =
 checkGraph : ValidProject -> Result FixProblem ValidProject
 checkGraph (ValidProject project) =
     if project.needToRecomputeSortedModules then
-        case Graph.checkAcyclic project.moduleGraph |> Result.map Graph.topologicalSort of
+        case Graph.checkAcyclic project.moduleGraph of
             Err edge ->
                 ImportCycle.findCycle project.modulesByPath project.moduleGraph edge
                     |> FixProblem.CreatesImportCycle

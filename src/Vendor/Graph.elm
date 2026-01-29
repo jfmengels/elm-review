@@ -3,10 +3,9 @@ module Vendor.Graph exposing
     , addNode
     , get
     , fromNodesAndEdges
-    , AcyclicGraph, checkAcyclic
+    , checkAcyclic
     , NeighborSelector, alongIncomingEdges
     , BfsNodeVisitor, guidedBfs
-    , topologicalSort
     , addEdge, empty, removeEdge, removeNode
     )
 
@@ -261,17 +260,6 @@ addNode n intDict =
     IntDict.insert n.id (NodeContext n IntSet.empty IntSet.empty) intDict
 
 
-{-| `AcyclicGraph` wraps a `Graph` and witnesses the fact that
-it is acyclic.
-
-This can be passed on to functions that only work on acyclic graphs,
-like `topologicalSort` and `heightLevels`.
-
--}
-type AcyclicGraph n
-    = AcyclicGraph (Graph n) (List NodeId)
-
-
 
 {- This is a **really** ugly hack since Elm 0.19 doesn't allow `Debug.crash` any more.
    Hopefully this will never get executed, but if it does, it will make your browser
@@ -292,43 +280,38 @@ unsafeGet msg id graph =
             ctx
 
 
-checkForBackEdges : Graph n -> List NodeId -> Result Edge (AcyclicGraph n)
-checkForBackEdges graph ordering =
-    checkOrdering graph ordering IntSet.empty
-        |> Result.map (\() -> AcyclicGraph graph ordering)
-
-
-checkOrdering : Graph n -> List Int -> IntSet -> Result Edge ()
-checkOrdering graph ordering set =
+checkOrdering : Graph n -> List Int -> List (NodeContext n) -> IntSet -> Result Edge (List (NodeContext n))
+checkOrdering graph ordering sortedNodes set =
     case ordering of
         [] ->
-            Ok ()
+            Ok (List.reverse sortedNodes)
 
         id :: rest ->
-            case check graph id set of
+            let
+                error : String
+                error =
+                    "Graph.checkForBackEdges: `ordering` didn't contain `id`"
+
+                node : NodeContext n
+                node =
+                    unsafeGet error id graph
+            in
+            case check node id set of
                 Ok newSet ->
-                    checkOrdering graph rest newSet
+                    checkOrdering graph rest (node :: sortedNodes) newSet
 
                 Err err ->
                     Err err
 
 
-check : Graph n -> Int -> IntSet -> Result Edge IntSet
-check graph id backSet =
+check : NodeContext n -> Int -> IntSet -> Result Edge IntSet
+check node id backSet =
     let
         backSetWithId : IntSet
         backSetWithId =
             IntSet.insert id backSet
-
-        error : String
-        error =
-            "Graph.checkForBackEdges: `ordering` didn't contain `id`"
-
-        ctx : NodeContext n
-        ctx =
-            unsafeGet error id graph
     in
-    case IntSet.getSharedKey ctx.outgoing backSetWithId of
+    case IntSet.getSharedKey node.outgoing backSetWithId of
         Nothing ->
             Ok backSetWithId
 
@@ -344,14 +327,14 @@ If there aren't any cycles, this will return `Ok acyclic`, where
 `acyclic` is an `AcyclicGraph` that witnesses this fact.
 
 -}
-checkAcyclic : Graph n -> Result Edge (AcyclicGraph n)
+checkAcyclic : Graph n -> Result Edge (List (NodeContext n))
 checkAcyclic graph =
     let
         reversePostOrder : List NodeId
         reversePostOrder =
             dfs [] graph
     in
-    checkForBackEdges graph reversePostOrder
+    checkOrdering graph reversePostOrder [] IntSet.empty
 
 
 
@@ -530,16 +513,3 @@ guidedBfs selectNeighbors visitNode startingSeeds startingAcc startingGraph =
                             go seeds2 accAfterVisit (removeNode next graph)
     in
     go (enqueueMany 0 [] startingSeeds Fifo.empty) startingAcc startingGraph
-
-
-{-| Computes a
-[topological ordering](https://en.wikipedia.org/wiki/Topological_sorting)
-of the given `AcyclicGraph`.
--}
-topologicalSort : AcyclicGraph n -> List (NodeContext n)
-topologicalSort (AcyclicGraph graph ordering) =
-    let
-        error =
-            "Graph.topologicalSort: Invalid `AcyclicGraph`, where the ordering contained nodes not present in the graph"
-    in
-    List.map (\id -> unsafeGet error id graph) ordering
