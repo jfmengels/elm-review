@@ -31,9 +31,8 @@ all =
                     Err err ->
                         Debug.todo ("Import cycle in graph: " ++ Debug.toString err)
 
-                    Ok acyclicGraph ->
-                        acyclicGraph
-                            |> Graph.topologicalSort
+                    Ok sortedModules ->
+                        sortedModules
                             |> List.map (\m -> m.node.label)
                             |> WorkList.fromSortedModules
                             |> .modules
@@ -92,7 +91,7 @@ all =
                             , { from = 0, to = 1 } -- B imports A
                             ]
                 in
-                case Graph.checkAcyclic graph |> Result.map Graph.topologicalSort of
+                case Graph.checkAcyclic graph of
                     Err err ->
                         Debug.todo ("Import cycle in graph: " ++ Debug.toString err)
 
@@ -131,7 +130,7 @@ all =
                             , { from = 2, to = 3 } -- D imports C
                             ]
                 in
-                case Graph.checkAcyclic graph |> Result.map Graph.topologicalSort of
+                case Graph.checkAcyclic graph of
                     Err err ->
                         Debug.todo ("Import cycle in graph: " ++ Debug.toString err)
 
