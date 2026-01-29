@@ -69,7 +69,6 @@ representation.
 -}
 
 import Vendor.Fifo as Fifo
-import Vendor.Graph.Hack
 import Vendor.IntDict as IntDict exposing (IntDict)
 import Vendor.IntSet as IntSet exposing (IntSet)
 
@@ -260,26 +259,6 @@ addNode n intDict =
     IntDict.insert n.id (NodeContext n IntSet.empty IntSet.empty) intDict
 
 
-
-{- This is a **really** ugly hack since Elm 0.19 doesn't allow `Debug.crash` any more.
-   Hopefully this will never get executed, but if it does, it will make your browser
-   hang (or hopefully give a stack overflow error).
-
-   The only justification for this is that it *should* never get called, and there are
-   no sensible default cases if we do get there.
--}
-
-
-unsafeGet : String -> NodeId -> Graph n -> NodeContext n
-unsafeGet msg id graph =
-    case get id graph of
-        Nothing ->
-            Vendor.Graph.Hack.crashHack msg
-
-        Just ctx ->
-            ctx
-
-
 checkOrdering : Graph n -> List Int -> List (NodeContext n) -> IntSet -> Result Edge (List (NodeContext n))
 checkOrdering graph ordering sortedNodes set =
     case ordering of
@@ -287,21 +266,17 @@ checkOrdering graph ordering sortedNodes set =
             Ok (List.reverse sortedNodes)
 
         id :: rest ->
-            let
-                error : String
-                error =
-                    "Graph.checkForBackEdges: `ordering` didn't contain `id`"
+            case get id graph of
+                Nothing ->
+                    checkOrdering graph rest sortedNodes set
 
-                node : NodeContext n
-                node =
-                    unsafeGet error id graph
-            in
-            case check node id set of
-                Ok newSet ->
-                    checkOrdering graph rest (node :: sortedNodes) newSet
+                Just node ->
+                    case check node id set of
+                        Ok newSet ->
+                            checkOrdering graph rest (node :: sortedNodes) newSet
 
-                Err err ->
-                    Err err
+                        Err err ->
+                            Err err
 
 
 check : NodeContext n -> Int -> IntSet -> Result Edge IntSet
