@@ -7,7 +7,7 @@ module Vendor.Graph exposing
     , NeighborSelector, alongIncomingEdges
     , BfsNodeVisitor, guidedBfs
     , topologicalSort
-    , addEdge, empty, removeEdge
+    , addEdge, empty, removeEdge, removeNode
     )
 
 {-| This module contains the primitives to build, update and traverse graphs.
@@ -160,8 +160,8 @@ is a no-op:
     graph |> remove 2 |> size == 1
 
 -}
-remove : NodeId -> Graph n -> Graph n
-remove nodeId (Graph rep) =
+removeNode : NodeId -> Graph n -> Graph n
+removeNode nodeId (Graph rep) =
     rep
         |> IntDict.remove nodeId
         |> Graph
@@ -435,7 +435,7 @@ guidedDfs selectNeighbors startingSeeds startingAcc startingGraph =
                         Just ctx ->
                             let
                                 ( accBeforeFinish, graph1 ) =
-                                    go (selectNeighbors ctx) acc (remove next graph)
+                                    go (selectNeighbors ctx) acc (removeNode next graph)
                             in
                             go seeds1 (ctx.node.id :: accBeforeFinish) graph1
     in
@@ -527,7 +527,7 @@ guidedBfs selectNeighbors visitNode startingSeeds startingAcc startingGraph =
                                 seeds2 =
                                     enqueueMany (distance + 1) path (selectNeighbors ctx) seeds1
                             in
-                            go seeds2 accAfterVisit (remove next graph)
+                            go seeds2 accAfterVisit (removeNode next graph)
     in
     go (enqueueMany 0 [] startingSeeds Fifo.empty) startingAcc startingGraph
 
