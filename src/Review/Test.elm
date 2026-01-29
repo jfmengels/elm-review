@@ -1450,9 +1450,10 @@ shouldFixFiles expectedFixes (ExpectedError expectedError) =
     ExpectedError
         { expectedError
             | expectedFixes =
-                expectedFixes
-                    |> List.map (\( path, expectedSource ) -> ( path, ExpectEdited expectedSource ))
-                    |> Dict.fromList
+                List.foldl
+                    (\( path, expectedSource ) dict -> Dict.insert path (ExpectEdited expectedSource) dict)
+                    Dict.empty
+                    expectedFixes
                     |> ComesFromShouldFixFiles
         }
 
