@@ -125,6 +125,7 @@ new =
         , moduleGraph = Graph.empty
         , sourceDirectories = [ "src/" ]
         , cache = ProjectCache.empty
+        , needToRecomputeSortedModules = False
         }
 
 

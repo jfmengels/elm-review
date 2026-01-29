@@ -43,6 +43,7 @@ type alias ProjectInternals =
     , moduleGraph : Graph FilePath
     , sourceDirectories : List String
     , cache : ProjectCache
+    , needToRecomputeSortedModules : Bool
     }
 
 
