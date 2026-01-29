@@ -168,15 +168,9 @@ addModule { path, source } ((Internal.Project p) as project) =
 -}
 addParsedModule : { path : String, source : String, ast : Elm.Syntax.File.File } -> Project -> Project
 addParsedModule { path, source, ast } project =
-    let
-        osAgnosticPath : FilePath
-        osAgnosticPath =
-            Path.makeOSAgnostic path
-    in
     project
-        |> removeFileFromFilesThatFailedToParse osAgnosticPath
         |> addModuleToProject
-            { path = osAgnosticPath
+            { path = Path.makeOSAgnostic path
             , source = source
             , ast = ast
             }
@@ -224,6 +218,7 @@ addModuleToProject { path, source, ast } (Internal.Project project) =
             , modules = Dict.insert path module_ project.modules
             , needToRecomputeSortedModules = result.needToRecomputeSortedModules || project.needToRecomputeSortedModules
         }
+        |> removeFileFromFilesThatFailedToParse path
 
 
 {-| Remove a module from the project by its path.
