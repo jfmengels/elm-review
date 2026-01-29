@@ -127,7 +127,7 @@ new =
         , moduleGraph = Graph.empty
         , sourceDirectories = [ "src/" ]
         , cache = ProjectCache.empty
-        , needToRecomputeSortedModules = False
+        , sortedModules = Nothing
         , workList = WorkList.empty
         }
 
@@ -212,7 +212,12 @@ addParsedModule { path, source, ast } (Internal.Project project) =
             , moduleIds = moduleIds
             , modulesByPath = Dict.insert osAgnosticPath module_ project.modulesByPath
             , modulesThatFailedToParse = Dict.remove osAgnosticPath project.modulesThatFailedToParse
-            , needToRecomputeSortedModules = result.needToRecomputeSortedModules || project.needToRecomputeSortedModules
+            , sortedModules =
+                if result.needToRecomputeSortedModules then
+                    Nothing
+
+                else
+                    project.sortedModules
             , workList = WorkList.touchedModule path project.workList
         }
 
@@ -228,7 +233,7 @@ removeModule path (Internal.Project project) =
                     | modulesByPath = Dict.remove path project.modulesByPath
                     , moduleGraph = Internal.removeModuleFromGraph module_ project.moduleIds project.moduleGraph
                     , modulesThatFailedToParse = Dict.remove path project.modulesThatFailedToParse
-                    , needToRecomputeSortedModules = True
+                    , sortedModules = Nothing
                 }
 
         Nothing ->

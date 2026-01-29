@@ -44,7 +44,7 @@ type alias ProjectInternals =
     , moduleGraph : Graph FilePath
     , sourceDirectories : List String
     , cache : ProjectCache
-    , needToRecomputeSortedModules : Bool
+    , sortedModules : Maybe (List (Graph.NodeContext FilePath))
     , workList : WorkList
     }
 
