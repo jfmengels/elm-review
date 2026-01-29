@@ -19,7 +19,7 @@ import Path
 import Review.Cache.ContentHash exposing (ContentHash)
 import Review.FilePath exposing (FilePath)
 import Review.Project.Dependency exposing (Dependency)
-import Review.Project.ModuleIds as ModuleIds exposing (ModuleIds)
+import Review.Project.ModuleIds as ModuleIds exposing (ModuleId, ModuleIds)
 import Review.Project.ProjectCache exposing (ProjectCache)
 import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModule)
 import Set exposing (Set)
@@ -90,10 +90,6 @@ updateGraph :
         , moduleIds : ModuleIds
         }
 updateGraph module_ maybeExistingModule dependencyModules baseModuleIds baseModuleGraph =
-    let
-        ( moduleId, moduleIds ) =
-            ModuleIds.addAndGet (ProjectModule.moduleName module_) baseModuleIds
-    in
     case maybeExistingModule of
         Just existingModule ->
             let
@@ -117,11 +113,15 @@ updateGraph module_ maybeExistingModule dependencyModules baseModuleIds baseModu
                 -- Imports haven't changed, we don't need to recompute the graph
                 { moduleGraph = baseModuleGraph
                 , needToRecomputeSortedModules = False
-                , moduleIds = moduleIds
+                , moduleIds = baseModuleIds
                 }
 
             else
                 let
+                    moduleId : ModuleId
+                    moduleId =
+                        ProjectModule.moduleId existingModule
+
                     moduleGraph : Graph FilePath
                     moduleGraph =
                         Set.foldl
@@ -149,11 +149,14 @@ updateGraph module_ maybeExistingModule dependencyModules baseModuleIds baseModu
                 in
                 { moduleGraph = moduleGraph
                 , needToRecomputeSortedModules = True
-                , moduleIds = moduleIds
+                , moduleIds = baseModuleIds
                 }
 
         Nothing ->
             let
+                ( moduleId, moduleIds ) =
+                    ModuleIds.addAndGet (ProjectModule.moduleName module_) baseModuleIds
+
                 moduleGraph : Graph FilePath
                 moduleGraph =
                     List.foldl
