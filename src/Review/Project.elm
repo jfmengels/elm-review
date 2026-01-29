@@ -159,17 +159,22 @@ addModule { path, source } ((Internal.Project p) as project) =
                 project
 
         Err _ ->
-            Internal.Project { p | modulesThatFailedToParse = Dict.insert path source p.modulesThatFailedToParse }
+            Internal.Project { p | modulesThatFailedToParse = Dict.insert (Path.makeOSAgnostic path) source p.modulesThatFailedToParse }
 
 
 {-| Add an already parsed module to the project. This module will then be analyzed by the rules.
 -}
 addParsedModule : { path : String, source : String, ast : Elm.Syntax.File.File } -> Project -> Project
 addParsedModule { path, source, ast } project =
+    let
+        osAgnosticPath : FilePath
+        osAgnosticPath =
+            Path.makeOSAgnostic path
+    in
     project
-        |> removeFileFromFilesThatFailedToParse path
+        |> removeFileFromFilesThatFailedToParse osAgnosticPath
         |> addModuleToProject
-            { path = path
+            { path = osAgnosticPath
             , source = source
             , ast = ast
             }
@@ -179,10 +184,6 @@ addParsedModule { path, source, ast } project =
 addModuleToProject : { path : String, source : String, ast : Elm.Syntax.File.File } -> Project -> Project
 addModuleToProject { path, source, ast } (Internal.Project project) =
     let
-        osAgnosticPath : FilePath
-        osAgnosticPath =
-            Path.makeOSAgnostic path
-
         moduleName : ModuleName
         moduleName =
             ast.moduleDefinition
@@ -198,7 +199,7 @@ addModuleToProject { path, source, ast } (Internal.Project project) =
                 { path = path
                 , source = source
                 , ast = ast
-                , isInSourceDirectories = List.any (\dir -> String.startsWith dir osAgnosticPath) project.sourceDirectories
+                , isInSourceDirectories = List.any (\dir -> String.startsWith dir path) project.sourceDirectories
                 , moduleId = moduleId
                 }
     in
