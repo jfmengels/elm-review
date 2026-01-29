@@ -2258,7 +2258,7 @@ getTargetFileFromProject : FileTarget -> ProjectInternals -> Maybe { source : St
 getTargetFileFromProject target project =
     case target of
         FileTarget.Module filePath ->
-            Dict.get filePath project.modules
+            Dict.get filePath project.modulesByPath
                 |> Maybe.map
                     (\module_ ->
                         { source = ProjectModule.source module_

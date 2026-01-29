@@ -115,7 +115,7 @@ dependencies can be found in that same module.
 new : Project
 new =
     Internal.Project
-        { modules = Dict.empty
+        { modulesByPath = Dict.empty
         , modulesThatFailedToParse = Dict.empty
         , moduleIds = ModuleIds.empty
         , elmJson = Nothing
@@ -196,7 +196,7 @@ addParsedModule { path, source, ast } (Internal.Project project) =
         result =
             Internal.addModuleToGraph
                 module_
-                (Dict.get osAgnosticPath project.modules)
+                (Dict.get osAgnosticPath project.modulesByPath)
                 -- TODO Compute dependencyModules
                 -- TODO (And filter out their modules if they arrive after Elm files)
                 -- project.dependencyModules
@@ -208,7 +208,7 @@ addParsedModule { path, source, ast } (Internal.Project project) =
         { project
             | moduleGraph = result.moduleGraph
             , moduleIds = moduleIds
-            , modules = Dict.insert osAgnosticPath module_ project.modules
+            , modulesByPath = Dict.insert osAgnosticPath module_ project.modulesByPath
             , modulesThatFailedToParse = Dict.remove osAgnosticPath project.modulesThatFailedToParse
             , needToRecomputeSortedModules = result.needToRecomputeSortedModules || project.needToRecomputeSortedModules
         }
@@ -218,11 +218,11 @@ addParsedModule { path, source, ast } (Internal.Project project) =
 -}
 removeModule : String -> Project -> Project
 removeModule path (Internal.Project project) =
-    case Dict.get path project.modules of
+    case Dict.get path project.modulesByPath of
         Just module_ ->
             Internal.Project
                 { project
-                    | modules = Dict.remove path project.modules
+                    | modulesByPath = Dict.remove path project.modulesByPath
                     , moduleGraph = Internal.removeModuleFromGraph module_ project.moduleIds project.moduleGraph
                     , modulesThatFailedToParse = Dict.remove path project.modulesThatFailedToParse
                     , needToRecomputeSortedModules = True
@@ -242,7 +242,7 @@ modules (Internal.Project project) =
     Dict.foldr
         (\_ mod acc -> ProjectModule.toRecord mod :: acc)
         []
-        project.modules
+        project.modulesByPath
 
 
 {-| Get the list of file paths that failed to parse because they were syntactically invalid Elm code.
@@ -286,7 +286,7 @@ addElmJson elmJson_ (Internal.Project project) =
         modules_ : Dict String ProjectModule.OpaqueProjectModule
         modules_ =
             if project.sourceDirectories == sourceDirectories then
-                project.modules
+                project.modulesByPath
 
             else
                 Dict.map
@@ -295,13 +295,13 @@ addElmJson elmJson_ (Internal.Project project) =
                             (List.any (\dir -> String.startsWith dir path) sourceDirectories)
                             module_
                     )
-                    project.modules
+                    project.modulesByPath
     in
     Internal.Project
         { project
             | elmJson = Just ( elmJson_, ContentHash.hash elmJson_.raw )
             , sourceDirectories = sourceDirectories
-            , modules = modules_
+            , modulesByPath = modules_
         }
 
 
@@ -387,7 +387,7 @@ updateFile file ((Internal.Project project) as rawProject) =
     let
         withElmModule : Project
         withElmModule =
-            if Dict.member file.path project.modules then
+            if Dict.member file.path project.modulesByPath then
                 addModule file rawProject
 
             else
@@ -419,7 +419,7 @@ removeFile filePath ((Internal.Project project) as rawProject) =
     let
         withoutElmModule : Project
         withoutElmModule =
-            if Dict.member filePath project.modules then
+            if Dict.member filePath project.modulesByPath then
                 removeModule filePath rawProject
 
             else
@@ -695,8 +695,8 @@ diffElmFiles { before, after } list =
                 acc
         )
         (\_ _ acc -> acc)
-        before.modules
-        after.modules
+        before.modulesByPath
+        after.modulesByPath
         list
 
 
@@ -717,8 +717,8 @@ diffElmFiles2 { before, after } list =
                 acc
         )
         (\_ _ acc -> acc)
-        before.modules
-        after.modules
+        before.modulesByPath
+        after.modulesByPath
         list
 
 

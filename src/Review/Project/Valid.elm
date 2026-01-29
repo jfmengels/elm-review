@@ -78,7 +78,7 @@ type alias ValidProjectData =
 toRegularProject : ValidProject -> Project
 toRegularProject (ValidProject validProject) =
     Project
-        { modules = validProject.modulesByPath
+        { modulesByPath = validProject.modulesByPath
         , modulesThatFailedToParse = Dict.empty
         , moduleIds = validProject.moduleIds
         , elmJson = validProject.elmJson
@@ -98,14 +98,14 @@ parse ((Project p) as project) =
     if not (Dict.isEmpty p.modulesThatFailedToParse) then
         Err (InvalidProjectError.SomeModulesFailedToParse (Dict.keys p.modulesThatFailedToParse))
 
-    else if Dict.isEmpty p.modules then
+    else if Dict.isEmpty p.modulesByPath then
         Err InvalidProjectError.NoModulesError
 
     else
         let
             projectModules : List OpaqueProjectModule
             projectModules =
-                Dict.values p.modules
+                Dict.values p.modulesByPath
         in
         case duplicateModuleNames Dict.empty projectModules of
             Just duplicate ->
@@ -114,11 +114,11 @@ parse ((Project p) as project) =
             Nothing ->
                 let
                     ( graph, moduleIds ) =
-                        buildModuleGraph p.modules p.moduleIds
+                        buildModuleGraph p.modulesByPath p.moduleIds
                 in
                 case Graph.checkAcyclic graph of
                     Err edge ->
-                        ImportCycle.findCycle p.modules graph edge
+                        ImportCycle.findCycle p.modulesByPath graph edge
                             |> InvalidProjectError.ImportCycleError
                             |> Err
 
@@ -134,7 +134,7 @@ fromProjectAndGraph moduleGraph_ sortedModules moduleIds (Project project) =
             computeDirectDependencies project
     in
     ValidProject
-        { modulesByPath = project.modules
+        { modulesByPath = project.modulesByPath
         , elmJson = project.elmJson
         , readme = project.readme
         , extraFiles = project.extraFiles
