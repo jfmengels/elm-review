@@ -114,22 +114,27 @@ parse ((Project p) as project) =
 
             Nothing ->
                 let
-                    ( graph, moduleIds ) =
-                        -- TODO Only rebuild if necessary
-                        buildModuleGraph p.modulesByPath p.moduleIds
+                    sortedModulesResult : Result Graph.Edge (List (Graph.NodeContext FilePath))
+                    sortedModulesResult =
+                        case p.sortedModules of
+                            Just sorted ->
+                                Ok sorted
+
+                            Nothing ->
+                                Graph.checkAcyclic p.moduleGraph
                 in
-                case Graph.checkAcyclic graph of
+                case sortedModulesResult of
                     Err edge ->
-                        ImportCycle.findCycle p.modulesByPath graph edge
+                        ImportCycle.findCycle p.modulesByPath p.moduleGraph edge
                             |> InvalidProjectError.ImportCycleError
                             |> Err
 
                     Ok sortedModules ->
-                        Ok (fromProjectAndGraph graph sortedModules moduleIds project)
+                        Ok (fromProjectAndGraph p.moduleGraph sortedModules project)
 
 
-fromProjectAndGraph : Graph FilePath -> List (Graph.NodeContext FilePath) -> ModuleIds -> Project -> ValidProject
-fromProjectAndGraph moduleGraph_ sortedModules moduleIds (Project project) =
+fromProjectAndGraph : Graph FilePath -> List (Graph.NodeContext FilePath) -> Project -> ValidProject
+fromProjectAndGraph moduleGraph_ sortedModules (Project project) =
     let
         directDependencies_ : Dict String Dependency
         directDependencies_ =
@@ -150,7 +155,7 @@ fromProjectAndGraph moduleGraph_ sortedModules moduleIds (Project project) =
         , moduleGraph = moduleGraph_
         , sortedModules = sortedModules
         , needToRecomputeSortedModules = False
-        , moduleIds = moduleIds
+        , moduleIds = project.moduleIds
         , workList = WorkList.recomputeModules moduleGraph_ sortedModules project.workList
         }
 
