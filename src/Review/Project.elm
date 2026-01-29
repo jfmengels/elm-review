@@ -206,7 +206,7 @@ addModuleToProject { path, source, ast } (Internal.Project project) =
     Internal.Project
         { project
             | moduleIds = moduleIds
-            , modules = Dict.insert (ProjectModule.path module_) module_ project.modules
+            , modules = Dict.insert path module_ project.modules
         }
 
 
