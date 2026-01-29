@@ -42,7 +42,7 @@ import Review.ImportCycle as ImportCycle
 import Review.Project.Dependency as Dependency exposing (Dependency)
 import Review.Project.Internal exposing (Project(..))
 import Review.Project.InvalidProjectError as InvalidProjectError exposing (InvalidProjectError)
-import Review.Project.ModuleIds as ModuleIds exposing (ModuleIds)
+import Review.Project.ModuleIds as ModuleIds exposing (ModuleId, ModuleIds)
 import Review.Project.ProjectCache exposing (ProjectCache)
 import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModule)
 import Review.WorkList as WorkList exposing (WorkList)
@@ -508,36 +508,43 @@ removeModule :
     -> ValidProject
     -> Result FixProblem ValidProject
 removeModule path (ValidProject project) =
-    if Dict.member path project.modulesByPath then
-        let
-            modulesByPath : Dict FilePath OpaqueProjectModule
-            modulesByPath =
-                Dict.remove path project.modulesByPath
+    case Dict.get path project.modulesByPath of
+        Just module_ ->
+            let
+                moduleId : ModuleId
+                moduleId =
+                    ProjectModule.moduleId module_
 
-            ( graph, moduleIds ) =
-                buildModuleGraph modulesByPath project.moduleIds
-        in
-        case Graph.checkAcyclic graph |> Result.map Graph.topologicalSort of
-            Err edge ->
-                -- Removing a module should never be able to introduce an import cycle
-                ImportCycle.findCycle project.modulesByPath graph edge
-                    |> FixProblem.CreatesImportCycle
-                    |> Err
+                modulesByPath : Dict FilePath OpaqueProjectModule
+                modulesByPath =
+                    Dict.remove path project.modulesByPath
 
-            Ok sortedModules ->
-                ValidProject
-                    { project
-                        | modulesByPath = modulesByPath
-                        , moduleGraph = graph
-                        , sortedModules = sortedModules
-                        , moduleIds = moduleIds
-                    }
-                    |> Ok
+                graph : Graph FilePath
+                graph =
+                    List.foldl
+                        (\(Node _ { moduleName }) subGraph ->
+                            case ModuleIds.get (Node.value moduleName) project.moduleIds of
+                                Just importedModuleId ->
+                                    Graph.removeEdge (Graph.Edge importedModuleId moduleId) subGraph
 
-    else
-        -- File should always exist.
-        FixProblem.RemovesUnknownFile path
-            |> Err
+                                Nothing ->
+                                    subGraph
+                        )
+                        (Graph.removeNode moduleId project.moduleGraph)
+                        (ProjectModule.ast module_).imports
+            in
+            ValidProject
+                { project
+                    | modulesByPath = modulesByPath
+                    , moduleGraph = graph
+                    , needToRecomputeSortedModules = True
+                }
+                |> Ok
+
+        Nothing ->
+            -- File should always exist.
+            FixProblem.RemovesUnknownFile path
+                |> Err
 
 
 importedModulesSet : Elm.Syntax.File.File -> Set ModuleName -> Set ModuleName
