@@ -407,7 +407,7 @@ addParsedModule { path, source, ast } (ValidProject project) =
                 modulesByPath =
                     Dict.insert path module_ project.modulesByPath
 
-                result : { moduleGraph : Graph FilePath, needToRecomputeSortedModules : Bool, moduleIds : ModuleIds }
+                result : { moduleGraph : Graph FilePath, needToRecomputeSortedModules : Bool }
                 result =
                     Internal.addModuleToGraph
                         module_
@@ -421,7 +421,6 @@ addParsedModule { path, source, ast } (ValidProject project) =
                     { project
                         | moduleGraph = result.moduleGraph
                         , needToRecomputeSortedModules = result.needToRecomputeSortedModules || project.needToRecomputeSortedModules
-                        , moduleIds = result.moduleIds
                         , modulesByPath = modulesByPath
                         , workList = WorkList.touchedModule path project.workList
                     }
