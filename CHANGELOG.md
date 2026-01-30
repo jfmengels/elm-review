@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Fixed an issue where `elm-review` would yield incorrect results after a re-run, because of an issue in its caching system introduced in `2.16.3`.
+
 ## [2.16.3] - 2026-01-20
 
 - Fixed an issue where `ModuleNameLookupTable` would sometimes yield an incorrect result for values in let expressions appearing after another let declaration with a case expression.

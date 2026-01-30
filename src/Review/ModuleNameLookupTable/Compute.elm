@@ -121,11 +121,17 @@ computeHelp cacheKey moduleName module_ project =
         moduleDocs =
             { projectModules = projectCache.modules, deps = deps }
 
-        imported : Dict ModuleName Elm.Docs.Module
-        imported =
+        dataForModuleDocs : DataForModuleDocs
+        dataForModuleDocs =
+            { getModule = ValidProject.getModuleByModuleName project
+            , baseModuleContext = baseModuleContext
+            , deps = moduleDocs.deps
+            }
+
+        { imported, projectModules } =
             List.foldl
-                (\node acc -> computeImportedModulesDocs moduleDocs node acc)
-                baseModuleContext.modules
+                (\node acc -> computeImportedModulesDocs dataForModuleDocs node acc)
+                { imported = baseModuleContext.modules, projectModules = moduleDocs.projectModules }
                 moduleAst.imports
 
         moduleContext : Context
@@ -134,9 +140,13 @@ computeHelp cacheKey moduleName module_ project =
                 |> collectModuleDocs moduleAst
                 |> collectLookupTable moduleAst.declarations
 
-        ( lookupTable, modules ) =
-            ( Builder.finalize moduleName moduleContext.lookupTable
-            , Dict.insert moduleName
+        lookupTable : ModuleNameLookupTable
+        lookupTable =
+            Builder.finalize moduleName moduleContext.lookupTable
+
+        modules : Dict ModuleName Elm.Docs.Module
+        modules =
+            Dict.insert moduleName
                 { name = String.join "." moduleName
                 , comment = ""
                 , unions = moduleContext.exposedUnions
@@ -144,8 +154,7 @@ computeHelp cacheKey moduleName module_ project =
                 , values = moduleContext.exposedValues
                 , binops = []
                 }
-                projectCache.modules
-            )
+                projectModules
 
         newProjectCache : ProjectCache
         newProjectCache =
@@ -270,28 +279,91 @@ insertConstructors tags acc =
         tags
 
 
+type alias DataForModuleDocs =
+    { getModule : ModuleName -> Maybe OpaqueProjectModule
+    , baseModuleContext : Context
+    , deps : Dict ModuleName Elm.Docs.Module
+    }
+
+
 computeImportedModulesDocs :
-    { projectModules : Dict ModuleName Elm.Docs.Module, deps : Dict ModuleName Elm.Docs.Module }
+    DataForModuleDocs
     -> Node Import
-    -> Dict ModuleName Elm.Docs.Module
-    -> Dict ModuleName Elm.Docs.Module
-computeImportedModulesDocs { projectModules, deps } (Node _ import_) importedModuleDocs =
+    -> { imported : Dict ModuleName Elm.Docs.Module, projectModules : Dict ModuleName Elm.Docs.Module }
+    -> { imported : Dict ModuleName Elm.Docs.Module, projectModules : Dict ModuleName Elm.Docs.Module }
+computeImportedModulesDocs data (Node _ import_) acc =
     let
         importedModuleName : ModuleName
         importedModuleName =
             Node.value import_.moduleName
     in
-    case Dict.get importedModuleName projectModules of
+    case Dict.get importedModuleName acc.projectModules of
         Just importedModule ->
-            Dict.insert importedModuleName importedModule importedModuleDocs
+            { imported = Dict.insert importedModuleName importedModule acc.imported
+            , projectModules = acc.projectModules
+            }
 
         Nothing ->
-            case Dict.get importedModuleName deps of
+            case data.getModule importedModuleName of
                 Just importedModule ->
-                    Dict.insert importedModuleName importedModule importedModuleDocs
+                    let
+                        -- This occurs when an imported file hasn't been reviewed
+                        -- (and therefore its module docs computation was skipped)
+                        -- because it used its result cache.
+                        { moduleDocs, projectModules } =
+                            computeOnlyModuleDocs data importedModuleName importedModule acc.projectModules
+                    in
+                    { imported = Dict.insert importedModuleName moduleDocs acc.imported
+                    , projectModules = projectModules
+                    }
 
                 Nothing ->
-                    importedModuleDocs
+                    case Dict.get importedModuleName data.deps of
+                        Just importedModule ->
+                            { imported = Dict.insert importedModuleName importedModule acc.imported
+                            , projectModules = acc.projectModules
+                            }
+
+                        Nothing ->
+                            acc
+
+
+computeOnlyModuleDocs :
+    DataForModuleDocs
+    -> ModuleName
+    -> OpaqueProjectModule
+    -> Dict ModuleName Elm.Docs.Module
+    -> { moduleDocs : Elm.Docs.Module, projectModules : Dict ModuleName Elm.Docs.Module }
+computeOnlyModuleDocs ({ baseModuleContext } as data) moduleName module_ baseProjectModules =
+    let
+        moduleAst : Elm.Syntax.File.File
+        moduleAst =
+            ProjectModule.ast module_
+
+        { imported, projectModules } =
+            List.foldl
+                (\node acc -> computeImportedModulesDocs data node acc)
+                { imported = data.baseModuleContext.modules, projectModules = baseProjectModules }
+                moduleAst.imports
+
+        moduleContext : Context
+        moduleContext =
+            { baseModuleContext | modules = imported }
+                |> collectModuleDocs moduleAst
+
+        moduleDocs : Elm.Docs.Module
+        moduleDocs =
+            { name = String.join "." moduleName
+            , comment = ""
+            , unions = moduleContext.exposedUnions
+            , aliases = moduleContext.exposedAliases
+            , values = moduleContext.exposedValues
+            , binops = []
+            }
+    in
+    { moduleDocs = moduleDocs
+    , projectModules = Dict.insert moduleName moduleDocs projectModules
+    }
 
 
 computeDependencies : ValidProject -> Dict ModuleName Elm.Docs.Module

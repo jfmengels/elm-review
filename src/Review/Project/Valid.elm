@@ -6,6 +6,7 @@ module Review.Project.Valid exposing
     , addParsedModule
     , addReadme
     , checkGraph
+    , clearElmDocsModuleFromProjectCacheTEST
     , dependencies
     , dependenciesHash
     , directDependencies
@@ -16,6 +17,7 @@ module Review.Project.Valid exposing
     , extraFilesHash
     , extraFilesWithoutKeys
     , getGraphNode
+    , getModuleByModuleName
     , getModuleByPath
     , parse
     , projectCache
@@ -53,6 +55,7 @@ type ValidProject
 
 type alias ValidProjectData =
     { modulesByPath : Dict FilePath OpaqueProjectModule
+    , modulesByModuleName : Dict ModuleName OpaqueProjectModule
     , elmJson : Maybe ( { path : FilePath, raw : String, project : Elm.Project.Project }, ContentHash )
     , readme : Maybe ( { path : FilePath, content : String }, ContentHash )
     , extraFiles : Dict FilePath {- content -} String
@@ -89,6 +92,16 @@ toRegularProject (ValidProject validProject) =
         , sortedModules = Internal.ComputedSortedModules validProject.sortedModules
         , workList = validProject.workList
         }
+
+
+computeModulesByModuleName : Dict a OpaqueProjectModule -> Dict ModuleName OpaqueProjectModule
+computeModulesByModuleName modules =
+    Dict.foldl
+        (\_ module_ acc ->
+            Dict.insert (ProjectModule.moduleName module_) module_ acc
+        )
+        Dict.empty
+        modules
 
 
 parse : Project -> Result InvalidProjectError ValidProject
@@ -151,6 +164,7 @@ fromProjectAndGraph moduleGraph sortedModules (Project project) =
     in
     ValidProject
         { modulesByPath = project.modulesByPath
+        , modulesByModuleName = computeModulesByModuleName project.modulesByPath
         , elmJson = project.elmJson
         , readme = project.readme
         , extraFiles = project.extraFiles
@@ -284,6 +298,11 @@ getModuleByPath path (ValidProject project) =
     Dict.get path project.modulesByPath
 
 
+getModuleByModuleName : ValidProject -> ModuleName -> Maybe OpaqueProjectModule
+getModuleByModuleName (ValidProject project) moduleName =
+    Dict.get moduleName project.modulesByModuleName
+
+
 doesModuleExist : FilePath -> ValidProject -> Bool
 doesModuleExist path (ValidProject project) =
     Dict.member path project.modulesByPath
@@ -307,6 +326,19 @@ updateWorkList fn (ValidProject project) =
 updateProjectCache : ProjectCache -> ValidProject -> ValidProject
 updateProjectCache projectCache_ (ValidProject project) =
     ValidProject { project | projectCache = projectCache_ }
+
+
+clearElmDocsModuleFromProjectCacheTEST : ValidProject -> ValidProject
+clearElmDocsModuleFromProjectCacheTEST (ValidProject project) =
+    ValidProject
+        { project
+            | projectCache =
+                { elmJsonContentHash = Nothing
+                , dependencies = Nothing
+                , modules = Dict.empty
+                , lookupTables = Dict.empty
+                }
+        }
 
 
 {-| Add an already parsed module to the project. This module will then be analyzed by the rules.
