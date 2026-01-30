@@ -1,6 +1,8 @@
 module Review.Project.Internal exposing
-    ( Project(..)
+    ( EdgeChange
+    , Project(..)
     , ProjectInternals
+    , SortedModules(..)
     , addModuleToGraph
     , removeModuleFromGraph
     , sourceDirectoriesForProject
@@ -25,6 +27,7 @@ import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModu
 import Review.WorkList exposing (WorkList)
 import Set exposing (Set)
 import Vendor.Graph as Graph exposing (Graph)
+import Vendor.IntSet as IntSet
 
 
 type Project
@@ -43,9 +46,14 @@ type alias ProjectInternals =
     , moduleGraph : Graph FilePath
     , sourceDirectories : List String
     , cache : ProjectCache
-    , sortedModules : Maybe (List (Graph.NodeContext FilePath))
+    , sortedModules : SortedModules
     , workList : WorkList
     }
+
+
+type SortedModules
+    = ComputedSortedModules (List (Graph.NodeContext FilePath))
+    | NeedsToAddNewEdgesToGraph (Dict ModuleId (List EdgeChange))
 
 
 sourceDirectoriesForProject : Elm.Project.Project -> List String
@@ -76,18 +84,28 @@ endWithSlash dir =
         dir ++ "/"
 
 
+type alias EdgeChange =
+    { edge : Graph.Edge
+    , insert : Bool
+    }
+
+
 addModuleToGraph :
     OpaqueProjectModule
     -> Maybe OpaqueProjectModule
     -> Set ModuleName
     -> ModuleIds
-    -> Graph FilePath
+    -> Dict ModuleId (List EdgeChange)
     ->
-        { moduleGraph : Graph FilePath
-        , moduleIds : ModuleIds
-        , needToRecomputeSortedModules : Bool
+        { moduleIds : ModuleIds
+        , edgeChanges : Dict ModuleId (List EdgeChange)
         }
-addModuleToGraph module_ maybeExistingModule dependencyModules moduleIds baseModuleGraph =
+addModuleToGraph module_ maybeExistingModule dependencyModules moduleIds edgeChanges =
+    let
+        moduleId : ModuleId
+        moduleId =
+            ProjectModule.moduleId module_
+    in
     case maybeExistingModule of
         Just existingModule ->
             let
@@ -109,107 +127,110 @@ addModuleToGraph module_ maybeExistingModule dependencyModules moduleIds baseMod
             in
             if Set.isEmpty addedImports && Set.isEmpty removedImports then
                 -- Imports haven't changed, we don't need to recompute the graph
-                { moduleGraph = baseModuleGraph
-                , moduleIds = moduleIds
-                , needToRecomputeSortedModules = False
+                { moduleIds = moduleIds
+                , edgeChanges = Dict.remove moduleId edgeChanges
                 }
 
             else
                 let
-                    moduleId : ModuleId
-                    moduleId =
-                        ProjectModule.moduleId existingModule
-
-                    graphAfterRemovingImports : Graph FilePath
-                    graphAfterRemovingImports =
+                    edgesAfterRemovingImports : List EdgeChange
+                    edgesAfterRemovingImports =
                         Set.foldl
-                            (\moduleName subGraph ->
+                            (\moduleName edges ->
                                 case ModuleIds.get moduleName moduleIds of
                                     Just importedModuleId ->
-                                        Graph.removeEdge (Graph.Edge importedModuleId moduleId) subGraph
+                                        { edge = Graph.Edge importedModuleId moduleId, insert = False } :: edges
 
                                     Nothing ->
-                                        subGraph
+                                        edges
                             )
-                            baseModuleGraph
+                            []
                             removedImports
 
-                    ( moduleGraph, newModuleIds ) =
+                    ( edgeChangesForFile, newModuleIds ) =
                         Set.foldl
-                            (\moduleName ( subGraph, ids ) ->
+                            (\moduleName ( edges, ids ) ->
                                 if Set.member moduleName dependencyModules then
-                                    ( subGraph, ids )
+                                    ( edges, ids )
 
                                 else
                                     let
                                         ( importedModuleId, newIds ) =
                                             ModuleIds.addAndGet moduleName ids
                                     in
-                                    ( Graph.addEdge (Graph.Edge importedModuleId moduleId) subGraph
+                                    ( { edge = Graph.Edge importedModuleId moduleId, insert = True } :: edges
                                     , newIds
                                     )
                             )
-                            ( graphAfterRemovingImports, moduleIds )
+                            ( edgesAfterRemovingImports, moduleIds )
                             addedImports
                 in
-                { moduleGraph = moduleGraph
-                , moduleIds = newModuleIds
-                , needToRecomputeSortedModules = True
+                { moduleIds = newModuleIds
+                , edgeChanges =
+                    if List.isEmpty edgeChangesForFile then
+                        Dict.remove moduleId edgeChanges
+
+                    else
+                        Dict.insert moduleId edgeChangesForFile edgeChanges
                 }
 
         Nothing ->
             let
-                moduleId : ModuleId
-                moduleId =
-                    ProjectModule.moduleId module_
-
-                ( moduleGraph, newModuleIds ) =
+                ( edgeChangesForFile, newModuleIds ) =
                     List.foldl
-                        (\(Node _ import_) ( subGraph, ids ) ->
+                        (\(Node _ import_) ( edges, ids ) ->
                             let
                                 moduleName : ModuleName
                                 moduleName =
                                     Node.value import_.moduleName
                             in
                             if Set.member moduleName dependencyModules then
-                                ( subGraph, ids )
+                                ( edges, ids )
 
                             else
                                 let
                                     ( importedModuleId, newIds ) =
                                         ModuleIds.addAndGet moduleName ids
                                 in
-                                ( Graph.addEdge (Graph.Edge importedModuleId moduleId) subGraph
+                                ( { edge = Graph.Edge importedModuleId moduleId, insert = True } :: edges
                                 , newIds
                                 )
                         )
-                        ( Graph.addNode (Graph.Node moduleId (ProjectModule.path module_)) baseModuleGraph, moduleIds )
+                        ( [], moduleIds )
                         (ProjectModule.ast module_).imports
             in
-            { moduleGraph = moduleGraph
-            , moduleIds = newModuleIds
-            , needToRecomputeSortedModules = True
+            { moduleIds = newModuleIds
+            , edgeChanges =
+                if List.isEmpty edgeChangesForFile then
+                    Dict.remove moduleId edgeChanges
+
+                else
+                    Dict.insert moduleId edgeChangesForFile edgeChanges
             }
 
 
-removeModuleFromGraph : OpaqueProjectModule -> ModuleIds -> Graph FilePath -> Graph FilePath
-removeModuleFromGraph module_ moduleIds baseModuleGraph =
-    let
-        moduleId : ModuleId
-        moduleId =
-            ProjectModule.moduleId module_
-    in
-    List.foldl
-        (\(Node _ { moduleName }) subGraph ->
-            case ModuleIds.get (Node.value moduleName) moduleIds of
-                Just importedModuleId ->
-                    Graph.removeEdge (Graph.Edge importedModuleId moduleId) subGraph
+removeModuleFromGraph : ModuleId -> Graph FilePath -> Dict ModuleId (List EdgeChange) -> Dict ModuleId (List EdgeChange)
+removeModuleFromGraph moduleId moduleGraph edgeChanges =
+    case Graph.get moduleId moduleGraph of
+        Just { outgoing } ->
+            let
+                newEdgeChanges : List EdgeChange
+                newEdgeChanges =
+                    IntSet.foldl
+                        (\importedModuleId edges ->
+                            { edge = Graph.Edge importedModuleId moduleId, insert = False } :: edges
+                        )
+                        []
+                        outgoing
+            in
+            if List.isEmpty newEdgeChanges then
+                Dict.remove moduleId edgeChanges
 
-                Nothing ->
-                    subGraph
-        )
-        (Graph.removeNode moduleId baseModuleGraph)
-        (ProjectModule.ast module_).imports
+            else
+                Dict.insert moduleId newEdgeChanges edgeChanges
+
+        Nothing ->
+            edgeChanges
 
 
 importedModulesSet : Elm.Syntax.File.File -> Set ModuleName -> Set ModuleName

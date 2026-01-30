@@ -87,12 +87,12 @@ import Review.FileParser as FileParser
 import Review.FilePath exposing (FilePath)
 import Review.Project.Dependency as Dependency exposing (Dependency)
 import Review.Project.Internal as Internal exposing (Project, ProjectInternals)
-import Review.Project.ModuleIds as ModuleIds exposing (ModuleIds)
+import Review.Project.ModuleIds as ModuleIds exposing (ModuleId, ModuleIds)
 import Review.Project.ProjectCache as ProjectCache
 import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModule)
 import Review.WorkList as WorkList
 import Set
-import Vendor.Graph as Graph exposing (Graph)
+import Vendor.Graph as Graph
 
 
 
@@ -127,7 +127,7 @@ new =
         , moduleGraph = Graph.empty
         , sourceDirectories = [ "src/" ]
         , cache = ProjectCache.empty
-        , sortedModules = Nothing
+        , sortedModules = Internal.NeedsToAddNewEdgesToGraph Dict.empty
         , workList = WorkList.empty
         }
 
@@ -194,7 +194,7 @@ addParsedModule { path, source, ast } (Internal.Project project) =
                 , moduleId = moduleId
                 }
 
-        result : { moduleGraph : Graph FilePath, moduleIds : ModuleIds, needToRecomputeSortedModules : Bool }
+        result : { moduleIds : ModuleIds, edgeChanges : Dict ModuleId (List Internal.EdgeChange) }
         result =
             Internal.addModuleToGraph
                 module_
@@ -204,20 +204,26 @@ addParsedModule { path, source, ast } (Internal.Project project) =
                 -- project.dependencyModules
                 Set.empty
                 moduleIds
-                project.moduleGraph
+                (case project.sortedModules of
+                    Internal.ComputedSortedModules _ ->
+                        Dict.empty
+
+                    Internal.NeedsToAddNewEdgesToGraph edgeChanges ->
+                        edgeChanges
+                )
     in
     Internal.Project
         { project
-            | moduleGraph = result.moduleGraph
+            | moduleGraph = Graph.addNode (Graph.Node moduleId (ProjectModule.path module_)) project.moduleGraph
             , moduleIds = result.moduleIds
             , modulesByPath = Dict.insert osAgnosticPath module_ project.modulesByPath
             , modulesThatFailedToParse = Dict.remove osAgnosticPath project.modulesThatFailedToParse
             , sortedModules =
-                if result.needToRecomputeSortedModules then
-                    Nothing
+                if Dict.isEmpty result.edgeChanges then
+                    project.sortedModules
 
                 else
-                    project.sortedModules
+                    Internal.NeedsToAddNewEdgesToGraph result.edgeChanges
             , workList = WorkList.touchedModule path project.workList
         }
 
@@ -228,12 +234,35 @@ removeModule : String -> Project -> Project
 removeModule path (Internal.Project project) =
     case Dict.get path project.modulesByPath of
         Just module_ ->
+            let
+                moduleId : ModuleId
+                moduleId =
+                    ProjectModule.moduleId module_
+
+                edgeChanges : Dict ModuleId (List Internal.EdgeChange)
+                edgeChanges =
+                    Internal.removeModuleFromGraph
+                        moduleId
+                        project.moduleGraph
+                        (case project.sortedModules of
+                            Internal.ComputedSortedModules _ ->
+                                Dict.empty
+
+                            Internal.NeedsToAddNewEdgesToGraph edgeChanges_ ->
+                                edgeChanges_
+                        )
+            in
             Internal.Project
                 { project
                     | modulesByPath = Dict.remove path project.modulesByPath
-                    , moduleGraph = Internal.removeModuleFromGraph module_ project.moduleIds project.moduleGraph
+                    , moduleGraph = Graph.removeNode moduleId project.moduleGraph
                     , modulesThatFailedToParse = Dict.remove path project.modulesThatFailedToParse
-                    , sortedModules = Nothing
+                    , sortedModules =
+                        if Dict.isEmpty edgeChanges then
+                            project.sortedModules
+
+                        else
+                            Internal.NeedsToAddNewEdgesToGraph edgeChanges
                 }
 
         Nothing ->

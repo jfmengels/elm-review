@@ -66,8 +66,8 @@ type alias ValidProjectData =
     , sourceDirectories : List String
     , projectCache : ProjectCache
     , moduleGraph : Graph FilePath
-    , needToRecomputeSortedModules : Bool
     , sortedModules : List (Graph.NodeContext FilePath)
+    , edgeChanges : Dict ModuleId (List Internal.EdgeChange)
     , moduleIds : ModuleIds
     , workList : WorkList
     }
@@ -87,7 +87,7 @@ toRegularProject (ValidProject validProject) =
         , moduleGraph = validProject.moduleGraph
         , sourceDirectories = validProject.sourceDirectories
         , cache = validProject.projectCache
-        , sortedModules = Just validProject.sortedModules
+        , sortedModules = Internal.ComputedSortedModules validProject.sortedModules
         , workList = validProject.workList
         }
 
@@ -112,27 +112,34 @@ parse ((Project p) as project) =
 
             Nothing ->
                 let
-                    sortedModulesResult : Result Graph.Edge (List (Graph.NodeContext FilePath))
+                    sortedModulesResult : Result ( Graph FilePath, Graph.Edge ) ( Graph FilePath, List (Graph.NodeContext FilePath) )
                     sortedModulesResult =
                         case p.sortedModules of
-                            Just sorted ->
-                                Ok sorted
+                            Internal.ComputedSortedModules sorted ->
+                                Ok ( p.moduleGraph, sorted )
 
-                            Nothing ->
-                                Graph.checkAcyclic p.moduleGraph
+                            Internal.NeedsToAddNewEdgesToGraph edgeChanges ->
+                                let
+                                    moduleGraph : Graph FilePath
+                                    moduleGraph =
+                                        addEdgesToModuleGraph edgeChanges p.moduleGraph
+                                in
+                                Graph.checkAcyclic moduleGraph
+                                    |> Result.map (Tuple.pair moduleGraph)
+                                    |> Result.mapError (Tuple.pair moduleGraph)
                 in
                 case sortedModulesResult of
-                    Err edge ->
-                        ImportCycle.findCycle p.modulesByPath p.moduleGraph edge
+                    Err ( moduleGraph, edge ) ->
+                        ImportCycle.findCycle p.modulesByPath moduleGraph edge
                             |> InvalidProjectError.ImportCycleError
                             |> Err
 
-                    Ok sortedModules ->
-                        Ok (fromProjectAndGraph p.moduleGraph sortedModules project)
+                    Ok ( moduleGraph, sortedModules ) ->
+                        Ok (fromProjectAndGraph moduleGraph sortedModules project)
 
 
 fromProjectAndGraph : Graph FilePath -> List (Graph.NodeContext FilePath) -> Project -> ValidProject
-fromProjectAndGraph moduleGraph_ sortedModules (Project project) =
+fromProjectAndGraph moduleGraph sortedModules (Project project) =
     let
         directDependencies_ : Dict String Dependency
         directDependencies_ =
@@ -150,11 +157,11 @@ fromProjectAndGraph moduleGraph_ sortedModules (Project project) =
         , dependencyModules = computeDependencyModules directDependencies_
         , sourceDirectories = project.sourceDirectories
         , projectCache = project.cache
-        , moduleGraph = moduleGraph_
+        , moduleGraph = moduleGraph
         , sortedModules = sortedModules
-        , needToRecomputeSortedModules = False
+        , edgeChanges = Dict.empty
         , moduleIds = project.moduleIds
-        , workList = WorkList.recomputeModules moduleGraph_ sortedModules project.workList
+        , workList = WorkList.recomputeModules moduleGraph sortedModules project.workList
         }
 
 
@@ -360,21 +367,20 @@ addParsedModule { path, source, ast } (ValidProject project) =
                 modulesByPath =
                     Dict.insert path module_ project.modulesByPath
 
-                result : { moduleGraph : Graph FilePath, moduleIds : ModuleIds, needToRecomputeSortedModules : Bool }
-                result =
+                { moduleIds, edgeChanges } =
                     Internal.addModuleToGraph
                         module_
                         (Just existingModule)
                         project.dependencyModules
                         project.moduleIds
-                        project.moduleGraph
+                        project.edgeChanges
             in
             Ok
                 (ValidProject
                     { project
-                        | moduleGraph = result.moduleGraph
-                        , needToRecomputeSortedModules = result.needToRecomputeSortedModules || project.needToRecomputeSortedModules
-                        , moduleIds = result.moduleIds
+                        | moduleGraph = Graph.addNode (Graph.Node moduleId (ProjectModule.path module_)) project.moduleGraph
+                        , edgeChanges = edgeChanges
+                        , moduleIds = moduleIds
                         , modulesByPath = modulesByPath
                         , workList = WorkList.touchedModule path project.workList
                     }
@@ -388,24 +394,49 @@ addParsedModule { path, source, ast } (ValidProject project) =
 
 checkGraph : ValidProject -> Result FixProblem ValidProject
 checkGraph (ValidProject project) =
-    if project.needToRecomputeSortedModules then
-        case Graph.checkAcyclic project.moduleGraph of
+    if Dict.isEmpty project.edgeChanges then
+        Ok (ValidProject { project | workList = WorkList.recomputeModules project.moduleGraph project.sortedModules project.workList })
+
+    else
+        let
+            moduleGraph : Graph FilePath
+            moduleGraph =
+                addEdgesToModuleGraph project.edgeChanges project.moduleGraph
+        in
+        case Graph.checkAcyclic moduleGraph of
             Err edge ->
-                ImportCycle.findCycle project.modulesByPath project.moduleGraph edge
+                ImportCycle.findCycle project.modulesByPath moduleGraph edge
                     |> FixProblem.CreatesImportCycle
                     |> Err
 
             Ok sortedModules ->
                 ValidProject
                     { project
-                        | sortedModules = sortedModules
-                        , needToRecomputeSortedModules = False
+                        | moduleGraph = moduleGraph
+                        , sortedModules = sortedModules
+                        , edgeChanges = Dict.empty
                         , workList = WorkList.recomputeModules project.moduleGraph sortedModules project.workList
                     }
                     |> Ok
 
-    else
-        Ok (ValidProject { project | workList = WorkList.recomputeModules project.moduleGraph project.sortedModules project.workList })
+
+addEdgesToModuleGraph : Dict k (List Internal.EdgeChange) -> Graph FilePath -> Graph FilePath
+addEdgesToModuleGraph edgeChanges baseModuleGraph =
+    Dict.foldl
+        (\_ edges graph ->
+            List.foldl
+                (\{ edge, insert } g ->
+                    if insert then
+                        Graph.addEdge edge g
+
+                    else
+                        Graph.removeEdge edge g
+                )
+                graph
+                edges
+        )
+        baseModuleGraph
+        edgeChanges
 
 
 {-| Remove a module from the project.
@@ -421,12 +452,20 @@ removeModule path (ValidProject project) =
                 modulesByPath : Dict FilePath OpaqueProjectModule
                 modulesByPath =
                     Dict.remove path project.modulesByPath
+
+                moduleId : ModuleId
+                moduleId =
+                    ProjectModule.moduleId module_
+
+                edgeChanges : Dict ModuleId (List Internal.EdgeChange)
+                edgeChanges =
+                    Internal.removeModuleFromGraph moduleId project.moduleGraph project.edgeChanges
             in
             ValidProject
                 { project
                     | modulesByPath = modulesByPath
-                    , moduleGraph = Internal.removeModuleFromGraph module_ project.moduleIds project.moduleGraph
-                    , needToRecomputeSortedModules = True
+                    , moduleGraph = Graph.removeNode moduleId project.moduleGraph
+                    , edgeChanges = edgeChanges
                 }
                 |> Ok
 
