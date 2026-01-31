@@ -41,6 +41,7 @@ type alias ProjectInternals =
     , elmJson : Maybe ( { path : String, raw : String, project : Elm.Project.Project }, ContentHash )
     , readme : Maybe ( { path : String, content : String }, ContentHash )
     , extraFiles : Dict {- path -} String {- content -} String
+    , extraFilesContentHash : Maybe ContentHash
     , extraFilesContentHashes : Dict {- path -} String ContentHash
     , dependencies : Dict String Dependency
     , directDependencies : Dict String Dependency

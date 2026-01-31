@@ -79,6 +79,7 @@ toRegularProject (ValidProject validProject) =
         , elmJson = validProject.elmJson
         , readme = validProject.readme
         , extraFiles = validProject.extraFiles
+        , extraFilesContentHash = Just validProject.extraFilesContentHash
         , extraFilesContentHashes = validProject.extraFilesContentHashes
         , dependencies = validProject.dependencies
         , directDependencies = validProject.directDependencies
@@ -138,12 +139,22 @@ parse ((Project p) as project) =
 
 fromProjectAndGraph : Graph FilePath -> List (Graph.NodeContext FilePath) -> Project -> ValidProject
 fromProjectAndGraph moduleGraph sortedModules (Project project) =
+    let
+        extraFilesContentHash : ContentHash
+        extraFilesContentHash =
+            case project.extraFilesContentHash of
+                Just contentHash ->
+                    contentHash
+
+                Nothing ->
+                    ContentHash.combine project.extraFilesContentHashes
+    in
     ValidProject
         { modulesByPath = project.modulesByPath
         , elmJson = project.elmJson
         , readme = project.readme
         , extraFiles = project.extraFiles
-        , extraFilesContentHash = ContentHash.combine project.extraFilesContentHashes
+        , extraFilesContentHash = extraFilesContentHash
         , extraFilesContentHashes = project.extraFilesContentHashes
         , dependencies = project.dependencies
         , directDependencies = project.directDependencies

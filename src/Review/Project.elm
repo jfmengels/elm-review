@@ -121,6 +121,7 @@ new =
         , elmJson = Nothing
         , readme = Nothing
         , extraFiles = Dict.empty
+        , extraFilesContentHash = Nothing
         , extraFilesContentHashes = Dict.empty
         , dependencies = Dict.empty
         , directDependencies = Dict.empty
