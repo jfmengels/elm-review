@@ -382,9 +382,12 @@ the list of provided fixes was empty."""
                     testRule : Rule
                     testRule =
                         ArbitraryFixRule.rule
-                            "src/A.elm"
-                            [ Fix.replaceRangeBy { start = { row = 2, column = 12 }, end = { row = 20, column = 15 } } "321"
-                            , Fix.replaceRangeBy { start = { row = 2, column = 13 }, end = { row = 20, column = 14 } } "432"
+                            [ { path = "src/A.elm"
+                              , edits =
+                                    [ Fix.replaceRangeBy { start = { row = 2, column = 12 }, end = { row = 20, column = 15 } } "321"
+                                    , Fix.replaceRangeBy { start = { row = 2, column = 13 }, end = { row = 20, column = 14 } } "432"
+                                    ]
+                              }
                             ]
                 in
                 """module A exposing (someCode)
@@ -432,9 +435,12 @@ of your fixes."""
                     testRule : Rule
                     testRule =
                         ArbitraryFixRule.rule
-                            "src/A.elm"
-                            [ Fix.replaceRangeBy { start = { row = 10, column = 1 }, end = { row = 20, column = 1 } } ""
-                            , Fix.insertAt { row = 15, column = 1 } "foo"
+                            [ { path = "src/A.elm"
+                              , edits =
+                                    [ Fix.replaceRangeBy { start = { row = 10, column = 1 }, end = { row = 20, column = 1 } } ""
+                                    , Fix.insertAt { row = 15, column = 1 } "foo"
+                                    ]
+                              }
                             ]
                 in
                 """module A exposing (someCode)

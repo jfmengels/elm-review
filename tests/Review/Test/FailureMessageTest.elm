@@ -1245,8 +1245,11 @@ unchangedSourceAfterFixTest =
                 testRule : Rule
                 testRule =
                     ArbitraryFixRule.rule
-                        "src/A.elm"
-                        [ Fix.replaceRangeBy { start = { row = 1, column = 1 }, end = { row = 1, column = 7 } } "module"
+                        [ { path = "src/A.elm"
+                          , edits =
+                                [ Fix.replaceRangeBy { start = { row = 1, column = 1 }, end = { row = 1, column = 7 } } "module"
+                                ]
+                          }
                         ]
             in
             """module A exposing (..)
@@ -1294,9 +1297,12 @@ invalidSourceAfterFixTest =
                 testRule : Rule
                 testRule =
                     ArbitraryFixRule.rule
-                        "src/A.elm"
-                        [ Fix.replaceRangeBy { start = { row = 1, column = 1 }, end = { row = 1, column = 4 } } "#"
-                        , Fix.replaceRangeBy { start = { row = 2, column = 1 }, end = { row = 2, column = 4 } } "1\n2"
+                        [ { path = "src/A.elm"
+                          , edits =
+                                [ Fix.replaceRangeBy { start = { row = 1, column = 1 }, end = { row = 1, column = 4 } } "#"
+                                , Fix.replaceRangeBy { start = { row = 2, column = 1 }, end = { row = 2, column = 4 } } "1\n2"
+                                ]
+                          }
                         ]
             in
             """module A exposing (..)
@@ -1359,8 +1365,10 @@ importCycleAfterFixTest =
                 testRule : Rule
                 testRule =
                     ArbitraryFixRule.rule
-                        "src/A.elm"
-                        [ Fix.insertAt { row = 2, column = 1 } "import Bar\n" ]
+                        [ { path = "src/A.elm"
+                          , edits = [ Fix.insertAt { row = 2, column = 1 } "import Bar\n" ]
+                          }
+                        ]
             in
             [ """module A exposing (..)
 a = "abc"
@@ -1403,11 +1411,14 @@ editWithNegativeRangeTest =
                     testRule : Rule
                     testRule =
                         ArbitraryFixRule.rule
-                            "src/A.elm"
-                            [ Fix.removeRange
-                                { start = { row = 2, column = 1 }
-                                , end = { row = 1, column = 1 }
-                                }
+                            [ { path = "src/A.elm"
+                              , edits =
+                                    [ Fix.removeRange
+                                        { start = { row = 2, column = 1 }
+                                        , end = { row = 1, column = 1 }
+                                        }
+                                    ]
+                              }
                             ]
                 in
                 """module A exposing (..)
@@ -1442,12 +1453,15 @@ I don't know what to do with this edit."""
                     testRule : Rule
                     testRule =
                         ArbitraryFixRule.rule
-                            "src/A.elm"
-                            [ Fix.replaceRangeBy
-                                { start = { row = 2, column = 1 }
-                                , end = { row = 1, column = 1 }
-                                }
-                                "-- ok"
+                            [ { path = "src/A.elm"
+                              , edits =
+                                    [ Fix.replaceRangeBy
+                                        { start = { row = 2, column = 1 }
+                                        , end = { row = 1, column = 1 }
+                                        }
+                                        "-- ok"
+                                    ]
+                              }
                             ]
                 in
                 """module A exposing (..)

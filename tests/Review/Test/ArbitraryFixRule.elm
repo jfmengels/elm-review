@@ -11,12 +11,12 @@ module Review.Test.ArbitraryFixRule exposing
 -}
 
 import Dict exposing (Dict)
-import Review.Fix exposing (Fix)
+import Review.Fix exposing (Edit)
 import Review.Rule as Rule exposing (Error, Rule)
 
 
-rule : String -> List Fix -> Rule
-rule filePathToFix edits =
+rule : List { path : String, edits : List Edit } -> Rule
+rule fixes =
     Rule.newProjectRuleSchema "TestRule" Dict.empty
         |> Rule.withModuleVisitor (Rule.withSimpleModuleDefinitionVisitor (always []))
         |> Rule.withModuleContextUsingContextCreator
@@ -27,23 +27,32 @@ rule filePathToFix edits =
                     |> Rule.withModuleKey
             , foldProjectContexts = Dict.union
             }
-        |> Rule.withFinalProjectEvaluation (finalEvaluation filePathToFix edits)
+        |> Rule.withFinalProjectEvaluation (finalEvaluation fixes)
         |> Rule.fromProjectRuleSchema
 
 
-finalEvaluation : String -> List Fix -> Dict String Rule.ModuleKey -> List (Error { useErrorForModule : () })
-finalEvaluation filePathToFix edits dict =
-    case Dict.get filePathToFix dict of
-        Just moduleKey ->
-            [ Rule.globalError
-                { message = message
-                , details = details
-                }
-                |> Rule.withFixesV2 [ Rule.editModule moduleKey edits ]
-            ]
+finalEvaluation : List { path : String, edits : List Edit } -> Dict String Rule.ModuleKey -> List (Error { useErrorForModule : () })
+finalEvaluation intendedFixes dict =
+    let
+        fixes : List Rule.FixV2
+        fixes =
+            List.map
+                (\{ path, edits } ->
+                    case Dict.get path dict of
+                        Just moduleKey ->
+                            Rule.editModule moduleKey edits
 
-        Nothing ->
-            Debug.todo ("Couldn't find file " ++ filePathToFix ++ " in test project")
+                        Nothing ->
+                            Debug.todo ("Couldn't find file " ++ path ++ " in test project")
+                )
+                intendedFixes
+    in
+    [ Rule.globalError
+        { message = message
+        , details = details
+        }
+        |> Rule.withFixesV2 fixes
+    ]
 
 
 message : String
