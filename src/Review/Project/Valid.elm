@@ -38,14 +38,13 @@ import Review.Cache.ContentHash as ContentHash exposing (ContentHash)
 import Review.FilePath exposing (FilePath)
 import Review.Fix.FixProblem as FixProblem exposing (FixProblem)
 import Review.ImportCycle as ImportCycle
-import Review.Project.Dependency as Dependency exposing (Dependency)
+import Review.Project.Dependency exposing (Dependency)
 import Review.Project.Internal as Internal exposing (Project(..))
 import Review.Project.InvalidProjectError as InvalidProjectError exposing (InvalidProjectError)
 import Review.Project.ModuleIds as ModuleIds exposing (ModuleId, ModuleIds)
 import Review.Project.ProjectCache exposing (ProjectCache)
 import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModule)
 import Review.WorkList as WorkList exposing (WorkList)
-import Set exposing (Set)
 import Vendor.Graph as Graph exposing (Graph)
 
 
@@ -62,7 +61,6 @@ type alias ValidProjectData =
     , extraFilesContentHashes : Dict {- path -} String ContentHash
     , dependencies : Dict String Dependency
     , directDependencies : Dict String Dependency
-    , dependencyModules : Set ModuleName
     , sourceDirectories : List String
     , projectCache : ProjectCache
     , moduleGraph : Graph FilePath
@@ -140,11 +138,6 @@ parse ((Project p) as project) =
 
 fromProjectAndGraph : Graph FilePath -> List (Graph.NodeContext FilePath) -> Project -> ValidProject
 fromProjectAndGraph moduleGraph sortedModules (Project project) =
-    let
-        directDependencies_ : Dict String Dependency
-        directDependencies_ =
-            computeDirectDependencies project
-    in
     ValidProject
         { modulesByPath = project.modulesByPath
         , elmJson = project.elmJson
@@ -153,8 +146,7 @@ fromProjectAndGraph moduleGraph sortedModules (Project project) =
         , extraFilesContentHash = ContentHash.combine project.extraFilesContentHashes
         , extraFilesContentHashes = project.extraFilesContentHashes
         , dependencies = project.dependencies
-        , directDependencies = directDependencies_
-        , dependencyModules = computeDependencyModules directDependencies_
+        , directDependencies = computeDirectDependencies project
         , sourceDirectories = project.sourceDirectories
         , projectCache = project.cache
         , moduleGraph = moduleGraph
@@ -186,16 +178,6 @@ computeDirectDependencies project =
 
         Nothing ->
             project.dependencies
-
-
-computeDependencyModules : Dict a Dependency -> Set ModuleName
-computeDependencyModules directDependencies_ =
-    Dict.foldl
-        (\_ v acc ->
-            List.foldl (\mod subAcc -> Set.insert (String.split "." mod.name) subAcc) acc (Dependency.modules v)
-        )
-        Set.empty
-        directDependencies_
 
 
 duplicateModuleNames : Dict ModuleName String -> List OpaqueProjectModule -> Maybe { moduleName : ModuleName, paths : List String }
@@ -371,7 +353,6 @@ addParsedModule { path, source, ast } (ValidProject project) =
                     Internal.addModuleToGraph
                         module_
                         (Just existingModule)
-                        project.dependencyModules
                         project.moduleIds
                         project.edgeChanges
             in

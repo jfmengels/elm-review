@@ -91,7 +91,6 @@ import Review.Project.ModuleIds as ModuleIds exposing (ModuleId, ModuleIds)
 import Review.Project.ProjectCache as ProjectCache
 import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModule)
 import Review.WorkList as WorkList
-import Set
 import Vendor.Graph as Graph
 
 
@@ -199,10 +198,6 @@ addParsedModule { path, source, ast } (Internal.Project project) =
             Internal.addModuleToGraph
                 module_
                 (Dict.get osAgnosticPath project.modulesByPath)
-                -- TODO Compute dependencyModules
-                -- TODO (And filter out their modules if they arrive after Elm files)
-                -- project.dependencyModules
-                Set.empty
                 moduleIds
                 (case project.sortedModules of
                     Internal.ComputedSortedModules _ ->

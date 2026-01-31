@@ -93,14 +93,13 @@ type alias EdgeChange =
 addModuleToGraph :
     OpaqueProjectModule
     -> Maybe OpaqueProjectModule
-    -> Set ModuleName
     -> ModuleIds
     -> Dict ModuleId (List EdgeChange)
     ->
         { moduleIds : ModuleIds
         , edgeChanges : Dict ModuleId (List EdgeChange)
         }
-addModuleToGraph module_ maybeExistingModule dependencyModules moduleIds edgeChanges =
+addModuleToGraph module_ maybeExistingModule moduleIds edgeChanges =
     let
         moduleId : ModuleId
         moduleId =
@@ -111,11 +110,11 @@ addModuleToGraph module_ maybeExistingModule dependencyModules moduleIds edgeCha
             let
                 previousFileImports : Set ModuleName
                 previousFileImports =
-                    importedModulesSet (ProjectModule.ast existingModule) dependencyModules
+                    importedModulesSet (ProjectModule.ast existingModule)
 
                 newFileImports : Set ModuleName
                 newFileImports =
-                    importedModulesSet (ProjectModule.ast module_) dependencyModules
+                    importedModulesSet (ProjectModule.ast module_)
 
                 addedImports : Set ModuleName
                 addedImports =
@@ -150,17 +149,13 @@ addModuleToGraph module_ maybeExistingModule dependencyModules moduleIds edgeCha
                     ( edgeChangesForFile, newModuleIds ) =
                         Set.foldl
                             (\moduleName ( edges, ids ) ->
-                                if Set.member moduleName dependencyModules then
-                                    ( edges, ids )
-
-                                else
-                                    let
-                                        ( importedModuleId, newIds ) =
-                                            ModuleIds.addAndGet moduleName ids
-                                    in
-                                    ( { edge = Graph.Edge importedModuleId moduleId, insert = True } :: edges
-                                    , newIds
-                                    )
+                                let
+                                    ( importedModuleId, newIds ) =
+                                        ModuleIds.addAndGet moduleName ids
+                                in
+                                ( { edge = Graph.Edge importedModuleId moduleId, insert = True } :: edges
+                                , newIds
+                                )
                             )
                             ( edgesAfterRemovingImports, moduleIds )
                             addedImports
@@ -180,21 +175,12 @@ addModuleToGraph module_ maybeExistingModule dependencyModules moduleIds edgeCha
                     List.foldl
                         (\(Node _ import_) ( edges, ids ) ->
                             let
-                                moduleName : ModuleName
-                                moduleName =
-                                    Node.value import_.moduleName
+                                ( importedModuleId, newIds ) =
+                                    ModuleIds.addAndGet (Node.value import_.moduleName) ids
                             in
-                            if Set.member moduleName dependencyModules then
-                                ( edges, ids )
-
-                            else
-                                let
-                                    ( importedModuleId, newIds ) =
-                                        ModuleIds.addAndGet moduleName ids
-                                in
-                                ( { edge = Graph.Edge importedModuleId moduleId, insert = True } :: edges
-                                , newIds
-                                )
+                            ( { edge = Graph.Edge importedModuleId moduleId, insert = True } :: edges
+                            , newIds
+                            )
                         )
                         ( [], moduleIds )
                         (ProjectModule.ast module_).imports
@@ -233,20 +219,11 @@ removeModuleFromGraph moduleId moduleGraph edgeChanges =
             edgeChanges
 
 
-importedModulesSet : Elm.Syntax.File.File -> Set ModuleName -> Set ModuleName
-importedModulesSet ast dependencyModules =
+importedModulesSet : Elm.Syntax.File.File -> Set ModuleName
+importedModulesSet ast =
     List.foldl
         (\(Node _ { moduleName }) set ->
-            let
-                name : ModuleName
-                name =
-                    Node.value moduleName
-            in
-            if Set.member name dependencyModules then
-                set
-
-            else
-                Set.insert name set
+            Set.insert (Node.value moduleName) set
         )
         Set.empty
         ast.imports
