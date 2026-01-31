@@ -481,6 +481,49 @@ the positions (for inserting) of every fix to be mutually exclusive.
 
 Hint: Maybe you duplicated a fix, or you targeted the wrong node for one
 of your fixes."""
+        , test "should not fail if an edit introduces a cyclic import error when applying all fixes resolves it" <|
+            \() ->
+                let
+                    testRule : Rule
+                    testRule =
+                        ArbitraryFixRule.rule
+                            [ { path = "src/A.elm"
+                              , edits = [ Fix.insertAt { row = 3, column = 1 } "import B" ]
+                              }
+                            , { path = "src/B.elm"
+                              , edits = [ Fix.removeRange { start = { row = 3, column = 1 }, end = { row = 3, column = 100 } } ]
+                              }
+                            ]
+                in
+                [ """
+module A exposing (someCode)
+
+someCode = 1
+"""
+                , """
+module B exposing (someCode)
+import A
+someCode = 2
+"""
+                ]
+                    |> Review.Test.runOnModules testRule
+                    |> Review.Test.expectGlobalErrorsWithFixes
+                        [ { message = ArbitraryFixRule.message
+                          , details = ArbitraryFixRule.details
+                          , fixes =
+                                [ ( "src/A.elm", Review.Test.edited """
+module A exposing (someCode)
+import B
+someCode = 1
+""" )
+                                , ( "src/B.elm", Review.Test.edited """
+module B exposing (someCode)
+
+someCode = 2
+""" )
+                                ]
+                          }
+                        ]
         ]
 
 
