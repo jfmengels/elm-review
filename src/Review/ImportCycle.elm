@@ -108,7 +108,14 @@ visitorDiscoverCycle targetNode path distance acc =
 printCycle : List String -> String
 printCycle moduleNames =
     moduleNames
-        |> List.map Ansi.yellow
+        |> List.map
+            (\name ->
+                if String.length name == 1 then
+                    " " ++ Ansi.yellow name
+
+                else
+                    Ansi.yellow name
+            )
         |> String.join "\n    │     ↓\n    │    "
         |> wrapInCycle
 

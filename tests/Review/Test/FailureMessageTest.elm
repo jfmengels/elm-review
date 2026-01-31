@@ -1360,11 +1360,11 @@ importCycleAfterFixTest =
                 testRule =
                     ArbitraryFixRule.rule
                         "src/A.elm"
-                        [ Fix.insertAt { row = 2, column = 1 } "import B\n" ]
+                        [ Fix.insertAt { row = 2, column = 1 } "import Bar\n" ]
             in
             [ """module A exposing (..)
 a = "abc"
-""", """module B exposing (..)
+""", """module Bar exposing (..)
 import A
 b = "abc"
 """ ]
@@ -1373,7 +1373,7 @@ b = "abc"
                     [ { message = ArbitraryFixRule.message
                       , details = ArbitraryFixRule.details
                       , fixes = [ ( "A", Review.Test.edited """module A exposing (..)
-import B
+import Bar
 a = "abc"
 """ ) ]
                       }
@@ -1388,9 +1388,9 @@ would provide some fixes, but they introduced an import cycle in the
 project:
 
     ┌─────┐
-    │    \u{001B}[33mA\u{001B}[39m
+    │     \u{001B}[33mA\u{001B}[39m
     │     ↓
-    │    \u{001B}[33mB\u{001B}[39m
+    │    \u{001B}[33mBar\u{001B}[39m
     └─────┘"""
 
 
