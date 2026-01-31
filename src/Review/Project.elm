@@ -123,6 +123,7 @@ new =
         , extraFiles = Dict.empty
         , extraFilesContentHashes = Dict.empty
         , dependencies = Dict.empty
+        , directDependencies = Dict.empty
         , moduleGraph = Graph.empty
         , sourceDirectories = [ "src/" ]
         , cache = ProjectCache.empty
@@ -334,8 +335,29 @@ addElmJson elmJson_ (Internal.Project project) =
             | elmJson = Just ( elmJson_, ContentHash.hash elmJson_.raw )
             , sourceDirectories = sourceDirectories
             , modulesByPath = modules_
+            , directDependencies = computeDirectDependencies elmJson_.project project.dependencies
             , workList = WorkList.touchedElmJson project.workList
         }
+
+
+computeDirectDependencies : Elm.Project.Project -> Dict String Dependency -> Dict String Dependency
+computeDirectDependencies elmJsonProject dependencies_ =
+    case elmJsonProject of
+        Elm.Project.Application { depsDirect, testDepsDirect } ->
+            let
+                allDeps : List String
+                allDeps =
+                    List.map (\( name, _ ) -> Elm.Package.toString name) (depsDirect ++ testDepsDirect)
+            in
+            Dict.filter (\depName _ -> List.member depName allDeps) dependencies_
+
+        Elm.Project.Package { deps, testDeps } ->
+            let
+                allDeps : List String
+                allDeps =
+                    List.map (\( name, _ ) -> Elm.Package.toString name) (deps ++ testDeps)
+            in
+            Dict.filter (\depName _ -> List.member depName allDeps) dependencies_
 
 
 {-| Get the contents of the `elm.json` file, if available.
@@ -486,15 +508,44 @@ parsing a file.
 -}
 addDependency : Dependency -> Project -> Project
 addDependency dependency (Internal.Project project) =
+    let
+        dependencyName : String
+        dependencyName =
+            Dependency.name dependency
+    in
     Internal.Project
         { project
             | dependencies =
                 Dict.insert
-                    (Dependency.name dependency)
+                    dependencyName
                     dependency
                     project.dependencies
+            , directDependencies =
+                if isDirectDependency (Maybe.map (Tuple.first >> .project) project.elmJson) dependencyName then
+                    Dict.insert
+                        dependencyName
+                        dependency
+                        project.directDependencies
+
+                else
+                    project.directDependencies
             , workList = WorkList.touchedElmJson project.workList
         }
+
+
+isDirectDependency : Maybe Elm.Project.Project -> String -> Bool
+isDirectDependency elmJsonProject dependencyName =
+    case elmJsonProject of
+        Just (Elm.Project.Application { depsDirect, testDepsDirect }) ->
+            List.any (\( name, _ ) -> Elm.Package.toString name == dependencyName) depsDirect
+                || List.any (\( name, _ ) -> Elm.Package.toString name == dependencyName) testDepsDirect
+
+        Just (Elm.Project.Package { deps, testDeps }) ->
+            List.any (\( name, _ ) -> Elm.Package.toString name == dependencyName) deps
+                || List.any (\( name, _ ) -> Elm.Package.toString name == dependencyName) testDeps
+
+        Nothing ->
+            True
 
 
 {-| Remove a dependency from a project by name.
@@ -504,6 +555,7 @@ removeDependency dependencyName (Internal.Project project) =
     Internal.Project
         { project
             | dependencies = Dict.remove dependencyName project.dependencies
+            , directDependencies = Dict.remove dependencyName project.directDependencies
             , workList = WorkList.touchedElmJson project.workList
         }
 

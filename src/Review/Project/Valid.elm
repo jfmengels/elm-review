@@ -30,7 +30,6 @@ module Review.Project.Valid exposing
     )
 
 import Dict exposing (Dict)
-import Elm.Package
 import Elm.Project
 import Elm.Syntax.File
 import Elm.Syntax.ModuleName exposing (ModuleName)
@@ -82,6 +81,7 @@ toRegularProject (ValidProject validProject) =
         , extraFiles = validProject.extraFiles
         , extraFilesContentHashes = validProject.extraFilesContentHashes
         , dependencies = validProject.dependencies
+        , directDependencies = validProject.directDependencies
         , moduleGraph = validProject.moduleGraph
         , sourceDirectories = validProject.sourceDirectories
         , cache = validProject.projectCache
@@ -146,7 +146,7 @@ fromProjectAndGraph moduleGraph sortedModules (Project project) =
         , extraFilesContentHash = ContentHash.combine project.extraFilesContentHashes
         , extraFilesContentHashes = project.extraFilesContentHashes
         , dependencies = project.dependencies
-        , directDependencies = computeDirectDependencies project
+        , directDependencies = project.directDependencies
         , sourceDirectories = project.sourceDirectories
         , projectCache = project.cache
         , moduleGraph = moduleGraph
@@ -155,29 +155,6 @@ fromProjectAndGraph moduleGraph sortedModules (Project project) =
         , moduleIds = project.moduleIds
         , workList = WorkList.recomputeModules moduleGraph sortedModules project.workList
         }
-
-
-computeDirectDependencies : { a | elmJson : Maybe ( { path : String, raw : String, project : Elm.Project.Project }, ContentHash ), dependencies : Dict String Dependency } -> Dict String Dependency
-computeDirectDependencies project =
-    case Maybe.map (\( elmJson_, _ ) -> elmJson_.project) project.elmJson of
-        Just (Elm.Project.Application { depsDirect, testDepsDirect }) ->
-            let
-                allDeps : List String
-                allDeps =
-                    List.map (\( name, _ ) -> Elm.Package.toString name) (depsDirect ++ testDepsDirect)
-            in
-            Dict.filter (\depName _ -> List.member depName allDeps) project.dependencies
-
-        Just (Elm.Project.Package { deps, testDeps }) ->
-            let
-                allDeps : List String
-                allDeps =
-                    List.map (\( name, _ ) -> Elm.Package.toString name) (deps ++ testDeps)
-            in
-            Dict.filter (\depName _ -> List.member depName allDeps) project.dependencies
-
-        Nothing ->
-            project.dependencies
 
 
 duplicateModuleNames : Dict ModuleName String -> List OpaqueProjectModule -> Maybe { moduleName : ModuleName, paths : List String }
