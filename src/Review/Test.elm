@@ -1180,12 +1180,12 @@ a different number of errors than expected are reported, or if the message or de
     module ModuleA exposing (a)
     a = 1"""
                     |> Review.Test.run (rule "ModuleB")
-                    |> Review.Test.expectGlobalErrors
-                        [ { message = "Could not find module ModuleB"
-                          , details =
-                                [ "You mentioned the module ModuleB in the configuration of this rule, but it could not be found."
-                                , "This likely means you misconfigured the rule or the configuration has become out of date with recent changes in your project."
-                                ]
+                    |> Review.Test.expectGlobalErrorsWithFixes
+                        [ { message = "1 is not allowed"
+                          , details = [ "Use 100 instead." ]
+                          , fixes = [ ( "A", Review.Test.edited """module A exposing (a)
+    a = 100
+    """ ) ]
                           }
                         ]
 
