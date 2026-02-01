@@ -5627,17 +5627,15 @@ computeWhatsRequiredToAnalyze : ValidProject -> OpaqueProjectModule -> List Rule
 computeWhatsRequiredToAnalyze project module_ ruleProjectVisitors =
     List.foldl
         (\((RuleProjectVisitor ruleProjectVisitor) as rule) ( with, requestedAcc, without ) ->
-            case ruleProjectVisitor.createModuleVisitorFromProjectVisitor of
-                Just moduleVisitorCreator ->
-                    case moduleVisitorCreator project module_ of
-                        Just moduleVisitor ->
-                            ( moduleVisitor :: with
-                            , RequestedData.combineJust ruleProjectVisitor.requestedData requestedAcc
-                            , without
-                            )
-
-                        Nothing ->
-                            ( with, requestedAcc, rule :: without )
+            case
+                ruleProjectVisitor.createModuleVisitorFromProjectVisitor
+                    |> Maybe.andThen (\moduleVisitorCreator -> moduleVisitorCreator project module_)
+            of
+                Just moduleVisitor ->
+                    ( moduleVisitor :: with
+                    , RequestedData.combineJust ruleProjectVisitor.requestedData requestedAcc
+                    , without
+                    )
 
                 Nothing ->
                     ( with, requestedAcc, rule :: without )
