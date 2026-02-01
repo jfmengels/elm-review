@@ -1500,7 +1500,7 @@ finalEvaluation context =
         moduleThatExposeEverythingErrors : List ( Maybe (Error {}), Maybe ( ModuleName, ModuleName ) )
         moduleThatExposeEverythingErrors =
             List.map
-                (\({ importRange, exposingRange, exposingRangeToRemove } as module_) ->
+                (\({ importRange } as module_) ->
                     if not module_.wasUsedImplicitly then
                         if module_.wasUsedWithModuleName then
                             ( Just
@@ -1508,8 +1508,8 @@ finalEvaluation context =
                                     { message = "No imported elements from `" ++ String.join "." module_.name ++ "` are used"
                                     , details = details
                                     }
-                                    exposingRange
-                                    [ Fix.removeRange exposingRangeToRemove ]
+                                    module_.exposingRange
+                                    [ Fix.removeRange module_.exposingRangeToRemove ]
                                 )
                             , Nothing
                             )
