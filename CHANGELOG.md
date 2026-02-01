@@ -2,7 +2,12 @@
 
 ## [Unreleased]
 
+## [2.16.4] - 2026-02-02
+
 - Fixed an issue where `elm-review` would yield incorrect results after a re-run, because of an issue in its caching system introduced in `2.16.3`.
+- Improved internal performance:
+  - On a new run review or after a fix is applied, we now compute the module graph more efficiently and as rarely as possible.
+  - We now skip reviewing files whose results can't possibly have changed, whereas previously this often ran on additional files. 
 
 ## [2.16.3] - 2026-01-20
 
@@ -283,7 +288,8 @@ Help would be appreciated to fill the blanks!
 [`Review.Rule.errorFixFailure`]: https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule#errorFixFailure
 [`Review.Test.ignoredFilesImpactResults`]: https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule-Test#ignoredFilesImpactResults
 
-[Unreleased]: https://github.com/jfmengels/elm-review/compare/v2.16.3...HEAD
+[Unreleased]: https://github.com/jfmengels/elm-review/compare/v2.16.4...HEAD
+[2.16.4]: https://github.com/jfmengels/elm-review/releases/tag/2.16.4
 [2.16.3]: https://github.com/jfmengels/elm-review/releases/tag/2.16.3
 [2.16.2]: https://github.com/jfmengels/elm-review/releases/tag/2.16.2
 [2.16.1]: https://github.com/jfmengels/elm-review/releases/tag/2.16.1
