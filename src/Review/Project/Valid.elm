@@ -52,12 +52,12 @@ type ValidProject
 
 
 type alias ValidProjectData =
-    { modulesByPath : Dict String OpaqueProjectModule
-    , elmJson : Maybe ( { path : String, raw : String, project : Elm.Project.Project }, ContentHash )
-    , readme : Maybe ( { path : String, content : String }, ContentHash )
-    , extraFiles : Dict {- path -} String {- content -} String
+    { modulesByPath : Dict FilePath OpaqueProjectModule
+    , elmJson : Maybe ( { path : FilePath, raw : String, project : Elm.Project.Project }, ContentHash )
+    , readme : Maybe ( { path : FilePath, content : String }, ContentHash )
+    , extraFiles : Dict FilePath {- content -} String
     , extraFilesContentHash : ContentHash
-    , extraFilesContentHashes : Dict {- path -} String ContentHash
+    , extraFilesContentHashes : Dict FilePath ContentHash
     , dependencies : Dict String Dependency
     , directDependencies : Dict String Dependency
     , sourceDirectories : List String
@@ -180,7 +180,7 @@ duplicateModuleNames visitedModules projectModules =
                 moduleName =
                     ProjectModule.moduleName projectModule
 
-                projectModulePath : String
+                projectModulePath : FilePath
                 projectModulePath =
                     ProjectModule.path projectModule
             in
@@ -213,7 +213,7 @@ duplicateModuleNames visitedModules projectModules =
 -- ACCESSORS
 
 
-elmJson : ValidProject -> Maybe { path : String, raw : String, project : Elm.Project.Project }
+elmJson : ValidProject -> Maybe { path : FilePath, raw : String, project : Elm.Project.Project }
 elmJson (ValidProject project) =
     Maybe.map Tuple.first project.elmJson
 
@@ -223,7 +223,7 @@ elmJsonHash (ValidProject project) =
     Maybe.map Tuple.second project.elmJson
 
 
-readme : ValidProject -> Maybe { path : String, content : String }
+readme : ValidProject -> Maybe { path : FilePath, content : String }
 readme (ValidProject project) =
     Maybe.map Tuple.first project.readme
 
@@ -279,12 +279,12 @@ getGraphNode moduleId (ValidProject project) =
     Graph.get moduleId project.moduleGraph
 
 
-getModuleByPath : String -> ValidProject -> Maybe OpaqueProjectModule
+getModuleByPath : FilePath -> ValidProject -> Maybe OpaqueProjectModule
 getModuleByPath path (ValidProject project) =
     Dict.get path project.modulesByPath
 
 
-doesModuleExist : String -> ValidProject -> Bool
+doesModuleExist : FilePath -> ValidProject -> Bool
 doesModuleExist path (ValidProject project) =
     Dict.member path project.modulesByPath
 
@@ -449,7 +449,7 @@ available for rules to access using
 [`Review.Rule.withReadmeModuleVisitor`](./Review-Rule#withReadmeModuleVisitor) and
 [`Review.Rule.withReadmeProjectVisitor`](./Review-Rule#withReadmeProjectVisitor).
 -}
-addReadme : { path : String, content : String } -> ValidProject -> ValidProject
+addReadme : { path : FilePath, content : String } -> ValidProject -> ValidProject
 addReadme readme_ (ValidProject project) =
     ValidProject
         { project
@@ -460,10 +460,10 @@ addReadme readme_ (ValidProject project) =
 
 {-| Add an extra file to the project.
 -}
-addExtraFile : { path : String, content : String } -> ValidProject -> ValidProject
+addExtraFile : { path : FilePath, content : String } -> ValidProject -> ValidProject
 addExtraFile file (ValidProject project) =
     let
-        extraFilesContentHashes : Dict String ContentHash
+        extraFilesContentHashes : Dict FilePath ContentHash
         extraFilesContentHashes =
             Dict.insert file.path (ContentHash.hash file.content) project.extraFilesContentHashes
     in
@@ -478,10 +478,10 @@ addExtraFile file (ValidProject project) =
 
 {-| Remove an extra file from the project.
 -}
-removeExtraFile : String -> ValidProject -> ValidProject
+removeExtraFile : FilePath -> ValidProject -> ValidProject
 removeExtraFile path (ValidProject project) =
     let
-        extraFilesContentHashes : Dict String ContentHash
+        extraFilesContentHashes : Dict FilePath ContentHash
         extraFilesContentHashes =
             Dict.remove path project.extraFilesContentHashes
     in
@@ -494,7 +494,7 @@ removeExtraFile path (ValidProject project) =
         }
 
 
-addElmJson : { path : String, raw : String, project : Elm.Project.Project } -> ValidProject -> ValidProject
+addElmJson : { path : FilePath, raw : String, project : Elm.Project.Project } -> ValidProject -> ValidProject
 addElmJson elmJson_ (ValidProject project) =
     ValidProject
         { project

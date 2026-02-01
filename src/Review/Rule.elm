@@ -4060,7 +4060,7 @@ You can get a `ElmJsonKey` using the [`withElmJsonProjectVisitor`](#withElmJsonP
 -}
 type ElmJsonKey
     = ElmJsonKey
-        { path : String
+        { path : FilePath
         , raw : String
         , project : Elm.Project.Project
         }
@@ -5055,12 +5055,12 @@ type alias ExtractCache projectContext =
     EndAnalysisCache.Entry Extract projectContext
 
 
-qualifyErrors : { ruleName : String, exceptions : Exceptions, filePath : String } -> List (Error {}) -> List (Error {}) -> List (Error {})
+qualifyErrors : { ruleName : String, exceptions : Exceptions, filePath : FilePath } -> List (Error {}) -> List (Error {}) -> List (Error {})
 qualifyErrors params errors acc =
     List.foldl (\err subAcc -> qualifyError params err subAcc) acc errors
 
 
-qualifyError : { ruleName : String, exceptions : Exceptions, filePath : String } -> Error {} -> List (Error {}) -> List (Error {})
+qualifyError : { ruleName : String, exceptions : Exceptions, filePath : FilePath } -> Error {} -> List (Error {}) -> List (Error {})
 qualifyError params (Error err) acc =
     if Exceptions.isFileWeWantReportsFor params.exceptions params.filePath then
         let
@@ -5654,7 +5654,7 @@ computeModuleWithRuleVisitors project module_ inputRuleModuleVisitors (Requested
         ast =
             ProjectModule.ast module_
 
-        filePath : String
+        filePath : FilePath
         filePath =
             ProjectModule.path module_
 
@@ -5718,7 +5718,7 @@ findFixInComputeModuleResults ({ reviewOptions, module_, project, fixedErrors } 
 
         (RuleProjectVisitor ruleProjectVisitor) :: rest ->
             let
-                modulePath : String
+                modulePath : FilePath
                 modulePath =
                     ProjectModule.path module_
 
@@ -5884,7 +5884,7 @@ type FindFixHelpResult
 findFixHelp :
     ValidProject
     -> Bool
-    -> ({ ruleName : String, filePath : String, message : String, details : List String, range : Range } -> Bool)
+    -> ({ ruleName : String, filePath : FilePath, message : String, details : List String, range : Range } -> Bool)
     -> List (Error {})
     -> List (Error {})
     -> FindFixHelpResult
@@ -5985,7 +5985,7 @@ markFixesAsProblem fixProblem error_ =
     { error_ | fixProblem = Just fixProblem }
 
 
-isFixable : Bool -> ({ ruleName : String, filePath : String, message : String, details : List String, range : Range } -> Bool) -> Error {} -> Result (Error {}) (List ( FileTarget, FixKind ))
+isFixable : Bool -> ({ ruleName : String, filePath : FilePath, message : String, details : List String, range : Range } -> Bool) -> Error {} -> Result (Error {}) (List ( FileTarget, FixKind ))
 isFixable supportsFileDeletion predicate ((Error err) as untouchedError) =
     case err.fixProblem of
         Just _ ->
@@ -6758,7 +6758,7 @@ createModuleVisitorFromProjectVisitorHelp :
 createModuleVisitorFromProjectVisitorHelp schema raise hidden traversalAndFolder ( ModuleRuleSchema moduleRuleSchema, moduleContextCreator ) =
     \project module_ ->
         let
-            filePath : String
+            filePath : FilePath
             filePath =
                 ProjectModule.path module_
 
@@ -6823,7 +6823,7 @@ createModuleVisitorFromProjectVisitorHelp schema raise hidden traversalAndFolder
                             initialContext =
                                 applyContextCreator availableData isFileIgnored isFileFixable moduleContextCreator inputProjectContext
 
-                            ruleData : { ruleName : String, exceptions : Exceptions, filePath : String }
+                            ruleData : { ruleName : String, exceptions : Exceptions, filePath : FilePath }
                             ruleData =
                                 { ruleName = schema.name, exceptions = hidden.ruleData.exceptions, filePath = availableData.filePath }
 
@@ -6896,7 +6896,7 @@ type alias RuleModuleVisitorOperations =
 
 createRuleModuleVisitor :
     ModuleRuleSchemaData moduleContext
-    -> { ruleName : String, exceptions : Exceptions, filePath : String }
+    -> { ruleName : String, exceptions : Exceptions, filePath : FilePath }
     -> (( List (Error {}), moduleContext ) -> RuleProjectVisitor)
     -> moduleContext
     -> RuleModuleVisitor
@@ -6926,7 +6926,7 @@ createRuleModuleVisitor schema params toRuleProjectVisitor initialContext =
 
 
 createVisitor :
-    { ruleName : String, exceptions : Exceptions, filePath : String }
+    { ruleName : String, exceptions : Exceptions, filePath : FilePath }
     -> (( List (Error {}), context ) -> a)
     -> ( List (Error {}), context )
     -> Maybe (b -> context -> ( List (Error {}), context ))
@@ -6941,7 +6941,7 @@ createVisitor params raise errorsAndContext maybeVisitor =
 
 
 createVisitor2 :
-    { ruleName : String, exceptions : Exceptions, filePath : String }
+    { ruleName : String, exceptions : Exceptions, filePath : FilePath }
     -> (( List (Error {}), context ) -> t)
     -> ( List (Error {}), context )
     -> Maybe (a -> b -> context -> ( List (Error {}), context ))
@@ -6956,7 +6956,7 @@ createVisitor2 params raise errorsAndContext maybeVisitor =
 
 
 createImportsVisitor :
-    { ruleName : String, exceptions : Exceptions, filePath : String }
+    { ruleName : String, exceptions : Exceptions, filePath : FilePath }
     -> (( List (Error {}), context ) -> a)
     -> ( List (Error {}), context )
     -> Maybe (b -> context -> ( List (Error {}), context ))
@@ -6981,7 +6981,7 @@ createImportsVisitor params raise errorsAndContext maybeImportVisitors =
 
 
 createFinalModuleEvaluationVisitor :
-    { ruleName : String, exceptions : Exceptions, filePath : String }
+    { ruleName : String, exceptions : Exceptions, filePath : FilePath }
     -> (( List (Error {}), context ) -> RuleModuleVisitor)
     -> ( List (Error {}), context )
     -> Maybe (context -> List (Error {}))
@@ -7150,7 +7150,7 @@ findModuleDocumentationBeforeCutOffLine cutOffLine comments =
 
 {-| Concatenate the errors of the previous step and of the last step, and take the last step's context.
 -}
-accumulate : { ruleName : String, exceptions : Exceptions, filePath : String } -> (context -> ( List (Error {}), context )) -> ( List (Error {}), context ) -> ( List (Error {}), context )
+accumulate : { ruleName : String, exceptions : Exceptions, filePath : FilePath } -> (context -> ( List (Error {}), context )) -> ( List (Error {}), context ) -> ( List (Error {}), context )
 accumulate params visitor ( previousErrors, previousContext ) =
     let
         ( newErrors, newContext ) =
@@ -7565,7 +7565,7 @@ type alias AvailableData =
     , moduleDocumentation : Maybe (Node String)
     , moduleNameLookupTable : ModuleNameLookupTable
     , extractSourceCode : Range -> String
-    , filePath : String
+    , filePath : FilePath
     , isInSourceDirectories : Bool
     }
 
@@ -7628,7 +7628,7 @@ isInSourceDirectories (Metadata metadata) =
 -- LOGS
 
 
-fixedError : FixedErrors -> { ruleName : String, filePath : String } -> List ( String, Encode.Value )
+fixedError : FixedErrors -> { ruleName : String, filePath : FilePath } -> List ( String, Encode.Value )
 fixedError fixedErrors data =
     [ ( "type", Encode.string "apply-fix" )
     , ( "ruleName", Encode.string data.ruleName )
