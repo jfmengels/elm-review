@@ -1336,7 +1336,6 @@ Here is the result of the automatic fixing:
     #ule A exposing (..)
     1
     2 "abc"
-
   ```
 
 Here are the individual edits for the file:

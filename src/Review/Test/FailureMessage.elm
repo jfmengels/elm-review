@@ -615,7 +615,9 @@ highlightDifferencesInSourceCodes a b =
         ( resA, resB ) =
             highlightWhiteSpaceDifferences a b
     in
-    ( formatSourceCodeWithFormatter replaceWhitespace (String.lines resA), formatSourceCodeWithFormatter replaceWhitespace (String.lines resB) )
+    ( formatSourceCodeWithFormatter replaceWhitespace (String.lines resA)
+    , formatSourceCodeWithFormatter replaceWhitespace (String.lines resB)
+    )
 
 
 highlightWhiteSpaceDifferences : String -> String -> ( String, String )
@@ -1051,6 +1053,7 @@ formatSourceCodeWithFormatter formatter lines =
     if List.length lines == 1 then
         formatter lines
             |> String.join "\n"
+            |> String.trimRight
             |> wrapInQuotes
 
     else
@@ -1064,6 +1067,7 @@ formatSourceCodeWithFormatter formatter lines =
                         "    " ++ str
                 )
             |> String.join "\n"
+            |> String.trimRight
             |> wrapInTripleQuotes
 
 

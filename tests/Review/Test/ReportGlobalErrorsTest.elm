@@ -158,7 +158,6 @@ This is what it gets fixed to:
 
     module A exposing (..)
     a = 1
-
   ```
 
 If this fix was expected, update the test by using
