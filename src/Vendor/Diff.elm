@@ -224,7 +224,7 @@ onp : (Int -> Maybe a) -> (Int -> Maybe a) -> Int -> Int -> List ( Int, Int )
 onp getA getB m n =
     let
         v =
-            Array.initialize (m + n + 1) (always [])
+            Array.repeat (m + n + 1) []
 
         delta =
             n - m

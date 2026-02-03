@@ -55,7 +55,7 @@ findSmallerCycle graph currentBest nodesToVisit =
 
                 newBest : List (Graph.Node n)
                 newBest =
-                    if List.length cycle > 0 && List.length cycle < List.length currentBest then
+                    if not (List.isEmpty cycle) && List.length cycle < List.length currentBest then
                         cycle
 
                     else
