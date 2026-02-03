@@ -191,7 +191,7 @@ a = Tuple.mapBoth changeFirst changeSecond tuple |> Tuple.first
                             , under = "Tuple.first"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
-a = (changeFirst (Tuple.first tuple))
+a = changeFirst (Tuple.first tuple)
 """
                         ]
         , test "should replace Tuple.first << Tuple.mapBoth changeFirst changeSecond by changeFirst << Tuple.first" <|
@@ -271,7 +271,7 @@ a = Tuple.first << List.partition f
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "List.partition, then Tuple.first can be combined into List.filter"
-                            , details = [ "You can replace this composition by List.filter with the same arguments given to List.partition which is meant for this exact purpose." ]
+                            , details = [ "You can replace this composition by List.filter with the same argument given to List.partition which is meant for this exact purpose." ]
                             , under = "Tuple.first"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -288,7 +288,7 @@ a = Tuple.first << Set.partition f
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Set.partition, then Tuple.first can be combined into Set.filter"
-                            , details = [ "You can replace this composition by Set.filter with the same arguments given to Set.partition which is meant for this exact purpose." ]
+                            , details = [ "You can replace this composition by Set.filter with the same argument given to Set.partition which is meant for this exact purpose." ]
                             , under = "Tuple.first"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -306,7 +306,7 @@ a = Tuple.first << Dict.partition f
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Dict.partition, then Tuple.first can be combined into Dict.filter"
-                            , details = [ "You can replace this composition by Dict.filter with the same arguments given to Dict.partition which is meant for this exact purpose." ]
+                            , details = [ "You can replace this composition by Dict.filter with the same argument given to Dict.partition which is meant for this exact purpose." ]
                             , under = "Tuple.first"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -327,7 +327,7 @@ a = Tuple.first (Tuple.mapFirst f tuple)
                             , under = "Tuple.first"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
-a = (f (Tuple.first tuple))
+a = f (Tuple.first tuple)
 """
                         ]
         , test "should replace Tuple.first (Tuple.mapFirst f <| g tuple) by f <| Tuple.first (g tuple)" <|
@@ -501,7 +501,39 @@ a = Tuple.mapBoth changeFirst changeSecond tuple |> Tuple.second
                             , under = "Tuple.second"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
-a = (changeSecond (Tuple.second tuple))
+a = changeSecond (Tuple.second tuple)
+"""
+                        ]
+        , test "should replace tuple |> Tuple.mapBoth changeFirst changeSecond |> Tuple.second by Tuple.second tuple |> changeSecond" <|
+            \() ->
+                """module A exposing (..)
+a = tuple |> Tuple.mapBoth changeFirst changeSecond |> Tuple.second
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Tuple.second on Tuple.mapBoth can be replaced by directly calling the given function on the accessed tuple part"
+                            , details = [ "You can take the 2nd function argument of the the Tuple.mapBoth call and call it with the accessed tuple part." ]
+                            , under = "Tuple.second"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (Tuple.second tuple) |> changeSecond
+"""
+                        ]
+        , test "should replace (Tuple.mapBoth changeFirst changeSecond <| tuple) |> Tuple.second by changeSecond <| Tuple.second tuple" <|
+            \() ->
+                """module A exposing (..)
+a = (Tuple.mapBoth changeFirst changeSecond <| tuple) |> Tuple.second
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Tuple.second on Tuple.mapBoth can be replaced by directly calling the given function on the accessed tuple part"
+                            , details = [ "You can take the 2nd function argument of the the Tuple.mapBoth call and call it with the accessed tuple part." ]
+                            , under = "Tuple.second"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (changeSecond <| (Tuple.second tuple))
 """
                         ]
         , test "should replace Tuple.second << Tuple.mapBoth changeFirst changeSecond by changeSecond << Tuple.second" <|
@@ -533,7 +565,7 @@ a = Tuple.second (Tuple.mapSecond f tuple)
                             , under = "Tuple.second"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
-a = (f (Tuple.second tuple))
+a = f (Tuple.second tuple)
 """
                         ]
         , test "should replace Tuple.second (Tuple.mapSecond f <| g tuple) by f <| Tuple.second (g tuple)" <|

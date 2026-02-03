@@ -322,6 +322,66 @@ a = (let x = 1 in f b c) == (c |> (let x = 1 in f b))
 a = True
 """
                         ]
+        , test "should simplify let expression with same let declarations and result to True" <|
+            \() ->
+                """module A exposing (..)
+a = (let x = 1 in f b c) == (let x = 1 in f b c)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "(==) comparison will result in True"
+                            , details = [ "Based on the values and/or the context, we can determine the result. You can replace this operation by True." ]
+                            , under = "(let x = 1 in f b c) == (let x = 1 in f b c)"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = True
+"""
+                        ]
+        , test "should simplify let expression with same but reordered let function declarations and result to True" <|
+            \() ->
+                """module A exposing (..)
+a = (let x = 1
+         y = 2 in f b c) == (let y = 2
+                                 x = 1  in f b c)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "(==) comparison will result in True"
+                            , details = [ "Based on the values and/or the context, we can determine the result. You can replace this operation by True." ]
+                            , under = """(let x = 1
+         y = 2 in f b c) == (let y = 2
+                                 x = 1  in f b c)"""
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = True
+"""
+                        ]
+        , test "should simplify let expression with same but reordered let declarations and result to True" <|
+            \() ->
+                """module A exposing (..)
+a = (let x = 1
+         () = ()
+         y = 2 in f b c) == (let y = 2
+                                 x = 1
+                                 () = ()  in f b c)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "(==) comparison will result in True"
+                            , details = [ "Based on the values and/or the context, we can determine the result. You can replace this operation by True." ]
+                            , under = """(let x = 1
+         () = ()
+         y = 2 in f b c) == (let y = 2
+                                 x = 1
+                                 () = ()  in f b c)"""
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = True
+"""
+                        ]
         , test "should simplify nested function calls using `|>`, even when function is wrapped in if expression" <|
             \() ->
                 """module A exposing (..)
@@ -365,6 +425,133 @@ a = (case x of
         X -> f b
         Y -> g d
     ) <| c)"""
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = True
+"""
+                        ]
+        , test "should not simplify case of with unconfirmed cased expressions, same patterns and always equal case results" <|
+            \() ->
+                """module A exposing (..)
+a = (case x of
+        X -> 1
+        Y -> 2
+    )
+    ==
+    (case y of
+        X -> 1
+        Y -> 2
+    )
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectNoErrors
+        , test "should simplify case of with equal cased expressions, same patterns but always unequal case results to True" <|
+            \() ->
+                """module A exposing (..)
+a = (case x of
+        X -> 1
+        Y -> 2
+    )
+    ==
+    (case x of
+        X -> 1
+        Y -> 2
+    )
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "(==) comparison will result in True"
+                            , details = [ "Based on the values and/or the context, we can determine the result. You can replace this operation by True." ]
+                            , under = """(case x of
+        X -> 1
+        Y -> 2
+    )
+    ==
+    (case x of
+        X -> 1
+        Y -> 2
+    )"""
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = True
+"""
+                        ]
+        , test "should simplify case of with equal cased expressions, same patterns in different order but always unequal case results to True" <|
+            \() ->
+                """module A exposing (..)
+a = (case x of
+        Y -> 2
+        X -> 1
+    )
+    ==
+    (case x of
+        X -> 1
+        Y -> 2
+    )
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "(==) comparison will result in True"
+                            , details = [ "Based on the values and/or the context, we can determine the result. You can replace this operation by True." ]
+                            , under = """(case x of
+        Y -> 2
+        X -> 1
+    )
+    ==
+    (case x of
+        X -> 1
+        Y -> 2
+    )"""
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = True
+"""
+                        ]
+        , test "should simplify case of with unconfirmed cased expressions, same patterns but always unequal case results to False" <|
+            \() ->
+                """module A exposing (..)
+a = (case x of
+        X -> 1
+        Y -> 2
+    )
+    ==
+    (case y of
+        X -> -1
+        Y -> -2
+    )
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "(==) comparison will result in False"
+                            , details = [ "Based on the values and/or the context, we can determine the result. You can replace this operation by False." ]
+                            , under = """(case x of
+        X -> 1
+        Y -> 2
+    )
+    ==
+    (case y of
+        X -> -1
+        Y -> -2
+    )"""
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = False
+"""
+                        ]
+        , test "should simplify -n == negate n" <|
+            \() ->
+                """module A exposing (..)
+a = -n == negate n
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "(==) comparison will result in True"
+                            , details = [ "Based on the values and/or the context, we can determine the result. You can replace this operation by True." ]
+                            , under = "-n == negate n"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 a = True
@@ -722,6 +909,70 @@ a = { x | a = 1 } == { x | a = 2 }
 a = False
 """
                         ]
+        , test "should simplify equality of record update and record with different field values" <|
+            \() ->
+                """module A exposing (..)
+a = { x | a = 1 } == { a = 2 }
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "(==) comparison will result in False"
+                            , details = [ "Based on the values and/or the context, we can determine the result. You can replace this operation by False." ]
+                            , under = "{ x | a = 1 } == { a = 2 }"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = False
+"""
+                        ]
+        , test "should simplify equality of record update and record with same field values to True, as that means nothing is left of the original record in the update" <|
+            \() ->
+                """module A exposing (..)
+a = { x | a = 1 } == { a = 1 }
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "(==) comparison will result in True"
+                            , details = [ "Based on the values and/or the context, we can determine the result. You can replace this operation by True." ]
+                            , under = "{ x | a = 1 } == { a = 1 }"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = True
+"""
+                        ]
+        , test "should simplify equality of record and record update different field values" <|
+            \() ->
+                """module A exposing (..)
+a = { a = 1 } == { x | a = 2 }
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "(==) comparison will result in False"
+                            , details = [ "Based on the values and/or the context, we can determine the result. You can replace this operation by False." ]
+                            , under = "{ a = 1 } == { x | a = 2 }"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = False
+"""
+                        ]
+        , test "should simplify equality of record and record update with same field values to True, as that means nothing is left of the original record in the update" <|
+            \() ->
+                """module A exposing (..)
+a = { a = 1 } == { x | a = 1 }
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "(==) comparison will result in True"
+                            , details = [ "Based on the values and/or the context, we can determine the result. You can replace this operation by True." ]
+                            , under = "{ a = 1 } == { x | a = 1 }"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = True
+"""
+                        ]
         , test "should simplify equality of record updates with same base values and field values" <|
             \() ->
                 """module A exposing (..)
@@ -997,9 +1248,11 @@ a = 1 == ({ a = 1 }).b
 """
                         ]
         , listIsEmptyTests
+        , stringIsEmptyTests
         , setIsEmptyTests
         , dictIsEmptyTests
         , arrayIsEmptyTests
+        , nonOverlappingBoundsTests
         ]
 
 
@@ -1014,9 +1267,9 @@ a = List.length l == 0
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "This can be replaced with a call to `List.isEmpty`"
+                            { message = "List.length == 0 can be replaced by List.isEmpty"
                             , details =
-                                [ "Whereas List.length takes as long to run as the number of elements in the List, List.isEmpty runs in constant time."
+                                [ "Whereas List.length takes as long to run as the number of elements in the list, List.isEmpty runs in constant time. You can replace this operation by List.isEmpty on the list given to the List.length call."
                                 ]
                             , under = "List.length"
                             }
@@ -1032,9 +1285,9 @@ a = 0 == List.length l
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "This can be replaced with a call to `List.isEmpty`"
+                            { message = "List.length == 0 can be replaced by List.isEmpty"
                             , details =
-                                [ "Whereas List.length takes as long to run as the number of elements in the List, List.isEmpty runs in constant time."
+                                [ "Whereas List.length takes as long to run as the number of elements in the list, List.isEmpty runs in constant time. You can replace this operation by List.isEmpty on the list given to the List.length call."
                                 ]
                             , under = "List.length"
                             }
@@ -1050,9 +1303,9 @@ a = (l |> List.length) == 0
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "This can be replaced with a call to `List.isEmpty`"
+                            { message = "List.length == 0 can be replaced by List.isEmpty"
                             , details =
-                                [ "Whereas List.length takes as long to run as the number of elements in the List, List.isEmpty runs in constant time."
+                                [ "Whereas List.length takes as long to run as the number of elements in the list, List.isEmpty runs in constant time. You can replace this operation by List.isEmpty on the list given to the List.length call."
                                 ]
                             , under = "List.length"
                             }
@@ -1060,7 +1313,7 @@ a = (l |> List.length) == 0
 a = (l |> List.isEmpty)
 """
                         ]
-        , test "should replace 0 == ([] |> List.length) with List.isEmpty l" <|
+        , test "should replace 0 == (l |> List.length) with List.isEmpty l" <|
             \() ->
                 """module A exposing (..)
 a = 0 == (l |> List.length)
@@ -1068,14 +1321,128 @@ a = 0 == (l |> List.length)
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "This can be replaced with a call to `List.isEmpty`"
+                            { message = "List.length == 0 can be replaced by List.isEmpty"
                             , details =
-                                [ "Whereas List.length takes as long to run as the number of elements in the List, List.isEmpty runs in constant time."
+                                [ "Whereas List.length takes as long to run as the number of elements in the list, List.isEmpty runs in constant time. You can replace this operation by List.isEmpty on the list given to the List.length call."
                                 ]
                             , under = "List.length"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 a = (l |> List.isEmpty)
+"""
+                        ]
+        , test "should replace (==) 0 << List.length with List.isEmpty" <|
+            \() ->
+                """module A exposing (..)
+a = (==) 0 << List.length
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.length == 0 can be replaced by List.isEmpty"
+                            , details =
+                                [ "Whereas List.length takes as long to run as the number of elements in the list, List.isEmpty runs in constant time. You can replace this composition by List.isEmpty."
+                                ]
+                            , under = "(==)"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.isEmpty
+"""
+                        ]
+        , test "should replace List.length >> (==) 0 with List.isEmpty" <|
+            \() ->
+                """module A exposing (..)
+a = (==) 0 << List.length
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.length == 0 can be replaced by List.isEmpty"
+                            , details =
+                                [ "Whereas List.length takes as long to run as the number of elements in the list, List.isEmpty runs in constant time. You can replace this composition by List.isEmpty."
+                                ]
+                            , under = "(==)"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.isEmpty
+"""
+                        ]
+        , test "should replace case List.length l of 0->x; _->y with if List.isEmpty l then x else y" <|
+            \() ->
+                """module A exposing (..)
+a =
+    case  List.length l        of
+        ((0)) -> x
+        ((_))  ->y
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.length matched against 0 can be replaced by List.isEmpty"
+                            , details =
+                                [ "Whereas List.length takes as long to run as the number of elements in the list, List.isEmpty runs in constant time. You can replace this operation by an if-then-else testing for List.isEmpty on the list given to the List.length call, and returning the result of the case matching 0 in the then branch and the result of the branch matching on _ in the else branch."
+                                ]
+                            , under = "case"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a =
+    if  List.isEmpty l then
+                 x
+
+    else
+                 y
+"""
+                        ]
+        , test "should replace case List.length l of 0x0->x; _->y with if List.isEmpty l then x else y" <|
+            \() ->
+                """module A exposing (..)
+a =
+    case List.length l of
+        0x0->x
+        _ -> y
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.length matched against 0 can be replaced by List.isEmpty"
+                            , details =
+                                [ "Whereas List.length takes as long to run as the number of elements in the list, List.isEmpty runs in constant time. You can replace this operation by an if-then-else testing for List.isEmpty on the list given to the List.length call, and returning the result of the case matching 0 in the then branch and the result of the branch matching on _ in the else branch."
+                                ]
+                            , under = "case"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a =
+    if List.isEmpty l then
+             x
+
+    else
+             y
+"""
+                        ]
+        , test "should replace case l |> List.length of 0->x; _->y with if l |> List.isEmpty then x else y" <|
+            \() ->
+                """module A exposing (..)
+a =
+    case l |> List.length of
+        0 -> x
+        _ -> y
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.length matched against 0 can be replaced by List.isEmpty"
+                            , details =
+                                [ "Whereas List.length takes as long to run as the number of elements in the list, List.isEmpty runs in constant time. You can replace this operation by an if-then-else testing for List.isEmpty on the list given to the List.length call, and returning the result of the case matching 0 in the then branch and the result of the branch matching on _ in the else branch."
+                                ]
+                            , under = "case"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a =
+    if l |> List.isEmpty then
+             x
+
+    else
+             y
 """
                         ]
         , test "should replace List.length l /= 0 with not (List.isEmpty l)" <|
@@ -1086,9 +1453,9 @@ a = List.length l /= 0
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "This can be replaced with a call to `List.isEmpty` and `not`"
+                            { message = "List.length /= 0 can be replaced by not on List.isEmpty"
                             , details =
-                                [ "Whereas List.length takes as long to run as the number of elements in the List, List.isEmpty runs in constant time."
+                                [ "Whereas List.length takes as long to run as the number of elements in the list, List.isEmpty runs in constant time. You can replace this operation by not on List.isEmpty on the list given to the List.length call."
                                 ]
                             , under = "List.length"
                             }
@@ -1104,9 +1471,9 @@ a = 0 /= List.length l
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "This can be replaced with a call to `List.isEmpty` and `not`"
+                            { message = "List.length /= 0 can be replaced by not on List.isEmpty"
                             , details =
-                                [ "Whereas List.length takes as long to run as the number of elements in the List, List.isEmpty runs in constant time."
+                                [ "Whereas List.length takes as long to run as the number of elements in the list, List.isEmpty runs in constant time. You can replace this operation by not on List.isEmpty on the list given to the List.length call."
                                 ]
                             , under = "List.length"
                             }
@@ -1122,9 +1489,9 @@ a = (l |> List.length) /= 0
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "This can be replaced with a call to `List.isEmpty` and `not`"
+                            { message = "List.length /= 0 can be replaced by not on List.isEmpty"
                             , details =
-                                [ "Whereas List.length takes as long to run as the number of elements in the List, List.isEmpty runs in constant time."
+                                [ "Whereas List.length takes as long to run as the number of elements in the list, List.isEmpty runs in constant time. You can replace this operation by not on List.isEmpty on the list given to the List.length call."
                                 ]
                             , under = "List.length"
                             }
@@ -1140,9 +1507,9 @@ a = 0 /= (l |> List.length)
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "This can be replaced with a call to `List.isEmpty` and `not`"
+                            { message = "List.length /= 0 can be replaced by not on List.isEmpty"
                             , details =
-                                [ "Whereas List.length takes as long to run as the number of elements in the List, List.isEmpty runs in constant time."
+                                [ "Whereas List.length takes as long to run as the number of elements in the list, List.isEmpty runs in constant time. You can replace this operation by not on List.isEmpty on the list given to the List.length call."
                                 ]
                             , under = "List.length"
                             }
@@ -1159,15 +1526,51 @@ not = False
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "This can be replaced with a call to `List.isEmpty` and `not`"
+                            { message = "List.length /= 0 can be replaced by not on List.isEmpty"
                             , details =
-                                [ "Whereas List.length takes as long to run as the number of elements in the List, List.isEmpty runs in constant time."
+                                [ "Whereas List.length takes as long to run as the number of elements in the list, List.isEmpty runs in constant time. You can replace this operation by not on List.isEmpty on the list given to the List.length call."
                                 ]
                             , under = "List.length"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 a = Basics.not (List.isEmpty l)
 not = False
+"""
+                        ]
+        , test "should replace (/=) 0 << List.length with List.isEmpty" <|
+            \() ->
+                """module A exposing (..)
+a = (/=) 0 << List.length
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.length /= 0 can be replaced by not on List.isEmpty"
+                            , details =
+                                [ "Whereas List.length takes as long to run as the number of elements in the list, List.isEmpty runs in constant time. You can replace this composition by not on List.isEmpty."
+                                ]
+                            , under = "(/=)"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = not << List.isEmpty
+"""
+                        ]
+        , test "should replace List.length >> (/=) 0 with List.isEmpty" <|
+            \() ->
+                """module A exposing (..)
+a = List.length >> (/=) 0
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.length /= 0 can be replaced by not on List.isEmpty"
+                            , details =
+                                [ "Whereas List.length takes as long to run as the number of elements in the list, List.isEmpty runs in constant time. You can replace this composition by not on List.isEmpty."
+                                ]
+                            , under = "(/=)"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.isEmpty >> not
 """
                         ]
         ]
@@ -1185,9 +1588,9 @@ a = Set.size s == 0
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "This can be replaced with a call to `Set.isEmpty`"
+                            { message = "Set.size == 0 can be replaced by Set.isEmpty"
                             , details =
-                                [ "Whereas Set.size takes as long to run as the number of elements in the Set, Set.isEmpty runs in constant time."
+                                [ "Whereas Set.size takes as long to run as the number of elements in the set, Set.isEmpty runs in constant time. You can replace this operation by Set.isEmpty on the set given to the Set.size call."
                                 ]
                             , under = "Set.size"
                             }
@@ -1205,9 +1608,9 @@ a = CoreSet.size s == 0
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "This can be replaced with a call to `Set.isEmpty`"
+                            { message = "Set.size == 0 can be replaced by Set.isEmpty"
                             , details =
-                                [ "Whereas CoreSet.size takes as long to run as the number of elements in the Set, Set.isEmpty runs in constant time."
+                                [ "Whereas Set.size takes as long to run as the number of elements in the set, Set.isEmpty runs in constant time. You can replace this operation by Set.isEmpty on the set given to the Set.size call."
                                 ]
                             , under = "CoreSet.size"
                             }
@@ -1225,9 +1628,9 @@ a = size s == 0
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "This can be replaced with a call to `Set.isEmpty`"
+                            { message = "Set.size == 0 can be replaced by Set.isEmpty"
                             , details =
-                                [ "Whereas size takes as long to run as the number of elements in the Set, Set.isEmpty runs in constant time."
+                                [ "Whereas Set.size takes as long to run as the number of elements in the set, Set.isEmpty runs in constant time. You can replace this operation by Set.isEmpty on the set given to the Set.size call."
                                 ]
                             , under = "size"
                             }
@@ -1245,9 +1648,9 @@ a = 0 == Set.size s
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "This can be replaced with a call to `Set.isEmpty`"
+                            { message = "Set.size == 0 can be replaced by Set.isEmpty"
                             , details =
-                                [ "Whereas Set.size takes as long to run as the number of elements in the Set, Set.isEmpty runs in constant time."
+                                [ "Whereas Set.size takes as long to run as the number of elements in the set, Set.isEmpty runs in constant time. You can replace this operation by Set.isEmpty on the set given to the Set.size call."
                                 ]
                             , under = "Set.size"
                             }
@@ -1265,9 +1668,9 @@ a = (s |> Set.size) == 0
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "This can be replaced with a call to `Set.isEmpty`"
+                            { message = "Set.size == 0 can be replaced by Set.isEmpty"
                             , details =
-                                [ "Whereas Set.size takes as long to run as the number of elements in the Set, Set.isEmpty runs in constant time."
+                                [ "Whereas Set.size takes as long to run as the number of elements in the set, Set.isEmpty runs in constant time. You can replace this operation by Set.isEmpty on the set given to the Set.size call."
                                 ]
                             , under = "Set.size"
                             }
@@ -1276,7 +1679,7 @@ import Set
 a = (s |> Set.isEmpty)
 """
                         ]
-        , test "should replace 0 == ([] |> Set.size) with Set.isEmpty s" <|
+        , test "should replace 0 == (s |> Set.size) with Set.isEmpty s" <|
             \() ->
                 """module A exposing (..)
 import Set
@@ -1285,9 +1688,9 @@ a = 0 == (s |> Set.size)
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "This can be replaced with a call to `Set.isEmpty`"
+                            { message = "Set.size == 0 can be replaced by Set.isEmpty"
                             , details =
-                                [ "Whereas Set.size takes as long to run as the number of elements in the Set, Set.isEmpty runs in constant time."
+                                [ "Whereas Set.size takes as long to run as the number of elements in the set, Set.isEmpty runs in constant time. You can replace this operation by Set.isEmpty on the set given to the Set.size call."
                                 ]
                             , under = "Set.size"
                             }
@@ -1305,9 +1708,9 @@ a = Set.size s /= 0
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "This can be replaced with a call to `Set.isEmpty` and `not`"
+                            { message = "Set.size /= 0 can be replaced by not on Set.isEmpty"
                             , details =
-                                [ "Whereas Set.size takes as long to run as the number of elements in the Set, Set.isEmpty runs in constant time."
+                                [ "Whereas Set.size takes as long to run as the number of elements in the set, Set.isEmpty runs in constant time. You can replace this operation by not on Set.isEmpty on the set given to the Set.size call."
                                 ]
                             , under = "Set.size"
                             }
@@ -1325,9 +1728,9 @@ a = 0 /= Set.size s
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "This can be replaced with a call to `Set.isEmpty` and `not`"
+                            { message = "Set.size /= 0 can be replaced by not on Set.isEmpty"
                             , details =
-                                [ "Whereas Set.size takes as long to run as the number of elements in the Set, Set.isEmpty runs in constant time."
+                                [ "Whereas Set.size takes as long to run as the number of elements in the set, Set.isEmpty runs in constant time. You can replace this operation by not on Set.isEmpty on the set given to the Set.size call."
                                 ]
                             , under = "Set.size"
                             }
@@ -1345,9 +1748,9 @@ a = (s |> Set.size) /= 0
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "This can be replaced with a call to `Set.isEmpty` and `not`"
+                            { message = "Set.size /= 0 can be replaced by not on Set.isEmpty"
                             , details =
-                                [ "Whereas Set.size takes as long to run as the number of elements in the Set, Set.isEmpty runs in constant time."
+                                [ "Whereas Set.size takes as long to run as the number of elements in the set, Set.isEmpty runs in constant time. You can replace this operation by not on Set.isEmpty on the set given to the Set.size call."
                                 ]
                             , under = "Set.size"
                             }
@@ -1365,15 +1768,83 @@ a = 0 /= (s |> Set.size)
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "This can be replaced with a call to `Set.isEmpty` and `not`"
+                            { message = "Set.size /= 0 can be replaced by not on Set.isEmpty"
                             , details =
-                                [ "Whereas Set.size takes as long to run as the number of elements in the Set, Set.isEmpty runs in constant time."
+                                [ "Whereas Set.size takes as long to run as the number of elements in the set, Set.isEmpty runs in constant time. You can replace this operation by not on Set.isEmpty on the set given to the Set.size call."
                                 ]
                             , under = "Set.size"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 import Set
 a = (s |> Set.isEmpty |> not)
+"""
+                        ]
+        , test "should replace (==) 0 << Set.size with Set.isEmpty" <|
+            \() ->
+                """module A exposing (..)
+import Set
+a = (==) 0 << Set.size
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Set.size == 0 can be replaced by Set.isEmpty"
+                            , details =
+                                [ "Whereas Set.size takes as long to run as the number of elements in the set, Set.isEmpty runs in constant time. You can replace this composition by Set.isEmpty."
+                                ]
+                            , under = "(==)"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Set
+a = Set.isEmpty
+"""
+                        ]
+        , test "should replace (/=) 0 << Set.size with Set.isEmpty" <|
+            \() ->
+                """module A exposing (..)
+import Set
+a = (/=) 0 << Set.size
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Set.size /= 0 can be replaced by not on Set.isEmpty"
+                            , details =
+                                [ "Whereas Set.size takes as long to run as the number of elements in the set, Set.isEmpty runs in constant time. You can replace this composition by not on Set.isEmpty."
+                                ]
+                            , under = "(/=)"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Set
+a = not << Set.isEmpty
+"""
+                        ]
+        , test "should replace case Set.size l of 0->x; _->y with if Set.isEmpty l then x else y" <|
+            \() ->
+                """module A exposing (..)
+import Set
+a =
+    case Set.size l of
+        0 -> x
+        _ -> y
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Set.size matched against 0 can be replaced by Set.isEmpty"
+                            , details =
+                                [ "Whereas Set.size takes as long to run as the number of elements in the set, Set.isEmpty runs in constant time. You can replace this operation by an if-then-else testing for Set.isEmpty on the set given to the Set.size call, and returning the result of the case matching 0 in the then branch and the result of the branch matching on _ in the else branch."
+                                ]
+                            , under = "case"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Set
+a =
+    if Set.isEmpty l then
+             x
+
+    else
+             y
 """
                         ]
         ]
@@ -1391,9 +1862,9 @@ a = Dict.size d == 0
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "This can be replaced with a call to `Dict.isEmpty`"
+                            { message = "Dict.size == 0 can be replaced by Dict.isEmpty"
                             , details =
-                                [ "Whereas Dict.size takes as long to run as the number of elements in the Dict, Dict.isEmpty runs in constant time."
+                                [ "Whereas Dict.size takes as long to run as the number of elements in the dict, Dict.isEmpty runs in constant time. You can replace this operation by Dict.isEmpty on the dict given to the Dict.size call."
                                 ]
                             , under = "Dict.size"
                             }
@@ -1411,9 +1882,9 @@ a = size d == 0
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "This can be replaced with a call to `Dict.isEmpty`"
+                            { message = "Dict.size == 0 can be replaced by Dict.isEmpty"
                             , details =
-                                [ "Whereas size takes as long to run as the number of elements in the Dict, Dict.isEmpty runs in constant time."
+                                [ "Whereas Dict.size takes as long to run as the number of elements in the dict, Dict.isEmpty runs in constant time. You can replace this operation by Dict.isEmpty on the dict given to the Dict.size call."
                                 ]
                             , under = "size"
                             }
@@ -1431,9 +1902,9 @@ a = 0 == Dict.size d
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "This can be replaced with a call to `Dict.isEmpty`"
+                            { message = "Dict.size == 0 can be replaced by Dict.isEmpty"
                             , details =
-                                [ "Whereas Dict.size takes as long to run as the number of elements in the Dict, Dict.isEmpty runs in constant time."
+                                [ "Whereas Dict.size takes as long to run as the number of elements in the dict, Dict.isEmpty runs in constant time. You can replace this operation by Dict.isEmpty on the dict given to the Dict.size call."
                                 ]
                             , under = "Dict.size"
                             }
@@ -1451,9 +1922,9 @@ a = (d |> Dict.size) == 0
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "This can be replaced with a call to `Dict.isEmpty`"
+                            { message = "Dict.size == 0 can be replaced by Dict.isEmpty"
                             , details =
-                                [ "Whereas Dict.size takes as long to run as the number of elements in the Dict, Dict.isEmpty runs in constant time."
+                                [ "Whereas Dict.size takes as long to run as the number of elements in the dict, Dict.isEmpty runs in constant time. You can replace this operation by Dict.isEmpty on the dict given to the Dict.size call."
                                 ]
                             , under = "Dict.size"
                             }
@@ -1462,7 +1933,7 @@ import Dict
 a = (d |> Dict.isEmpty)
 """
                         ]
-        , test "should replace 0 == ([] |> Dict.size) with Dict.isEmpty d" <|
+        , test "should replace 0 == (d |> Dict.size) with Dict.isEmpty d" <|
             \() ->
                 """module A exposing (..)
 import Dict
@@ -1471,9 +1942,9 @@ a = 0 == (d |> Dict.size)
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "This can be replaced with a call to `Dict.isEmpty`"
+                            { message = "Dict.size == 0 can be replaced by Dict.isEmpty"
                             , details =
-                                [ "Whereas Dict.size takes as long to run as the number of elements in the Dict, Dict.isEmpty runs in constant time."
+                                [ "Whereas Dict.size takes as long to run as the number of elements in the dict, Dict.isEmpty runs in constant time. You can replace this operation by Dict.isEmpty on the dict given to the Dict.size call."
                                 ]
                             , under = "Dict.size"
                             }
@@ -1491,9 +1962,9 @@ a = Dict.size d /= 0
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "This can be replaced with a call to `Dict.isEmpty` and `not`"
+                            { message = "Dict.size /= 0 can be replaced by not on Dict.isEmpty"
                             , details =
-                                [ "Whereas Dict.size takes as long to run as the number of elements in the Dict, Dict.isEmpty runs in constant time."
+                                [ "Whereas Dict.size takes as long to run as the number of elements in the dict, Dict.isEmpty runs in constant time. You can replace this operation by not on Dict.isEmpty on the dict given to the Dict.size call."
                                 ]
                             , under = "Dict.size"
                             }
@@ -1511,9 +1982,9 @@ a = 0 /= Dict.size d
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "This can be replaced with a call to `Dict.isEmpty` and `not`"
+                            { message = "Dict.size /= 0 can be replaced by not on Dict.isEmpty"
                             , details =
-                                [ "Whereas Dict.size takes as long to run as the number of elements in the Dict, Dict.isEmpty runs in constant time."
+                                [ "Whereas Dict.size takes as long to run as the number of elements in the dict, Dict.isEmpty runs in constant time. You can replace this operation by not on Dict.isEmpty on the dict given to the Dict.size call."
                                 ]
                             , under = "Dict.size"
                             }
@@ -1531,9 +2002,9 @@ a = (d |> Dict.size) /= 0
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "This can be replaced with a call to `Dict.isEmpty` and `not`"
+                            { message = "Dict.size /= 0 can be replaced by not on Dict.isEmpty"
                             , details =
-                                [ "Whereas Dict.size takes as long to run as the number of elements in the Dict, Dict.isEmpty runs in constant time."
+                                [ "Whereas Dict.size takes as long to run as the number of elements in the dict, Dict.isEmpty runs in constant time. You can replace this operation by not on Dict.isEmpty on the dict given to the Dict.size call."
                                 ]
                             , under = "Dict.size"
                             }
@@ -1551,15 +2022,55 @@ a = 0 /= (d |> Dict.size)
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "This can be replaced with a call to `Dict.isEmpty` and `not`"
+                            { message = "Dict.size /= 0 can be replaced by not on Dict.isEmpty"
                             , details =
-                                [ "Whereas Dict.size takes as long to run as the number of elements in the Dict, Dict.isEmpty runs in constant time."
+                                [ "Whereas Dict.size takes as long to run as the number of elements in the dict, Dict.isEmpty runs in constant time. You can replace this operation by not on Dict.isEmpty on the dict given to the Dict.size call."
                                 ]
                             , under = "Dict.size"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 import Dict
 a = (d |> Dict.isEmpty |> not)
+"""
+                        ]
+        , test "should replace (==) 0 << Dict.size with Dict.isEmpty" <|
+            \() ->
+                """module A exposing (..)
+import Dict
+a = (==) 0 << Dict.size
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Dict.size == 0 can be replaced by Dict.isEmpty"
+                            , details =
+                                [ "Whereas Dict.size takes as long to run as the number of elements in the dict, Dict.isEmpty runs in constant time. You can replace this composition by Dict.isEmpty."
+                                ]
+                            , under = "(==)"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Dict
+a = Dict.isEmpty
+"""
+                        ]
+        , test "should replace (/=) 0 << Dict.size with Dict.isEmpty" <|
+            \() ->
+                """module A exposing (..)
+import Dict
+a = (/=) 0 << Dict.size
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Dict.size /= 0 can be replaced by not on Dict.isEmpty"
+                            , details =
+                                [ "Whereas Dict.size takes as long to run as the number of elements in the dict, Dict.isEmpty runs in constant time. You can replace this composition by not on Dict.isEmpty."
+                                ]
+                            , under = "(/=)"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Dict
+a = not << Dict.isEmpty
 """
                         ]
         ]
@@ -1577,9 +2088,9 @@ a = Array.length array == 0
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "This can be replaced with a call to `Array.isEmpty`"
+                            { message = "Array.length == 0 can be replaced by Array.isEmpty"
                             , details =
-                                [ "Whereas Array.length takes as long to run as the number of elements in the Array, Array.isEmpty runs in constant time."
+                                [ "You can replace this operation by Array.isEmpty on the array given to the Array.length call."
                                 ]
                             , under = "Array.length"
                             }
@@ -1597,9 +2108,9 @@ a = length array == 0
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "This can be replaced with a call to `Array.isEmpty`"
+                            { message = "Array.length == 0 can be replaced by Array.isEmpty"
                             , details =
-                                [ "Whereas length takes as long to run as the number of elements in the Array, Array.isEmpty runs in constant time."
+                                [ "You can replace this operation by Array.isEmpty on the array given to the Array.length call."
                                 ]
                             , under = "length"
                             }
@@ -1617,9 +2128,9 @@ a = 0 == Array.length array
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "This can be replaced with a call to `Array.isEmpty`"
+                            { message = "Array.length == 0 can be replaced by Array.isEmpty"
                             , details =
-                                [ "Whereas Array.length takes as long to run as the number of elements in the Array, Array.isEmpty runs in constant time."
+                                [ "You can replace this operation by Array.isEmpty on the array given to the Array.length call."
                                 ]
                             , under = "Array.length"
                             }
@@ -1637,9 +2148,9 @@ a = (array |> Array.length) == 0
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "This can be replaced with a call to `Array.isEmpty`"
+                            { message = "Array.length == 0 can be replaced by Array.isEmpty"
                             , details =
-                                [ "Whereas Array.length takes as long to run as the number of elements in the Array, Array.isEmpty runs in constant time."
+                                [ "You can replace this operation by Array.isEmpty on the array given to the Array.length call."
                                 ]
                             , under = "Array.length"
                             }
@@ -1648,7 +2159,7 @@ import Array
 a = (array |> Array.isEmpty)
 """
                         ]
-        , test "should replace 0 == ([] |> Array.length) with Array.isEmpty array" <|
+        , test "should replace 0 == (array |> Array.length) with Array.isEmpty array" <|
             \() ->
                 """module A exposing (..)
 import Array
@@ -1657,9 +2168,9 @@ a = 0 == (array |> Array.length)
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "This can be replaced with a call to `Array.isEmpty`"
+                            { message = "Array.length == 0 can be replaced by Array.isEmpty"
                             , details =
-                                [ "Whereas Array.length takes as long to run as the number of elements in the Array, Array.isEmpty runs in constant time."
+                                [ "You can replace this operation by Array.isEmpty on the array given to the Array.length call."
                                 ]
                             , under = "Array.length"
                             }
@@ -1677,9 +2188,9 @@ a = Array.length array /= 0
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "This can be replaced with a call to `Array.isEmpty` and `not`"
+                            { message = "Array.length /= 0 can be replaced by not on Array.isEmpty"
                             , details =
-                                [ "Whereas Array.length takes as long to run as the number of elements in the Array, Array.isEmpty runs in constant time."
+                                [ "You can replace this operation by not on Array.isEmpty on the array given to the Array.length call."
                                 ]
                             , under = "Array.length"
                             }
@@ -1697,9 +2208,9 @@ a = 0 /= Array.length array
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "This can be replaced with a call to `Array.isEmpty` and `not`"
+                            { message = "Array.length /= 0 can be replaced by not on Array.isEmpty"
                             , details =
-                                [ "Whereas Array.length takes as long to run as the number of elements in the Array, Array.isEmpty runs in constant time."
+                                [ "You can replace this operation by not on Array.isEmpty on the array given to the Array.length call."
                                 ]
                             , under = "Array.length"
                             }
@@ -1717,9 +2228,9 @@ a = (array |> Array.length) /= 0
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "This can be replaced with a call to `Array.isEmpty` and `not`"
+                            { message = "Array.length /= 0 can be replaced by not on Array.isEmpty"
                             , details =
-                                [ "Whereas Array.length takes as long to run as the number of elements in the Array, Array.isEmpty runs in constant time."
+                                [ "You can replace this operation by not on Array.isEmpty on the array given to the Array.length call."
                                 ]
                             , under = "Array.length"
                             }
@@ -1737,15 +2248,513 @@ a = 0 /= (array |> Array.length)
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "This can be replaced with a call to `Array.isEmpty` and `not`"
+                            { message = "Array.length /= 0 can be replaced by not on Array.isEmpty"
                             , details =
-                                [ "Whereas Array.length takes as long to run as the number of elements in the Array, Array.isEmpty runs in constant time."
+                                [ "You can replace this operation by not on Array.isEmpty on the array given to the Array.length call."
                                 ]
                             , under = "Array.length"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 import Array
 a = (array |> Array.isEmpty |> not)
+"""
+                        ]
+        , test "should replace (==) 0 << Array.length with Array.isEmpty" <|
+            \() ->
+                """module A exposing (..)
+import Array
+a = (==) 0 << Array.length
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Array.length == 0 can be replaced by Array.isEmpty"
+                            , details =
+                                [ "You can replace this composition by Array.isEmpty."
+                                ]
+                            , under = "(==)"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Array
+a = Array.isEmpty
+"""
+                        ]
+        , test "should replace (/=) 0 << Array.length with Array.isEmpty" <|
+            \() ->
+                """module A exposing (..)
+import Array
+a = (/=) 0 << Array.length
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Array.length /= 0 can be replaced by not on Array.isEmpty"
+                            , details =
+                                [ "You can replace this composition by not on Array.isEmpty."
+                                ]
+                            , under = "(/=)"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Array
+a = not << Array.isEmpty
+"""
+                        ]
+        , test "should replace case Array.length l of 0->x; _->y with if Array.isEmpty l then x else y" <|
+            \() ->
+                """module A exposing (..)
+import Array
+a =
+    case Array.length l of
+        0 -> x
+        _ -> y
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Array.length matched against 0 can be replaced by Array.isEmpty"
+                            , details =
+                                [ "You can replace this operation by an if-then-else testing for Array.isEmpty on the array given to the Array.length call, and returning the result of the case matching 0 in the then branch and the result of the branch matching on _ in the else branch."
+                                ]
+                            , under = "case"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Array
+a =
+    if Array.isEmpty l then
+             x
+
+    else
+             y
+"""
+                        ]
+        ]
+
+
+stringIsEmptyTests : Test
+stringIsEmptyTests =
+    describe "String.length should be `String.isEmpty`"
+        [ test "should replace String.length string == 0 with String.isEmpty string" <|
+            \() ->
+                """module A exposing (..)
+a = String.length string == 0
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "String.length == 0 can be replaced by String.isEmpty"
+                            , details =
+                                [ "You can replace this operation by String.isEmpty on the string given to the String.length call."
+                                ]
+                            , under = "String.length"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = String.isEmpty string
+"""
+                        ]
+        , test "should replace length string == 0 with isEmpty string" <|
+            \() ->
+                """module A exposing (..)
+import String as SomethingElse exposing (..)
+a = length string == 0
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "String.length == 0 can be replaced by String.isEmpty"
+                            , details =
+                                [ "You can replace this operation by String.isEmpty on the string given to the String.length call."
+                                ]
+                            , under = "length"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import String as SomethingElse exposing (..)
+a = isEmpty string
+"""
+                        ]
+        , test "should replace 0 == String.length string with String.isEmpty string" <|
+            \() ->
+                """module A exposing (..)
+a = 0 == String.length string
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "String.length == 0 can be replaced by String.isEmpty"
+                            , details =
+                                [ "You can replace this operation by String.isEmpty on the string given to the String.length call."
+                                ]
+                            , under = "String.length"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = String.isEmpty string
+"""
+                        ]
+        , test "should replace (string |> String.length) == 0 with string |> String.isEmpty" <|
+            \() ->
+                """module A exposing (..)
+a = (string |> String.length) == 0
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "String.length == 0 can be replaced by String.isEmpty"
+                            , details =
+                                [ "You can replace this operation by String.isEmpty on the string given to the String.length call."
+                                ]
+                            , under = "String.length"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (string |> String.isEmpty)
+"""
+                        ]
+        , test "should replace 0 == (string |> String.length) with String.isEmpty string" <|
+            \() ->
+                """module A exposing (..)
+a = 0 == (string |> String.length)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "String.length == 0 can be replaced by String.isEmpty"
+                            , details =
+                                [ "You can replace this operation by String.isEmpty on the string given to the String.length call."
+                                ]
+                            , under = "String.length"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (string |> String.isEmpty)
+"""
+                        ]
+        , test "should replace String.length string /= 0 with not (String.isEmpty string)" <|
+            \() ->
+                """module A exposing (..)
+a = String.length string /= 0
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "String.length /= 0 can be replaced by not on String.isEmpty"
+                            , details =
+                                [ "You can replace this operation by not on String.isEmpty on the string given to the String.length call."
+                                ]
+                            , under = "String.length"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = not (String.isEmpty string)
+"""
+                        ]
+        , test "should replace 0 /= String.length string with not (String.isEmpty string)" <|
+            \() ->
+                """module A exposing (..)
+a = 0 /= String.length string
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "String.length /= 0 can be replaced by not on String.isEmpty"
+                            , details =
+                                [ "You can replace this operation by not on String.isEmpty on the string given to the String.length call."
+                                ]
+                            , under = "String.length"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = not (String.isEmpty string)
+"""
+                        ]
+        , test "should replace (string |> String.length) /= 0 with (string |> String.isEmpty |> not)" <|
+            \() ->
+                """module A exposing (..)
+a = (string |> String.length) /= 0
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "String.length /= 0 can be replaced by not on String.isEmpty"
+                            , details =
+                                [ "You can replace this operation by not on String.isEmpty on the string given to the String.length call."
+                                ]
+                            , under = "String.length"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (string |> String.isEmpty |> not)
+"""
+                        ]
+        , test "should replace 0 /= (string |> String.length) with (string |> String.isEmpty |> not)" <|
+            \() ->
+                """module A exposing (..)
+a = 0 /= (string |> String.length)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "String.length /= 0 can be replaced by not on String.isEmpty"
+                            , details =
+                                [ "You can replace this operation by not on String.isEmpty on the string given to the String.length call."
+                                ]
+                            , under = "String.length"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (string |> String.isEmpty |> not)
+"""
+                        ]
+        , test "should replace (==) 0 << String.length with String.isEmpty" <|
+            \() ->
+                """module A exposing (..)
+a = (==) 0 << String.length
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "String.length == 0 can be replaced by String.isEmpty"
+                            , details =
+                                [ "You can replace this composition by String.isEmpty."
+                                ]
+                            , under = "(==)"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = String.isEmpty
+"""
+                        ]
+        , test "should replace (/=) 0 << String.length with String.isEmpty" <|
+            \() ->
+                """module A exposing (..)
+a = (/=) 0 << String.length
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "String.length /= 0 can be replaced by not on String.isEmpty"
+                            , details =
+                                [ "You can replace this composition by not on String.isEmpty."
+                                ]
+                            , under = "(/=)"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = not << String.isEmpty
+"""
+                        ]
+        , test "should replace case String.length l of 0->x; _->y with if String.isEmpty l then x else y" <|
+            \() ->
+                """module A exposing (..)
+a =
+    case String.length l of
+        0 -> x
+        _ -> y
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "String.length matched against 0 can be replaced by String.isEmpty"
+                            , details =
+                                [ "You can replace this operation by an if-then-else testing for String.isEmpty on the string given to the String.length call, and returning the result of the case matching 0 in the then branch and the result of the branch matching on _ in the else branch."
+                                ]
+                            , under = "case"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a =
+    if String.isEmpty l then
+             x
+
+    else
+             y
+"""
+                        ]
+        ]
+
+
+nonOverlappingBoundsTests : Test
+nonOverlappingBoundsTests =
+    describe "non-overlapping bounds"
+        [ test "should replace String.length str == -1 by False" <|
+            \() ->
+                """module A exposing (..)
+a = String.length str == -1
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "(==) comparison will result in False"
+                            , details =
+                                [ "Based on the values and/or the context, we can determine that the interval of the left number is always greater than the interval of the right number. As a result, this operation can be replaced by False."
+                                , "The left number was determined to be at least 0 and the right number was determined to be exactly -1."
+                                ]
+                            , under = "=="
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = False
+"""
+                        ]
+        , test "should replace String.length str + 1 == 0 by False" <|
+            \() ->
+                """module A exposing (..)
+a = String.length str + 1 == 0
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "(==) comparison will result in False"
+                            , details =
+                                [ "Based on the values and/or the context, we can determine that the interval of the left number is always greater than the interval of the right number. As a result, this operation can be replaced by False."
+                                , "The left number was determined to be at least 1 and the right number was determined to be exactly 0."
+                                ]
+                            , under = "=="
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = False
+"""
+                        ]
+        , test "should replace 1 - String.length str == 2 by False" <|
+            \() ->
+                """module A exposing (..)
+a = 1 - String.length str == 2
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "(==) comparison will result in False"
+                            , details =
+                                [ "Based on the values and/or the context, we can determine that the interval of the left number is always less than the interval of the right number. As a result, this operation can be replaced by False."
+                                , "The left number was determined to be at most 1 and the right number was determined to be exactly 2."
+                                ]
+                            , under = "=="
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = False
+"""
+                        ]
+        , test "should replace -(String.length str + 1) == 0 by False" <|
+            \() ->
+                """module A exposing (..)
+a = -(String.length str + 1) == 0
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "(==) comparison will result in False"
+                            , details =
+                                [ "Based on the values and/or the context, we can determine that the interval of the left number is always less than the interval of the right number. As a result, this operation can be replaced by False."
+                                , "The left number was determined to be at most -1 and the right number was determined to be exactly 0."
+                                ]
+                            , under = "=="
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = False
+"""
+                        ]
+        , test "should replace -2 * (String.length str + 1) == -1 by False" <|
+            \() ->
+                """module A exposing (..)
+a = -2 * (String.length str + 1) == -1
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "(==) comparison will result in False"
+                            , details =
+                                [ "Based on the values and/or the context, we can determine that the interval of the left number is always less than the interval of the right number. As a result, this operation can be replaced by False."
+                                , "The left number was determined to be at most -2 and the right number was determined to be exactly -1."
+                                ]
+                            , under = "=="
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = False
+"""
+                        ]
+        , test "should replace abs n * (String.length str + 1) == -1 by False" <|
+            \() ->
+                """module A exposing (..)
+a = abs n * (String.length str + 1) == -1
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "(==) comparison will result in False"
+                            , details =
+                                [ "Based on the values and/or the context, we can determine that the interval of the left number is always greater than the interval of the right number. As a result, this operation can be replaced by False."
+                                , "The left number was determined to be at least 0 and the right number was determined to be exactly -1."
+                                ]
+                            , under = "=="
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = False
+"""
+                        ]
+        , test "should not report abs n == -(abs m) because if n and m are 0 this will be True" <|
+            \() ->
+                """module A exposing (..)
+a = abs n == -(abs m)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectNoErrors
+        , test "should replace Basics.clamp 2 3 n == Basics.max 4 m by False" <|
+            \() ->
+                """module A exposing (..)
+a = Basics.clamp 2 3 n == Basics.max 4 m
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "(==) comparison will result in False"
+                            , details =
+                                [ "Based on the values and/or the context, we can determine that the interval of the left number is always less than the interval of the right number. As a result, this operation can be replaced by False."
+                                , "The left number was determined to be between 2 and 3 inclusive and the right number was determined to be at least 4."
+                                ]
+                            , under = "=="
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = False
+"""
+                        ]
+        , test "should replace Basics.clamp 2 3 n == Basics.min 1 m by False" <|
+            \() ->
+                """module A exposing (..)
+a = Basics.clamp 2 3 n == Basics.min 1 m
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "(==) comparison will result in False"
+                            , details =
+                                [ "Based on the values and/or the context, we can determine that the interval of the left number is always greater than the interval of the right number. As a result, this operation can be replaced by False."
+                                , "The left number was determined to be between 2 and 3 inclusive and the right number was determined to be at most 1."
+                                ]
+                            , under = "=="
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = False
+"""
+                        ]
+        , test "should not report String.length str == min 0 n as both intervals contain 0" <|
+            \() ->
+                """module A exposing (..)
+a = String.length str == min 0 n
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectNoErrors
+        , test "should not report max 1 n == min 0 m when expectNaN is enabled" <|
+            \() ->
+                """module A exposing (..)
+a = max 1 n == min 0 m
+"""
+                    |> Review.Test.run ruleExpectingNaN
+                    |> Review.Test.expectNoErrors
+        , test "should replace String.length str /= -1 by True" <|
+            \() ->
+                """module A exposing (..)
+a = String.length str /= -1
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "(/=) comparison will result in True"
+                            , details =
+                                [ "Based on the values and/or the context, we can determine that the interval of the left number is always greater than the interval of the right number. As a result, this operation can be replaced by True."
+                                , "The left number was determined to be at least 0 and the right number was determined to be exactly -1."
+                                ]
+                            , under = "/="
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = True
 """
                         ]
         ]

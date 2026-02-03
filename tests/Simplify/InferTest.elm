@@ -5,7 +5,7 @@ import Elm.Syntax.Expression exposing (Expression(..))
 import Elm.Syntax.Infix as Infix exposing (InfixDirection(..))
 import Elm.Syntax.Node as Node exposing (Node)
 import Expect exposing (Expectation)
-import Simplify.Infer exposing (DeducedValue(..), Fact(..), Inferred(..), deduceNewFacts, empty, falseExpr, getAsExpression, infer, trueExpr)
+import Simplify.Infer exposing (DeducedValue(..), Fact(..), Inferred(..), deduceNewFacts, empty, falseExpr, getAsExpression, infer, inferredNormalize, inferredToDebugString, trueExpr)
 import Test exposing (Test, describe, test)
 
 
@@ -24,24 +24,24 @@ simpleTests =
         [ test "should infer a is true when a is True" <|
             \() ->
                 empty
-                    |> infer [ FunctionOrValue [] "a" ] True
+                    |> infer (FunctionOrValue [] "a") True
                     |> getAsExpression (FunctionOrValue [] "a")
                     |> Expect.equal (Just trueExpr)
         , test "should infer a is true when a is False" <|
             \() ->
                 empty
-                    |> infer [ FunctionOrValue [] "a" ] False
+                    |> infer (FunctionOrValue [] "a") False
                     |> getAsExpression (FunctionOrValue [] "a")
                     |> Expect.equal (Just falseExpr)
         , test "should infer a is 1 when a == 1 is True" <|
             \() ->
                 empty
                     |> infer
-                        [ OperatorApplication "=="
+                        (OperatorApplication "=="
                             Infix.Non
                             (n (FunctionOrValue [] "a"))
                             (n (Floatable 1))
-                        ]
+                        )
                         True
                     |> getAsExpression (FunctionOrValue [] "a")
                     |> Expect.equal (Just (Floatable 1))
@@ -49,11 +49,11 @@ simpleTests =
             \() ->
                 empty
                     |> infer
-                        [ OperatorApplication "=="
+                        (OperatorApplication "=="
                             Infix.Non
                             (n (FunctionOrValue [] "a"))
                             (n (Floatable 1))
-                        ]
+                        )
                         False
                     |> getAsExpression (FunctionOrValue [] "a")
                     |> Expect.equal Nothing
@@ -61,11 +61,11 @@ simpleTests =
             \() ->
                 empty
                     |> infer
-                        [ OperatorApplication "&&"
+                        (OperatorApplication "&&"
                             Infix.Right
                             (n (FunctionOrValue [] "a"))
                             (n (FunctionOrValue [] "b"))
-                        ]
+                        )
                         True
                     |> getAsExpression (FunctionOrValue [] "a")
                     |> Expect.equal (Just trueExpr)
@@ -73,11 +73,11 @@ simpleTests =
             \() ->
                 empty
                     |> infer
-                        [ OperatorApplication "&&"
+                        (OperatorApplication "&&"
                             Infix.Right
                             (n (FunctionOrValue [] "a"))
                             (n (FunctionOrValue [] "b"))
-                        ]
+                        )
                         True
                     |> getAsExpression (FunctionOrValue [] "b")
                     |> Expect.equal (Just trueExpr)
@@ -85,11 +85,11 @@ simpleTests =
             \() ->
                 empty
                     |> infer
-                        [ OperatorApplication "||"
+                        (OperatorApplication "||"
                             Infix.Right
                             (n (FunctionOrValue [] "a"))
                             (n (FunctionOrValue [] "b"))
-                        ]
+                        )
                         True
                     |> getAsExpression (FunctionOrValue [] "a")
                     |> Expect.equal Nothing
@@ -97,11 +97,11 @@ simpleTests =
             \() ->
                 empty
                     |> infer
-                        [ OperatorApplication "||"
+                        (OperatorApplication "||"
                             Infix.Right
                             (n (FunctionOrValue [] "a"))
                             (n (FunctionOrValue [] "b"))
-                        ]
+                        )
                         True
                     |> getAsExpression (FunctionOrValue [] "b")
                     |> Expect.equal Nothing
@@ -109,11 +109,11 @@ simpleTests =
             \() ->
                 empty
                     |> infer
-                        [ OperatorApplication "||"
+                        (OperatorApplication "||"
                             Infix.Right
                             (n (FunctionOrValue [] "a"))
                             (n (FunctionOrValue [] "b"))
-                        ]
+                        )
                         False
                     |> getAsExpression (FunctionOrValue [] "a")
                     |> Expect.equal (Just falseExpr)
@@ -121,11 +121,11 @@ simpleTests =
             \() ->
                 empty
                     |> infer
-                        [ OperatorApplication "||"
+                        (OperatorApplication "||"
                             Infix.Right
                             (n (FunctionOrValue [] "a"))
                             (n (FunctionOrValue [] "b"))
-                        ]
+                        )
                         False
                     |> getAsExpression (FunctionOrValue [] "b")
                     |> Expect.equal (Just falseExpr)
@@ -133,13 +133,13 @@ simpleTests =
             \() ->
                 empty
                     |> infer
-                        [ OperatorApplication "||"
+                        (OperatorApplication "||"
                             Infix.Right
                             (n (FunctionOrValue [] "a"))
                             (n (FunctionOrValue [] "b"))
-                        ]
+                        )
                         True
-                    |> infer [ FunctionOrValue [] "a" ]
+                    |> infer (FunctionOrValue [] "a")
                         False
                     |> getAsExpression (FunctionOrValue [] "b")
                     |> Expect.equal (Just trueExpr)
@@ -147,13 +147,13 @@ simpleTests =
             \() ->
                 empty
                     |> infer
-                        [ OperatorApplication "||"
+                        (OperatorApplication "||"
                             Infix.Right
                             (n (FunctionOrValue [] "b"))
                             (n (FunctionOrValue [] "a"))
-                        ]
+                        )
                         True
-                    |> infer [ FunctionOrValue [] "a" ]
+                    |> infer (FunctionOrValue [] "a")
                         False
                     |> getAsExpression (FunctionOrValue [] "b")
                     |> Expect.equal (Just trueExpr)
@@ -161,13 +161,13 @@ simpleTests =
             \() ->
                 empty
                     |> infer
-                        [ OperatorApplication "||"
+                        (OperatorApplication "||"
                             Infix.Right
                             (n (FunctionOrValue [] "a"))
                             (n (FunctionOrValue [] "b"))
-                        ]
+                        )
                         True
-                    |> infer [ FunctionOrValue [] "a" ]
+                    |> infer (FunctionOrValue [] "a")
                         True
                     |> getAsExpression (FunctionOrValue [] "b")
                     |> Expect.equal Nothing
@@ -180,7 +180,7 @@ detailedTests =
         [ test "should infer a when True" <|
             \() ->
                 infer
-                    [ FunctionOrValue [] "a" ]
+                    (FunctionOrValue [] "a")
                     True
                     empty
                     |> expectEqual
@@ -197,7 +197,7 @@ detailedTests =
         , test "should infer a when False" <|
             \() ->
                 infer
-                    [ FunctionOrValue [] "a" ]
+                    (FunctionOrValue [] "a")
                     False
                     empty
                     |> expectEqual
@@ -214,11 +214,11 @@ detailedTests =
         , test "should infer a == True when True" <|
             \() ->
                 infer
-                    [ OperatorApplication "=="
+                    (OperatorApplication "=="
                         Infix.Non
                         (n (FunctionOrValue [] "a"))
                         (n trueExpr)
-                    ]
+                    )
                     True
                     empty
                     |> expectEqual
@@ -237,11 +237,11 @@ detailedTests =
         , test "should infer a == True when False" <|
             \() ->
                 infer
-                    [ OperatorApplication "=="
+                    (OperatorApplication "=="
                         Infix.Non
                         (n (FunctionOrValue [] "a"))
                         (n trueExpr)
-                    ]
+                    )
                     False
                     empty
                     |> expectEqual
@@ -265,11 +265,11 @@ detailedTests =
         , test "should infer a == 1 when True" <|
             \() ->
                 infer
-                    [ OperatorApplication "=="
+                    (OperatorApplication "=="
                         Infix.Non
                         (n (FunctionOrValue [] "a"))
                         (n (Floatable 1))
-                    ]
+                    )
                     True
                     empty
                     |> expectEqual
@@ -288,11 +288,11 @@ detailedTests =
         , test "should infer a == 1 when False" <|
             \() ->
                 infer
-                    [ OperatorApplication "=="
+                    (OperatorApplication "=="
                         Infix.Non
                         (n (FunctionOrValue [] "a"))
                         (n (Floatable 1))
-                    ]
+                    )
                     False
                     empty
                     |> expectEqual
@@ -313,11 +313,11 @@ detailedTests =
         , test "should infer a == \"ok\" when True" <|
             \() ->
                 infer
-                    [ OperatorApplication "=="
+                    (OperatorApplication "=="
                         Infix.Non
                         (n (FunctionOrValue [] "a"))
                         (n (Literal "\"ok\""))
-                    ]
+                    )
                     True
                     empty
                     |> expectEqual
@@ -336,11 +336,11 @@ detailedTests =
         , test "should infer a == \"ok\" when False" <|
             \() ->
                 infer
-                    [ OperatorApplication "=="
+                    (OperatorApplication "=="
                         Infix.Non
                         (n (FunctionOrValue [] "a"))
                         (n (Literal "\"ok\""))
-                    ]
+                    )
                     False
                     empty
                     |> expectEqual
@@ -361,11 +361,11 @@ detailedTests =
         , test "should infer a && b when True" <|
             \() ->
                 infer
-                    [ OperatorApplication "&&"
+                    (OperatorApplication "&&"
                         Infix.Right
                         (n (FunctionOrValue [] "a"))
                         (n (FunctionOrValue [] "b"))
-                    ]
+                    )
                     True
                     empty
                     |> expectEqual
@@ -391,11 +391,11 @@ detailedTests =
         , test "should infer a && b when False" <|
             \() ->
                 infer
-                    [ OperatorApplication "&&"
+                    (OperatorApplication "&&"
                         Infix.Right
                         (n (FunctionOrValue [] "a"))
                         (n (FunctionOrValue [] "b"))
-                    ]
+                    )
                     False
                     empty
                     |> expectEqual
@@ -416,11 +416,11 @@ detailedTests =
         , test "should infer a || b when True" <|
             \() ->
                 infer
-                    [ OperatorApplication "||"
+                    (OperatorApplication "||"
                         Infix.Right
                         (n (FunctionOrValue [] "a"))
                         (n (FunctionOrValue [] "b"))
-                    ]
+                    )
                     True
                     empty
                     |> expectEqual
@@ -441,11 +441,11 @@ detailedTests =
         , test "should infer a || b when False" <|
             \() ->
                 infer
-                    [ OperatorApplication "||"
+                    (OperatorApplication "||"
                         Infix.Right
                         (n (FunctionOrValue [] "a"))
                         (n (FunctionOrValue [] "b"))
-                    ]
+                    )
                     False
                     empty
                     |> expectEqual
@@ -467,13 +467,13 @@ detailedTests =
             \() ->
                 empty
                     |> infer
-                        [ OperatorApplication "||"
+                        (OperatorApplication "||"
                             Infix.Right
                             (n (FunctionOrValue [] "a"))
                             (n (FunctionOrValue [] "b"))
-                        ]
+                        )
                         True
-                    |> infer [ FunctionOrValue [] "a" ]
+                    |> infer (FunctionOrValue [] "a")
                         False
                     |> expectEqual
                         { facts =
@@ -522,11 +522,28 @@ expectEqual :
     }
     -> Inferred
     -> Expectation
-expectEqual record (Inferred inferred) =
-    { facts = inferred.facts
-    , deduced = AssocList.toList inferred.deduced
-    }
-        |> Expect.equal record
+expectEqual record actual =
+    let
+        expectedNormal : Inferred
+        expectedNormal =
+            Inferred
+                { facts = record.facts
+                , deduced = record.deduced |> AssocList.fromList
+                }
+                |> inferredNormalize
+
+        actualNormal : Inferred
+        actualNormal =
+            inferredNormalize actual
+    in
+    actualNormal
+        |> Expect.equal expectedNormal
+        |> Expect.onFail
+            ("expected: "
+                ++ inferredToDebugString expectedNormal
+                ++ "\nactual: "
+                ++ inferredToDebugString actualNormal
+            )
 
 
 n : Expression -> Node Expression

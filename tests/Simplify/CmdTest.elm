@@ -160,7 +160,15 @@ a = Cmd.batch [ command0,  command1, command2 , command3,  command4, command5  ]
 cmdMapTests : Test
 cmdMapTests =
     describe "Cmd.map"
-        [ test "should replace Cmd.map identity cmd by cmd" <|
+        [ test "should not report Cmd.map with okay arguments" <|
+            \() ->
+                """module A exposing (..)
+a1 = Cmd.map f (Task.perform notIdentity task)
+a2 = Cmd.map f (Task.attempt notIdentity task)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectNoErrors
+        , test "should replace Cmd.map identity cmd by cmd" <|
             \() ->
                 """module A exposing (..)
 a = Cmd.map identity cmd
@@ -208,6 +216,42 @@ a = Cmd.map f (Task.perform identity task)
                             |> Review.Test.whenFixed """module A exposing (..)
 import Task
 a = Task.perform f task
+"""
+                        ]
+        , test "should replace Cmd.map (f x) (Task.perform identity task) by Task.perform (f x) task" <|
+            \() ->
+                """module A exposing (..)
+import Task
+a = Cmd.map (f x) (Task.perform identity task)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Platform.Cmd.map on Task.perform with an identity function can be combined"
+                            , details = [ "You can replace these operations by Task.perform with the function given to Cmd.map." ]
+                            , under = "Cmd.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Task
+a = Task.perform (f x) task
+"""
+                        ]
+        , test "should replace task |> Task.perform identity |> Cmd.map (f x) by task |> Task.perform (f x)" <|
+            \() ->
+                """module A exposing (..)
+import Task
+a = task |> Task.perform identity |> Cmd.map (f x)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Platform.Cmd.map on Task.perform with an identity function can be combined"
+                            , details = [ "You can replace these operations by Task.perform with the function given to Cmd.map." ]
+                            , under = "Cmd.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Task
+a = task |> Task.perform (f x)
 """
                         ]
         , test "should replace Cmd.map f << Task.perform identity by Task.perform f" <|

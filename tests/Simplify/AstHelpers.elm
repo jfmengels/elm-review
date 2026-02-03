@@ -1,17 +1,19 @@
 module Simplify.AstHelpers exposing
-    ( removeParens, removeParensFromPattern
+    ( removeParens, removeParensWithRanges, removeParensFromPattern
     , ReduceLambdaResources, reduceLambda
+    , getSingleArgCall
     , getValueOrFnOrFnCall, getUnreducedValueOrFnOrFnCall
     , getSpecificUnreducedFnCall, isSpecificUnreducedFnCall, isSpecificValueOrFn, isSpecificValueReference
+    , patternGetInt
     , getCollapsedLambda
-    , isIdentity, getAlwaysResult
+    , isIdentity, IdentityKind(..), isIdentityWithKind, getAlwaysResult, ignoresFirstLambdaResult
     , isTupleFirstAccess, isTupleSecondAccess
     , getAccessingRecord, getRecordAccessFunction
-    , getOrder, getBool, getBoolPattern, getUncomputedNumberValue
+    , getOrder, getBool, getBoolPattern, getUncomputedInt, getUncomputedNumberValue
     , getCollapsedCons, getListLiteral, isListLiteral, getListSingleton
     , getTuple2, getTuple2Literal
     , boolToString, emptyStringAsString
-    , moduleNameFromString, qualifiedModuleName, qualifiedToString, moduleNameToString
+    , moduleNameFromString, qualifiedModuleName, qualifiedToString
     , declarationListBindings, patternBindings, patternListBindings, typeUsesVariable
     , nameOfExpose
     , couldBeValueContainingNaN
@@ -22,7 +24,7 @@ module Simplify.AstHelpers exposing
 
 ### remove parens
 
-@docs removeParens, removeParensFromPattern
+@docs removeParens, removeParensWithRanges, removeParensFromPattern
 
 
 ## reduce lambda
@@ -32,17 +34,19 @@ module Simplify.AstHelpers exposing
 
 ### value/function/function call/composition
 
+@docs getSingleArgCall
 @docs getValueOrFnOrFnCall, getUnreducedValueOrFnOrFnCall
 @docs getSpecificUnreducedFnCall, isSpecificUnreducedFnCall, isSpecificValueOrFn, isSpecificValueReference
 
 
 ### certain kind
 
+@docs patternGetInt
 @docs getCollapsedLambda
-@docs isIdentity, getAlwaysResult
+@docs isIdentity, IdentityKind, isIdentityWithKind, getAlwaysResult, ignoresFirstLambdaResult
 @docs isTupleFirstAccess, isTupleSecondAccess
 @docs getAccessingRecord, getRecordAccessFunction
-@docs getOrder, getBool, getBoolPattern, getUncomputedNumberValue
+@docs getOrder, getBool, getBoolPattern, getUncomputedInt, getUncomputedNumberValue
 @docs getCollapsedCons, getListLiteral, isListLiteral, getListSingleton
 @docs getTuple2, getTuple2Literal
 
@@ -54,7 +58,7 @@ module Simplify.AstHelpers exposing
 
 ### qualification
 
-@docs moduleNameFromString, qualifiedModuleName, qualifiedToString, moduleNameToString
+@docs moduleNameFromString, qualifiedModuleName, qualifiedToString
 
 
 ### misc
@@ -105,6 +109,19 @@ removeParensFromPattern patternNode =
 
         _ ->
             patternNode
+
+
+{-| Keep removing parens from the outside until we have something different from a `ParenthesizedExpression`.
+Also returns the range of every encountered `ParenthesizedExpression`.
+-}
+removeParensWithRanges : Node Expression -> List Range -> ( Node Expression, List Range )
+removeParensWithRanges ((Node range expr) as node) rangesSoFar =
+    case expr of
+        Expression.ParenthesizedExpression expressionInsideOnePairOfParensNode ->
+            removeParensWithRanges expressionInsideOnePairOfParensNode (range :: rangesSoFar)
+
+        _ ->
+            ( node, rangesSoFar )
 
 
 type alias ReduceLambdaResources context =
@@ -212,12 +229,9 @@ isSpecificUnreducedFnCall ( specificModuleOrigin, specificName ) lookupTable exp
         Just valueOrFunctionCall ->
             Basics.not (List.isEmpty valueOrFunctionCall.args)
                 && (valueOrFunctionCall.fnName == specificName)
-                && (case ModuleNameLookupTable.moduleNameAt lookupTable valueOrFunctionCall.fnRange of
-                        Nothing ->
-                            False
-
-                        Just moduleOrigin ->
-                            moduleOrigin == specificModuleOrigin
+                && (Maybe.withDefault valueOrFunctionCall.fnQualification
+                        (ModuleNameLookupTable.moduleNameAt lookupTable valueOrFunctionCall.fnRange)
+                        == specificModuleOrigin
                    )
 
 
@@ -226,6 +240,7 @@ valueOrFunctionCallToSpecificFnCall :
     -> ModuleNameLookupTable
     ->
         { nodeRange : Range
+        , fnQualification : ModuleName
         , fnName : String
         , fnRange : Range
         , args : List (Node Expression)
@@ -244,12 +259,9 @@ valueOrFunctionCallToSpecificFnCall ( specificModuleOrigin, specificName ) looku
         firstArg :: argsAfterFirst ->
             if
                 (valueOrFunctionCall.fnName == specificName)
-                    && (case ModuleNameLookupTable.moduleNameAt lookupTable valueOrFunctionCall.fnRange of
-                            Nothing ->
-                                False
-
-                            Just moduleOrigin ->
-                                moduleOrigin == specificModuleOrigin
+                    && (Maybe.withDefault valueOrFunctionCall.fnQualification
+                            (ModuleNameLookupTable.moduleNameAt lookupTable valueOrFunctionCall.fnRange)
+                            == specificModuleOrigin
                        )
             then
                 Just
@@ -275,6 +287,7 @@ getValueOrFnOrFnCall :
     ->
         Maybe
             { nodeRange : Range
+            , fnQualification : ModuleName
             , fnName : String
             , fnRange : Range
             , args : List (Node Expression)
@@ -292,6 +305,7 @@ getValueOrFnOrFnCall resources expressionNode =
                         [] ->
                             Just
                                 { nodeRange = reducedLambda.nodeRange
+                                , fnQualification = reducedLambda.fnQualification
                                 , fnName = reducedLambda.fnName
                                 , fnRange = reducedLambda.fnRange
                                 , callStyle = reducedLambda.callStyle
@@ -318,12 +332,9 @@ isSpecificValueOrFn ( specificModuleOrigin, specificName ) context expressionNod
     case getValueOrFn context expressionNode of
         Just valueOrFn ->
             (valueOrFn.name == specificName)
-                && (case ModuleNameLookupTable.moduleNameAt context.lookupTable valueOrFn.range of
-                        Nothing ->
-                            False
-
-                        Just moduleOrigin ->
-                            moduleOrigin == specificModuleOrigin
+                && (Maybe.withDefault valueOrFn.qualification
+                        (ModuleNameLookupTable.moduleNameAt context.lookupTable valueOrFn.range)
+                        == specificModuleOrigin
                    )
 
         Nothing ->
@@ -335,11 +346,11 @@ isSpecificValueOrFn ( specificModuleOrigin, specificName ) context expressionNod
 getValueOrFn :
     ReduceLambdaResources context
     -> Node Expression
-    -> Maybe { name : String, range : Range }
+    -> Maybe { qualification : ModuleName, name : String, range : Range }
 getValueOrFn lookupTable expressionNode =
     case removeParens expressionNode of
-        Node rangeInParens (Expression.FunctionOrValue _ foundName) ->
-            Just { range = rangeInParens, name = foundName }
+        Node rangeInParens (Expression.FunctionOrValue qualification name) ->
+            Just { range = rangeInParens, qualification = qualification, name = name }
 
         nonFunctionOrValueNode ->
             case getReducedLambda lookupTable nonFunctionOrValueNode of
@@ -348,7 +359,11 @@ getValueOrFn lookupTable expressionNode =
                         List.isEmpty reducedLambdaToFn.lambdaPatterns
                             && List.isEmpty reducedLambdaToFn.callArguments
                     then
-                        Just { range = reducedLambdaToFn.fnRange, name = reducedLambdaToFn.fnName }
+                        Just
+                            { range = reducedLambdaToFn.fnRange
+                            , qualification = reducedLambdaToFn.fnQualification
+                            , name = reducedLambdaToFn.fnName
+                            }
 
                     else
                         Nothing
@@ -368,18 +383,91 @@ isSpecificValueReference :
     -> Bool
 isSpecificValueReference lookupTable ( moduleOriginToCheckFor, nameToCheckFor ) baseNode =
     case removeParens baseNode of
-        Node fnRange (Expression.FunctionOrValue _ name) ->
+        Node fnRange (Expression.FunctionOrValue qualification name) ->
             (name == nameToCheckFor)
-                && (case ModuleNameLookupTable.moduleNameAt lookupTable fnRange of
-                        Nothing ->
-                            False
-
-                        Just moduleOrigin ->
-                            moduleOrigin == moduleOriginToCheckFor
+                && (Maybe.withDefault qualification
+                        (ModuleNameLookupTable.moduleNameAt lookupTable fnRange)
+                        == moduleOriginToCheckFor
                    )
 
         _ ->
             False
+
+
+getSingleArgCall :
+    Node Expression
+    ->
+        Maybe
+            { called : Node Expression
+            , arg : Node Expression
+            , callStyle : FunctionCallStyle
+            }
+getSingleArgCall expressionNode =
+    case removeParens expressionNode of
+        Node _ (Expression.ParenthesizedExpression inParens) ->
+            getSingleArgCall inParens
+
+        Node _ (Expression.Application (innerCalled :: firstArg :: argsAfterFirst)) ->
+            case List.reverse argsAfterFirst of
+                [] ->
+                    Just
+                        { callStyle = CallStyle.pipeLeftToRight
+                        , called = innerCalled
+                        , arg = firstArg
+                        }
+
+                lastArg :: argsBeforeLastReverse ->
+                    Just
+                        { callStyle = CallStyle.pipeLeftToRight
+                        , called =
+                            Node
+                                { start = (Node.range innerCalled).start
+                                , end =
+                                    case argsBeforeLastReverse of
+                                        [] ->
+                                            (Node.range firstArg).end
+
+                                        argBeforeLastArg :: _ ->
+                                            (Node.range argBeforeLastArg).end
+                                }
+                                (Expression.Application
+                                    (innerCalled :: firstArg :: List.reverse argsBeforeLastReverse)
+                                )
+                        , arg = lastArg
+                        }
+
+        Node _ (Expression.OperatorApplication "|>" _ arg called) ->
+            Just
+                { callStyle = CallStyle.pipeLeftToRight
+                , called = called
+                , arg = arg
+                }
+
+        Node _ (Expression.OperatorApplication "<|" _ called arg) ->
+            Just
+                { callStyle = CallStyle.pipeRightToLeft
+                , called = called
+                , arg = arg
+                }
+
+        _ ->
+            Nothing
+
+
+patternGetInt : Node Pattern -> Maybe Int
+patternGetInt (Node _ pattern) =
+    case pattern of
+        Pattern.ParenthesizedPattern inParens ->
+            patternGetInt inParens
+
+        Pattern.IntPattern int ->
+            Just int
+
+        Pattern.HexPattern int ->
+            Just int
+
+        _ ->
+            Nothing
 
 
 {-| Like `getValueOrFnOrFnCall` but skipping the check for a reduced lambda.
@@ -390,6 +478,7 @@ getUnreducedValueOrFnOrFnCall :
     ->
         Maybe
             { nodeRange : Range
+            , fnQualification : ModuleName
             , fnName : String
             , fnRange : Range
             , args : List (Node Expression)
@@ -397,10 +486,11 @@ getUnreducedValueOrFnOrFnCall :
             }
 getUnreducedValueOrFnOrFnCall baseNode =
     case removeParens baseNode of
-        Node fnRange (Expression.FunctionOrValue _ fnName) ->
+        Node fnRange (Expression.FunctionOrValue fnQualification fnName) ->
             Just
                 { nodeRange = Node.range baseNode
                 , fnRange = fnRange
+                , fnQualification = fnQualification
                 , fnName = fnName
                 , args = []
                 , callStyle = CallStyle.Application
@@ -411,6 +501,7 @@ getUnreducedValueOrFnOrFnCall baseNode =
                 (\fed ->
                     { nodeRange = Node.range baseNode
                     , fnRange = fed.fnRange
+                    , fnQualification = fed.fnQualification
                     , fnName = fed.fnName
                     , args = fed.args ++ (firstArg :: argsAfterFirst)
                     , callStyle = CallStyle.Application
@@ -423,6 +514,7 @@ getUnreducedValueOrFnOrFnCall baseNode =
                 (\fed ->
                     { nodeRange = Node.range baseNode
                     , fnRange = fed.fnRange
+                    , fnQualification = fed.fnQualification
                     , fnName = fed.fnName
                     , args = fed.args ++ [ firstArg ]
                     , callStyle = CallStyle.pipeLeftToRight
@@ -435,6 +527,7 @@ getUnreducedValueOrFnOrFnCall baseNode =
                 (\fed ->
                     { nodeRange = Node.range baseNode
                     , fnRange = fed.fnRange
+                    , fnQualification = fed.fnQualification
                     , fnName = fed.fnName
                     , args = fed.args ++ [ firstArg ]
                     , callStyle = CallStyle.pipeRightToLeft
@@ -529,6 +622,22 @@ getRecordAccessFunction expressionNode =
             Nothing
 
 
+getUncomputedInt : Node Expression -> Maybe Float
+getUncomputedInt expressionNode =
+    case Node.value (removeParens expressionNode) of
+        Expression.Integer n ->
+            Just (toFloat n)
+
+        Expression.Hex n ->
+            Just (toFloat n)
+
+        Expression.Negation expr ->
+            Maybe.map negate (getUncomputedNumberValue expr)
+
+        _ ->
+            Nothing
+
+
 getUncomputedNumberValue : Node Expression -> Maybe Float
 getUncomputedNumberValue expressionNode =
     case Node.value (removeParens expressionNode) of
@@ -568,6 +677,37 @@ isIdentity context baseExpressionNode =
                 _ ->
                     False
            )
+
+
+type IdentityKind
+    = IdentityFunction
+    | IdentityLambda
+
+
+{-| Whether it's a function that returns any given input unchanged.
+Either a function reducible to `Basics.identity` or `\a -> a` (or any other lambda that reconstructs the just-destructured value).
+-}
+isIdentityWithKind : ReduceLambdaResources context -> Node Expression -> Maybe IdentityKind
+isIdentityWithKind context baseExpressionNode =
+    if isSpecificValueOrFn Fn.Basics.identity context baseExpressionNode then
+        Just IdentityFunction
+
+    else
+        case removeParens baseExpressionNode of
+            Node _ (Expression.LambdaExpression lambda) ->
+                case lambda.args of
+                    arg :: [] ->
+                        if expressionReconstructsDestructuringPattern context lambda.expression arg then
+                            Just IdentityLambda
+
+                        else
+                            Nothing
+
+                    _ ->
+                        Nothing
+
+            _ ->
+                Nothing
 
 
 {-| Parse a function that returns the same for any given input and return the result expression node.
@@ -611,12 +751,28 @@ getIgnoreFirstLambdaResult expressionNode =
             Nothing
 
 
+ignoresFirstLambdaResult : Node Expression -> Maybe Range
+ignoresFirstLambdaResult expressionNode =
+    case removeParens expressionNode of
+        Node _ (Expression.LambdaExpression lambda) ->
+            case lambda.args of
+                (Node range Pattern.AllPattern) :: _ ->
+                    Just range
+
+                _ ->
+                    Nothing
+
+        _ ->
+            Nothing
+
+
 getReducedLambda :
     ReduceLambdaResources context
     -> Node Expression
     ->
         Maybe
             { nodeRange : Range
+            , fnQualification : ModuleName
             , fnName : String
             , fnRange : Range
             , callArguments : List (Node Expression)
@@ -636,6 +792,7 @@ getReducedLambda resources expressionNode =
                     in
                     Just
                         { nodeRange = Node.range expressionNode
+                        , fnQualification = call.fnQualification
                         , fnName = call.fnName
                         , fnRange = call.fnRange
                         , callArguments = reduced.callArguments
@@ -959,67 +1116,67 @@ expressionReconstructsDestructuringPattern context expressionNode patternNode =
             -- type and is _not equivalent to identity_.
             -- This specific example is arguably contrived but it does
             -- occur in real life code!
-            case ModuleNameLookupTable.moduleNameAt context.lookupTable (Node.range patternNode) of
-                Nothing ->
-                    False
+            let
+                patternVariantReferenceModuleOrigin : ModuleName
+                patternVariantReferenceModuleOrigin =
+                    Maybe.withDefault patternVariantReference.moduleName
+                        (ModuleNameLookupTable.moduleNameAt context.lookupTable (Node.range patternNode))
 
-                Just patternVariantReferenceModuleOrigin ->
-                    let
-                        maybeOriginChoiceTypeInfo : Maybe { name : String, variantNames : Set String, allParametersAreUsedInVariants : Bool }
-                        maybeOriginChoiceTypeInfo =
-                            case patternVariantReferenceModuleOrigin of
-                                [] ->
-                                    getCustomTypeWithVariant patternVariantReference.name
-                                        context.moduleCustomTypes
+                maybeOriginChoiceTypeInfo : Maybe { name : String, variantNames : Set String, allParametersAreUsedInVariants : Bool }
+                maybeOriginChoiceTypeInfo =
+                    case patternVariantReferenceModuleOrigin of
+                        [] ->
+                            getCustomTypeWithVariant patternVariantReference.name
+                                context.moduleCustomTypes
 
-                                variantReferenceImportedModuleOrigin ->
-                                    Maybe.andThen
-                                        (\inModule ->
-                                            getCustomTypeWithVariant patternVariantReference.name inModule
+                        variantReferenceImportedModuleOrigin ->
+                            Maybe.andThen
+                                (\inModule ->
+                                    getCustomTypeWithVariant patternVariantReference.name inModule
+                                )
+                                (Dict.get variantReferenceImportedModuleOrigin context.importCustomTypes)
+
+                reconstructingVariantWillNeverIntroduceNewTypeParameters : Bool
+                reconstructingVariantWillNeverIntroduceNewTypeParameters =
+                    case maybeOriginChoiceTypeInfo of
+                        Nothing ->
+                            False
+
+                        Just originChoiceTypeInfo ->
+                            originChoiceTypeInfo.allParametersAreUsedInVariants
+            in
+            if reconstructingVariantWillNeverIntroduceNewTypeParameters then
+                case valuePatterns of
+                    [] ->
+                        isSpecificValueReference context.lookupTable
+                            ( patternVariantReferenceModuleOrigin, patternVariantReference.name )
+                            expressionNode
+
+                    valuePattern0 :: valuePattern1Up ->
+                        case
+                            getSpecificUnreducedFnCall
+                                ( patternVariantReferenceModuleOrigin, patternVariantReference.name )
+                                context.lookupTable
+                                expressionNode
+                        of
+                            Nothing ->
+                                False
+
+                            Just expressionVariantCall ->
+                                expressionReconstructsDestructuringPattern context expressionVariantCall.firstArg valuePattern0
+                                    && -- must be the same length
+                                       -- because e.g. (\(V x y) -> V x)
+                                       -- is valid, compiling elm code
+                                       -- that is not equivalent to identity
+                                       list2AreSameLengthAndAll
+                                        (\valueExpression valuePattern ->
+                                            expressionReconstructsDestructuringPattern context valueExpression valuePattern
                                         )
-                                        (Dict.get variantReferenceImportedModuleOrigin context.importCustomTypes)
+                                        expressionVariantCall.argsAfterFirst
+                                        valuePattern1Up
 
-                        reconstructingVariantWillNeverIntroduceNewTypeParameters : Bool
-                        reconstructingVariantWillNeverIntroduceNewTypeParameters =
-                            case maybeOriginChoiceTypeInfo of
-                                Nothing ->
-                                    False
-
-                                Just originChoiceTypeInfo ->
-                                    originChoiceTypeInfo.allParametersAreUsedInVariants
-                    in
-                    if reconstructingVariantWillNeverIntroduceNewTypeParameters then
-                        case valuePatterns of
-                            [] ->
-                                isSpecificValueReference context.lookupTable
-                                    ( patternVariantReferenceModuleOrigin, patternVariantReference.name )
-                                    expressionNode
-
-                            valuePattern0 :: valuePattern1Up ->
-                                case
-                                    getSpecificUnreducedFnCall
-                                        ( patternVariantReferenceModuleOrigin, patternVariantReference.name )
-                                        context.lookupTable
-                                        expressionNode
-                                of
-                                    Nothing ->
-                                        False
-
-                                    Just expressionVariantCall ->
-                                        expressionReconstructsDestructuringPattern context expressionVariantCall.firstArg valuePattern0
-                                            && -- must be the same length
-                                               -- because e.g. (\(V x y) -> V x)
-                                               -- is valid, compiling elm code
-                                               -- that is not equivalent to identity
-                                               list2AreSameLengthAndAll
-                                                (\valueExpression valuePattern ->
-                                                    expressionReconstructsDestructuringPattern context valueExpression valuePattern
-                                                )
-                                                expressionVariantCall.argsAfterFirst
-                                                valuePattern1Up
-
-                    else
-                        False
+            else
+                False
 
         Pattern.RecordPattern _ ->
             -- if we knew the pattern coverers all fields, we could check

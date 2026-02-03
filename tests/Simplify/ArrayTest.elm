@@ -268,7 +268,7 @@ a = Array.repeat n >> Array.toList
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Array.repeat, then Array.toList can be combined into List.repeat"
-                            , details = [ "You can replace this composition by List.repeat with the same arguments given to Array.repeat which is meant for this exact purpose." ]
+                            , details = [ "You can replace this composition by List.repeat with the same argument given to Array.repeat which is meant for this exact purpose." ]
                             , under = "Array.toList"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -281,7 +281,7 @@ a = List.repeat n
 
 arrayToIndexedListTests : Test
 arrayToIndexedListTests =
-    describe "Array.toIndexedMap"
+    describe "Array.toIndexedList"
         [ test "should not report Array.toList that contains a variable" <|
             \() ->
                 """module A exposing (..)
@@ -491,12 +491,48 @@ import Array
 a = (f >> g)
 """
                         ]
+        , test "should replace Array.fromList (List.repeat n x) by Array.repeat n x" <|
+            \() ->
+                """module A exposing (..)
+import Array
+a = Array.fromList (List.repeat n x)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.repeat, then Array.fromList can be combined into Array.repeat"
+                            , details = [ "You can replace this call by Array.repeat with the same arguments given to List.repeat which is meant for this exact purpose." ]
+                            , under = "Array.fromList"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Array
+a = (Array.repeat n x)
+"""
+                        ]
+        , test "should replace Array.fromList << List.repeat n by Array.repeat n" <|
+            \() ->
+                """module A exposing (..)
+import Array
+a = Array.fromList << List.repeat n
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.repeat, then Array.fromList can be combined into Array.repeat"
+                            , details = [ "You can replace this composition by Array.repeat with the same argument given to List.repeat which is meant for this exact purpose." ]
+                            , under = "Array.fromList"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Array
+a = Array.repeat n
+"""
+                        ]
         ]
 
 
 arrayMapTests : Test
 arrayMapTests =
-    describe "List.map"
+    describe "Array.map"
         [ test "should not report Array.map used with okay arguments" <|
             \() ->
                 """module A exposing (..)
@@ -667,6 +703,114 @@ a = identity |> Array.map
                             |> Review.Test.whenFixed """module A exposing (..)
 import Array
 a = identity
+"""
+                        ]
+        , test "should replace Array.map f (Array.repeat n a) by Array.repeat n (f a)" <|
+            \() ->
+                """module A exposing (..)
+import Array
+a = Array.map f (Array.repeat n b)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Array.map on Array.repeat is the same as Array.repeat with the mapped element"
+                            , details = [ "You can replace this call by the Array.repeat operation but with the function given to the Array.map operation applied to the original element to repeat." ]
+                            , under = "Array.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Array
+a = Array.repeat n (f b)
+"""
+                        ]
+        , test "should replace Array.map f << Array.repeat n by Array.repeat n << f" <|
+            \() ->
+                """module A exposing (..)
+import Array
+a = Array.map f << Array.repeat n
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Array.map on Array.repeat is the same as Array.repeat with the mapped element"
+                            , details = [ "You can replace this composition by composing the function argument given to the Array.map operation before the Array.repeat operation." ]
+                            , under = "Array.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Array
+a = (Array.repeat n << f)
+"""
+                        ]
+        , test "should replace Array.map f (Array.initialize n identity) by Array.initialize n f" <|
+            \() ->
+                """module A exposing (..)
+import Array
+a = Array.map f (Array.initialize n identity)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Array.map on Array.initialize with an identity function can be combined"
+                            , details = [ "You can replace this call by Array.initialize with the length given to the original Array.initialize and the function given to Array.map." ]
+                            , under = "Array.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Array
+a = Array.initialize n f
+"""
+                        ]
+        , test "should replace identity |> Array.initialize n |> Array.map (f <| x) by (f <| x) |> Array.initialize n" <|
+            \() ->
+                """module A exposing (..)
+import Array
+a = identity |> Array.initialize n |> Array.map (f <| x)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Array.map on Array.initialize with an identity function can be combined"
+                            , details = [ "You can replace this call by Array.initialize with the length given to the original Array.initialize and the function given to Array.map." ]
+                            , under = "Array.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Array
+a = (f <| x) |> Array.initialize n
+"""
+                        ]
+        , test "should replace Array.fromList (List.range 0 <| f <| x) by (Array.initialize <| ((f <| x) + 1)) identity" <|
+            \() ->
+                """module A exposing (..)
+import Array
+a = Array.fromList (List.range 0 <| f <| x)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Array.fromList on List.range starting at 0 is the same as Array.initialize"
+                            , details = [ "You can replace this call by Array.initialize with the range end argument + 1 and identity." ]
+                            , under = "Array.fromList"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Array
+a = (Array.initialize <| ((f <| x) + 1)) identity
+"""
+                        ]
+        , test "should replace Array.fromList (List.map (g << h) (List.range 0 <| f <| x)) by (Array.initialize <| ((f <| x) + 1)) (g << h)" <|
+            \() ->
+                """module A exposing (..)
+import Array
+a = Array.fromList (List.map (g << h) (List.range 0 <| f <| x))
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Array.fromList on List.map on List.range starting at 0 is the same as Array.initialize"
+                            , details = [ "You can replace this call by Array.initialize with the range end argument + 1 and the function argument given to the List.map call." ]
+                            , under = "Array.fromList"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Array
+a = (Array.initialize <| ((f <| x) + 1)) (g << h)
 """
                         ]
         ]
@@ -895,7 +1039,7 @@ a = Array.filter f (Array.filter f array)
                             |> Review.Test.atExactly { start = { row = 3, column = 5 }, end = { row = 3, column = 17 } }
                             |> Review.Test.whenFixed """module A exposing (..)
 import Array
-a = (Array.filter f array)
+a = Array.filter f array
 """
                         ]
         , test "should replace Array.filter f >> Array.filter f by Array.filter f" <|
@@ -1258,7 +1402,7 @@ a = list |> Array.fromList |> Array.isEmpty
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Array.fromList, then Array.isEmpty can be combined into List.isEmpty"
-                            , details = [ "You can replace this call by List.isEmpty with the same arguments given to Array.fromList which is meant for this exact purpose." ]
+                            , details = [ "You can replace this call by List.isEmpty with the same argument given to Array.fromList which is meant for this exact purpose." ]
                             , under = "Array.isEmpty"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -1303,7 +1447,7 @@ a = Array.isEmpty (Array.initialize n f)
         , test "should replace comparisons to the empty array with Array.isEmpty" <|
             \() ->
                 """module A exposing (..)
-
+import Array
 a = x == Array.empty"""
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
@@ -1313,13 +1457,13 @@ a = x == Array.empty"""
                             , under = "== Array.empty"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
-
+import Array
 a = Array.isEmpty x"""
                         ]
         , test "should replace comparisons to the empty array with Array.isEmpty (in parens)" <|
             \() ->
                 """module A exposing (..)
-
+import Array
 a = x == (Array.empty)"""
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
@@ -1329,13 +1473,13 @@ a = x == (Array.empty)"""
                             , under = "== (Array.empty)"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
-
+import Array
 a = Array.isEmpty x"""
                         ]
         , test "should replace comparisons to the empty array with Array.isEmpty (reverse order)" <|
             \() ->
                 """module A exposing (..)
-
+import Array
 a = Array.empty == x"""
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
@@ -1345,13 +1489,13 @@ a = Array.empty == x"""
                             , under = "Array.empty =="
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
-
+import Array
 a = Array.isEmpty x"""
                         ]
         , test "should replace comparisons to the empty array with Array.isEmpty (negated)" <|
             \() ->
                 """module A exposing (..)
-
+import Array
 a = x /= Array.empty"""
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
@@ -1361,13 +1505,13 @@ a = x /= Array.empty"""
                             , under = "/= Array.empty"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
-
+import Array
 a = not (Array.isEmpty x)"""
                         ]
         , test "should replace comparisons to the empty array with Array.isEmpty (negated, reverse order)" <|
             \() ->
                 """module A exposing (..)
-
+import Array
 a = Array.empty /= x"""
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
@@ -1377,13 +1521,13 @@ a = Array.empty /= x"""
                             , under = "Array.empty /="
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
-
+import Array
 a = not (Array.isEmpty x)"""
                         ]
         , test "should replace comparisons to the empty array with Array.isEmpty (needs parentheses)" <|
             \() ->
                 """module A exposing (..)
-
+import Array
 a = x ++ y == Array.empty"""
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
@@ -1393,13 +1537,13 @@ a = x ++ y == Array.empty"""
                             , under = "== Array.empty"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
-
+import Array
 a = Array.isEmpty (x ++ y)"""
                         ]
         , test "should replace comparisons to the empty array with Array.isEmpty (needs parentheses, reverse order)" <|
             \() ->
                 """module A exposing (..)
-
+import Array
 a = Array.empty == x ++ y"""
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
@@ -1409,13 +1553,13 @@ a = Array.empty == x ++ y"""
                             , under = "Array.empty =="
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
-
+import Array
 a = Array.isEmpty (x ++ y)"""
                         ]
         , test "should replace comparisons to the empty array with Array.isEmpty (needs parentheses, negated)" <|
             \() ->
                 """module A exposing (..)
-
+import Array
 a = x ++ y /= Array.empty"""
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
@@ -1425,13 +1569,13 @@ a = x ++ y /= Array.empty"""
                             , under = "/= Array.empty"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
-
+import Array
 a = not (Array.isEmpty (x ++ y))"""
                         ]
         , test "should replace comparisons to the empty array with Array.isEmpty (needs parentheses, negated, reverse order)" <|
             \() ->
                 """module A exposing (..)
-
+import Array
 a = Array.empty /= x ++ y"""
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
@@ -1441,13 +1585,13 @@ a = Array.empty /= x ++ y"""
                             , under = "Array.empty /="
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
-
+import Array
 a = not (Array.isEmpty (x ++ y))"""
                         ]
         , test "should replace comparisons to the empty array with Array.isEmpty (infix)" <|
             \() ->
                 """module A exposing (..)
-
+import Array
 a = x |> (==) Array.empty"""
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
@@ -1457,13 +1601,13 @@ a = x |> (==) Array.empty"""
                             , under = "(==) Array.empty"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
-
+import Array
 a = x |> Array.isEmpty"""
                         ]
         , test "should replace comparisons to the empty array with Array.isEmpty (infix, with parens)" <|
             \() ->
                 """module A exposing (..)
-
+import Array
 a = x |> (==) (Array.empty)"""
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
@@ -1473,8 +1617,44 @@ a = x |> (==) (Array.empty)"""
                             , under = "(==) (Array.empty)"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
-
+import Array
 a = x |> Array.isEmpty"""
+                        ]
+        , test "should replace Array.isEmpty (Array.map f array) by Array.isEmpty array" <|
+            \() ->
+                """module A exposing (..)
+import Array
+a = Array.isEmpty (Array.map f array)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary Array.map before Array.isEmpty"
+                            , details = [ "Changing each element in an array does not affect its length. You can replace the Array.map call by the unchanged array." ]
+                            , under = "Array.isEmpty"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Array
+a = Array.isEmpty array
+"""
+                        ]
+        , test "should replace Array.isEmpty (Array.indexedMap f array) by Array.isEmpty array" <|
+            \() ->
+                """module A exposing (..)
+import Array
+a = Array.isEmpty (Array.indexedMap f array)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary Array.indexedMap before Array.isEmpty"
+                            , details = [ "Changing each element in an array does not affect its length. You can replace the Array.indexedMap call by the unchanged array." ]
+                            , under = "Array.isEmpty"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Array
+a = Array.isEmpty array
+"""
                         ]
         ]
 
@@ -1632,6 +1812,60 @@ a = Array.initialize -5 f
                             |> Review.Test.whenFixed """module A exposing (..)
 import Array
 a = Array.empty
+"""
+                        ]
+        , test "should replace Array.initialize n (always <| f <| x) by Array.initialize n (f <| a)" <|
+            \() ->
+                """module A exposing (..)
+import Array
+a = Array.initialize n (always <| f <| x)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Array.initialize with a function that always results in the same element is the same as Array.repeat"
+                            , details = [ "You can replace this call by Array.repeat with the length and index to element function result given to the original Array.initialize call." ]
+                            , under = "Array.initialize"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Array
+a = Array.repeat n (f <| x)
+"""
+                        ]
+        , test "should replace Array.initialize n (\\_ -> f x) by Array.initialize n (f a)" <|
+            \() ->
+                """module A exposing (..)
+import Array
+a = Array.initialize n (\\_ -> f x)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Array.initialize with a function that always results in the same element is the same as Array.repeat"
+                            , details = [ "You can replace this call by Array.repeat with the length and index to element function result given to the original Array.initialize call." ]
+                            , under = "Array.initialize"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Array
+a = Array.repeat n (f x)
+"""
+                        ]
+        , test "should replace Array.initialize n << always by Array.initialize n" <|
+            \() ->
+                """module A exposing (..)
+import Array
+a = Array.initialize n << always
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Array.initialize with a function that always results in the same element is the same as Array.repeat"
+                            , details = [ "You can replace this composition by Array.repeat with the length given to the original Array.initialize operation." ]
+                            , under = "Array.initialize"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Array
+a = Array.repeat n
 """
                         ]
         ]
@@ -1975,6 +2209,42 @@ import Array
 a = max 0 n
 """
                         ]
+        , test "should replace Array.length (Array.map f array) by Array.length array" <|
+            \() ->
+                """module A exposing (..)
+import Array
+a = Array.length (Array.map f array)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary Array.map before Array.length"
+                            , details = [ "Changing each element in an array does not affect its length. You can replace the Array.map call by the unchanged array." ]
+                            , under = "Array.length"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Array
+a = Array.length array
+"""
+                        ]
+        , test "should replace Array.length (Array.indexedMap f array) by Array.length array" <|
+            \() ->
+                """module A exposing (..)
+import Array
+a = Array.length (Array.indexedMap f array)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary Array.indexedMap before Array.length"
+                            , details = [ "Changing each element in an array does not affect its length. You can replace the Array.indexedMap call by the unchanged array." ]
+                            , under = "Array.length"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Array
+a = Array.length array
+"""
+                        ]
         , test "should replace Array.fromList list |> Array.length with List.length list" <|
             \() ->
                 """module A exposing (..)
@@ -1985,7 +2255,7 @@ a = Array.fromList list |> Array.length
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Array.fromList, then Array.length can be combined into List.length"
-                            , details = [ "You can replace this call by List.length with the same arguments given to Array.fromList which is meant for this exact purpose." ]
+                            , details = [ "You can replace this call by List.length with the same argument given to Array.fromList which is meant for this exact purpose." ]
                             , under = "Array.length"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -2554,6 +2824,24 @@ import Array
 a = Just (f 2)
 """
                         ]
+        , test "should replace Array.get i (Array.map f array) by Maybe.map f (Array.get i array)" <|
+            \() ->
+                """module A exposing (..)
+import Array
+a = Array.get i (Array.map f array)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Array.get on Array.map can be optimized to Maybe.map on Array.get"
+                            , details = [ "You can replace this call by Maybe.map with the function given to the original Array.map, on Array.get with the index given to the original Array.get." ]
+                            , under = "Array.get"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Array
+a = Maybe.map f (Array.get i array)
+"""
+                        ]
         ]
 
 
@@ -2756,7 +3044,7 @@ a = Array.set 100 x (Array.fromList [ b, c, d ])
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 import Array
-a = (Array.fromList [ b, c, d ])
+a = Array.fromList [ b, c, d ]
 """
                         ]
         ]
@@ -2769,7 +3057,9 @@ arraySliceTests =
             \() ->
                 """module A exposing (..)
 import Array
-a = Array.slice b c
+a0 = Array.slice start end
+a1 = Array.map f << Array.slice start end
+a1 = Array.slice start end << Array.indexedMap f
 """
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectNoErrors
@@ -2926,6 +3216,78 @@ a = Array.slice 1 -2
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         []
+        , test "should replace Array.slice start end (Array.map f array) by Array.map f (Array.slice start end array)" <|
+            \() ->
+                """module A exposing (..)
+import Array
+a = Array.slice start end (Array.map f array)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Array.slice on Array.map can be optimized to Array.map on Array.slice"
+                            , details = [ "You can replace this call by Array.map with the function given to the original Array.map, on Array.slice with the indices given to the original Array.slice." ]
+                            , under = "Array.slice"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Array
+a = Array.map f (Array.slice start end array)
+"""
+                        ]
+        , test "should replace Array.slice start end << Array.map f by Array.map f << Array.slice start end" <|
+            \() ->
+                """module A exposing (..)
+import Array
+a = Array.slice start end << Array.map f
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Array.slice on Array.map can be optimized to Array.map on Array.slice"
+                            , details = [ "You can replace this composition by Array.slice with the indices given to the original Array.slice, then Array.map with the function given to the original Array.map." ]
+                            , under = "Array.slice"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Array
+a = (Array.map f << Array.slice start end)
+"""
+                        ]
+        , test "should replace Array.slice 0 end (Array.indexedMap f array) by Array.indexedMap f (Array.slice 0 end array)" <|
+            \() ->
+                """module A exposing (..)
+import Array
+a = Array.slice 0 end (Array.indexedMap f array)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Array.slice from index 0 on Array.indexedMap can be optimized to Array.indexedMap on Array.slice"
+                            , details = [ "You can replace this call by Array.indexedMap with the function given to the original Array.indexedMap, on Array.slice with the indices given to the original Array.slice." ]
+                            , under = "Array.slice"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Array
+a = Array.indexedMap f (Array.slice 0 end array)
+"""
+                        ]
+        , test "should replace Array.slice 0 end << Array.indexedMap f by Array.indexedMap f << Array.slice 0 end" <|
+            \() ->
+                """module A exposing (..)
+import Array
+a = Array.slice 0 end << Array.indexedMap f
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Array.slice from index 0 on Array.indexedMap can be optimized to Array.indexedMap on Array.slice"
+                            , details = [ "You can replace this composition by Array.slice with the indices given to the original Array.slice, then Array.indexedMap with the function given to the original Array.indexedMap." ]
+                            , under = "Array.slice"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Array
+a = (Array.indexedMap f << Array.slice 0 end)
+"""
+                        ]
         ]
 
 
@@ -3018,6 +3380,7 @@ a = always
         , test "should replace Array.foldl f x (Array.fromList list) by List.foldl f x list" <|
             \() ->
                 """module A exposing (..)
+import Array
 a = Array.foldl f x (Array.fromList list)
 """
                     |> Review.Test.run ruleWithDefaults
@@ -3028,12 +3391,14 @@ a = Array.foldl f x (Array.fromList list)
                             , under = "Array.foldl"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Array
 a = List.foldl f x list
 """
                         ]
         , test "should replace Array.foldl f x << Array.fromList by Array.foldl f x" <|
             \() ->
                 """module A exposing (..)
+import Array
 a = Array.foldl f x << Array.fromList
 """
                     |> Review.Test.run ruleWithDefaults
@@ -3044,12 +3409,14 @@ a = Array.foldl f x << Array.fromList
                             , under = "Array.foldl"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Array
 a = List.foldl f x
 """
                         ]
         , test "should replace Array.fromList >> Array.foldl f x by Array.foldl f x" <|
             \() ->
                 """module A exposing (..)
+import Array
 a = Array.fromList >> Array.foldl f x
 """
                     |> Review.Test.run ruleWithDefaults
@@ -3060,6 +3427,7 @@ a = Array.fromList >> Array.foldl f x
                             , under = "Array.foldl"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Array
 a = List.foldl f x
 """
                         ]
@@ -3155,6 +3523,7 @@ a = always
         , test "should replace Array.foldr f x (Array.fromList list) by List.foldr f x list" <|
             \() ->
                 """module A exposing (..)
+import Array
 a = Array.foldr f x (Array.fromList list)
 """
                     |> Review.Test.run ruleWithDefaults
@@ -3165,12 +3534,14 @@ a = Array.foldr f x (Array.fromList list)
                             , under = "Array.foldr"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Array
 a = List.foldr f x list
 """
                         ]
         , test "should replace Array.foldr f x << Array.fromList by Array.foldr f x" <|
             \() ->
                 """module A exposing (..)
+import Array
 a = Array.foldr f x << Array.fromList
 """
                     |> Review.Test.run ruleWithDefaults
@@ -3181,12 +3552,14 @@ a = Array.foldr f x << Array.fromList
                             , under = "Array.foldr"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Array
 a = List.foldr f x
 """
                         ]
         , test "should replace Array.fromList >> Array.foldr f x by Array.foldr f x" <|
             \() ->
                 """module A exposing (..)
+import Array
 a = Array.fromList >> Array.foldr f x
 """
                     |> Review.Test.run ruleWithDefaults
@@ -3197,6 +3570,7 @@ a = Array.fromList >> Array.foldr f x
                             , under = "Array.foldr"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Array
 a = List.foldr f x
 """
                         ]

@@ -1553,7 +1553,7 @@ import Random
 a = x
 """
                         ]
-        , test "should replace Random.andThen (always (f x)) by (always (f x))" <|
+        , test "should replace Random.andThen (always (f x) by always (f x)" <|
             \() ->
                 """module A exposing (..)
 import Random
@@ -1568,7 +1568,79 @@ a = Random.andThen (always (f x))
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 import Random
-a = (always (f x))
+a = always (f x)
+"""
+                        ]
+        , test "should replace Random.andThen (f x |> always) by (f x |> always)" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = Random.andThen (f x |> always)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Random.andThen with a function that always returns to the same random generator will result in that random generator"
+                            , details = [ "You can replace this call by always with the random generator produced by the function." ]
+                            , under = "Random.andThen"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = (f x |> always)
+"""
+                        ]
+        , test "should replace (f x |> always) |> Random.andThen by f x |> always" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = (f x |> always) |> Random.andThen
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Random.andThen with a function that always returns to the same random generator will result in that random generator"
+                            , details = [ "You can replace this call by always with the random generator produced by the function." ]
+                            , under = "Random.andThen"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = f x |> always
+"""
+                        ]
+        , test "should replace Random.andThen (always <| f x) by (always <| f x)" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = Random.andThen (always <| f x)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Random.andThen with a function that always returns to the same random generator will result in that random generator"
+                            , details = [ "You can replace this call by always with the random generator produced by the function." ]
+                            , under = "Random.andThen"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = (always <| f x)
+"""
+                        ]
+        , test "should replace Random.andThen <| (always <| f x) by always <| f x" <|
+            \() ->
+                """module A exposing (..)
+import Random
+a = Random.andThen <| (always <| f x)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Random.andThen with a function that always returns to the same random generator will result in that random generator"
+                            , details = [ "You can replace this call by always with the random generator produced by the function." ]
+                            , under = "Random.andThen"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Random
+a = always <| f x
 """
                         ]
         ]

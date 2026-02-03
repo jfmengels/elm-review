@@ -45,7 +45,7 @@ a = Task.map f (Task.fail z)
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 import Task
-a = (Task.fail z)
+a = Task.fail z
 """
                         ]
         , test "should replace Task.map f <| Task.fail z by Task.fail z" <|
@@ -373,7 +373,7 @@ a = Task.map3 f (Task.succeed a) (Task.fail x) task2
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 import Task
-a = (Task.fail x)
+a = Task.fail x
 """
                         ]
         , test "should replace Task.map3 f (Task.succeed a) (Task.fail x) by always (Task.fail x)" <|
@@ -409,7 +409,7 @@ a = Task.map3 f (Task.fail x) task1 task2
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 import Task
-a = (Task.fail x)
+a = Task.fail x
 """
                         ]
         , test "should replace Task.map3 f (Task.fail x) task1 by always (Task.fail x)" <|
@@ -445,7 +445,7 @@ a = Task.map3 f (Task.fail x)
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 import Task
-a = (\\_ _ -> (Task.fail x))
+a = (\\_ _ -> Task.fail x)
 """
                         ]
         , test "should replace Task.map3 f task0 (Task.fail x) task2 by Task.map2 f task0 (Task.fail x)" <|
@@ -533,7 +533,7 @@ a = Task.mapError f (Task.succeed a)
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 import Task
-a = (Task.succeed a)
+a = Task.succeed a
 """
                         ]
         , test "should replace Task.mapError f <| Task.succeed a by Task.succeed a" <|
@@ -801,7 +801,7 @@ a = Task.andThen f (Task.fail x)
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 import Task
-a = (Task.fail x)
+a = Task.fail x
 """
                         ]
         , test "should replace Task.andThen f << Task.fail by Task.fail" <|
@@ -995,7 +995,7 @@ a = Task.onError f (Task.succeed a)
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 import Task
-a = (Task.succeed a)
+a = Task.succeed a
 """
                         ]
         , test "should replace Task.onError f << Task.succeed by Task.succeed" <|
@@ -1300,7 +1300,7 @@ a = Task.attempt identity << Task.map f
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Task.map, then Task.attempt with an identity function can be combined into Task.attempt"
-                            , details = [ "You can replace this composition by Task.attempt with the same arguments given to Task.map which is meant for this exact purpose." ]
+                            , details = [ "You can replace this composition by Task.attempt with the same argument given to Task.map which is meant for this exact purpose." ]
                             , under = "Task.attempt"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -1318,7 +1318,7 @@ a = Task.map f >> Task.attempt identity
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Task.map, then Task.attempt with an identity function can be combined into Task.attempt"
-                            , details = [ "You can replace this composition by Task.attempt with the same arguments given to Task.map which is meant for this exact purpose." ]
+                            , details = [ "You can replace this composition by Task.attempt with the same argument given to Task.map which is meant for this exact purpose." ]
                             , under = "Task.attempt"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -1369,7 +1369,7 @@ a = Task.perform identity << Task.map f
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Task.map, then Task.perform with an identity function can be combined into Task.perform"
-                            , details = [ "You can replace this composition by Task.perform with the same arguments given to Task.map which is meant for this exact purpose." ]
+                            , details = [ "You can replace this composition by Task.perform with the same argument given to Task.map which is meant for this exact purpose." ]
                             , under = "Task.perform"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -1387,7 +1387,7 @@ a = Task.map f >> Task.perform identity
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Task.map, then Task.perform with an identity function can be combined into Task.perform"
-                            , details = [ "You can replace this composition by Task.perform with the same arguments given to Task.map which is meant for this exact purpose." ]
+                            , details = [ "You can replace this composition by Task.perform with the same argument given to Task.map which is meant for this exact purpose." ]
                             , under = "Task.perform"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)

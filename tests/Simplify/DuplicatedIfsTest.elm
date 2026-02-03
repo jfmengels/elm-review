@@ -163,6 +163,19 @@ a =
   else
     3
 """
+                        , Review.Test.error
+                            { message = "The condition will always evaluate to False"
+                            , details = [ "The expression can be replaced by what is inside the 'else' branch." ]
+                            , under = "if"
+                            }
+                            |> Review.Test.atExactly { start = { row = 4, column = 5 }, end = { row = 4, column = 7 } }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a =
+  if x then
+    2
+  else
+    3
+"""
                         ]
         , test "should remove duplicate nested conditions (x inside the else)" <|
             \() ->
@@ -220,6 +233,19 @@ a =
       2
     else
       3
+"""
+                        , Review.Test.error
+                            { message = "The condition will always evaluate to True"
+                            , details = [ "The expression can be replaced by what is inside the 'then' branch." ]
+                            , under = "if"
+                            }
+                            |> Review.Test.atExactly { start = { row = 6, column = 5 }, end = { row = 6, column = 7 } }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a =
+  if x then
+    1
+  else
+    2
 """
                         ]
         , test "should remove duplicate nested conditions (x part of a nested condition)" <|
@@ -698,6 +724,136 @@ a =
   else 3
 """
                         ]
+        , test "should remove branches where the condition never matches (<)" <|
+            \() ->
+                """module A exposing (..)
+a =
+  if x < 0 then
+    1
+  else if x < 0 then
+    2
+  else
+    3
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "The condition will always evaluate to False"
+                            , details = [ "The expression can be replaced by what is inside the 'else' branch." ]
+                            , under = "if"
+                            }
+                            |> Review.Test.atExactly { start = { row = 5, column = 8 }, end = { row = 5, column = 10 } }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a =
+  if x < 0 then
+    1
+  else 3
+"""
+                        ]
+        , test "should remove branches where the condition never matches (<=)" <|
+            \() ->
+                """module A exposing (..)
+a =
+  if x <= 0 then
+    1
+  else if x <= 0 then
+    2
+  else
+    3
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "The condition will always evaluate to False"
+                            , details = [ "The expression can be replaced by what is inside the 'else' branch." ]
+                            , under = "if"
+                            }
+                            |> Review.Test.atExactly { start = { row = 5, column = 8 }, end = { row = 5, column = 10 } }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a =
+  if x <= 0 then
+    1
+  else 3
+"""
+                        ]
+        , test "should remove branches where the condition never matches (>=)" <|
+            \() ->
+                """module A exposing (..)
+a =
+  if x >= 0 then
+    1
+  else if x >= 0 then
+    2
+  else
+    3
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "The condition will always evaluate to False"
+                            , details = [ "The expression can be replaced by what is inside the 'else' branch." ]
+                            , under = "if"
+                            }
+                            |> Review.Test.atExactly { start = { row = 5, column = 8 }, end = { row = 5, column = 10 } }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a =
+  if x >= 0 then
+    1
+  else 3
+"""
+                        ]
+        , test "should remove branches where the condition never matches (>)" <|
+            \() ->
+                """module A exposing (..)
+a =
+  if x > 0 then
+    1
+  else if x > 0 then
+    2
+  else
+    3
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "The condition will always evaluate to False"
+                            , details = [ "The expression can be replaced by what is inside the 'else' branch." ]
+                            , under = "if"
+                            }
+                            |> Review.Test.atExactly { start = { row = 5, column = 8 }, end = { row = 5, column = 10 } }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a =
+  if x > 0 then
+    1
+  else 3
+"""
+                        ]
+        , test "should remove branches where the condition never matches (call)" <|
+            \() ->
+                """module A exposing (..)
+a =
+  if f <| x then
+    1
+  else if x |> f then
+    2
+  else
+    3
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "The condition will always evaluate to False"
+                            , details = [ "The expression can be replaced by what is inside the 'else' branch." ]
+                            , under = "if"
+                            }
+                            |> Review.Test.atExactly { start = { row = 5, column = 8 }, end = { row = 5, column = 10 } }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a =
+  if f <| x then
+    1
+  else 3
+"""
+                        ]
         , test "should remove branches where the condition always matches (literal on the left using /=)" <|
             \() ->
                 """module A exposing (..)
@@ -902,10 +1058,21 @@ a =
   else
     3
 """
+                        , Review.Test.error
+                            { message = "The condition will always evaluate to True"
+                            , details = [ "The expression can be replaced by what is inside the 'then' branch." ]
+                            , under = "if"
+                            }
+                            |> Review.Test.atExactly { start = { row = 5, column = 8 }, end = { row = 5, column = 10 } }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a =
+  if a || b then
+    1
+  else 2
+"""
                         ]
         , test "should remove branches where the condition may not match (not (a || b) --> not a --> not b)" <|
             \() ->
-                -- TODO Probably best to normalize inside Evaluate.getBoolean?
                 """module A exposing (..)
 a =
   if not (a || b) then
@@ -932,6 +1099,78 @@ a =
     1
   else if not a then
     2
+  else
+    4
+"""
+                        ]
+        , test "should remove branches where the condition may not match (not a && not b --> not a --> not b)" <|
+            \() ->
+                """module A exposing (..)
+a =
+  if not a && not b then
+    1
+  else if not a then
+    if b then
+      2
+    else
+      3
+  else
+    4
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "The condition will always evaluate to True"
+                            , details = [ "The expression can be replaced by what is inside the 'then' branch." ]
+                            , under = "if"
+                            }
+                            |> Review.Test.atExactly { start = { row = 6, column = 5 }, end = { row = 6, column = 7 } }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a =
+  if not a && not b then
+    1
+  else if not a then
+    2
+  else
+    4
+"""
+                        ]
+        , test "should remove branches where the condition may not match ((a && b) || a --> not c --> b)" <|
+            \() ->
+                """module A exposing (..)
+a =
+  if (a && b) || c then
+    if a then
+      if not c then
+        if b then
+          0
+        else
+          1
+      else
+        2
+    else
+      3
+  else
+    4
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "The condition will always evaluate to True"
+                            , details = [ "The expression can be replaced by what is inside the 'then' branch." ]
+                            , under = "if"
+                            }
+                            |> Review.Test.atExactly { start = { row = 6, column = 9 }, end = { row = 6, column = 11 } }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a =
+  if (a && b) || c then
+    if a then
+      if not c then
+        0
+      else
+        2
+    else
+      3
   else
     4
 """

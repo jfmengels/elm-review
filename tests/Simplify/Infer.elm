@@ -7,11 +7,11 @@ module Simplify.Infer exposing
     , empty
     , falseExpr
     , fromList
-    , get
     , getAsExpression
-    , getBoolean
     , infer
     , inferForIfCondition
+    , inferredNormalize
+    , inferredToDebugString
     , trueExpr
     )
 
@@ -67,7 +67,7 @@ When comparing that to `a` is True OR `b` is True, we can infer that `b` is True
 
 Every new fact that we uncover from this comparison will also repeat the process of going through the previous list of facts.
 
-Another thing that we do whenever we encounter a new fact os to try and "deduce" a value from it, which we add to a list
+Another thing that we do whenever we encounter a new fact is to try and "deduce" a value from it, which we add to a list
 of "deduced" values. A few examples:
 
   - `a` -> `a` is True
@@ -83,7 +83,7 @@ Before we do all of this analysis, we normalize the AST, so we have a more predi
 ### Application
 
 This data is then used in `Normalize` to change the AST, so that a reference to `a` whose value we have "deduced" is
-replaced by that value. Finally, that data is also used in functions like `Evaluate.getBoolean`.
+replaced by that value. Finally, as a consequence, that data is also used in functions like `Normalize.getBoolean`.
 (Note: This might be a bit redundant but that's a simplification for later on)
 
 Whenever we see a boolean expression, we will look at whether we can simplify it, and report an error when that happens.
@@ -106,6 +106,7 @@ import AssocList
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Range exposing (Range)
+import Elm.Writer
 import Review.ModuleNameLookupTable exposing (ModuleNameLookupTable)
 
 
@@ -152,11 +153,6 @@ fromList list =
         }
 
 
-get : Expression -> Inferred -> Maybe DeducedValue
-get expr (Inferred inferred) =
-    AssocList.get expr inferred.deduced
-
-
 getAsExpression : Expression -> Inferred -> Maybe Expression
 getAsExpression expr (Inferred inferred) =
     AssocList.get expr inferred.deduced
@@ -177,30 +173,10 @@ getAsExpression expr (Inferred inferred) =
             )
 
 
-getBoolean : Expression -> Inferred -> Maybe Bool
-getBoolean expr (Inferred inferred) =
-    AssocList.get expr inferred.deduced
-        |> Maybe.andThen
-            (\value ->
-                case value of
-                    DTrue ->
-                        Just True
-
-                    DFalse ->
-                        Just False
-
-                    DNumber _ ->
-                        Nothing
-
-                    DString _ ->
-                        Nothing
-            )
-
-
 inferForIfCondition : Expression -> { trueBranchRange : Range, falseBranchRange : Range } -> Inferred -> List ( Range, Inferred )
 inferForIfCondition condition { trueBranchRange, falseBranchRange } inferred =
-    [ ( trueBranchRange, inferHelp True condition inferred )
-    , ( falseBranchRange, inferHelp False condition inferred )
+    [ ( trueBranchRange, infer condition True inferred )
+    , ( falseBranchRange, infer condition False inferred )
     ]
 
 
@@ -214,82 +190,77 @@ falseExpr =
     Expression.FunctionOrValue [ "Basics" ] "False"
 
 
-convertToFact : Expression -> Bool -> List Fact
-convertToFact expr shouldBe =
-    if shouldBe then
-        [ Equals expr trueExpr, NotEquals expr falseExpr ]
-
-    else
-        [ Equals expr falseExpr, NotEquals expr trueExpr ]
+infer : Expression -> Bool -> Inferred -> Inferred
+infer node shouldBe acc =
+    injectFacts
+        (inferHelp shouldBe node [])
+        acc
 
 
-infer : List Expression -> Bool -> Inferred -> Inferred
-infer nodes shouldBe acc =
-    List.foldl (\node soFar -> inferHelp shouldBe node soFar) acc nodes
-
-
-infer2 : Expression -> Expression -> Bool -> Inferred -> Inferred
+infer2 : Expression -> Expression -> Bool -> List Fact -> List Fact
 infer2 a b shouldBe soFar =
     inferHelp shouldBe b (inferHelp shouldBe a soFar)
 
 
-inferHelp : Bool -> Expression -> Inferred -> Inferred
-inferHelp shouldBe node acc =
+inferHelp : Bool -> Expression -> List Fact -> List Fact
+inferHelp shouldBe node soFar =
     let
-        dict : Inferred
-        dict =
-            injectFacts (convertToFact node shouldBe) acc
+        soFarWithCurrentNode : List Fact
+        soFarWithCurrentNode =
+            if shouldBe then
+                Equals node trueExpr :: NotEquals node falseExpr :: soFar
+
+            else
+                Equals node falseExpr :: NotEquals node trueExpr :: soFar
     in
     case node of
         Expression.Application [ Node _ (Expression.FunctionOrValue [ "Basics" ] "not"), expression ] ->
-            inferHelp (not shouldBe) (Node.value expression) dict
+            inferHelp (not shouldBe) (Node.value expression) soFarWithCurrentNode
 
         Expression.OperatorApplication "&&" _ (Node _ left) (Node _ right) ->
             if shouldBe then
-                infer2 left right shouldBe dict
+                infer2 left right True soFarWithCurrentNode
 
             else
-                injectFact
-                    (Or
-                        (convertToFact left False)
-                        (convertToFact right False)
-                    )
-                    dict
+                Or
+                    (inferHelp False left [])
+                    (inferHelp False right [])
+                    :: soFarWithCurrentNode
 
         Expression.OperatorApplication "||" _ (Node _ left) (Node _ right) ->
             if shouldBe then
-                injectFact
-                    (Or
-                        (convertToFact left True)
-                        (convertToFact right True)
-                    )
-                    dict
+                Or
+                    (inferHelp True left [])
+                    (inferHelp True right [])
+                    :: soFarWithCurrentNode
 
             else
-                infer2 left right shouldBe dict
+                infer2 left right False soFarWithCurrentNode
 
         Expression.OperatorApplication "==" inf left right ->
             (if shouldBe then
-                injectFact (NotEquals (Expression.OperatorApplication "/=" inf left right) trueExpr) dict
+                NotEquals (Expression.OperatorApplication "/=" inf left right) trueExpr
+                    :: soFarWithCurrentNode
 
              else
-                dict
+                soFarWithCurrentNode
             )
                 |> inferOnEquality left right shouldBe
                 |> inferOnEquality right left shouldBe
 
         Expression.OperatorApplication "/=" inf left right ->
             (if shouldBe then
-                injectFact (NotEquals (Expression.OperatorApplication "==" inf left right) trueExpr) dict
+                NotEquals (Expression.OperatorApplication "==" inf left right) trueExpr
+                    :: soFarWithCurrentNode
 
              else
-                dict
+                soFarWithCurrentNode
             )
                 |> inferOnEquality left right (not shouldBe)
                 |> inferOnEquality right left (not shouldBe)
 
         _ ->
-            dict
+            soFarWithCurrentNode
 
 
 injectFacts : List Fact -> Inferred -> Inferred
@@ -306,17 +277,6 @@ injectFacts newFacts (Inferred inferred) =
                 injectFacts
                     (deduceNewFacts newFact inferred.facts ++ restOfFacts)
                     (inferredAddFact newFact (Inferred inferred))
-
-
-injectFact : Fact -> Inferred -> Inferred
-injectFact newFact (Inferred inferred) =
-    if List.member newFact inferred.facts then
-        Inferred inferred
-
-    else
-        injectFacts
-            (deduceNewFacts newFact inferred.facts)
-            (inferredAddFact newFact (Inferred inferred))
 
 
 inferredAddFact : Fact -> Inferred -> Inferred
@@ -351,15 +311,14 @@ deduceNewFacts : Fact -> List Fact -> List Fact
 deduceNewFacts newFact facts =
     case newFact of
         Equals factTarget factValue ->
-            case expressionToDeduced factValue of
-                Just value ->
-                    List.concatMap (\fact -> mergeEqualFacts ( factTarget, value ) fact) facts
+            List.concatMap
+                (\fact -> factSimplifyForEqual ( factTarget, factValue ) fact)
+                facts
 
-                Nothing ->
-                    [ Equals factValue factTarget ]
-
-        NotEquals _ _ ->
-            []
+        NotEquals factTarget factValue ->
+            List.concatMap
+                (\fact -> factSimplifyForNotEqual ( factTarget, factValue ) fact)
+                facts
 
         Or _ _ ->
             []
@@ -412,57 +371,78 @@ notDeduced ( a, deducedValue ) =
             Nothing
 
 
-mergeEqualFacts : ( Expression, DeducedValue ) -> Fact -> List Fact
-mergeEqualFacts equalFact fact =
+{-| Trim impossible branches
+-}
+factSimplifyForEqual : ( Expression, Expression ) -> Fact -> List Fact
+factSimplifyForEqual equalFact fact =
+    factSimplifyFor
+        { isNever = \cond -> isNeverEqualInFact equalFact cond
+        }
+        fact
+
+
+{-| Trim impossible branches
+-}
+factSimplifyForNotEqual : ( Expression, Expression ) -> Fact -> List Fact
+factSimplifyForNotEqual notEqualFact fact =
+    factSimplifyFor
+        { isNever = \cond -> isAlwaysEqualInFact notEqualFact cond
+        }
+        fact
+
+
+factSimplifyFor :
+    { isNever : Fact -> Bool }
+    -> Fact
+    -> List Fact
+factSimplifyFor factTrue fact =
     case fact of
         Or left right ->
-            left
-                |> List.foldl
-                    (\cond rightSoFar ->
-                        case ifSatisfy equalFact ( cond, right ) of
-                            Nothing ->
-                                rightSoFar
+            -- if any branch has a part that is false, that whole branch can never be true
+            -- and can be disregarded
+            if List.any factTrue.isNever left then
+                right
 
-                            Just satisfied ->
-                                satisfied ++ rightSoFar
-                    )
-                    (right
-                        |> List.concatMap
-                            (\cond ->
-                                ifSatisfy equalFact ( cond, left )
-                                    |> Maybe.withDefault []
-                            )
-                    )
+            else if List.any factTrue.isNever right then
+                left
+
+            else
+                []
 
         _ ->
             []
 
 
-ifSatisfy : ( Expression, DeducedValue ) -> ( Fact, a ) -> Maybe a
-ifSatisfy ( target, value ) ( targetFact, otherFact ) =
+isNeverEqualInFact : ( Expression, Expression ) -> Fact -> Bool
+isNeverEqualInFact ( target, value ) targetFact =
     case targetFact of
         Equals factTarget factValue ->
-            if factTarget == target && areIncompatible value factValue then
-                Just otherFact
-
-            else
-                Nothing
+            factTarget == target && areNeverEqual value factValue
 
         NotEquals factTarget factValue ->
-            if factTarget == target && areCompatible value factValue then
-                Just otherFact
+            factTarget == target && value == factValue
 
-            else
-                Nothing
-
-        _ ->
-            Nothing
+        Or _ _ ->
+            False
 
 
-areIncompatible : DeducedValue -> Expression -> Bool
-areIncompatible value factValue =
+isAlwaysEqualInFact : ( Expression, Expression ) -> Fact -> Bool
+isAlwaysEqualInFact ( target, value ) targetFact =
+    case targetFact of
+        Equals factTarget factValue ->
+            factTarget == target && value == factValue
+
+        NotEquals factTarget factValue ->
+            factTarget == target && areNeverEqual value factValue
+
+        Or _ _ ->
+            False
+
+
+areNeverEqual : Expression -> Expression -> Bool
+areNeverEqual value factValue =
     case value of
-        DTrue ->
+        Expression.FunctionOrValue [ "Basics" ] "True" ->
             case factValue of
                 Expression.FunctionOrValue [ "Basics" ] "False" ->
                     True
@@ -470,7 +450,7 @@ areIncompatible value factValue =
                 _ ->
                     False
 
-        DFalse ->
+        Expression.FunctionOrValue [ "Basics" ] "False" ->
             case factValue of
                 Expression.FunctionOrValue [ "Basics" ] "True" ->
                     True
@@ -478,7 +458,7 @@ areIncompatible value factValue =
                 _ ->
                     False
 
-        DNumber valueFloat ->
+        Expression.Floatable valueFloat ->
             case factValue of
                 Expression.Floatable factFloat ->
                     valueFloat /= factFloat
@@ -486,7 +466,7 @@ areIncompatible value factValue =
                 _ ->
                     False
 
-        DString valueString ->
+        Expression.Literal valueString ->
             case factValue of
                 Expression.Literal factString ->
                     valueString /= factString
@@ -494,102 +474,143 @@ areIncompatible value factValue =
                 _ ->
                     False
 
-
-areCompatible : DeducedValue -> Expression -> Bool
-areCompatible value factValue =
-    case value of
-        DTrue ->
-            case factValue of
-                Expression.FunctionOrValue [ "Basics" ] "True" ->
-                    True
-
-                _ ->
-                    False
-
-        DFalse ->
-            case factValue of
-                Expression.FunctionOrValue [ "Basics" ] "False" ->
-                    True
-
-                _ ->
-                    False
-
-        DNumber valueFloat ->
-            case factValue of
-                Expression.Floatable factFloat ->
-                    valueFloat == factFloat
-
-                _ ->
-                    False
-
-        DString valueString ->
-            case factValue of
-                Expression.Literal factString ->
-                    valueString == factString
-
-                _ ->
-                    False
+        _ ->
+            False
 
 
-inferOnEquality : Node Expression -> Node Expression -> Bool -> Inferred -> Inferred
-inferOnEquality (Node _ expr) (Node _ other) shouldBe dict =
+inferOnEquality : Node Expression -> Node Expression -> Bool -> List Fact -> List Fact
+inferOnEquality (Node _ expr) (Node _ other) shouldBe soFar =
     case expr of
-        Expression.Integer int ->
-            if shouldBe then
-                injectFact
-                    (Equals other (Expression.Floatable (Basics.toFloat int)))
-                    dict
-
-            else
-                injectFact
-                    (NotEquals other (Expression.Floatable (Basics.toFloat int)))
-                    dict
-
         Expression.Floatable float ->
             if shouldBe then
-                injectFact
-                    (Equals other (Expression.Floatable float))
-                    dict
+                Equals other (Expression.Floatable float)
+                    :: soFar
 
             else
-                injectFact
-                    (NotEquals other (Expression.Floatable float))
-                    dict
+                NotEquals other (Expression.Floatable float)
+                    :: soFar
 
         Expression.Literal str ->
             if shouldBe then
-                injectFact
-                    (Equals other (Expression.Literal str))
-                    dict
+                Equals other (Expression.Literal str)
+                    :: soFar
 
             else
-                injectFact
-                    (NotEquals other (Expression.Literal str))
-                    dict
+                NotEquals other (Expression.Literal str)
+                    :: soFar
 
         Expression.FunctionOrValue [ "Basics" ] "True" ->
-            injectFact
-                (Equals other
-                    (if shouldBe then
-                        trueExpr
+            Equals other
+                (if shouldBe then
+                    trueExpr
 
-                     else
-                        falseExpr
-                    )
+                 else
+                    falseExpr
                 )
-                dict
+                :: soFar
 
         Expression.FunctionOrValue [ "Basics" ] "False" ->
-            injectFact
-                (Equals other
-                    (if shouldBe then
-                        falseExpr
+            Equals other
+                (if shouldBe then
+                    falseExpr
 
-                     else
-                        trueExpr
-                    )
+                 else
+                    trueExpr
                 )
-                dict
+                :: soFar
 
         _ ->
-            dict
+            soFar
+
+
+
+--
+
+
+{-| For use in tests and Debug.log only
+-}
+inferredNormalize : Inferred -> Inferred
+inferredNormalize (Inferred inferred) =
+    Inferred
+        { facts =
+            inferred.facts
+                |> List.sortBy factToDebugString
+        , deduced =
+            AssocList.toList inferred.deduced
+                |> List.sortBy
+                    (\( expression, _ ) -> expressionToDebugString expression)
+                |> AssocList.fromList
+        }
+
+
+{-| For use in tests and Debug.log only
+-}
+inferredToDebugString : Inferred -> String
+inferredToDebugString (Inferred inferred) =
+    "facts: "
+        ++ factsToDebugString inferred.facts
+        ++ "\ndeduced: "
+        ++ (List.map
+                (\( from, to ) ->
+                    expressionToDebugString from
+                        ++ " = "
+                        ++ (to |> deducedValueToDebugString)
+                )
+                (AssocList.toList inferred.deduced)
+                |> String.join ", "
+           )
+
+
+deducedValueToDebugString : DeducedValue -> String
+deducedValueToDebugString deducedValue =
+    case deducedValue of
+        DTrue ->
+            "✅"
+
+        DFalse ->
+            "❌"
+
+        DNumber number ->
+            String.fromFloat number
+
+        DString string ->
+            string
+
+
+expressionToDebugString : Expression -> String
+expressionToDebugString expression =
+    Elm.Writer.write (Elm.Writer.writeExpression (Node.empty expression))
+        |> String.replace "Basics.True" "✅"
+        |> String.replace "Basics.False" "❌"
+        |> String.replace "Basics." ""
+
+
+factsToDebugString : List Fact -> String
+factsToDebugString facts =
+    -- when debugging large fact lists,
+    -- you may want to insert a filter ignoring
+    -- NotEquals left right -> right == trueExpr || right == falseExpr
+    case facts of
+        [] ->
+            "_empty_"
+
+        [ single ] ->
+            factToDebugString single
+
+        (_ :: _ :: _) as filteredFacts ->
+            "("
+                ++ (filteredFacts |> List.map factToDebugString |> String.join " & ")
+                ++ ")"
+
+
+factToDebugString : Fact -> String
+factToDebugString fact =
+    case fact of
+        Equals l r ->
+            expressionToDebugString l ++ "=" ++ expressionToDebugString r
+
+        NotEquals l r ->
+            expressionToDebugString l ++ "≠" ++ expressionToDebugString r
+
+        Or l r ->
+            "(" ++ factsToDebugString l ++ " | " ++ factsToDebugString r ++ ")"

@@ -112,7 +112,7 @@ a = Json.Encode.array identity << Array.map f
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Array.map, then Json.Encode.array with an identity function can be combined into Json.Encode.array"
-                            , details = [ "You can replace this composition by Json.Encode.array with the same arguments given to Array.map which is meant for this exact purpose." ]
+                            , details = [ "You can replace this composition by Json.Encode.array with the same argument given to Array.map which is meant for this exact purpose." ]
                             , under = "Json.Encode.array"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -132,7 +132,7 @@ a = Array.map f >> Json.Encode.array identity
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Array.map, then Json.Encode.array with an identity function can be combined into Json.Encode.array"
-                            , details = [ "You can replace this composition by Json.Encode.array with the same arguments given to Array.map which is meant for this exact purpose." ]
+                            , details = [ "You can replace this composition by Json.Encode.array with the same argument given to Array.map which is meant for this exact purpose." ]
                             , under = "Json.Encode.array"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -296,7 +296,7 @@ a = Json.Encode.list identity << List.map f
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "List.map, then Json.Encode.list with an identity function can be combined into Json.Encode.list"
-                            , details = [ "You can replace this composition by Json.Encode.list with the same arguments given to List.map which is meant for this exact purpose." ]
+                            , details = [ "You can replace this composition by Json.Encode.list with the same argument given to List.map which is meant for this exact purpose." ]
                             , under = "Json.Encode.list"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -316,7 +316,7 @@ a = List.map f >> Json.Encode.list identity
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "List.map, then Json.Encode.list with an identity function can be combined into Json.Encode.list"
-                            , details = [ "You can replace this composition by Json.Encode.list with the same arguments given to List.map which is meant for this exact purpose." ]
+                            , details = [ "You can replace this composition by Json.Encode.list with the same argument given to List.map which is meant for this exact purpose." ]
                             , under = "Json.Encode.list"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -372,7 +372,7 @@ a = Json.Encode.set identity << Set.map f
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Set.map, then Json.Encode.set with an identity function can be combined into Json.Encode.set"
-                            , details = [ "You can replace this composition by Json.Encode.set with the same arguments given to Set.map which is meant for this exact purpose." ]
+                            , details = [ "You can replace this composition by Json.Encode.set with the same argument given to Set.map which is meant for this exact purpose." ]
                             , under = "Json.Encode.set"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -392,7 +392,7 @@ a = Set.map f >> Json.Encode.set identity
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Set.map, then Json.Encode.set with an identity function can be combined into Json.Encode.set"
-                            , details = [ "You can replace this composition by Json.Encode.set with the same arguments given to Set.map which is meant for this exact purpose." ]
+                            , details = [ "You can replace this composition by Json.Encode.set with the same argument given to Set.map which is meant for this exact purpose." ]
                             , under = "Json.Encode.set"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)

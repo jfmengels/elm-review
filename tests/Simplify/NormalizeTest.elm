@@ -35,7 +35,16 @@ simpleNormalizationTests =
         [ test "should remove parentheses" <|
             \() ->
                 "(1)"
-                    |> normalizeAndExpect (Integer 1)
+                    |> normalizeAndExpect (Floatable 1)
+        , test "should apply Basics.negate to known number" <|
+            \() ->
+                "Basics.negate 1"
+                    |> normalizeAndExpect (Floatable -1)
+        , test "should normalize Basics.negate n to -n" <|
+            \() ->
+                "Basics.negate n"
+                    |> normalizeAndExpect
+                        (Negation (Node.empty (FunctionOrValue [] "n")))
         , test "should remove ranges of 'f a'" <|
             \() ->
                 "f a"
@@ -105,6 +114,26 @@ simpleNormalizationTests =
         , test "should remove |>" <|
             \() ->
                 "c |> a b"
+                    |> normalizeAndExpect
+                        (Application
+                            [ n (FunctionOrValue [] "a")
+                            , n (FunctionOrValue [] "b")
+                            , n (FunctionOrValue [] "c")
+                            ]
+                        )
+        , test "should directly apply (|>)" <|
+            \() ->
+                "(|>) c (a b)"
+                    |> normalizeAndExpect
+                        (Application
+                            [ n (FunctionOrValue [] "a")
+                            , n (FunctionOrValue [] "b")
+                            , n (FunctionOrValue [] "c")
+                            ]
+                        )
+        , test "should directly apply (<|)" <|
+            \() ->
+                "(<|) (a b) c"
                     |> normalizeAndExpect
                         (Application
                             [ n (FunctionOrValue [] "a")
@@ -282,6 +311,15 @@ simpleNormalizationTests =
                             (n (FunctionOrValue [] "b"))
                             (n (FunctionOrValue [] "a"))
                         )
+        , test "should normalize prefix operator uncons with a list literal into a list literal" <|
+            \() ->
+                "(::) (a) [(b)]"
+                    |> normalizeAndExpect
+                        (ListExpr
+                            [ n (FunctionOrValue [] "a")
+                            , n (FunctionOrValue [] "b")
+                            ]
+                        )
         , test "should normalize uncons with a list literal into a list literal" <|
             \() ->
                 "(a) :: [(b)]"
@@ -331,7 +369,7 @@ simpleNormalizationTests =
         , test "should normalize an integer negation" <|
             \() ->
                 "-1"
-                    |> normalizeAndExpect (Integer -1)
+                    |> normalizeAndExpect (Floatable -1)
         , test "should normalize a float negation" <|
             \() ->
                 "-1.1"
@@ -373,9 +411,9 @@ simpleNormalizationTests =
                 "{ field = (2), a = (1), z = (3) }"
                     |> normalizeAndExpect
                         (RecordExpr
-                            [ n ( n "a", n (Integer 1) )
-                            , n ( n "field", n (Integer 2) )
-                            , n ( n "z", n (Integer 3) )
+                            [ n ( n "a", n (Floatable 1) )
+                            , n ( n "field", n (Floatable 2) )
+                            , n ( n "z", n (Floatable 3) )
                             ]
                         )
         , test "should normalize record updates, and sort fields alphabetically" <|
@@ -384,16 +422,117 @@ simpleNormalizationTests =
                     |> normalizeAndExpect
                         (RecordUpdateExpression
                             (n "record")
-                            [ n ( n "a", n (Integer 1) )
-                            , n ( n "field", n (Integer 2) )
-                            , n ( n "z", n (Integer 3) )
+                            [ n ( n "a", n (Floatable 1) )
+                            , n ( n "field", n (Floatable 2) )
+                            , n ( n "z", n (Floatable 3) )
                             ]
                         )
-        , test "should normalize hex literals to integers" <|
+        , test "should normalize hex literals to number" <|
             \() ->
                 "0x100"
                     |> normalizeAndExpect
-                        (Integer 256)
+                        (Floatable 256)
+        , test "should normalize Basics.not (Basics.not bool) to bool" <|
+            \() ->
+                "Basics.not (Basics.not bool)"
+                    |> normalizeAndExpect
+                        (FunctionOrValue [] "bool")
+        , test "should normalize Basics.not (x == y) to x /= y" <|
+            \() ->
+                "Basics.not (x == y)"
+                    |> normalizeAndExpect
+                        (OperatorApplication "/="
+                            Infix.Non
+                            (n (FunctionOrValue [] "x"))
+                            (n (FunctionOrValue [] "y"))
+                        )
+        , test "should normalize Basics.not (x /= y) to x == y" <|
+            \() ->
+                "Basics.not (x /= y)"
+                    |> normalizeAndExpect
+                        (OperatorApplication "=="
+                            Infix.Non
+                            (n (FunctionOrValue [] "x"))
+                            (n (FunctionOrValue [] "y"))
+                        )
+        , test "should normalize Basics.not (x < y) to y <= x" <|
+            \() ->
+                "Basics.not (x < y)"
+                    |> normalizeAndExpect
+                        (OperatorApplication "<="
+                            Infix.Non
+                            (n (FunctionOrValue [] "y"))
+                            (n (FunctionOrValue [] "x"))
+                        )
+        , test "should normalize Basics.not (x <= y) to y < x" <|
+            \() ->
+                "Basics.not (x <= y)"
+                    |> normalizeAndExpect
+                        (OperatorApplication "<"
+                            Infix.Non
+                            (n (FunctionOrValue [] "y"))
+                            (n (FunctionOrValue [] "x"))
+                        )
+        , test "should normalize Basics.not (x >= y) to x < y" <|
+            \() ->
+                "Basics.not (x >= y)"
+                    |> normalizeAndExpect
+                        (OperatorApplication "<"
+                            Infix.Non
+                            (n (FunctionOrValue [] "x"))
+                            (n (FunctionOrValue [] "y"))
+                        )
+        , test "should normalize Basics.not (x > y) to x <= y" <|
+            \() ->
+                "Basics.not (x > y)"
+                    |> normalizeAndExpect
+                        (OperatorApplication "<="
+                            Infix.Non
+                            (n (FunctionOrValue [] "x"))
+                            (n (FunctionOrValue [] "y"))
+                        )
+        , test "should normalize Basics.not (x && y) to Basics.not x || Basics.not y" <|
+            \() ->
+                "Basics.not (x && y)"
+                    |> normalizeAndExpect
+                        (OperatorApplication "||"
+                            Infix.Non
+                            (n
+                                (Application
+                                    [ n (FunctionOrValue [ "Basics" ] "not")
+                                    , n (FunctionOrValue [] "x")
+                                    ]
+                                )
+                            )
+                            (n
+                                (Application
+                                    [ n (FunctionOrValue [ "Basics" ] "not")
+                                    , n (FunctionOrValue [] "y")
+                                    ]
+                                )
+                            )
+                        )
+        , test "should normalize Basics.not (x || y) to Basics.not x && Basics.not y" <|
+            \() ->
+                "Basics.not (x || y)"
+                    |> normalizeAndExpect
+                        (OperatorApplication "&&"
+                            Infix.Non
+                            (n
+                                (Application
+                                    [ n (FunctionOrValue [ "Basics" ] "not")
+                                    , n (FunctionOrValue [] "x")
+                                    ]
+                                )
+                            )
+                            (n
+                                (Application
+                                    [ n (FunctionOrValue [ "Basics" ] "not")
+                                    , n (FunctionOrValue [] "y")
+                                    ]
+                                )
+                            )
+                        )
         , test "should normalize let expressions" <|
             \() ->
                 """
@@ -408,26 +547,26 @@ simpleNormalizationTests =
                         (LetExpression
                             { declarations =
                                 [ n
-                                    (LetDestructuring
-                                        (n (VarPattern "a"))
-                                        (n (Integer 1))
-                                    )
-                                , n
                                     (LetFunction
                                         { declaration =
                                             n
                                                 { arguments =
                                                     [ n (VarPattern "n")
                                                     ]
-                                                , expression = n (Integer 2)
+                                                , expression = n (Floatable 2)
                                                 , name = n "f"
                                                 }
                                         , documentation = Nothing
                                         , signature = Nothing
                                         }
                                     )
+                                , n
+                                    (LetDestructuring
+                                        (n (VarPattern "a"))
+                                        (n (Floatable 1))
+                                    )
                                 ]
-                            , expression = n (Integer 2)
+                            , expression = n (Floatable 2)
                             }
                         )
         , test "should normalize case expressions" <|
@@ -453,24 +592,7 @@ simpleNormalizationTests =
                                             )
                                             (n (VarPattern "c"))
                                         )
-                                  , n (Integer 1)
-                                  )
-                                , ( n
-                                        (ListPattern
-                                            [ n (VarPattern "a")
-                                            , n (VarPattern "b")
-                                            ]
-                                        )
-                                  , n (Integer 2)
-                                  )
-                                , ( n
-                                        (RecordPattern
-                                            [ n "a"
-                                            , n "field"
-                                            , n "z"
-                                            ]
-                                        )
-                                  , n (Integer 3)
+                                  , n (Floatable 1)
                                   )
                                 , ( n
                                         (NamedPattern
@@ -479,10 +601,27 @@ simpleNormalizationTests =
                                             }
                                             [ n (NamedPattern { moduleName = [], name = "True" } []) ]
                                         )
-                                  , n (Integer 4)
+                                  , n (Floatable 4)
+                                  )
+                                , ( n
+                                        (ListPattern
+                                            [ n (VarPattern "a")
+                                            , n (VarPattern "b")
+                                            ]
+                                        )
+                                  , n (Floatable 2)
                                   )
                                 , ( n (AsPattern (n (VarPattern "a")) (n "b"))
-                                  , n (Integer 5)
+                                  , n (Floatable 5)
+                                  )
+                                , ( n
+                                        (RecordPattern
+                                            [ n "a"
+                                            , n "field"
+                                            , n "z"
+                                            ]
+                                        )
+                                  , n (Floatable 3)
                                   )
                                 ]
                             , expression = n (FunctionOrValue [] "x")
@@ -569,13 +708,13 @@ moduleNameTests =
                         (CaseExpression
                             { cases =
                                 [ ( n (NamedPattern { moduleName = [ "Basics" ], name = "Just" } [ n (VarPattern "a") ])
-                                  , n (Integer 1)
+                                  , n (Floatable 1)
                                   )
                                 , ( n (NamedPattern { moduleName = [ "Basics" ], name = "Nothing" } [])
-                                  , n (Integer 2)
+                                  , n (Floatable 2)
                                   )
                                 , ( n AllPattern
-                                  , n (Integer 3)
+                                  , n (Floatable 3)
                                   )
                                 ]
                             , expression = n (FunctionOrValue [] "x")
@@ -655,13 +794,12 @@ normalizeSourceCode moduleNames inferred source =
     ("module A exposing (..)\nvalue = " ++ source)
         |> parse
         |> getValue
-        |> Normalize.normalize
+        |> Normalize.normalizeExpression
             { lookupTable = ModuleNameLookupTable.createForTests [ "A" ] moduleNames
             , inferredConstants = ( inferred, [] )
             , moduleCustomTypes = Dict.empty
             , importCustomTypes = Dict.empty
             }
-        |> Node.value
 
 
 {-| Parse source code into a AST.

@@ -41,7 +41,7 @@ a = Result.map f (Err z)
                             , under = "Result.map"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
-a = (Err z)
+a = Err z
 """
                         ]
         , test "should replace Result.map f <| Err z by Err z" <|
@@ -430,7 +430,7 @@ a = Result.map3 f (Ok a) (Err x) result2
                             , under = "Result.map3"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
-a = (Err x)
+a = Err x
 """
                         ]
         , test "should replace Result.map3 f (Ok a) (Err x) by always (Err x)" <|
@@ -462,7 +462,7 @@ a = Result.map3 f (Err x) result1 result2
                             , under = "Result.map3"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
-a = (Err x)
+a = Err x
 """
                         ]
         , test "should replace Result.map3 f (Err x) result1 by always (Err x)" <|
@@ -481,7 +481,7 @@ a = Result.map3 f (Err x) result1
 a = always (Err x)
 """
                         ]
-        , test "should replace Result.map3 f (Err x) by (\\_ _ -> (Err x))" <|
+        , test "should replace Result.map3 f (Err x) by (\\_ _ -> Err x)" <|
             \() ->
                 """module A exposing (..)
 a = Result.map3 f (Err x)
@@ -494,7 +494,7 @@ a = Result.map3 f (Err x)
                             , under = "Result.map3"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
-a = (\\_ _ -> (Err x))
+a = (\\_ _ -> Err x)
 """
                         ]
         , test "should replace Result.map3 f result0 (Err x) result2 by Result.map2 f result0 (Err x)" <|
@@ -573,7 +573,7 @@ a = Result.mapError f (Ok z)
                             , under = "Result.mapError"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
-a = (Ok z)
+a = Ok z
 """
                         ]
         , test "should replace Result.mapError f <| Ok z by Ok z" <|
@@ -906,7 +906,7 @@ a = Result.andThen f (Err z)
                             , under = "Result.andThen"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
-a = (Err z)
+a = Err z
 """
                         ]
         , test "should replace Result.andThen f << Err by Err" <|
@@ -1285,6 +1285,38 @@ a = Err >> Result.toMaybe
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 a = always Nothing
+"""
+                        ]
+        , test "should replace Result.toMaybe (Result.mapError f result) by Result.toMaybe result" <|
+            \() ->
+                """module A exposing (..)
+a = Result.toMaybe (Result.mapError f result)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary Result.mapError before Result.toMaybe"
+                            , details = [ "Result.toMaybe converts any error value to Nothing, so changing that value is unnecessary. You can replace the Result.mapError call by the unchanged result." ]
+                            , under = "Result.toMaybe"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = Result.toMaybe result
+"""
+                        ]
+        , test "should replace Result.toMaybe << Result.mapError f by Result.toMaybe" <|
+            \() ->
+                """module A exposing (..)
+a = Result.toMaybe << Result.mapError f
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary Result.mapError before Result.toMaybe"
+                            , details = [ "Result.toMaybe converts any error value to Nothing, so changing that value is unnecessary. You can remove the Result.mapError call." ]
+                            , under = "Result.toMaybe"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = Result.toMaybe
 """
                         ]
         ]

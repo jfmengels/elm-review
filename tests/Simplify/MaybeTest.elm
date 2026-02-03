@@ -965,7 +965,7 @@ a = Maybe.withDefault Nothing << Maybe.map f
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Maybe.map, then Maybe.withDefault with Nothing can be combined into Maybe.andThen"
-                            , details = [ "You can replace this composition by Maybe.andThen with the same arguments given to Maybe.map which is meant for this exact purpose." ]
+                            , details = [ "You can replace this composition by Maybe.andThen with the same argument given to Maybe.map which is meant for this exact purpose." ]
                             , under = "Maybe.withDefault"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -981,7 +981,7 @@ a = Maybe.map f >> Maybe.withDefault Nothing
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Maybe.map, then Maybe.withDefault with Nothing can be combined into Maybe.andThen"
-                            , details = [ "You can replace this composition by Maybe.andThen with the same arguments given to Maybe.map which is meant for this exact purpose." ]
+                            , details = [ "You can replace this composition by Maybe.andThen with the same argument given to Maybe.map which is meant for this exact purpose." ]
                             , under = "Maybe.withDefault"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)

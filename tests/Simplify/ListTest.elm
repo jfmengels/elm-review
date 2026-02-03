@@ -1053,7 +1053,7 @@ a = List.map f >> List.concat
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "List.map, then List.concat can be combined into List.concatMap"
-                            , details = [ "You can replace this composition by List.concatMap with the same arguments given to List.map which is meant for this exact purpose." ]
+                            , details = [ "You can replace this composition by List.concatMap with the same argument given to List.map which is meant for this exact purpose." ]
                             , under = "List.concat"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -1069,7 +1069,7 @@ a = List.concat << List.map f
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "List.map, then List.concat can be combined into List.concatMap"
-                            , details = [ "You can replace this composition by List.concatMap with the same arguments given to List.map which is meant for this exact purpose." ]
+                            , details = [ "You can replace this composition by List.concatMap with the same argument given to List.map which is meant for this exact purpose." ]
                             , under = "List.concat"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -1244,7 +1244,7 @@ a = List.sort list |> List.head
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "List.sort, then List.head can be combined into List.minimum"
-                            , details = [ "You can replace this call by List.minimum with the same arguments given to List.sort which is meant for this exact purpose." ]
+                            , details = [ "You can replace this call by List.minimum with the same argument given to List.sort which is meant for this exact purpose." ]
                             , under = "List.head"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -1281,6 +1281,358 @@ a = List.head (List.reverse (List.sort list))
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 a = List.maximum list
+"""
+                        ]
+        , test "should replace List.head (List.intersperse sep list) by List.head list" <|
+            \() ->
+                """module A exposing (..)
+a = List.head (List.intersperse sep list)
+"""
+                    |> Review.Test.run ruleExpectingNaN
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary List.intersperse before List.head"
+                            , details = [ "Interspersed elements will only appear from the second element onward, and an empty list will remain empty, so the head will be unchanged. You can replace the List.intersperse call by the unchanged list." ]
+                            , under = "List.head"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.head list
+"""
+                        ]
+        , test "should replace List.head << List.intersperse sep by List.head" <|
+            \() ->
+                """module A exposing (..)
+a = List.head << List.intersperse sep
+"""
+                    |> Review.Test.run ruleExpectingNaN
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary List.intersperse before List.head"
+                            , details = [ "Interspersed elements will only appear from the second element onward, and an empty list will remain empty, so the head will be unchanged. You can remove the List.intersperse call." ]
+                            , under = "List.head"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.head
+"""
+                        ]
+        , test "should replace List.head (List.map f list) by Maybe.map f (List.head list)" <|
+            \() ->
+                """module A exposing (..)
+a = List.head (List.map f list)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.head on List.map can be optimized to Maybe.map on List.head"
+                            , details = [ "You can replace this call by Maybe.map with the function given to the original List.map, on List.head." ]
+                            , under = "List.head"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = Maybe.map f (List.head list)
+"""
+                        ]
+        , test "should replace List.head <| List.map f <| list by Maybe.map f <| List.head <| list" <|
+            \() ->
+                """module A exposing (..)
+a = List.head <| List.map f <| list
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.head on List.map can be optimized to Maybe.map on List.head"
+                            , details = [ "You can replace this call by Maybe.map with the function given to the original List.map, on List.head." ]
+                            , under = "List.head"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = Maybe.map f <| List.head <| list
+"""
+                        ]
+        , test "should replace List.head <| List.map f <| g <| a by Maybe.map f <| List.head <| g <| a" <|
+            \() ->
+                """module A exposing (..)
+a = List.head <| List.map f <| g <| a
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.head on List.map can be optimized to Maybe.map on List.head"
+                            , details = [ "You can replace this call by Maybe.map with the function given to the original List.map, on List.head." ]
+                            , under = "List.head"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = Maybe.map f <| List.head <| g <| a
+"""
+                        ]
+        , test "should replace List.head <| List.map f <| g a by Maybe.map f <| List.head <| g a" <|
+            \() ->
+                """module A exposing (..)
+a = List.head <| List.map f <| g a
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.head on List.map can be optimized to Maybe.map on List.head"
+                            , details = [ "You can replace this call by Maybe.map with the function given to the original List.map, on List.head." ]
+                            , under = "List.head"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = Maybe.map f <| List.head <| g a
+"""
+                        ]
+        , test "should replace List.head <| List.map f <| (a |> g) by Maybe.map f <| List.head <| (a |> g)" <|
+            \() ->
+                """module A exposing (..)
+a = List.head <| List.map f <| (a |> g)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.head on List.map can be optimized to Maybe.map on List.head"
+                            , details = [ "You can replace this call by Maybe.map with the function given to the original List.map, on List.head." ]
+                            , under = "List.head"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = Maybe.map f <| List.head <| (a |> g)
+"""
+                        ]
+        , test "should replace List.head <| (a |> g |> List.map f) by ((List.head <| (a |> g)) |> Maybe.map f)" <|
+            \() ->
+                """module A exposing (..)
+a = List.head <| (a |> g |> List.map f)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.head on List.map can be optimized to Maybe.map on List.head"
+                            , details = [ "You can replace this call by Maybe.map with the function given to the original List.map, on List.head." ]
+                            , under = "List.head"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = ((List.head <| (a |> g)) |> Maybe.map f)
+"""
+                        ]
+        , test "should replace list |> List.map |> List.head by list |> List.head |> Maybe.map f" <|
+            \() ->
+                """module A exposing (..)
+a = list |> List.map f |> List.head
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.head on List.map can be optimized to Maybe.map on List.head"
+                            , details = [ "You can replace this call by Maybe.map with the function given to the original List.map, on List.head." ]
+                            , under = "List.head"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = list |> List.head |> Maybe.map f
+"""
+                        ]
+        , test "should replace a |> g |> List.map |> List.head by a |> g |> List.head |> Maybe.map f" <|
+            \() ->
+                """module A exposing (..)
+a = a |> g |> List.map f |> List.head
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.head on List.map can be optimized to Maybe.map on List.head"
+                            , details = [ "You can replace this call by Maybe.map with the function given to the original List.map, on List.head." ]
+                            , under = "List.head"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = a |> g |> List.head |> Maybe.map f
+"""
+                        ]
+        , test "should replace g a |> List.map |> List.head by g a |> List.head |> Maybe.map f" <|
+            \() ->
+                """module A exposing (..)
+a = g a |> List.map f |> List.head
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.head on List.map can be optimized to Maybe.map on List.head"
+                            , details = [ "You can replace this call by Maybe.map with the function given to the original List.map, on List.head." ]
+                            , under = "List.head"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = g a |> List.head |> Maybe.map f
+"""
+                        ]
+        , test "should replace (g <| a) |> List.map |> List.head by (g <| a) |> List.head |> Maybe.map f" <|
+            \() ->
+                """module A exposing (..)
+a = (g <| a) |> List.map f |> List.head
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.head on List.map can be optimized to Maybe.map on List.head"
+                            , details = [ "You can replace this call by Maybe.map with the function given to the original List.map, on List.head." ]
+                            , under = "List.head"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (g <| a) |> List.head |> Maybe.map f
+"""
+                        ]
+        , test "should replace (List.map f <| g <| a) |> Maybe.map f <| ((g <| a) |> List.head)" <|
+            \() ->
+                """module A exposing (..)
+a = (List.map f <| g <| a) |> List.head
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.head on List.map can be optimized to Maybe.map on List.head"
+                            , details = [ "You can replace this call by Maybe.map with the function given to the original List.map, on List.head." ]
+                            , under = "List.head"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (Maybe.map f <| ((g <| a) |> List.head))
+"""
+                        ]
+        , test "should replace (List.map f <| list) |> List.head by Maybe.map f <| (list |> List.head)" <|
+            \() ->
+                """module A exposing (..)
+a = (List.map f <| list) |> List.head
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.head on List.map can be optimized to Maybe.map on List.head"
+                            , details = [ "You can replace this call by Maybe.map with the function given to the original List.map, on List.head." ]
+                            , under = "List.head"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (Maybe.map f <| (list |> List.head))
+"""
+                        ]
+        , test "should replace List.head <| (list |> List.map f) by (List.head <| list) |> Maybe.map f" <|
+            \() ->
+                """module A exposing (..)
+a = List.head <| (list |> List.map f)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.head on List.map can be optimized to Maybe.map on List.head"
+                            , details = [ "You can replace this call by Maybe.map with the function given to the original List.map, on List.head." ]
+                            , under = "List.head"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = ((List.head <| list) |> Maybe.map f)
+"""
+                        ]
+        , test "should replace List.head << List.map f by Maybe.map f << List.head" <|
+            \() ->
+                """module A exposing (..)
+a = List.head << List.map f
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.head on List.map can be optimized to Maybe.map on List.head"
+                            , details = [ "You can replace this composition by List.head, then Maybe.map with the function given to the original List.map." ]
+                            , under = "List.head"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (Maybe.map f << List.head)
+"""
+                        ]
+        , test "should replace List.map f >> List.head by List.head >> Maybe.map f" <|
+            \() ->
+                """module A exposing (..)
+a = List.map f >> List.head
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.head on List.map can be optimized to Maybe.map on List.head"
+                            , details = [ "You can replace this composition by List.head, then Maybe.map with the function given to the original List.map." ]
+                            , under = "List.head"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (List.head >> Maybe.map f)
+"""
+                        ]
+        , test "should replace List.head (List.repeat n a) by if n >= 1 then Just a else Nothing" <|
+            \() ->
+                """module A exposing (..)
+a = List.head (List.repeat n b)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.head on List.repeat will result in Just the repeated element if the count is positive and Nothing otherwise"
+                            , details = [ "You can replace this call by if (the count argument given to List.repeat) >= 1 then Just (the element to repeat argument given to List.repeat) else Nothing." ]
+                            , under = "List.head"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (if n >= 1 then
+                             Just b
+
+    else
+                             Nothing)
+"""
+                        ]
+        , test "should replace List.head (List.repeat (x |> f) <| g <| y) by if (x |> f) >= 1 then Just (g <| y) else Nothing" <|
+            \() ->
+                """module A exposing (..)
+a = List.head (List.repeat (x |> f) <| g <| y)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.head on List.repeat will result in Just the repeated element if the count is positive and Nothing otherwise"
+                            , details = [ "You can replace this call by if (the count argument given to List.repeat) >= 1 then Just (the element to repeat argument given to List.repeat) else Nothing." ]
+                            , under = "List.head"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (if (x |> f) >= 1 then
+                                       Just (g <| y)
+
+    else
+                                       Nothing)
+"""
+                        ]
+        , test "should replace List.head << List.repeat (x |> f) by if n >= 1 then Just else always Nothing" <|
+            \() ->
+                """module A exposing (..)
+a = List.head << List.repeat (x |> f)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.head on List.repeat will result in Just the repeated element if the count is positive and Nothing otherwise"
+                            , details = [ "You can replace this composition by if (the count argument given to List.repeat) >= 1 then Just else always Nothing." ]
+                            , under = "List.head"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (if (x |> f) >= 1 then
+        Just
+
+    else
+        always Nothing)
+"""
+                        ]
+        , test "should replace List.repeat (x |> f) >> List.head by if n >= 1 then Just else always Nothing" <|
+            \() ->
+                """module A exposing (..)
+a = List.repeat (x |> f) >> List.head
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.head on List.repeat will result in Just the repeated element if the count is positive and Nothing otherwise"
+                            , details = [ "You can replace this composition by if (the count argument given to List.repeat) >= 1 then Just else always Nothing." ]
+                            , under = "List.head"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (if (x |> f) >= 1 then
+                                Just
+
+                            else
+                                always Nothing)
 """
                         ]
         ]
@@ -1776,6 +2128,38 @@ import Set
 a = Set.member x
 """
                         ]
+        , test "should replace List.member needle (List.repeat n a) by n >= 1 && a == needle" <|
+            \() ->
+                """module A exposing (..)
+a = List.member needle (List.repeat n b)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.member on List.repeat is the same as checking whether the repeat count is positive and the element to repeat equals the checked member"
+                            , details = [ "You can replace this call by (the count argument given to List.repeat) >= 1 && (the checked member argument given to List.member) == (the element to repeat argument given to List.repeat)." ]
+                            , under = "List.member"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = ((n >= 1) && (needle == b))
+"""
+                        ]
+        , test "should replace List.member (f <| y) <| List.repeat n <| g <| x by n >= 1 && (f <| y) == (g <| x)" <|
+            \() ->
+                """module A exposing (..)
+a = List.member (f <| y) <| List.repeat n <| g <| x
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.member on List.repeat is the same as checking whether the repeat count is positive and the element to repeat equals the checked member"
+                            , details = [ "You can replace this call by (the count argument given to List.repeat) >= 1 && (the checked member argument given to List.member) == (the element to repeat argument given to List.repeat)." ]
+                            , under = "List.member"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = ((n >= 1) && ((f <| y) == (g <| x)))
+"""
+                        ]
         ]
 
 
@@ -1797,10 +2181,12 @@ a6 = List.map f << Dict.fromList
 a7 = List.map (\\( a, b ) -> a + b) << Dict.fromList
 a8 = List.map (f >> Tuple.first) << Dict.fromList
 a9 = List.map f (Array.toIndexedList array)
-a10 = List.map (\\( a, b ) -> a) (Array.toIndexedList array)
-a11 = List.map Tuple.first (Array.toIndexedList array)
-a12 = List.map (f >> Tuple.second) (Array.toIndexedList array)
-a13 = List.map Tuple.first << Array.toIndexedList
+a10 = List.map (f >> Tuple.second) (Array.toIndexedList array)
+a11 = List.repeat n (List.map f)
+a12 = List.repeat n << List.map f
+a13 = List.map Tuple.first list
+a14 = List.map Tuple.first << Array.toList
+a15 = List.map f << Array.toIndexedList
 """
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectNoErrors
@@ -2118,7 +2504,7 @@ a = Dict.toList >> List.map Tuple.first
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Dict.toList, then List.map with Tuple.first can be combined into Dict.keys"
-                            , details = [ "You can replace this composition by Dict.keys with the same arguments given to Dict.toList which is meant for this exact purpose." ]
+                            , details = [ "You can replace this composition by Dict.keys which is meant for this exact purpose." ]
                             , under = "List.map"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -2136,7 +2522,7 @@ a = Dict.toList >> List.map (\\( part0, _ ) -> part0)
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Dict.toList, then List.map with Tuple.first can be combined into Dict.keys"
-                            , details = [ "You can replace this composition by Dict.keys with the same arguments given to Dict.toList which is meant for this exact purpose." ]
+                            , details = [ "You can replace this composition by Dict.keys which is meant for this exact purpose." ]
                             , under = "List.map"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -2154,7 +2540,7 @@ a = List.map Tuple.first << Dict.toList
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Dict.toList, then List.map with Tuple.first can be combined into Dict.keys"
-                            , details = [ "You can replace this composition by Dict.keys with the same arguments given to Dict.toList which is meant for this exact purpose." ]
+                            , details = [ "You can replace this composition by Dict.keys which is meant for this exact purpose." ]
                             , under = "List.map"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -2172,7 +2558,7 @@ a = Dict.toList >> List.map Tuple.second
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Dict.toList, then List.map with Tuple.second can be combined into Dict.values"
-                            , details = [ "You can replace this composition by Dict.values with the same arguments given to Dict.toList which is meant for this exact purpose." ]
+                            , details = [ "You can replace this composition by Dict.values which is meant for this exact purpose." ]
                             , under = "List.map"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -2190,7 +2576,7 @@ a = Dict.toList >> List.map (\\( _, part1 ) -> part1)
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Dict.toList, then List.map with Tuple.second can be combined into Dict.values"
-                            , details = [ "You can replace this composition by Dict.values with the same arguments given to Dict.toList which is meant for this exact purpose." ]
+                            , details = [ "You can replace this composition by Dict.values which is meant for this exact purpose." ]
                             , under = "List.map"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -2208,7 +2594,7 @@ a = List.map Tuple.second << Dict.toList
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Dict.toList, then List.map with Tuple.second can be combined into Dict.values"
-                            , details = [ "You can replace this composition by Dict.values with the same arguments given to Dict.toList which is meant for this exact purpose." ]
+                            , details = [ "You can replace this composition by Dict.values which is meant for this exact purpose." ]
                             , under = "List.map"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -2226,7 +2612,7 @@ a = List.map Tuple.first (Dict.toList dict)
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Dict.toList, then List.map with Tuple.first can be combined into Dict.keys"
-                            , details = [ "You can replace this call by Dict.keys with the same arguments given to Dict.toList which is meant for this exact purpose." ]
+                            , details = [ "You can replace this call by Dict.keys with the same argument given to Dict.toList which is meant for this exact purpose." ]
                             , under = "List.map"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -2244,7 +2630,7 @@ a = List.map Tuple.first (Dict.toList <| dict)
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Dict.toList, then List.map with Tuple.first can be combined into Dict.keys"
-                            , details = [ "You can replace this call by Dict.keys with the same arguments given to Dict.toList which is meant for this exact purpose." ]
+                            , details = [ "You can replace this call by Dict.keys with the same argument given to Dict.toList which is meant for this exact purpose." ]
                             , under = "List.map"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -2262,7 +2648,7 @@ a = List.map Tuple.first (dict |> Dict.toList)
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Dict.toList, then List.map with Tuple.first can be combined into Dict.keys"
-                            , details = [ "You can replace this call by Dict.keys with the same arguments given to Dict.toList which is meant for this exact purpose." ]
+                            , details = [ "You can replace this call by Dict.keys with the same argument given to Dict.toList which is meant for this exact purpose." ]
                             , under = "List.map"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -2280,7 +2666,7 @@ a = List.map Tuple.first <| Dict.toList dict
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Dict.toList, then List.map with Tuple.first can be combined into Dict.keys"
-                            , details = [ "You can replace this call by Dict.keys with the same arguments given to Dict.toList which is meant for this exact purpose." ]
+                            , details = [ "You can replace this call by Dict.keys with the same argument given to Dict.toList which is meant for this exact purpose." ]
                             , under = "List.map"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -2298,7 +2684,7 @@ a = List.map Tuple.first <| (Dict.toList <| dict)
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Dict.toList, then List.map with Tuple.first can be combined into Dict.keys"
-                            , details = [ "You can replace this call by Dict.keys with the same arguments given to Dict.toList which is meant for this exact purpose." ]
+                            , details = [ "You can replace this call by Dict.keys with the same argument given to Dict.toList which is meant for this exact purpose." ]
                             , under = "List.map"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -2316,7 +2702,7 @@ a = List.map Tuple.first <| (dict |> Dict.toList)
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Dict.toList, then List.map with Tuple.first can be combined into Dict.keys"
-                            , details = [ "You can replace this call by Dict.keys with the same arguments given to Dict.toList which is meant for this exact purpose." ]
+                            , details = [ "You can replace this call by Dict.keys with the same argument given to Dict.toList which is meant for this exact purpose." ]
                             , under = "List.map"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -2334,7 +2720,7 @@ a = Dict.toList dict |> List.map Tuple.first
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Dict.toList, then List.map with Tuple.first can be combined into Dict.keys"
-                            , details = [ "You can replace this call by Dict.keys with the same arguments given to Dict.toList which is meant for this exact purpose." ]
+                            , details = [ "You can replace this call by Dict.keys with the same argument given to Dict.toList which is meant for this exact purpose." ]
                             , under = "List.map"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -2352,7 +2738,7 @@ a = array |> Array.toIndexedList |> List.map Tuple.second
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Array.toIndexedList, then List.map with Tuple.second can be combined into Array.toList"
-                            , details = [ "You can replace this call by Array.toList with the same arguments given to Array.toIndexedList which is meant for this exact purpose." ]
+                            , details = [ "You can replace this call by Array.toList with the same argument given to Array.toIndexedList which is meant for this exact purpose." ]
                             , under = "List.map"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -2370,7 +2756,7 @@ a = array |> Array.toIndexedList |> List.map (\\( _, part1 ) -> part1)
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Array.toIndexedList, then List.map with Tuple.second can be combined into Array.toList"
-                            , details = [ "You can replace this call by Array.toList with the same arguments given to Array.toIndexedList which is meant for this exact purpose." ]
+                            , details = [ "You can replace this call by Array.toList with the same argument given to Array.toIndexedList which is meant for this exact purpose." ]
                             , under = "List.map"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -2388,7 +2774,7 @@ a = Array.toIndexedList >> List.map Tuple.second
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Array.toIndexedList, then List.map with Tuple.second can be combined into Array.toList"
-                            , details = [ "You can replace this composition by Array.toList with the same arguments given to Array.toIndexedList which is meant for this exact purpose." ]
+                            , details = [ "You can replace this composition by Array.toList which is meant for this exact purpose." ]
                             , under = "List.map"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -2406,12 +2792,215 @@ a = Array.toIndexedList >> List.map (\\( _, part1 ) -> part1)
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Array.toIndexedList, then List.map with Tuple.second can be combined into Array.toList"
-                            , details = [ "You can replace this composition by Array.toList with the same arguments given to Array.toIndexedList which is meant for this exact purpose." ]
+                            , details = [ "You can replace this composition by Array.toList which is meant for this exact purpose." ]
                             , under = "List.map"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 import Array
 a = Array.toList
+"""
+                        ]
+        , test "should replace List.map f (List.repeat n a) by List.repeat n (f a)" <|
+            \() ->
+                """module A exposing (..)
+a = List.map f (List.repeat n b)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.map on List.repeat is the same as List.repeat with the mapped element"
+                            , details = [ "You can replace this call by the List.repeat operation but with the function given to the List.map operation applied to the original element to repeat." ]
+                            , under = "List.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.repeat n (f b)
+"""
+                        ]
+        , test "should replace List.map f (List.repeat n <| g <| a) by List.repeat n <| f (g <| a)" <|
+            \() ->
+                """module A exposing (..)
+a = List.map f (List.repeat n <| g <| b)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.map on List.repeat is the same as List.repeat with the mapped element"
+                            , details = [ "You can replace this call by the List.repeat operation but with the function given to the List.map operation applied to the original element to repeat." ]
+                            , under = "List.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (List.repeat n <| (f (g <| b)))
+"""
+                        ]
+        , test "should replace List.map (f ; x) (List.repeat n a) by List.repeat n ((f ; x) ; a)" <|
+            \() ->
+                """module A exposing (..)
+a = List.map (f
+                x) (List.repeat n b)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.map on List.repeat is the same as List.repeat with the mapped element"
+                            , details = [ "You can replace this call by the List.repeat operation but with the function given to the List.map operation applied to the original element to repeat." ]
+                            , under = "List.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.repeat n ((f
+                x)
+                                  b)
+"""
+                        ]
+        , test "should replace List.map f (List.repeat n (g ; a)) by List.repeat n (f ; (g ; a))" <|
+            \() ->
+                """module A exposing (..)
+a = List.map f (List.repeat n (g
+                                b))
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.map on List.repeat is the same as List.repeat with the mapped element"
+                            , details = [ "You can replace this call by the List.repeat operation but with the function given to the List.map operation applied to the original element to repeat." ]
+                            , under = "List.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.repeat n (f
+                              (g
+                                b))
+"""
+                        ]
+        , test "should replace List.map (f ; x) (List.repeat n (g ; a)) by List.repeat n ((f ; x) ; (g ; a))" <|
+            \() ->
+                """module A exposing (..)
+a = List.map (f
+                x) (List.repeat n (g
+                                    b))
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.map on List.repeat is the same as List.repeat with the mapped element"
+                            , details = [ "You can replace this call by the List.repeat operation but with the function given to the List.map operation applied to the original element to repeat." ]
+                            , under = "List.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.repeat n ((f
+                x)
+                                  (g
+                                    b))
+"""
+                        ]
+        , test "should replace List.map f << List.repeat n by List.repeat n << f" <|
+            \() ->
+                """module A exposing (..)
+a = List.map f << List.repeat n
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.map on List.repeat is the same as List.repeat with the mapped element"
+                            , details = [ "You can replace this composition by composing the function argument given to the List.map operation before the List.repeat operation." ]
+                            , under = "List.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (List.repeat n << f)
+"""
+                        ]
+        , test "should replace (List.map <| f <| x) << List.repeat n by List.repeat n << (f <| x)" <|
+            \() ->
+                """module A exposing (..)
+a = (List.map <| f <| x) << List.repeat n
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.map on List.repeat is the same as List.repeat with the mapped element"
+                            , details = [ "You can replace this composition by composing the function argument given to the List.map operation before the List.repeat operation." ]
+                            , under = "List.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (List.repeat n << (f <| x))
+"""
+                        ]
+        , test "should replace List.repeat n >> List.map f by f >> List.repeat n" <|
+            \() ->
+                """module A exposing (..)
+a = List.repeat n >> List.map f
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.map on List.repeat is the same as List.repeat with the mapped element"
+                            , details = [ "You can replace this composition by composing the function argument given to the List.map operation before the List.repeat operation." ]
+                            , under = "List.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (f >> List.repeat n)
+"""
+                        ]
+        , test "should replace List.map Tuple.first (Array.toIndexedList array) by List.range 0 (Array.length array - 1)" <|
+            \() ->
+                """module A exposing (..)
+a = List.map Tuple.first (Array.toIndexedList array)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.map with a function accessing the first tuple part on Array.toIndexedList is the same as List.range from 0 to its length - 1"
+                            , details = [ "You can replace this call by List.range starting with 0 and ending with Array.length of the array given to the Array.toIndexedList call - 1." ]
+                            , under = "List.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.range 0 ((Array.length array) - 1)
+"""
+                        ]
+        , test "should replace List.map (\\( f, _ ) -> f) (Array.toIndexedList array) by List.range 0 (Array.length array - 1)" <|
+            \() ->
+                """module A exposing (..)
+a = List.map (\\( f, _ ) -> f) (Array.toIndexedList array)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.map with a function accessing the first tuple part on Array.toIndexedList is the same as List.range from 0 to its length - 1"
+                            , details = [ "You can replace this call by List.range starting with 0 and ending with Array.length of the array given to the Array.toIndexedList call - 1." ]
+                            , under = "List.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.range 0 ((Array.length array) - 1)
+"""
+                        ]
+        , test "should replace (Array.toIndexedList <| f <| x) |> List.map Tuple.first by ((Array.length <| f <| x) - 1) |> List.range 0" <|
+            \() ->
+                """module A exposing (..)
+a = (Array.toIndexedList <| f <| x) |> List.map Tuple.first
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.map with a function accessing the first tuple part on Array.toIndexedList is the same as List.range from 0 to its length - 1"
+                            , details = [ "You can replace this call by List.range starting with 0 and ending with Array.length of the array given to the Array.toIndexedList call - 1." ]
+                            , under = "List.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = ((Array.length <| f <| x) - 1) |> List.range 0
+"""
+                        ]
+        , test "should replace List.map Tuple.first << Array.toIndexedList by List.range 0 << (+) -1 << Array.length" <|
+            \() ->
+                """module A exposing (..)
+a = List.map Tuple.first << Array.toIndexedList
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.map with a function accessing the first tuple part on Array.toIndexedList is the same as List.range from 0 to its length - 1"
+                            , details = [ "You can replace this composition by Array.length, then a function subtracting 1, then List.range 0." ]
+                            , under = "List.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.range 0 << ((+) -1 << Array.length)
 """
                         ]
         ]
@@ -2490,7 +3079,7 @@ a = List.filter f (List.filter f list)
                             }
                             |> Review.Test.atExactly { start = { row = 2, column = 5 }, end = { row = 2, column = 16 } }
                             |> Review.Test.whenFixed """module A exposing (..)
-a = (List.filter f list)
+a = List.filter f list
 """
                         ]
         , test "should replace List.filter f >> List.filter f by List.filter f" <|
@@ -2717,6 +3306,70 @@ a = always False |> List.filter
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 a = always []
+"""
+                        ]
+        , test "should replace List.filter f (List.reverse list) by List.reverse (List.filter f list)" <|
+            \() ->
+                """module A exposing (..)
+a = List.filter f (List.reverse list)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.filter on List.reverse can be optimized to List.reverse on List.filter"
+                            , details = [ "You can replace this call by List.reverse, on List.filter with the function given to the original List.filter." ]
+                            , under = "List.filter"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.reverse (List.filter f list)
+"""
+                        ]
+        , test "should replace List.filter f (List.sort list) by List.sort (List.filter f list)" <|
+            \() ->
+                """module A exposing (..)
+a = List.filter f (List.sort list)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.filter on List.sort can be optimized to List.sort on List.filter"
+                            , details = [ "You can replace this call by List.sort, on List.filter with the function given to the original List.filter." ]
+                            , under = "List.filter"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.sort (List.filter f list)
+"""
+                        ]
+        , test "should replace List.filter f (List.sortBy f list) by List.sortBy f (List.filter f list)" <|
+            \() ->
+                """module A exposing (..)
+a = List.filter f (List.sortBy f list)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.filter on List.sortBy can be optimized to List.sortBy on List.filter"
+                            , details = [ "You can replace this call by List.sortBy with the function given to the original List.sortBy, on List.filter with the function given to the original List.filter." ]
+                            , under = "List.filter"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.sortBy f (List.filter f list)
+"""
+                        ]
+        , test "should replace List.filter f (List.sortWith f list) by List.sortWith f (List.filter f list)" <|
+            \() ->
+                """module A exposing (..)
+a = List.filter f (List.sortWith f list)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.filter on List.sortWith can be optimized to List.sortWith on List.filter"
+                            , details = [ "You can replace this call by List.sortWith with the compare function given to the original List.sortWith, on List.filter with the function given to the original List.filter." ]
+                            , under = "List.filter"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.sortWith f (List.filter f list)
 """
                         ]
         ]
@@ -3061,7 +3714,7 @@ a = List.map f >> List.filterMap identity
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "List.map, then List.filterMap with an identity function can be combined into List.filterMap"
-                            , details = [ "You can replace this composition by List.filterMap with the same arguments given to List.map which is meant for this exact purpose." ]
+                            , details = [ "You can replace this composition by List.filterMap with the same argument given to List.map which is meant for this exact purpose." ]
                             , under = "List.filterMap"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -3100,7 +3753,7 @@ a = List.filterMap identity << List.map f
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "List.map, then List.filterMap with an identity function can be combined into List.filterMap"
-                            , details = [ "You can replace this composition by List.filterMap with the same arguments given to List.map which is meant for this exact purpose." ]
+                            , details = [ "You can replace this composition by List.filterMap with the same argument given to List.map which is meant for this exact purpose." ]
                             , under = "List.filterMap"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -3379,6 +4032,134 @@ a = List.isEmpty (b |> List.singleton)
 a = False
 """
                         ]
+        , test "should replace List.isEmpty (init++[last]) by False" <|
+            \() ->
+                """module A exposing (..)
+a = List.isEmpty (init++[last])
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.isEmpty on this list will result in False"
+                            , details = [ "You can replace this call by False." ]
+                            , under = "List.isEmpty"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = False
+"""
+                        ]
+        , test "should replace List.isEmpty (List.append init [last]) by False" <|
+            \() ->
+                """module A exposing (..)
+a = List.isEmpty (List.append init [last])
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.isEmpty on this list will result in False"
+                            , details = [ "You can replace this call by False." ]
+                            , under = "List.isEmpty"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = False
+"""
+                        ]
+        , test "should replace List.isEmpty (List.reverse list) by List.isEmpty list" <|
+            \() ->
+                """module A exposing (..)
+a = List.isEmpty (List.reverse list)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary List.reverse before List.isEmpty"
+                            , details = [ "Reordering a list does not affect its length. You can replace the List.reverse call by the unchanged list." ]
+                            , under = "List.isEmpty"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.isEmpty list
+"""
+                        ]
+        , test "should replace List.isEmpty (List.sort list) by List.isEmpty list" <|
+            \() ->
+                """module A exposing (..)
+a = List.isEmpty (List.sort list)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary List.sort before List.isEmpty"
+                            , details = [ "Reordering a list does not affect its length. You can replace the List.sort call by the unchanged list." ]
+                            , under = "List.isEmpty"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.isEmpty list
+"""
+                        ]
+        , test "should replace List.isEmpty (List.sortBy f list) by List.isEmpty list" <|
+            \() ->
+                """module A exposing (..)
+a = List.isEmpty (List.sortBy f list)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary List.sortBy before List.isEmpty"
+                            , details = [ "Reordering a list does not affect its length. You can replace the List.sortBy call by the unchanged list." ]
+                            , under = "List.isEmpty"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.isEmpty list
+"""
+                        ]
+        , test "should replace List.isEmpty (List.sortWith f list) by List.isEmpty list" <|
+            \() ->
+                """module A exposing (..)
+a = List.isEmpty (List.sortWith f list)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary List.sortWith before List.isEmpty"
+                            , details = [ "Reordering a list does not affect its length. You can replace the List.sortWith call by the unchanged list." ]
+                            , under = "List.isEmpty"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.isEmpty list
+"""
+                        ]
+        , test "should replace List.isEmpty (List.map f list) by List.isEmpty list" <|
+            \() ->
+                """module A exposing (..)
+a = List.isEmpty (List.map f list)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary List.map before List.isEmpty"
+                            , details = [ "Changing each element in a list does not affect its length. You can replace the List.map call by the unchanged list." ]
+                            , under = "List.isEmpty"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.isEmpty list
+"""
+                        ]
+        , test "should replace List.isEmpty (List.indexedMap f list) by List.isEmpty list" <|
+            \() ->
+                """module A exposing (..)
+a = List.isEmpty (List.indexedMap f list)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary List.indexedMap before List.isEmpty"
+                            , details = [ "Changing each element in a list does not affect its length. You can replace the List.indexedMap call by the unchanged list." ]
+                            , under = "List.isEmpty"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.isEmpty list
+"""
+                        ]
         , test "should replace Set.toList set |> List.isEmpty by Set.isEmpty" <|
             \() ->
                 """module A exposing (..)
@@ -3389,7 +4170,7 @@ a = Set.toList set |> List.isEmpty
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Set.toList, then List.isEmpty can be combined into Set.isEmpty"
-                            , details = [ "You can replace this call by Set.isEmpty with the same arguments given to Set.toList which is meant for this exact purpose." ]
+                            , details = [ "You can replace this call by Set.isEmpty with the same argument given to Set.toList which is meant for this exact purpose." ]
                             , under = "List.isEmpty"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -3407,7 +4188,7 @@ a = Dict.toList dict |> List.isEmpty
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Dict.toList, then List.isEmpty can be combined into Dict.isEmpty"
-                            , details = [ "You can replace this call by Dict.isEmpty with the same arguments given to Dict.toList which is meant for this exact purpose." ]
+                            , details = [ "You can replace this call by Dict.isEmpty with the same argument given to Dict.toList which is meant for this exact purpose." ]
                             , under = "List.isEmpty"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -3425,7 +4206,7 @@ a = Dict.values dict |> List.isEmpty
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Dict.values, then List.isEmpty can be combined into Dict.isEmpty"
-                            , details = [ "You can replace this call by Dict.isEmpty with the same arguments given to Dict.values which is meant for this exact purpose." ]
+                            , details = [ "You can replace this call by Dict.isEmpty with the same argument given to Dict.values which is meant for this exact purpose." ]
                             , under = "List.isEmpty"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -3443,7 +4224,7 @@ a = Dict.keys dict |> List.isEmpty
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Dict.keys, then List.isEmpty can be combined into Dict.isEmpty"
-                            , details = [ "You can replace this call by Dict.isEmpty with the same arguments given to Dict.keys which is meant for this exact purpose." ]
+                            , details = [ "You can replace this call by Dict.isEmpty with the same argument given to Dict.keys which is meant for this exact purpose." ]
                             , under = "List.isEmpty"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -3461,7 +4242,7 @@ a = Array.toList array |> List.isEmpty
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Array.toList, then List.isEmpty can be combined into Array.isEmpty"
-                            , details = [ "You can replace this call by Array.isEmpty with the same arguments given to Array.toList which is meant for this exact purpose." ]
+                            , details = [ "You can replace this call by Array.isEmpty with the same argument given to Array.toList which is meant for this exact purpose." ]
                             , under = "List.isEmpty"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -3479,12 +4260,172 @@ a = Array.toIndexedList array |> List.isEmpty
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Array.toIndexedList, then List.isEmpty can be combined into Array.isEmpty"
-                            , details = [ "You can replace this call by Array.isEmpty with the same arguments given to Array.toIndexedList which is meant for this exact purpose." ]
+                            , details = [ "You can replace this call by Array.isEmpty with the same argument given to Array.toIndexedList which is meant for this exact purpose." ]
                             , under = "List.isEmpty"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 import Array
 a = Array.isEmpty array
+"""
+                        ]
+        , test "should replace List.isEmpty (String.toList string) by String.isEmpty string" <|
+            \() ->
+                """module A exposing (..)
+a = List.isEmpty (String.toList string)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "String.toList, then List.isEmpty can be combined into String.isEmpty"
+                            , details = [ "You can replace this call by String.isEmpty with the same argument given to String.toList which is meant for this exact purpose." ]
+                            , under = "List.isEmpty"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (String.isEmpty string)
+"""
+                        ]
+        , test "should replace List.isEmpty << String.toList by String.isEmpty" <|
+            \() ->
+                """module A exposing (..)
+a = List.isEmpty << String.toList
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "String.toList, then List.isEmpty can be combined into String.isEmpty"
+                            , details = [ "You can replace this composition by String.isEmpty which is meant for this exact purpose." ]
+                            , under = "List.isEmpty"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = String.isEmpty
+"""
+                        ]
+        , test "should replace List.isEmpty (List.filter f list) by not (List.all f list)" <|
+            \() ->
+                """module A exposing (..)
+a = List.isEmpty (List.filter f list)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.isEmpty on List.filter is the same as Basics.not on List.any"
+                            , details = [ "You can replace this call by Basics.not on List.any with the function given to List.filter." ]
+                            , under = "List.isEmpty"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = not (List.any f list)
+"""
+                        ]
+        , test "should replace List.filter f list |> List.isEmpty by List.all f list |> not" <|
+            \() ->
+                """module A exposing (..)
+a = List.filter f list |> List.isEmpty
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.isEmpty on List.filter is the same as Basics.not on List.any"
+                            , details = [ "You can replace this call by Basics.not on List.any with the function given to List.filter." ]
+                            , under = "List.isEmpty"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.any f list |> not
+"""
+                        ]
+        , test "should replace List.isEmpty (List.filter not list) by List.all identity list" <|
+            \() ->
+                """module A exposing (..)
+a = List.isEmpty (List.filter not list)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.isEmpty on List.filter Basics.not can be combined into List.all"
+                            , details = [ "You can replace this call by List.all identity." ]
+                            , under = "List.isEmpty"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.all identity list
+"""
+                        ]
+        , test "should replace List.isEmpty (List.filter (not << f) list) by List.all f list" <|
+            \() ->
+                """module A exposing (..)
+a = List.isEmpty (List.filter (not << f) list)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.isEmpty on List.filter with a function into Basics.not can be combined into List.all"
+                            , details = [ "You can replace this call by List.all with the function given to List.filter before the Basics.not." ]
+                            , under = "List.isEmpty"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.all f list
+"""
+                        ]
+        , test "should replace List.isEmpty (List.filter (\\el -> f el |> not) list) by List.all (\\el -> f el) list" <|
+            \() ->
+                """module A exposing (..)
+a = List.isEmpty (List.filter (\\el -> f el |> not) list)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.isEmpty on List.filter with a function into Basics.not can be combined into List.all"
+                            , details = [ "You can replace this call by List.all with the function given to List.filter before the Basics.not." ]
+                            , under = "List.isEmpty"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.all (\\el -> (f el)) list
+"""
+                        ]
+        , test "should replace List.isEmpty (List.filter (if c then not << f else \\el -> if d then g el |> not else not <| h el) list) by List.all (if c then f else \\el -> if g el else h el) list" <|
+            \() ->
+                """module A exposing (..)
+a = List.isEmpty (List.filter (if c then not << f else \\el -> if d then g el |> not else not <| h el) list)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.isEmpty on List.filter with a function into Basics.not can be combined into List.all"
+                            , details = [ "You can replace this call by List.all with the function given to List.filter before the Basics.not." ]
+                            , under = "List.isEmpty"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.all (if c then f else \\el -> if d then (g el) else (h el)) list
+"""
+                        ]
+        , test "should replace List.isEmpty << List.filter f by not << List.any f" <|
+            \() ->
+                """module A exposing (..)
+a = List.isEmpty << List.filter f
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.isEmpty on List.filter is the same as Basics.not on List.any"
+                            , details = [ "You can replace this composition by List.any with the function given to List.filter, then Basics.not." ]
+                            , under = "List.isEmpty"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = not << List.any f
+"""
+                        ]
+        , test "should replace List.isEmpty << List.filter (not << f) by List.all f" <|
+            \() ->
+                """module A exposing (..)
+a = List.isEmpty << List.filter (not << f)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.isEmpty on List.filter with a function into Basics.not can be combined into List.all"
+                            , details = [ "You can replace this composition by List.all with the function given to List.filter before the Basics.not." ]
+                            , under = "List.isEmpty"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.all f
 """
                         ]
         ]
@@ -3637,6 +4578,16 @@ a = [ a, 0 / 0.0, b ] |> List.sum
 a = (0 / 0.0)
 """
                         ]
+        , test "should not report List.sum (reorderingOperation list) due to precision loss, see the changelog for 2.1.14" <|
+            \() ->
+                """module A exposing (..)
+a0 = List.sum (List.reverse list)
+a1 = List.sum (List.sort list)
+a2 = List.sum (List.sortBy f list)
+a3 = List.sum (List.sortWith f list)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectNoErrors
         ]
 
 
@@ -3842,6 +4793,16 @@ a = [ a, 0 / 0.0, b ] |> List.product
 a = (0 / 0.0)
 """
                         ]
+        , test "should not report List.product (reorderingOperation list) due to precision loss, see the changelog for 2.1.14" <|
+            \() ->
+                """module A exposing (..)
+a0 = List.product (List.reverse list)
+a1 = List.product (List.sort list)
+a2 = List.product (List.sortBy f list)
+a3 = List.product (List.sortWith f list)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectNoErrors
         ]
 
 
@@ -3993,6 +4954,102 @@ a = List.range 2 3 |> List.minimum
 a = 2 |> Just
 """
                         ]
+        , test "should not report List.minimum on List.reverse when expectNaN is enabled"
+            (\() ->
+                """module A exposing (..)
+a = List.minimum (List.reverse list)
+"""
+                    |> Review.Test.run ruleExpectingNaN
+                    |> Review.Test.expectNoErrors
+            )
+        , test "should replace List.minimum (List.reverse list) by List.minimum list" <|
+            \() ->
+                """module A exposing (..)
+a = List.minimum (List.reverse list)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary List.reverse before List.minimum"
+                            , details = [ "Reordering a list does not affect its overall minimum. You can replace the List.reverse call by the unchanged list." ]
+                            , under = "List.minimum"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.minimum list
+"""
+                        ]
+        , test "should not report List.minimum on List.sort when expectNaN is enabled"
+            (\() ->
+                """module A exposing (..)
+a = List.minimum (List.sort list)
+"""
+                    |> Review.Test.run ruleExpectingNaN
+                    |> Review.Test.expectNoErrors
+            )
+        , test "should replace List.minimum (List.sort list) by List.minimum list" <|
+            \() ->
+                """module A exposing (..)
+a = List.minimum (List.sort list)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary List.sort before List.minimum"
+                            , details = [ "Reordering a list does not affect its overall minimum. You can replace the List.sort call by the unchanged list." ]
+                            , under = "List.minimum"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.minimum list
+"""
+                        ]
+        , test "should not report List.minimum on List.sortBy when expectNaN is enabled"
+            (\() ->
+                """module A exposing (..)
+a = List.minimum (List.sortBy f list)
+"""
+                    |> Review.Test.run ruleExpectingNaN
+                    |> Review.Test.expectNoErrors
+            )
+        , test "should replace List.minimum (List.sortBy f list) by List.minimum list" <|
+            \() ->
+                """module A exposing (..)
+a = List.minimum (List.sortBy f list)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary List.sortBy before List.minimum"
+                            , details = [ "Reordering a list does not affect its overall minimum. You can replace the List.sortBy call by the unchanged list." ]
+                            , under = "List.minimum"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.minimum list
+"""
+                        ]
+        , test "should not report List.minimum on List.sortWith when expectNaN is enabled"
+            (\() ->
+                """module A exposing (..)
+a = List.minimum (List.sortWith f list)
+"""
+                    |> Review.Test.run ruleExpectingNaN
+                    |> Review.Test.expectNoErrors
+            )
+        , test "should replace List.minimum (List.sortWith f list) by List.minimum list" <|
+            \() ->
+                """module A exposing (..)
+a = List.minimum (List.sortWith f list)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary List.sortWith before List.minimum"
+                            , details = [ "Reordering a list does not affect its overall minimum. You can replace the List.sortWith call by the unchanged list." ]
+                            , under = "List.minimum"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.minimum list
+"""
+                        ]
         ]
 
 
@@ -4112,6 +5169,102 @@ a = List.range 2 3 |> List.maximum
 a = 3 |> Just
 """
                         ]
+        , test "should not report List.maximum on List.reverse when expectNaN is enabled"
+            (\() ->
+                """module A exposing (..)
+a = List.maximum (List.reverse list)
+"""
+                    |> Review.Test.run ruleExpectingNaN
+                    |> Review.Test.expectNoErrors
+            )
+        , test "should replace List.maximum (List.reverse list) by List.maximum list" <|
+            \() ->
+                """module A exposing (..)
+a = List.maximum (List.reverse list)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary List.reverse before List.maximum"
+                            , details = [ "Reordering a list does not affect its overall maximum. You can replace the List.reverse call by the unchanged list." ]
+                            , under = "List.maximum"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.maximum list
+"""
+                        ]
+        , test "should not report List.maximum on List.sort when expectNaN is enabled"
+            (\() ->
+                """module A exposing (..)
+a = List.maximum (List.sort list)
+"""
+                    |> Review.Test.run ruleExpectingNaN
+                    |> Review.Test.expectNoErrors
+            )
+        , test "should replace List.maximum (List.sort list) by List.maximum list" <|
+            \() ->
+                """module A exposing (..)
+a = List.maximum (List.sort list)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary List.sort before List.maximum"
+                            , details = [ "Reordering a list does not affect its overall maximum. You can replace the List.sort call by the unchanged list." ]
+                            , under = "List.maximum"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.maximum list
+"""
+                        ]
+        , test "should not report List.maximum on List.sortBy when expectNaN is enabled"
+            (\() ->
+                """module A exposing (..)
+a = List.maximum (List.sortBy f list)
+"""
+                    |> Review.Test.run ruleExpectingNaN
+                    |> Review.Test.expectNoErrors
+            )
+        , test "should replace List.maximum (List.sortBy f list) by List.maximum list" <|
+            \() ->
+                """module A exposing (..)
+a = List.maximum (List.sortBy f list)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary List.sortBy before List.maximum"
+                            , details = [ "Reordering a list does not affect its overall maximum. You can replace the List.sortBy call by the unchanged list." ]
+                            , under = "List.maximum"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.maximum list
+"""
+                        ]
+        , test "should not report List.maximum on List.sortWith when expectNaN is enabled"
+            (\() ->
+                """module A exposing (..)
+a = List.maximum (List.sortWith f list)
+"""
+                    |> Review.Test.run ruleExpectingNaN
+                    |> Review.Test.expectNoErrors
+            )
+        , test "should replace List.maximum (List.sortWith f list) by List.maximum list" <|
+            \() ->
+                """module A exposing (..)
+a = List.maximum (List.sortWith f list)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary List.sortWith before List.maximum"
+                            , details = [ "Reordering a list does not affect its overall maximum. You can replace the List.sortWith call by the unchanged list." ]
+                            , under = "List.maximum"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.maximum list
+"""
+                        ]
         ]
 
 
@@ -4121,7 +5274,13 @@ listFoldlTests =
         [ test "should not report List.foldl used with okay arguments" <|
             \() ->
                 """module A exposing (..)
-a = List.foldl (\\el soFar -> soFar - el) 20 list
+a0 = List.foldl (\\el soFar -> soFar - el) 20 list
+a1 = List.foldr << Dict.toList
+a2 = List.foldr f << Dict.toList
+a3 = List.foldr (\\(k,v) -> f) << Dict.toList
+a4 = List.foldr f init << Dict.toList
+a5 = List.foldr f init (Dict.toList dict)
+a6 = List.foldr (\\tuple -> f) init (Dict.toList dict)
 """
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectNoErrors
@@ -4240,6 +5399,7 @@ a = always
         , test "should replace List.foldl f x (Set.toList set) by Set.foldl f x set" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = List.foldl f x (Set.toList set)
 """
                     |> Review.Test.run ruleWithDefaults
@@ -4250,12 +5410,14 @@ a = List.foldl f x (Set.toList set)
                             , under = "List.foldl"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = Set.foldl f x set
 """
                         ]
         , test "should replace List.foldl f x << Set.toList by Set.foldl f x" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = List.foldl f x << Set.toList
 """
                     |> Review.Test.run ruleWithDefaults
@@ -4266,12 +5428,14 @@ a = List.foldl f x << Set.toList
                             , under = "List.foldl"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = Set.foldl f x
 """
                         ]
         , test "should replace Set.toList >> List.foldl f x by Set.foldl f x" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.toList >> List.foldl f x
 """
                     |> Review.Test.run ruleWithDefaults
@@ -4282,12 +5446,14 @@ a = Set.toList >> List.foldl f x
                             , under = "List.foldl"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = Set.foldl f x
 """
                         ]
         , test "should replace List.foldl f x (Array.toList array) by Array.foldl f x array" <|
             \() ->
                 """module A exposing (..)
+import Array
 a = List.foldl f x (Array.toList array)
 """
                     |> Review.Test.run ruleWithDefaults
@@ -4298,12 +5464,14 @@ a = List.foldl f x (Array.toList array)
                             , under = "List.foldl"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Array
 a = Array.foldl f x array
 """
                         ]
         , test "should replace List.foldl f x << Array.toList by Array.foldl f x" <|
             \() ->
                 """module A exposing (..)
+import Array
 a = List.foldl f x << Array.toList
 """
                     |> Review.Test.run ruleWithDefaults
@@ -4314,12 +5482,14 @@ a = List.foldl f x << Array.toList
                             , under = "List.foldl"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Array
 a = Array.foldl f x
 """
                         ]
         , test "should replace Array.toList >> List.foldl f x by Array.foldl f x" <|
             \() ->
                 """module A exposing (..)
+import Array
 a = Array.toList >> List.foldl f x
 """
                     |> Review.Test.run ruleWithDefaults
@@ -4330,12 +5500,14 @@ a = Array.toList >> List.foldl f x
                             , under = "List.foldl"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Array
 a = Array.foldl f x
 """
                         ]
         , test "should replace List.foldl (\\a s -> f a s) init (Dict.values dict) by Dict.foldl (\\_ a s -> f a s) init dict" <|
             \() ->
                 """module A exposing (..)
+import Dict
 a = List.foldl (\\a s -> f a s) init (Dict.values dict)
 """
                     |> Review.Test.run ruleWithDefaults
@@ -4347,12 +5519,14 @@ a = List.foldl (\\a s -> f a s) init (Dict.values dict)
                             , under = "List.foldl"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Dict
 a = Dict.foldl (\\_ a s -> f a s) init dict
 """
                         ]
         , test "should replace List.foldl (\\a -> f a) init (Dict.values dict) by Dict.foldl (\\_ a -> f a) init dict" <|
             \() ->
                 """module A exposing (..)
+import Dict
 a = List.foldl (\\a -> f a) init (Dict.values dict)
 """
                     |> Review.Test.run ruleWithDefaults
@@ -4364,12 +5538,14 @@ a = List.foldl (\\a -> f a) init (Dict.values dict)
                             , under = "List.foldl"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Dict
 a = Dict.foldl (\\_ a -> f a) init dict
 """
                         ]
         , test "should replace List.foldl (if c then \\a s -> f a else \\a -> f a) init (Dict.values dict) by Dict.foldl (if c then \\_ a s -> f a else \\_ a -> f a) init dict" <|
             \() ->
                 """module A exposing (..)
+import Dict
 a = List.foldl (if c then \\a s -> f a else \\a -> f a) init (Dict.values dict)
 """
                     |> Review.Test.run ruleWithDefaults
@@ -4381,12 +5557,14 @@ a = List.foldl (if c then \\a s -> f a else \\a -> f a) init (Dict.values dict)
                             , under = "List.foldl"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Dict
 a = Dict.foldl (if c then \\_ a s -> f a else \\_ a -> f a) init dict
 """
                         ]
         , test "should replace List.foldl f init (Dict.values dict) by Dict.foldl (always f) init dict" <|
             \() ->
                 """module A exposing (..)
+import Dict
 a = List.foldl f init (Dict.values dict)
 """
                     |> Review.Test.run ruleWithDefaults
@@ -4398,12 +5576,14 @@ a = List.foldl f init (Dict.values dict)
                             , under = "List.foldl"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Dict
 a = Dict.foldl (always f) init dict
 """
                         ]
         , test "should replace List.foldl (\\a s -> f a s) init << Dict.values by Dict.foldl (\\_ a s -> f a s) init" <|
             \() ->
                 """module A exposing (..)
+import Dict
 a = List.foldl (\\a s -> f a s) init << Dict.values
 """
                     |> Review.Test.run ruleWithDefaults
@@ -4415,12 +5595,14 @@ a = List.foldl (\\a s -> f a s) init << Dict.values
                             , under = "List.foldl"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Dict
 a = Dict.foldl (\\_ a s -> f a s) init
 """
                         ]
         , test "should replace Dict.values >> List.foldl (\\a s -> f a s) init by Dict.foldl (\\_ a s -> f a s) init" <|
             \() ->
                 """module A exposing (..)
+import Dict
 a = Dict.values >> List.foldl (\\a s -> f a s) init
 """
                     |> Review.Test.run ruleWithDefaults
@@ -4432,12 +5614,14 @@ a = Dict.values >> List.foldl (\\a s -> f a s) init
                             , under = "List.foldl"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Dict
 a = Dict.foldl (\\_ a s -> f a s) init
 """
                         ]
         , test "should replace List.foldl (\\a s -> f a s) init (Dict.keys dict) by Dict.foldl (\\a _ s -> f a s) init dict" <|
             \() ->
                 """module A exposing (..)
+import Dict
 a = List.foldl (\\a s -> f a s) init (Dict.keys dict)
 """
                     |> Review.Test.run ruleWithDefaults
@@ -4449,12 +5633,14 @@ a = List.foldl (\\a s -> f a s) init (Dict.keys dict)
                             , under = "List.foldl"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Dict
 a = Dict.foldl (\\a _ s -> f a s) init dict
 """
                         ]
         , test "should replace List.foldl f init (Dict.keys dict) by Dict.foldl (always f) init dict" <|
             \() ->
                 """module A exposing (..)
+import Dict
 a = List.foldl f init (Dict.keys dict)
 """
                     |> Review.Test.run ruleWithDefaults
@@ -4466,12 +5652,14 @@ a = List.foldl f init (Dict.keys dict)
                             , under = "List.foldl"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Dict
 a = Dict.foldl (always << f) init dict
 """
                         ]
         , test "should replace List.foldl (\\a s -> f a s) init << Dict.keys by Dict.foldl (\\a _ s -> f a s) init" <|
             \() ->
                 """module A exposing (..)
+import Dict
 a = List.foldl (\\a s -> f a s) init << Dict.keys
 """
                     |> Review.Test.run ruleWithDefaults
@@ -4483,12 +5671,14 @@ a = List.foldl (\\a s -> f a s) init << Dict.keys
                             , under = "List.foldl"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Dict
 a = Dict.foldl (\\a _ s -> f a s) init
 """
                         ]
         , test "should replace Dict.keys >> List.foldl (\\a s -> f a s) init by Dict.foldl (\\a _ s -> f a s) init" <|
             \() ->
                 """module A exposing (..)
+import Dict
 a = Dict.keys >> List.foldl (\\a s -> f a s) init
 """
                     |> Review.Test.run ruleWithDefaults
@@ -4500,7 +5690,86 @@ a = Dict.keys >> List.foldl (\\a s -> f a s) init
                             , under = "List.foldl"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Dict
 a = Dict.foldl (\\a _ s -> f a s) init
+"""
+                        ]
+        , test "should replace List.foldl (\\(k,v) -> f k v) init (Dict.toList dict) by Dict.foldl (\\k v -> f k v) init dict" <|
+            \() ->
+                """module A exposing (..)
+import Dict
+a = List.foldl (\\(k,v) -> f k v) init (Dict.toList dict)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "To fold over dict entries, you don't need to convert to a list"
+                            , details =
+                                [ "You can replace these calls by Dict.foldl and split the incoming entry tuple pattern into separate key and value patterns in the reduce function." ]
+                            , under = "List.foldl"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Dict
+a = Dict.foldl (\\k v -> f k v) init dict
+"""
+                        ]
+        , test "should replace dict |> Dict.toList |> List.foldl (\\(Variant k,Variant v) acc -> f k v acc) init by dict |> Dict.foldl (\\(Variant k) (Variant v) acc -> f k v acc) init" <|
+            \() ->
+                """module A exposing (..)
+import Dict
+type Variant = Variant Int
+a = dict |> Dict.toList |> List.foldl (\\(Variant k,Variant v) acc -> f k v acc) init
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "To fold over dict entries, you don't need to convert to a list"
+                            , details =
+                                [ "You can replace these calls by Dict.foldl and split the incoming entry tuple pattern into separate key and value patterns in the reduce function." ]
+                            , under = "List.foldl"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Dict
+type Variant = Variant Int
+a = dict |> Dict.foldl (\\(Variant k) (Variant v) acc -> f k v acc) init
+"""
+                        ]
+        , test "should replace List.foldl (\\(k,v) -> f k v) init << Dict.toList by Dict.foldl (\\k v -> f k v) init" <|
+            \() ->
+                """module A exposing (..)
+import Dict
+a = List.foldl (\\(k,v) -> f k v) init << Dict.toList
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "To fold over dict entries, you don't need to convert to a list"
+                            , details =
+                                [ "You can replace this composition by Dict.foldl and split the incoming entry tuple pattern into separate key and value patterns in the reduce function." ]
+                            , under = "List.foldl"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Dict
+a = Dict.foldl (\\k v -> f k v) init
+"""
+                        ]
+        , test "should replace Dict.toList >> List.foldl (\\(Variant k,Variant v) acc -> f k v acc) init by Dict.foldl (\\(Variant k) (Variant v) acc -> f k v acc) init" <|
+            \() ->
+                """module A exposing (..)
+type Variant = Variant Int
+a = Dict.toList >> List.foldl (\\(Variant k,Variant v) acc -> f k v acc) init
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "To fold over dict entries, you don't need to convert to a list"
+                            , details =
+                                [ "You can replace this composition by Dict.foldl and split the incoming entry tuple pattern into separate key and value patterns in the reduce function." ]
+                            , under = "List.foldl"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+type Variant = Variant Int
+a = Dict.foldl (\\(Variant k) (Variant v) acc -> f k v acc) init
 """
                         ]
         , test "should replace List.foldl f x << List.reverse by List.foldr f x" <|
@@ -5517,6 +6786,7 @@ a = initial extraArgument
         , test "should replace List.foldr f x (Set.toList set) by Set.foldl f x set" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = List.foldr f x (Set.toList set)
 """
                     |> Review.Test.run ruleWithDefaults
@@ -5527,12 +6797,14 @@ a = List.foldr f x (Set.toList set)
                             , under = "List.foldr"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = Set.foldr f x set
 """
                         ]
         , test "should replace List.foldr f x << Set.toList by Set.foldr f x" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = List.foldr f x << Set.toList
 """
                     |> Review.Test.run ruleWithDefaults
@@ -5543,12 +6815,14 @@ a = List.foldr f x << Set.toList
                             , under = "List.foldr"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = Set.foldr f x
 """
                         ]
         , test "should replace Set.toList >> List.foldr f x by Set.foldr f x" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.toList >> List.foldr f x
 """
                     |> Review.Test.run ruleWithDefaults
@@ -5559,12 +6833,14 @@ a = Set.toList >> List.foldr f x
                             , under = "List.foldr"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = Set.foldr f x
 """
                         ]
         , test "should replace List.foldr f x (Array.toList array) by Array.foldr f x array" <|
             \() ->
                 """module A exposing (..)
+import Array
 a = List.foldr f x (Array.toList array)
 """
                     |> Review.Test.run ruleWithDefaults
@@ -5575,12 +6851,14 @@ a = List.foldr f x (Array.toList array)
                             , under = "List.foldr"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Array
 a = Array.foldr f x array
 """
                         ]
         , test "should replace List.foldr f x << Array.toList by Array.foldr f x" <|
             \() ->
                 """module A exposing (..)
+import Array
 a = List.foldr f x << Array.toList
 """
                     |> Review.Test.run ruleWithDefaults
@@ -5591,12 +6869,14 @@ a = List.foldr f x << Array.toList
                             , under = "List.foldr"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Array
 a = Array.foldr f x
 """
                         ]
         , test "should replace Array.toList >> List.foldr f x by Array.foldr f x" <|
             \() ->
                 """module A exposing (..)
+import Array
 a = Array.toList >> List.foldr f x
 """
                     |> Review.Test.run ruleWithDefaults
@@ -5607,12 +6887,14 @@ a = Array.toList >> List.foldr f x
                             , under = "List.foldr"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Array
 a = Array.foldr f x
 """
                         ]
         , test "should replace List.foldr (\\a s -> f a s) init (Dict.values dict) by Dict.foldr (\\_ a s -> f a s) init dict" <|
             \() ->
                 """module A exposing (..)
+import Dict
 a = List.foldr (\\a s -> f a s) init (Dict.values dict)
 """
                     |> Review.Test.run ruleWithDefaults
@@ -5624,12 +6906,14 @@ a = List.foldr (\\a s -> f a s) init (Dict.values dict)
                             , under = "List.foldr"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Dict
 a = Dict.foldr (\\_ a s -> f a s) init dict
 """
                         ]
         , test "should replace List.foldr (\\a -> f a) init (Dict.values dict) by Dict.foldr (\\_ a -> f a) init dict" <|
             \() ->
                 """module A exposing (..)
+import Dict
 a = List.foldr (\\a -> f a) init (Dict.values dict)
 """
                     |> Review.Test.run ruleWithDefaults
@@ -5641,12 +6925,14 @@ a = List.foldr (\\a -> f a) init (Dict.values dict)
                             , under = "List.foldr"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Dict
 a = Dict.foldr (\\_ a -> f a) init dict
 """
                         ]
         , test "should replace List.foldr (if c then \\a s -> f a else \\a -> f a) init (Dict.values dict) by Dict.foldr (if c then \\_ a s -> f a else \\_ a -> f a) init dict" <|
             \() ->
                 """module A exposing (..)
+import Dict
 a = List.foldr (if c then \\a s -> f a else \\a -> f a) init (Dict.values dict)
 """
                     |> Review.Test.run ruleWithDefaults
@@ -5658,12 +6944,14 @@ a = List.foldr (if c then \\a s -> f a else \\a -> f a) init (Dict.values dict)
                             , under = "List.foldr"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Dict
 a = Dict.foldr (if c then \\_ a s -> f a else \\_ a -> f a) init dict
 """
                         ]
         , test "should replace List.foldr f init (Dict.values dict) by Dict.foldr (always f) init dict" <|
             \() ->
                 """module A exposing (..)
+import Dict
 a = List.foldr f init (Dict.values dict)
 """
                     |> Review.Test.run ruleWithDefaults
@@ -5675,12 +6963,14 @@ a = List.foldr f init (Dict.values dict)
                             , under = "List.foldr"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Dict
 a = Dict.foldr (always f) init dict
 """
                         ]
         , test "should replace List.foldr (\\a s -> f a s) init << Dict.values by Dict.foldr (\\_ a s -> f a s) init" <|
             \() ->
                 """module A exposing (..)
+import Dict
 a = List.foldr (\\a s -> f a s) init << Dict.values
 """
                     |> Review.Test.run ruleWithDefaults
@@ -5692,12 +6982,14 @@ a = List.foldr (\\a s -> f a s) init << Dict.values
                             , under = "List.foldr"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Dict
 a = Dict.foldr (\\_ a s -> f a s) init
 """
                         ]
         , test "should replace Dict.values >> List.foldr (\\a s -> f a s) init by Dict.foldr (\\_ a s -> f a s) init" <|
             \() ->
                 """module A exposing (..)
+import Dict
 a = Dict.values >> List.foldr (\\a s -> f a s) init
 """
                     |> Review.Test.run ruleWithDefaults
@@ -5709,12 +7001,14 @@ a = Dict.values >> List.foldr (\\a s -> f a s) init
                             , under = "List.foldr"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Dict
 a = Dict.foldr (\\_ a s -> f a s) init
 """
                         ]
         , test "should replace List.foldr (\\a s -> f a s) init (Dict.keys dict) by Dict.foldr (\\a _ s -> f a s) init dict" <|
             \() ->
                 """module A exposing (..)
+import Dict
 a = List.foldr (\\a s -> f a s) init (Dict.keys dict)
 """
                     |> Review.Test.run ruleWithDefaults
@@ -5726,12 +7020,14 @@ a = List.foldr (\\a s -> f a s) init (Dict.keys dict)
                             , under = "List.foldr"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Dict
 a = Dict.foldr (\\a _ s -> f a s) init dict
 """
                         ]
         , test "should replace List.foldr f init (Dict.keys dict) by Dict.foldr (always f) init dict" <|
             \() ->
                 """module A exposing (..)
+import Dict
 a = List.foldr f init (Dict.keys dict)
 """
                     |> Review.Test.run ruleWithDefaults
@@ -5743,12 +7039,14 @@ a = List.foldr f init (Dict.keys dict)
                             , under = "List.foldr"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Dict
 a = Dict.foldr (always << f) init dict
 """
                         ]
         , test "should replace List.foldr (\\a s -> f a s) init << Dict.keys by Dict.foldr (\\a _ s -> f a s) init" <|
             \() ->
                 """module A exposing (..)
+import Dict
 a = List.foldr (\\a s -> f a s) init << Dict.keys
 """
                     |> Review.Test.run ruleWithDefaults
@@ -5760,12 +7058,14 @@ a = List.foldr (\\a s -> f a s) init << Dict.keys
                             , under = "List.foldr"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Dict
 a = Dict.foldr (\\a _ s -> f a s) init
 """
                         ]
         , test "should replace Dict.keys >> List.foldr (\\a s -> f a s) init by Dict.foldr (\\a _ s -> f a s) init" <|
             \() ->
                 """module A exposing (..)
+import Dict
 a = Dict.keys >> List.foldr (\\a s -> f a s) init
 """
                     |> Review.Test.run ruleWithDefaults
@@ -5777,7 +7077,46 @@ a = Dict.keys >> List.foldr (\\a s -> f a s) init
                             , under = "List.foldr"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Dict
 a = Dict.foldr (\\a _ s -> f a s) init
+"""
+                        ]
+        , test "should replace List.foldr (\\(k,v) -> f k v) init (Dict.toList dict) by Dict.foldr (\\k v -> f k v) init dict" <|
+            \() ->
+                """module A exposing (..)
+import Dict
+a = List.foldr (\\(k,v) -> f k v) init (Dict.toList dict)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "To fold over dict entries, you don't need to convert to a list"
+                            , details =
+                                [ "You can replace these calls by Dict.foldr and split the incoming entry tuple pattern into separate key and value patterns in the reduce function." ]
+                            , under = "List.foldr"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Dict
+a = Dict.foldr (\\k v -> f k v) init dict
+"""
+                        ]
+        , test "should replace List.foldr (\\(k,v) -> f k v) init << Dict.toList by Dict.foldr (\\k v -> f k v) init" <|
+            \() ->
+                """module A exposing (..)
+import Dict
+a = List.foldr (\\(k,v) -> f k v) init << Dict.toList
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "To fold over dict entries, you don't need to convert to a list"
+                            , details =
+                                [ "You can replace this composition by Dict.foldr and split the incoming entry tuple pattern into separate key and value patterns in the reduce function." ]
+                            , under = "List.foldr"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Dict
+a = Dict.foldr (\\k v -> f k v) init
 """
                         ]
         , test "should replace List.foldr f x (List.reverse list) by List.foldl f x list" <|
@@ -7029,6 +8368,134 @@ a = List.all not [ b, True, c ]
 a = False
 """
                         ]
+        , test "should replace List.all f (List.repeat n a) by n <= 0 || f a" <|
+            \() ->
+                """module A exposing (..)
+a = List.all f (List.repeat n b)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.all on List.repeat is the same as checking whether the repeat count is 0 or negative or the function passes for the element to repeat"
+                            , details = [ "You can replace this call by (the count argument given to List.repeat) <= 0 || (the function argument given to List.all) (the element to repeat argument given to List.repeat)." ]
+                            , under = "List.all"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = ((n <= 0) || (f b))
+"""
+                        ]
+        , test "should replace List.all (f <| y) <| List.repeat n <| g <| x by n <= 0 || f <| y <| g <| x" <|
+            \() ->
+                """module A exposing (..)
+a = List.all (f <| y) <| List.repeat n <| g <| x
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.all on List.repeat is the same as checking whether the repeat count is 0 or negative or the function passes for the element to repeat"
+                            , details = [ "You can replace this call by (the count argument given to List.repeat) <= 0 || (the function argument given to List.all) (the element to repeat argument given to List.repeat)." ]
+                            , under = "List.all"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = ((n <= 0) || ((f <| y) <| (g <| x)))
+"""
+                        ]
+        , test "should replace List.all identity (List.map f list) by List.all f list" <|
+            \() ->
+                """module A exposing (..)
+a = List.all identity (List.map f list)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.map, then List.all with an identity function can be combined into List.all"
+                            , details = [ "You can replace this call by List.all with the same arguments given to List.map which is meant for this exact purpose." ]
+                            , under = "List.all"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (List.all f list)
+"""
+                        ]
+        , test "should replace List.all identity << List.map f by List.all f" <|
+            \() ->
+                """module A exposing (..)
+a = List.all identity << List.map f
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.map, then List.all with an identity function can be combined into List.all"
+                            , details = [ "You can replace this composition by List.all with the same argument given to List.map which is meant for this exact purpose." ]
+                            , under = "List.all"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.all f
+"""
+                        ]
+        , test "should replace List.all (always False) list by List.isEmpty list" <|
+            \() ->
+                """module A exposing (..)
+a = List.all (always False) list
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.all with a function that will always return False is the same as List.isEmpty"
+                            , details = [ "You can replace this call by List.isEmpty on the list given to the List.all call." ]
+                            , under = "List.all"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.isEmpty list
+"""
+                        ]
+        , test "should replace List.all (always False) <| f <| x by List.isEmpty <| f <| x" <|
+            \() ->
+                """module A exposing (..)
+a = List.all (always False) <| f <| x
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.all with a function that will always return False is the same as List.isEmpty"
+                            , details = [ "You can replace this call by List.isEmpty on the list given to the List.all call." ]
+                            , under = "List.all"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.isEmpty <| f <| x
+"""
+                        ]
+        , test "should replace x |> f |> List.all (always False) by x |> f |> List.isEmpty" <|
+            \() ->
+                """module A exposing (..)
+a = x |> f |> List.all (always False)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.all with a function that will always return False is the same as List.isEmpty"
+                            , details = [ "You can replace this call by List.isEmpty on the list given to the List.all call." ]
+                            , under = "List.all"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = x |> f |> List.isEmpty
+"""
+                        ]
+        , test "should replace List.all (always False) by List.isEmpty" <|
+            \() ->
+                """module A exposing (..)
+a = List.all (always False)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.all with a function that will always return False is the same as List.isEmpty"
+                            , details = [ "You can replace this call by List.isEmpty." ]
+                            , under = "List.all"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.isEmpty
+"""
+                        ]
         ]
 
 
@@ -7099,7 +8566,7 @@ a = List.any ((==) x)
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "List.any with a check for equality with a specific value can be replaced by List.member with that value"
-                            , details = [ "You can replace this call by List.member with the specific value to find which meant for this exact purpose." ]
+                            , details = [ "You can replace this call by List.member with the specific value to find which is meant for this exact purpose." ]
                             , under = "List.any"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -7115,7 +8582,7 @@ a = List.any (\\y -> y == x)
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "List.any with a check for equality with a specific value can be replaced by List.member with that value"
-                            , details = [ "You can replace this call by List.member with the specific value to find which meant for this exact purpose." ]
+                            , details = [ "You can replace this call by List.member with the specific value to find which is meant for this exact purpose." ]
                             , under = "List.any"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -7131,7 +8598,7 @@ a = List.any (\\y -> x == y)
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "List.any with a check for equality with a specific value can be replaced by List.member with that value"
-                            , details = [ "You can replace this call by List.member with the specific value to find which meant for this exact purpose." ]
+                            , details = [ "You can replace this call by List.member with the specific value to find which is meant for this exact purpose." ]
                             , under = "List.any"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -7221,6 +8688,166 @@ a = List.any not [ b, False, c ]
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 a = True
+"""
+                        ]
+        , test "should replace List.any f (List.repeat n a) by n >= 1 && f a" <|
+            \() ->
+                """module A exposing (..)
+a = List.any f (List.repeat n b)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.any on List.repeat is the same as checking whether the repeat count is positive and the function passes for the element to repeat"
+                            , details = [ "You can replace this call by (the count argument given to List.repeat) >= 1 && (the function argument given to List.any) (the element to repeat argument given to List.repeat)." ]
+                            , under = "List.any"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = ((n >= 1) && (f b))
+"""
+                        ]
+        , test "should replace List.any (f <| y) <| List.repeat n <| g <| x by n >= 1 && f <| y <| g <| x" <|
+            \() ->
+                """module A exposing (..)
+a = List.any (f <| y) <| List.repeat n <| g <| x
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.any on List.repeat is the same as checking whether the repeat count is positive and the function passes for the element to repeat"
+                            , details = [ "You can replace this call by (the count argument given to List.repeat) >= 1 && (the function argument given to List.any) (the element to repeat argument given to List.repeat)." ]
+                            , under = "List.any"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = ((n >= 1) && ((f <| y) <| (g <| x)))
+"""
+                        ]
+        , test "should replace List.any identity (List.map f list) by List.any f list" <|
+            \() ->
+                """module A exposing (..)
+a = List.any identity (List.map f list)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.map, then List.any with an identity function can be combined into List.any"
+                            , details = [ "You can replace this call by List.any with the same arguments given to List.map which is meant for this exact purpose." ]
+                            , under = "List.any"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (List.any f list)
+"""
+                        ]
+        , test "should replace List.any identity << List.map f by List.any f" <|
+            \() ->
+                """module A exposing (..)
+a = List.any identity << List.map f
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.map, then List.any with an identity function can be combined into List.any"
+                            , details = [ "You can replace this composition by List.any with the same argument given to List.map which is meant for this exact purpose." ]
+                            , under = "List.any"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.any f
+"""
+                        ]
+        , test "should replace List.any (always True) list by not (List.isEmpty list)" <|
+            \() ->
+                """module A exposing (..)
+a = List.any (always True) list
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.any with a function that will always return True is the same as Basics.not on List.isEmpty"
+                            , details = [ "You can replace this call by Basics.not on List.isEmpty on the list given to the List.any call." ]
+                            , under = "List.any"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = not (List.isEmpty list)
+"""
+                        ]
+        , test "should replace List.any (always True) <| f <| x by not <| List.isEmpty <| f <| x" <|
+            \() ->
+                """module A exposing (..)
+a = List.any (always True) <| f <| x
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.any with a function that will always return True is the same as Basics.not on List.isEmpty"
+                            , details = [ "You can replace this call by Basics.not on List.isEmpty on the list given to the List.any call." ]
+                            , under = "List.any"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = not <| List.isEmpty <| f <| x
+"""
+                        ]
+        , test "should replace x |> f |> List.any (always True) by x |> f |> List.isEmpty |> not" <|
+            \() ->
+                """module A exposing (..)
+a = x |> f |> List.any (always True)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.any with a function that will always return True is the same as Basics.not on List.isEmpty"
+                            , details = [ "You can replace this call by Basics.not on List.isEmpty on the list given to the List.any call." ]
+                            , under = "List.any"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = x |> f |> List.isEmpty |> not
+"""
+                        ]
+        , test "should replace List.any (always True) by not << List.isEmpty" <|
+            \() ->
+                """module A exposing (..)
+a = List.any (always True)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.any with a function that will always return True is the same as Basics.not on List.isEmpty"
+                            , details = [ "You can replace this call by List.isEmpty, then Basics.not." ]
+                            , under = "List.any"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (not << List.isEmpty)
+"""
+                        ]
+        , test "should replace List.any <| always True by not << List.isEmpty" <|
+            \() ->
+                """module A exposing (..)
+a = List.any <| always True
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.any with a function that will always return True is the same as Basics.not on List.isEmpty"
+                            , details = [ "You can replace this call by List.isEmpty, then Basics.not." ]
+                            , under = "List.any"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (not << List.isEmpty)
+"""
+                        ]
+        , test "should replace always True |> List.any by List.isEmpty >> not" <|
+            \() ->
+                """module A exposing (..)
+a = always True |> List.any
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.any with a function that will always return True is the same as Basics.not on List.isEmpty"
+                            , details = [ "You can replace this call by List.isEmpty, then Basics.not." ]
+                            , under = "List.any"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (List.isEmpty >> not)
 """
                         ]
         ]
@@ -7317,6 +8944,13 @@ a = List.length b
 """
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectNoErrors
+        , test "should not report List.length (String.toList str) because String.length measures UTF-16 parts, not code points" <|
+            \() ->
+                """module A exposing (..)
+a = List.length (String.toList str)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectNoErrors
         , test "should replace List.length [] by 0" <|
             \() ->
                 """module A exposing (..)
@@ -7381,7 +9015,7 @@ a = List.length (b :: List.repeat 3 c)
 a = 4
 """
                         ]
-        , test "should replace List.length (List.range 3 7) by 4" <|
+        , test "should replace List.length (List.range 3 7) by 5" <|
             \() ->
                 """module A exposing (..)
 a = List.length (List.range 3 7)
@@ -7389,12 +9023,147 @@ a = List.length (List.range 3 7)
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "The length of the list is 4"
+                            { message = "The length of the list is 5"
                             , details = [ "The length of the list can be determined by looking at the code." ]
                             , under = "List.length"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
-a = 4
+a = 5
+"""
+                        ]
+        , test "should replace List.length ([ 0, 1 ] ++ List.singleton 2) by 3" <|
+            \() ->
+                """module A exposing (..)
+a = List.length ([ 0, 1 ] ++ List.singleton 2)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "The length of the list is 3"
+                            , details = [ "The length of the list can be determined by looking at the code." ]
+                            , under = "List.length"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = 3
+"""
+                        ]
+        , test "should replace List.length (List.take 2 (e0 :: e1 :: e2 :: e3 :: e4Up)) by 2" <|
+            \() ->
+                """module A exposing (..)
+a = List.length (List.take 2 (e0 :: e1 :: e2 :: e3 :: e4Up))
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "The length of the list is 2"
+                            , details = [ "The length of the list can be determined by looking at the code." ]
+                            , under = "List.length"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = 2
+"""
+                        ]
+        , test "should not replace List.length (List.take 2 (e0 :: e1Up)) by 2" <|
+            \() ->
+                """module A exposing (..)
+a = List.length (List.take 2 (e0 :: e1Up))
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectNoErrors
+        , test "should replace List.length (List.reverse list) by List.length list" <|
+            \() ->
+                """module A exposing (..)
+a = List.length (List.reverse list)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary List.reverse before List.length"
+                            , details = [ "Reordering a list does not affect its length. You can replace the List.reverse call by the unchanged list." ]
+                            , under = "List.length"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.length list
+"""
+                        ]
+        , test "should replace List.length (List.sort list) by List.length list" <|
+            \() ->
+                """module A exposing (..)
+a = List.length (List.sort list)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary List.sort before List.length"
+                            , details = [ "Reordering a list does not affect its length. You can replace the List.sort call by the unchanged list." ]
+                            , under = "List.length"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.length list
+"""
+                        ]
+        , test "should replace List.length (List.sortBy f list) by List.length list" <|
+            \() ->
+                """module A exposing (..)
+a = List.length (List.sortBy f list)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary List.sortBy before List.length"
+                            , details = [ "Reordering a list does not affect its length. You can replace the List.sortBy call by the unchanged list." ]
+                            , under = "List.length"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.length list
+"""
+                        ]
+        , test "should replace List.length (List.sortWith f list) by List.length list" <|
+            \() ->
+                """module A exposing (..)
+a = List.length (List.sortWith f list)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary List.sortWith before List.length"
+                            , details = [ "Reordering a list does not affect its length. You can replace the List.sortWith call by the unchanged list." ]
+                            , under = "List.length"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.length list
+"""
+                        ]
+        , test "should replace List.length (List.map f list) by List.length list" <|
+            \() ->
+                """module A exposing (..)
+a = List.length (List.map f list)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary List.map before List.length"
+                            , details = [ "Changing each element in a list does not affect its length. You can replace the List.map call by the unchanged list." ]
+                            , under = "List.length"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.length list
+"""
+                        ]
+        , test "should replace List.length (List.indexedMap f list) by List.length list" <|
+            \() ->
+                """module A exposing (..)
+a = List.length (List.indexedMap f list)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary List.indexedMap before List.length"
+                            , details = [ "Changing each element in a list does not affect its length. You can replace the List.indexedMap call by the unchanged list." ]
+                            , under = "List.length"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.length list
 """
                         ]
         , test "should replace Set.toList set |> List.length with Set.size" <|
@@ -7407,7 +9176,7 @@ a = Set.toList set |> List.length
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Set.toList, then List.length can be combined into Set.size"
-                            , details = [ "You can replace this call by Set.size with the same arguments given to Set.toList which is meant for this exact purpose." ]
+                            , details = [ "You can replace this call by Set.size with the same argument given to Set.toList which is meant for this exact purpose." ]
                             , under = "List.length"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -7425,7 +9194,7 @@ a = Dict.toList dict |> List.length
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Dict.toList, then List.length can be combined into Dict.size"
-                            , details = [ "You can replace this call by Dict.size with the same arguments given to Dict.toList which is meant for this exact purpose." ]
+                            , details = [ "You can replace this call by Dict.size with the same argument given to Dict.toList which is meant for this exact purpose." ]
                             , under = "List.length"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -7443,7 +9212,7 @@ a = Dict.values dict |> List.length
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Dict.values, then List.length can be combined into Dict.size"
-                            , details = [ "You can replace this call by Dict.size with the same arguments given to Dict.values which is meant for this exact purpose." ]
+                            , details = [ "You can replace this call by Dict.size with the same argument given to Dict.values which is meant for this exact purpose." ]
                             , under = "List.length"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -7461,7 +9230,7 @@ a = Dict.keys dict |> List.length
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Dict.keys, then List.length can be combined into Dict.size"
-                            , details = [ "You can replace this call by Dict.size with the same arguments given to Dict.keys which is meant for this exact purpose." ]
+                            , details = [ "You can replace this call by Dict.size with the same argument given to Dict.keys which is meant for this exact purpose." ]
                             , under = "List.length"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -7479,7 +9248,7 @@ a = Array.toList array |> List.length
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Array.toList, then List.length can be combined into Array.length"
-                            , details = [ "You can replace this call by Array.length with the same arguments given to Array.toList which is meant for this exact purpose." ]
+                            , details = [ "You can replace this call by Array.length with the same argument given to Array.toList which is meant for this exact purpose." ]
                             , under = "List.length"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -7497,7 +9266,7 @@ a = Array.toIndexedList array |> List.length
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Array.toIndexedList, then List.length can be combined into Array.length"
-                            , details = [ "You can replace this call by Array.length with the same arguments given to Array.toIndexedList which is meant for this exact purpose." ]
+                            , details = [ "You can replace this call by Array.length with the same argument given to Array.toIndexedList which is meant for this exact purpose." ]
                             , under = "List.length"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -7866,7 +9635,7 @@ a = List.sort (List.sort list)
                             }
                             |> Review.Test.atExactly { start = { row = 2, column = 5 }, end = { row = 2, column = 14 } }
                             |> Review.Test.whenFixed """module A exposing (..)
-a = (List.sort list)
+a = List.sort list
 """
                         ]
         , test "should replace List.sort << List.sort by List.sort" <|
@@ -7899,7 +9668,7 @@ a = List.sort (List.repeat n b)
                             , under = "List.sort"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
-a = (List.repeat n b)
+a = List.repeat n b
 """
                         ]
         , test "should replace List.sort << List.repeat n by List.repeat n" <|
@@ -7937,6 +9706,7 @@ a = List.repeat n
         , test "should replace List.sort (Set.toList set) by Set.toList set" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = List.sort (Set.toList set)
 """
                     |> Review.Test.run ruleWithDefaults
@@ -7947,12 +9717,14 @@ a = List.sort (Set.toList set)
                             , under = "List.sort"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
-a = (Set.toList set)
+import Set
+a = Set.toList set
 """
                         ]
         , test "should replace List.sort << Set.toList by Set.toList" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = List.sort << Set.toList
 """
                     |> Review.Test.run ruleWithDefaults
@@ -7963,12 +9735,14 @@ a = List.sort << Set.toList
                             , under = "List.sort"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = Set.toList
 """
                         ]
         , test "should replace Set.toList >> List.sort by Set.toList" <|
             \() ->
                 """module A exposing (..)
+import Set
 a = Set.toList >> List.sort
 """
                     |> Review.Test.run ruleWithDefaults
@@ -7979,12 +9753,14 @@ a = Set.toList >> List.sort
                             , under = "List.sort"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Set
 a = Set.toList
 """
                         ]
         , test "should replace List.sort (Dict.toList dict) by Dict.toList dict" <|
             \() ->
                 """module A exposing (..)
+import Dict
 a = List.sort (Dict.toList dict)
 """
                     |> Review.Test.run ruleWithDefaults
@@ -7995,12 +9771,14 @@ a = List.sort (Dict.toList dict)
                             , under = "List.sort"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
-a = (Dict.toList dict)
+import Dict
+a = Dict.toList dict
 """
                         ]
         , test "should replace List.sort << Dict.toList by Dict.toList" <|
             \() ->
                 """module A exposing (..)
+import Dict
 a = List.sort << Dict.toList
 """
                     |> Review.Test.run ruleWithDefaults
@@ -8011,12 +9789,14 @@ a = List.sort << Dict.toList
                             , under = "List.sort"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Dict
 a = Dict.toList
 """
                         ]
         , test "should replace Dict.toList >> List.sort by Dict.toList" <|
             \() ->
                 """module A exposing (..)
+import Dict
 a = Dict.toList >> List.sort
 """
                     |> Review.Test.run ruleWithDefaults
@@ -8027,6 +9807,7 @@ a = Dict.toList >> List.sort
                             , under = "List.sort"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
+import Dict
 a = Dict.toList
 """
                         ]
@@ -8472,7 +10253,7 @@ a = List.sortBy f (List.sortBy f list)
                             }
                             |> Review.Test.atExactly { start = { row = 2, column = 5 }, end = { row = 2, column = 16 } }
                             |> Review.Test.whenFixed """module A exposing (..)
-a = (List.sortBy f list)
+a = List.sortBy f list
 """
                         ]
         , test "should replace List.sortBy f << List.sortBy f by List.sortBy f" <|
@@ -8505,7 +10286,7 @@ a = List.sortBy f (List.repeat n b)
                             , under = "List.sortBy"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
-a = (List.repeat n b)
+a = List.repeat n b
 """
                         ]
         , test "should replace List.sortBy f << List.repeat n by List.repeat n" <|
@@ -8882,7 +10663,7 @@ a = List.sortWith f (List.repeat n b)
                             , under = "List.sortWith"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
-a = (List.repeat n b)
+a = List.repeat n b
 """
                         ]
         , test "should replace List.sortWith f << List.repeat n by List.repeat n" <|
@@ -9002,7 +10783,7 @@ a = List.reverse (List.singleton b)
                             , under = "List.reverse"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
-a = (List.singleton b)
+a = List.singleton b
 """
                         ]
         , test "should replace a |> List.singleton |> List.reverse by a |> List.singleton" <|
@@ -9066,7 +10847,7 @@ a = List.reverse (List.repeat n b)
                             , under = "List.reverse"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
-a = (List.repeat n b)
+a = List.repeat n b
 """
                         ]
         , test "should replace List.reverse << List.repeat n by List.repeat n" <|
@@ -9178,9 +10959,13 @@ listTakeTests =
         [ test "should not report List.take that contains a variable or expression" <|
             \() ->
                 """module A exposing (..)
-a = List.take 2 list
-b = List.take y [ 1, 2, 3 ]
-b = List.take n0 (List.take n1 list)
+a0 = List.take 2 list
+a1 = List.take y [ 1, 2, 3 ]
+a2 = List.take n0 (List.take n1 list)
+a3 = List.map f << List.take n
+a4 = List.indexedMap f << List.take n
+-- does not compile, just to test only the last argument is curried
+a5 = List.take << List.map f
 """
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectNoErrors
@@ -9246,7 +11031,7 @@ a = List.take n (List.take n list)
                             }
                             |> Review.Test.atExactly { start = { row = 2, column = 5 }, end = { row = 2, column = 14 } }
                             |> Review.Test.whenFixed """module A exposing (..)
-a = (List.take n list)
+a = List.take n list
 """
                         ]
         , test "should replace List.take n >> List.take n by List.take n" <|
@@ -9299,6 +11084,118 @@ a = List.take -1
 a = always []
 """
                         ]
+        , test "should replace List.take n (List.map f list) by List.map f (List.take n list)" <|
+            \() ->
+                """module A exposing (..)
+a = List.take n (List.map f list)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.take on List.map can be optimized to List.map on List.take"
+                            , details = [ "You can replace this call by List.map with the function given to the original List.map, on List.take with the length given to the original List.take." ]
+                            , under = "List.take"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.map f (List.take n list)
+"""
+                        ]
+        , test "should replace List.take n (list |> List.map f) by List.take n list |> List.map f" <|
+            \() ->
+                """module A exposing (..)
+a = List.take n (list |> List.map f)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.take on List.map can be optimized to List.map on List.take"
+                            , details = [ "You can replace this call by List.map with the function given to the original List.map, on List.take with the length given to the original List.take." ]
+                            , under = "List.take"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (List.take n list |> List.map f)
+"""
+                        ]
+        , test "should replace (List.map f <| list) |> List.take n by List.map f <| (list |> List.take n)" <|
+            \() ->
+                """module A exposing (..)
+a = (List.map f <| list) |> List.take n
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.take on List.map can be optimized to List.map on List.take"
+                            , details = [ "You can replace this call by List.map with the function given to the original List.map, on List.take with the length given to the original List.take." ]
+                            , under = "List.take"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (List.map f <| (list |> List.take n))
+"""
+                        ]
+        , test "should replace List.take n << List.map f by List.map f << List.take n" <|
+            \() ->
+                """module A exposing (..)
+a = List.take n << List.map f
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.take on List.map can be optimized to List.map on List.take"
+                            , details = [ "You can replace this composition by List.take with the length given to the original List.take, then List.map with the function given to the original List.map." ]
+                            , under = "List.take"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (List.map f << List.take n)
+"""
+                        ]
+        , test "should replace List.map f >> List.take n by List.take n >> List.map f" <|
+            \() ->
+                """module A exposing (..)
+a = List.map f >> List.take n
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.take on List.map can be optimized to List.map on List.take"
+                            , details = [ "You can replace this composition by List.take with the length given to the original List.take, then List.map with the function given to the original List.map." ]
+                            , under = "List.take"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (List.take n >> List.map f)
+"""
+                        ]
+        , test "should replace List.take n (List.indexedMap f list) by List.indexedMap f (List.take n list)" <|
+            \() ->
+                """module A exposing (..)
+a = List.take n (List.indexedMap f list)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.take on List.indexedMap can be optimized to List.indexedMap on List.take"
+                            , details = [ "You can replace this call by List.indexedMap with the function given to the original List.indexedMap, on List.take with the length given to the original List.take." ]
+                            , under = "List.take"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.indexedMap f (List.take n list)
+"""
+                        ]
+        , test "should replace List.take n << List.indexedMap f by List.indexedMap f << List.take n" <|
+            \() ->
+                """module A exposing (..)
+a = List.take n << List.indexedMap f
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.take on List.indexedMap can be optimized to List.indexedMap on List.take"
+                            , details = [ "You can replace this composition by List.take with the length given to the original List.take, then List.indexedMap with the function given to the original List.indexedMap." ]
+                            , under = "List.take"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (List.indexedMap f << List.take n)
+"""
+                        ]
         ]
 
 
@@ -9310,6 +11207,7 @@ listDropTests =
                 """module A exposing (..)
 a = List.drop 2 list
 b = List.drop y [ 1, 2, 3 ]
+c = List.map f << List.drop n
 """
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectNoErrors
@@ -9455,6 +11353,38 @@ a = [ b, c ] |> List.drop 2
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 a = []
+"""
+                        ]
+        , test "should replace List.drop n (List.map f list) by List.map f (List.drop n list)" <|
+            \() ->
+                """module A exposing (..)
+a = List.drop n (List.map f list)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.drop on List.map can be optimized to List.map on List.drop"
+                            , details = [ "You can replace this call by List.map with the function given to the original List.map, on List.drop with the count given to the original List.drop." ]
+                            , under = "List.drop"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.map f (List.drop n list)
+"""
+                        ]
+        , test "should replace List.drop n << List.map f by List.map f << List.drop n" <|
+            \() ->
+                """module A exposing (..)
+a = List.drop n << List.map f
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.drop on List.map can be optimized to List.map on List.drop"
+                            , details = [ "You can replace this composition by List.drop with the count given to the original List.drop, then List.map with the function given to the original List.map." ]
+                            , under = "List.drop"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (List.map f << List.drop n)
 """
                         ]
         ]
@@ -9668,7 +11598,7 @@ a = List.intersperse s (List.singleton b)
                             , under = "List.intersperse"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
-a = (List.singleton b)
+a = List.singleton b
 """
                         ]
         , test "should replace a |> List.singleton |> List.intersperse s by a |> List.singleton" <|

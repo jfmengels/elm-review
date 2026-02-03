@@ -19,6 +19,7 @@ all =
         , minTests
         , maxTests
         , compareTests
+        , notTests
         ]
 
 
@@ -262,6 +263,13 @@ b = toFloat n
 """
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectNoErrors
+        , test "should not report normalized integer arguments which aren't literals" <|
+            \() ->
+                """module A exposing (..)
+a = toFloat (0.5 + 0.5)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectNoErrors
         , test "should simplify toFloat 1 to 1" <|
             \() ->
                 """module A exposing (..)
@@ -337,6 +345,14 @@ roundTests =
                 """module A exposing (..)
 a = round
 b = round n
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectNoErrors
+        , test "should not report normalized integer arguments which aren't literals" <|
+            \() ->
+                """module A exposing (..)
+a0 = round (0.5 + 0.5)
+a1 = if x == 1 then round x else 0
 """
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectNoErrors
@@ -459,6 +475,14 @@ b = ceiling n
 """
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectNoErrors
+        , test "should not report normalized integer arguments which aren't literals" <|
+            \() ->
+                """module A exposing (..)
+a0 = ceiling (0.5 + 0.5)
+a1 = if x == 1 then ceiling x else 0
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectNoErrors
         , test "should simplify ceiling 1 to 1" <|
             \() ->
                 """module A exposing (..)
@@ -578,6 +602,14 @@ b = floor n
 """
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectNoErrors
+        , test "should not report normalized integer arguments which aren't literals" <|
+            \() ->
+                """module A exposing (..)
+a0 = floor (0.5 + 0.5)
+a1 = if x == 1 then floor x else 0
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectNoErrors
         , test "should simplify floor 1 to 1" <|
             \() ->
                 """module A exposing (..)
@@ -633,6 +665,22 @@ a = floor 0x1
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 a = 0x1
+"""
+                        ]
+        , test "should simplify floor 1.0 to 1" <|
+            \() ->
+                """module A exposing (..)
+a = floor 1.0
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Basics.floor on a number literal can be evaluated"
+                            , details = [ "You can replace this call by the resulting Int value." ]
+                            , under = "floor"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = 1
 """
                         ]
         , test "should simplify floor 1.1 to 1" <|
@@ -694,6 +742,14 @@ truncateTests =
                 """module A exposing (..)
 a = truncate
 b = truncate n
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectNoErrors
+        , test "should not report normalized integer arguments which aren't literals" <|
+            \() ->
+                """module A exposing (..)
+a0 = truncate (0.5 + 0.5)
+a1 = if x == 1 then truncate x else 0
 """
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectNoErrors
@@ -877,7 +933,7 @@ a = Basics.abs (abs n)
                             , under = "Basics.abs"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
-a = (abs n)
+a = abs n
 """
                         ]
         , test "should replace Basics.abs <| abs <| f <| n by abs <| f <| n" <|
@@ -985,7 +1041,7 @@ a = abs << negate
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Unnecessary Basics.negate before Basics.abs"
-                            , details = [ "You can remove the composition with negate." ]
+                            , details = [ "You can replace this composition by negate." ]
                             , under = "abs"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -1434,6 +1490,102 @@ a = compare 4 3
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 a = GT
+"""
+                        ]
+        ]
+
+
+notTests : Test
+notTests =
+    describe "Basics.not"
+        [ test "should not report Basics.not with okay arguments" <|
+            \() ->
+                """module A exposing (..)
+a0 = not
+a1 = not bool
+a2 = not << List.any f
+a3 = not (List.all f list)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectNoErrors
+        , test "should replace not (List.any not list) by List.all identity list" <|
+            \() ->
+                """module A exposing (..)
+a = Basics.not (List.any not list)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Basics.not on List.any Basics.not can be combined into List.all"
+                            , details = [ "You can replace this call by List.all identity." ]
+                            , under = "Basics.not"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.all identity list
+"""
+                        ]
+        , test "should replace not << List.any not by List.all identity" <|
+            \() ->
+                """module A exposing (..)
+a = Basics.not << List.any not
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Basics.not on List.any Basics.not can be combined into List.all"
+                            , details = [ "You can replace this composition by List.all identity." ]
+                            , under = "Basics.not"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.all identity
+"""
+                        ]
+        , test "should replace not (List.any (not << f) list) by List.all f list" <|
+            \() ->
+                """module A exposing (..)
+a = Basics.not (List.any (not << f) list)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Basics.not on List.any with a function into Basics.not can be combined into List.all"
+                            , details = [ "You can replace this call by List.all with the function given to List.any before the Basics.not." ]
+                            , under = "Basics.not"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.all f list
+"""
+                        ]
+        , test "should replace not (List.all not list) by List.any identity" <|
+            \() ->
+                """module A exposing (..)
+a = Basics.not (List.all not list)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Basics.not on List.all Basics.not can be combined into List.any"
+                            , details = [ "You can replace this call by List.any identity." ]
+                            , under = "Basics.not"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.any identity list
+"""
+                        ]
+        , test "should replace not (List.all (not << f) list) by List.any f list" <|
+            \() ->
+                """module A exposing (..)
+a = Basics.not (List.all (not << f) list)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Basics.not on List.all with a function into Basics.not can be combined into List.any"
+                            , details = [ "You can replace this call by List.any with the function given to List.all before the Basics.not." ]
+                            , under = "Basics.not"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.any f list
 """
                         ]
         ]

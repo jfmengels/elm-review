@@ -2,7 +2,7 @@ module Simplify.DictTest exposing (all)
 
 import Review.Test
 import Test exposing (Test, describe, test)
-import TestHelpers exposing (ruleExpectingNaN, ruleWithDefaults)
+import TestHelpers exposing (ruleExpectingNaN, ruleWithDefaults, whenNotExpectingNaN)
 
 
 all : Test
@@ -138,6 +138,24 @@ import Dict
 a = False
 """
                         ]
+        , test "should replace Dict.isEmpty (Dict.map f dict) by Dict.isEmpty dict" <|
+            \() ->
+                """module A exposing (..)
+import Dict
+a = Dict.isEmpty (Dict.map f dict)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary Dict.map before Dict.isEmpty"
+                            , details = [ "Changing each value in a dict does not affect its size. You can replace the Dict.map call by the unchanged dict." ]
+                            , under = "Dict.isEmpty"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Dict
+a = Dict.isEmpty dict
+"""
+                        ]
         , test "should replace list |> Dict.fromList |> Dict.isEmpty by list |> List.isEmpty" <|
             \() ->
                 """module A exposing (..)
@@ -148,7 +166,7 @@ a = list |> Dict.fromList |> Dict.isEmpty
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Dict.fromList, then Dict.isEmpty can be combined into List.isEmpty"
-                            , details = [ "You can replace this call by List.isEmpty with the same arguments given to Dict.fromList which is meant for this exact purpose." ]
+                            , details = [ "You can replace this call by List.isEmpty with the same argument given to Dict.fromList which is meant for this exact purpose." ]
                             , under = "Dict.isEmpty"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -344,16 +362,7 @@ a = (f >> g)
             \() ->
                 """module A exposing (..)
 import Dict
-a = Dict.fromList [ ( key, v0 ), ( key, v1 ) ]
-b = Dict.fromList [ ( ( 1, "", [ 'a', b ] ), v0 ), ( ( 1, "", [ 'a', b ] ), v1 ) ]
-"""
-                    |> Review.Test.run TestHelpers.ruleExpectingNaN
-                    |> Review.Test.expectNoErrors
-        , test "should not replace Dict.fromList [ x, x ] when expecting NaN" <|
-            \() ->
-                """module A exposing (..)
-import Dict
-a = Dict.fromList [ x, x ]
+a = Dict.fromList [ ( ( 1, "", [ 'a', b ] ), v0 ), ( ( 1, "", [ 'a', b ] ), v1 ) ]
 """
                     |> Review.Test.run TestHelpers.ruleExpectingNaN
                     |> Review.Test.expectNoErrors
@@ -363,8 +372,7 @@ a = Dict.fromList [ x, x ]
 import Dict
 a = Dict.fromList [ ( key, v0 ), ( key, v1 ) ]
 """
-                    |> Review.Test.run ruleWithDefaults
-                    |> Review.Test.expectErrors
+                    |> whenNotExpectingNaN Review.Test.run
                         [ Review.Test.error
                             { message = "Dict.fromList on entries with a duplicate key will only keep the last entry"
                             , details = [ "Maybe one of the keys was supposed to be a different value? If not, you can remove earlier entries with duplicate keys." ]
@@ -443,8 +451,7 @@ a = Dict.fromList [ ( ( 1, "", [ 'a' ] ), v1 ) ]
 import Dict
 a = Dict.fromList [ x, x ]
 """
-                    |> Review.Test.run ruleWithDefaults
-                    |> Review.Test.expectErrors
+                    |> whenNotExpectingNaN Review.Test.run
                         [ Review.Test.error
                             { message = "Dict.fromList on a list with a duplicate entry will only keep one of them"
                             , details = [ "Maybe one of the keys was supposed to be a different value? If not, you can remove earlier entries with duplicate keys." ]
@@ -475,6 +482,27 @@ a = Dict.fromList [ let a = 0 in ( 0, 0 ), let a = 0 in ( 0, 0 ) ]
                                 """module A exposing (..)
 import Dict
 a = Dict.fromList [ let a = 0 in ( 0, 0 ) ]
+"""
+                        ]
+        , test "should replace Dict.fromList (List.repeat n a) by if n >= 1 then Dict.fromList [ a ] else Dict.empty" <|
+            \() ->
+                """module A exposing (..)
+import Dict
+a = Dict.fromList (List.repeat n b)
+"""
+                    |> whenNotExpectingNaN Review.Test.run
+                        [ Review.Test.error
+                            { message = "Dict.fromList on List.repeat will result in a dict singleton with the repeated element if the count is positive and Dict.empty otherwise"
+                            , details = [ "You can replace this call by if (the count argument given to List.repeat) >= 1 then Dict.fromList [ (the element to repeat argument given to List.repeat) ] else Dict.empty." ]
+                            , under = "Dict.fromList"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Dict
+a = (if n >= 1 then
+                                 Dict.fromList [ b ]
+
+    else
+                                 Dict.empty)
 """
                         ]
         ]
@@ -709,6 +737,24 @@ import Dict
 a = Dict.size (Dict.fromList [(1.3,()), (-1.3,()), (2.1,())])
 """
                         ]
+        , test "should replace Dict.size (Dict.map f dict) by Dict.size dict" <|
+            \() ->
+                """module A exposing (..)
+import Dict
+a = Dict.size (Dict.map f dict)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary Dict.map before Dict.size"
+                            , details = [ "Changing each value in a dict does not affect its size. You can replace the Dict.map call by the unchanged dict." ]
+                            , under = "Dict.size"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Dict
+a = Dict.size dict
+"""
+                        ]
         ]
 
 
@@ -813,15 +859,25 @@ import Dict
 a = False
 """
                         ]
-        , test "should not simplify Dict.member reference (Dict.fromList [ ( 2, () ), ( 3, () ), ( reference, () ) ]) when expecting NaN" <|
+        , test "should simplify Dict.member reference (Dict.fromList [ ( 2, () ), ( 3, () ), ( reference, () ) ])" <|
             \() ->
                 """module A exposing (..)
 import Dict
 a = Dict.member reference (Dict.fromList [ ( 2, () ), ( 3, () ), ( reference, () ) ])
 """
-                    |> Review.Test.run ruleExpectingNaN
-                    |> Review.Test.expectNoErrors
-        , test "should replace Dict.member 0 (Dict.fromList list) by List.any (Tuple.first >> (==) 0) list when expectNaN is not enabled" <|
+                    |> whenNotExpectingNaN Review.Test.run
+                        [ Review.Test.error
+                            { message = "Dict.member on Dict.fromList can be replaced by List.any with a function comparing the key"
+                            , details = [ "You can replace these calls by List.any comparing the key which is both simpler and faster. The automatic fix suggests Tuple.first >> (==) ... to only evaluate the member to check for once. However, if it is a variable, a simpler alternative might be using a lambda like \\( k, _ ) -> k == ..." ]
+                            , under = "Dict.member"
+                            }
+                            |> Review.Test.whenFixed
+                                """module A exposing (..)
+import Dict
+a = List.any (Tuple.first >> (==) reference) [ ( 2, () ), ( 3, () ), ( reference, () ) ]
+"""
+                        ]
+        , test "should replace Dict.member 0 (Dict.fromList list) by List.any (Tuple.first >> (==) 0) list" <|
             \() ->
                 """module A exposing (..)
 import Dict
@@ -840,15 +896,14 @@ import Dict
 a = List.any (Tuple.first >> (==) 0) list
 """
                         ]
-        , test "should replace Dict.member (let ...) (Dict.fromList list) by List.any (Tuple.first >> (==) (let ...)) list _with correct let indentation_ when expectNaN is not enabled" <|
+        , test "should replace Dict.member (let ...) (Dict.fromList list) by List.any (Tuple.first >> (==) (let ...)) list _with correct let indentation_" <|
             \() ->
                 """module A exposing (..)
 import Dict
 a = Dict.member (let x = 0
                      y = 1 in x + y) (Dict.fromList list)
 """
-                    |> Review.Test.run ruleWithDefaults
-                    |> Review.Test.expectErrors
+                    |> whenNotExpectingNaN Review.Test.run
                         [ Review.Test.error
                             { message = "Dict.member on Dict.fromList can be replaced by List.any with a function comparing the key"
                             , details = [ "You can replace these calls by List.any comparing the key which is both simpler and faster. The automatic fix suggests Tuple.first >> (==) ... to only evaluate the member to check for once. However, if it is a variable, a simpler alternative might be using a lambda like \\( k, _ ) -> k == ..." ]
@@ -862,14 +917,13 @@ a = List.any (Tuple.first >> (==)
                      y = 1 in x + y)) list
 """
                         ]
-        , test "should replace Dict.member 0 << Dict.fromList by List.any (Tuple.first >> (==) (0)) when expectNaN is not enabled" <|
+        , test "should replace Dict.member 0 << Dict.fromList by List.any (Tuple.first >> (==) (0))" <|
             \() ->
                 """module A exposing (..)
 import Dict
 a = Dict.member 0 << Dict.fromList
 """
-                    |> Review.Test.run ruleWithDefaults
-                    |> Review.Test.expectErrors
+                    |> whenNotExpectingNaN Review.Test.run
                         [ Review.Test.error
                             { message = "Dict.member on Dict.fromList can be replaced by List.any with a function comparing the key"
                             , details = [ "You can replace this composition by List.any comparing the key which is both simpler and faster. The automatic fix suggests Tuple.first >> (==) ... to only evaluate the member to check for once. However, if it is a variable, a simpler alternative might be using a lambda like \\( k, _ ) -> k == ..." ]
@@ -881,15 +935,14 @@ import Dict
 a = List.any (Tuple.first >> (==) (0))
 """
                         ]
-        , test "should replace (Dict.member <| let ...) << Dict.fromList by List.any (Tuple.first >> (==) (let ...)) _with correct let indentation and inserted parens_ when expectNaN is not enabled" <|
+        , test "should replace (Dict.member <| let ...) << Dict.fromList by List.any (Tuple.first >> (==) (let ...)) _with correct let indentation and inserted parens_" <|
             \() ->
                 """module A exposing (..)
 import Dict
 a=(Dict.member<| let x = 0
                      y = 1 in x + y) << Dict.fromList
 """
-                    |> Review.Test.run ruleWithDefaults
-                    |> Review.Test.expectErrors
+                    |> whenNotExpectingNaN Review.Test.run
                         [ Review.Test.error
                             { message = "Dict.member on Dict.fromList can be replaced by List.any with a function comparing the key"
                             , details = [ "You can replace this composition by List.any comparing the key which is both simpler and faster. The automatic fix suggests Tuple.first >> (==) ... to only evaluate the member to check for once. However, if it is a variable, a simpler alternative might be using a lambda like \\( k, _ ) -> k == ..." ]
@@ -903,7 +956,7 @@ a=(List.any<| (Tuple.first >> (==) (
                      y = 1 in x + y)))
 """
                         ]
-        , test "should replace Dict.fromList >> (Dict.member <| let ...) by List.any (Tuple.first >> (==) (let ...)) _with correct let indentation and inserted parens_ when expectNaN is not enabled" <|
+        , test "should replace Dict.fromList >> (Dict.member <| let ...) by List.any (Tuple.first >> (==) (let ...)) _with correct let indentation and inserted parens_" <|
             \() ->
                 """module A exposing (..)
 import Dict
@@ -911,8 +964,7 @@ a=Dict.fromList >>
   (Dict.member<| let x = 0
                      y = 1 in x + y)
 """
-                    |> Review.Test.run ruleWithDefaults
-                    |> Review.Test.expectErrors
+                    |> whenNotExpectingNaN Review.Test.run
                         [ Review.Test.error
                             { message = "Dict.member on Dict.fromList can be replaced by List.any with a function comparing the key"
                             , details = [ "You can replace this composition by List.any comparing the key which is both simpler and faster. The automatic fix suggests Tuple.first >> (==) ... to only evaluate the member to check for once. However, if it is a variable, a simpler alternative might be using a lambda like \\( k, _ ) -> k == ..." ]
@@ -1034,6 +1086,7 @@ a0 = Dict.remove
 a1 = Dict.remove k
 a2 = Dict.remove k dict
 a3 = Dict.remove k0 (Dict.remove k1 dict)
+a4 = Dict.map f << Dict.remove k
 """
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectNoErrors
@@ -1071,7 +1124,7 @@ a = Dict.remove k (Dict.remove k dict)
                             |> Review.Test.atExactly { start = { row = 3, column = 5 }, end = { row = 3, column = 16 } }
                             |> Review.Test.whenFixed """module A exposing (..)
 import Dict
-a = (Dict.remove k dict)
+a = Dict.remove k dict
 """
                         ]
         , test "should replace Dict.remove k >> Dict.remove k by Dict.remove k" <|
@@ -1110,6 +1163,42 @@ a = Dict.remove k << Dict.remove k
                             |> Review.Test.whenFixed """module A exposing (..)
 import Dict
 a = Dict.remove k
+"""
+                        ]
+        , test "should replace Dict.remove k (Dict.map f dict) by Dict.map f (Dict.remove k dict)" <|
+            \() ->
+                """module A exposing (..)
+import Dict
+a = Dict.remove k (Dict.map f dict)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Dict.remove on Dict.map can be optimized to Dict.map on Dict.remove"
+                            , details = [ "You can replace this call by Dict.map with the function given to the original Dict.map, on Dict.remove with the key given to the original Dict.remove." ]
+                            , under = "Dict.remove"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Dict
+a = Dict.map f (Dict.remove k dict)
+"""
+                        ]
+        , test "should replace Dict.remove k << Dict.map f by Dict.map f << Dict.remove k" <|
+            \() ->
+                """module A exposing (..)
+import Dict
+a = Dict.remove k << Dict.map f
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Dict.remove on Dict.map can be optimized to Dict.map on Dict.remove"
+                            , details = [ "You can replace this composition by Dict.remove with the key given to the original Dict.remove, then Dict.map with the function given to the original Dict.map." ]
+                            , under = "Dict.remove"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Dict
+a = (Dict.map f << Dict.remove k)
 """
                         ]
         ]
@@ -1345,6 +1434,12 @@ a0 = Dict.filter
 a1 = Dict.filter f
 a2 = Dict.filter f dict
 a3 = Dict.filter f (Dict.filter g dict)
+a4 = Dict.filter f (Dict.map g dict)
+a5 = Dict.filter f << Dict.map g
+a6 = Dict.map g << Dict.filter (\\k _ -> f k)
+a7 = Dict.filter (\\k v -> f k v) (Dict.map g dict)
+a8 = Dict.filter (\\k v -> f k v) << Dict.map g
+a9 = Dict.map g >> Dict.filter (\\k v -> f k v)
 """
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectNoErrors
@@ -1400,7 +1495,7 @@ a = Dict.filter f (Dict.filter f dict)
                             |> Review.Test.atExactly { start = { row = 3, column = 5 }, end = { row = 3, column = 16 } }
                             |> Review.Test.whenFixed """module A exposing (..)
 import Dict
-a = (Dict.filter f dict)
+a = Dict.filter f dict
 """
                         ]
         , test "should replace Dict.filter f >> Dict.filter f by Dict.filter f" <|
@@ -1565,6 +1660,130 @@ a = Dict.filter (always (always False))
                             |> Review.Test.whenFixed """module A exposing (..)
 import Dict
 a = always Dict.empty
+"""
+                        ]
+        , test "should replace Dict.filter (\\k _ -> f k) (Dict.map g dict) by Dict.map g (Dict.filter (\\k _ -> f k) dict)" <|
+            \() ->
+                """module A exposing (..)
+import Dict
+a = Dict.filter (\\k _ -> f k) (Dict.map g dict)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Dict.filter by key on Dict.map can be optimized to Dict.map on Dict.filter"
+                            , details = [ "You can replace this call by Dict.map with the function given to the original Dict.map, on Dict.filter with the test function given to the original Dict.filter." ]
+                            , under = "Dict.filter"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Dict
+a = Dict.map g (Dict.filter (\\k _ -> f k) dict)
+"""
+                        ]
+        , test "should replace Dict.filter (\\k _ -> f k) <| (dict |> Dict.map g) by (Dict.filter (\\k _ -> f k) <| dict) |> Dict.map g" <|
+            \() ->
+                """module A exposing (..)
+import Dict
+a = Dict.filter (\\k _ -> f k) <| (dict |> Dict.map g)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Dict.filter by key on Dict.map can be optimized to Dict.map on Dict.filter"
+                            , details = [ "You can replace this call by Dict.map with the function given to the original Dict.map, on Dict.filter with the test function given to the original Dict.filter." ]
+                            , under = "Dict.filter"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Dict
+a = ((Dict.filter (\\k _ -> f k) <| dict) |> Dict.map g)
+"""
+                        ]
+        , test "should replace Dict.filter (\\k -> always (f k)) (Dict.map g dict) by Dict.map g (Dict.filter (\\k -> always (f k)) dict)" <|
+            \() ->
+                """module A exposing (..)
+import Dict
+a = Dict.filter (\\k -> always (f k)) (Dict.map g dict)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Dict.filter by key on Dict.map can be optimized to Dict.map on Dict.filter"
+                            , details = [ "You can replace this call by Dict.map with the function given to the original Dict.map, on Dict.filter with the test function given to the original Dict.filter." ]
+                            , under = "Dict.filter"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Dict
+a = Dict.map g (Dict.filter (\\k -> always (f k)) dict)
+"""
+                        ]
+        , test "should replace Dict.filter (\\k _ -> f k) << Dict.map g by Dict.map g << Dict.filter (\\k _ -> f k)" <|
+            \() ->
+                """module A exposing (..)
+import Dict
+a = Dict.filter (\\k _ -> f k) << Dict.map g
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Dict.filter by key on Dict.map can be optimized to Dict.map on Dict.filter"
+                            , details = [ "You can replace this composition by Dict.filter with the test function given to the original Dict.filter, then Dict.map with the function given to the original Dict.map." ]
+                            , under = "Dict.filter"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Dict
+a = (Dict.map g << Dict.filter (\\k _ -> f k))
+"""
+                        ]
+        , test "should replace Dict.map g >> Dict.filter (\\k _ -> f k) by Dict.filter (\\k _ -> f k) >> Dict.map g" <|
+            \() ->
+                """module A exposing (..)
+import Dict
+a = Dict.map g >> Dict.filter (\\k _ -> f k)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Dict.filter by key on Dict.map can be optimized to Dict.map on Dict.filter"
+                            , details = [ "You can replace this composition by Dict.filter with the test function given to the original Dict.filter, then Dict.map with the function given to the original Dict.map." ]
+                            , under = "Dict.filter"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Dict
+a = (Dict.filter (\\k _ -> f k) >> Dict.map g)
+"""
+                        ]
+        , test "should replace Dict.filter (\\k _ -> k /= (f <| x)) dict by always Dict.remove (f <| x) dict" <|
+            \() ->
+                """module A exposing (..)
+import Dict
+a = Dict.filter (\\k _ -> k /= (f <| x)) dict
+"""
+                    |> whenNotExpectingNaN Review.Test.run
+                        [ Review.Test.error
+                            { message = "Dict.filter checking each key for inequality with a specific value is the same as Dict.remove"
+                            , details = [ "You can replace this call by Dict.remove with the specific value you compared against which is meant for this exact purpose and will also be faster." ]
+                            , under = "Dict.filter"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Dict
+a = Dict.remove (f <| x) dict
+"""
+                        ]
+        , test "should replace Dict.filter (\\k -> always (k /= (f <| x))) dict by always Dict.remove (f <| x)" <|
+            \() ->
+                """module A exposing (..)
+import Dict
+a = Dict.filter (\\k -> always (k /= (f <| x)))
+"""
+                    |> whenNotExpectingNaN Review.Test.run
+                        [ Review.Test.error
+                            { message = "Dict.filter checking each key for inequality with a specific value is the same as Dict.remove"
+                            , details = [ "You can replace this call by Dict.remove with the specific value you compared against which is meant for this exact purpose and will also be faster." ]
+                            , under = "Dict.filter"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Dict
+a = Dict.remove (f <| x)
 """
                         ]
         ]
@@ -1946,7 +2165,10 @@ dictDiffTests =
             \() ->
                 """module A exposing (..)
 import Dict
-a = Dict.diff x y
+a0 = Dict.diff
+a1 = Dict.diff dict
+a2 = Dict.diff dict remove
+a3 = Dict.map f (Dict.diff dict remove)
 """
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectNoErrors
@@ -2002,6 +2224,96 @@ a = Dict.empty |> Dict.diff dict
                             |> Review.Test.whenFixed """module A exposing (..)
 import Dict
 a = dict
+"""
+                        ]
+        , test "should replace Dict.diff dict (Dict.map f remove) by Dict.diff dict remove" <|
+            \() ->
+                """module A exposing (..)
+import Dict
+a = Dict.diff dict (Dict.map f remove)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary Dict.map before Dict.diff"
+                            , details = [ "Dict.diff removes all keys present in the second dict, therefore mapping only its values will have no effect. You can replace the Dict.map call by the unchanged dict." ]
+                            , under = "Dict.diff"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Dict
+a = Dict.diff dict remove
+"""
+                        ]
+        , test "should replace Dict.diff dict << Dict.map f by Dict.diff dict" <|
+            \() ->
+                """module A exposing (..)
+import Dict
+a = Dict.diff dict << Dict.map f
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary Dict.map before Dict.diff"
+                            , details = [ "Dict.diff removes all keys present in the second dict, therefore mapping only its values will have no effect. You can remove the Dict.map call." ]
+                            , under = "Dict.diff"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Dict
+a = Dict.diff dict
+"""
+                        ]
+        , test "should replace Dict.diff (Dict.map f dict) remove by Dict.map f (Dict.diff dict remove)" <|
+            \() ->
+                """module A exposing (..)
+import Dict
+a = Dict.diff (Dict.map f dict) remove
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Dict.diff with a base dict resulting from a Dict.map can be optimized to Dict.map on Dict.diff"
+                            , details = [ "You can replace this call by Dict.map with the function given to the original call, on Dict.diff with the unmapped dict and the dict containing the keys to remove given to the original call." ]
+                            , under = "Dict.diff"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Dict
+a = (Dict.map f (Dict.diff dict remove))
+"""
+                        ]
+        , test "should replace Dict.diff (dict |> Dict.map f) <| remove by (Dict.diff dict <| remove) |> Dict.map f" <|
+            \() ->
+                """module A exposing (..)
+import Dict
+a = Dict.diff (dict |> Dict.map f) <| remove
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Dict.diff with a base dict resulting from a Dict.map can be optimized to Dict.map on Dict.diff"
+                            , details = [ "You can replace this call by Dict.map with the function given to the original call, on Dict.diff with the unmapped dict and the dict containing the keys to remove given to the original call." ]
+                            , under = "Dict.diff"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Dict
+a = ((Dict.diff dict <| remove) |> Dict.map f)
+"""
+                        ]
+        , test "should replace remove |> Dict.diff (Dict.map f <| dict) by Dict.map f <| (remove |> Dict.diff dict)" <|
+            \() ->
+                """module A exposing (..)
+import Dict
+a = remove |> Dict.diff (Dict.map f <| dict)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Dict.diff with a base dict resulting from a Dict.map can be optimized to Dict.map on Dict.diff"
+                            , details = [ "You can replace this call by Dict.map with the function given to the original call, on Dict.diff with the unmapped dict and the dict containing the keys to remove given to the original call." ]
+                            , under = "Dict.diff"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Dict
+a = (Dict.map f <| (remove |> Dict.diff dict))
 """
                         ]
         ]

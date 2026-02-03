@@ -1,6 +1,6 @@
 module Simplify.CoreHelpers exposing
     ( isJust, isNothing, onNothing, maybeWithDefaultLazy
-    , consIf, countUnique, countUniqueBy, findMap, listFind, indexedFindMap, findMapAndAllBefore, findMapNeighboring, listAll2, list2AreSameLengthAndAll, drop2EndingsWhile, listIndexedFilterMap, listLast, traverse, traverseConcat, uniqueByThenMap, listMapToStringsThenJoin
+    , consIf, countUnique, findMap, listFind, indexedFindMap, findMapAndAllBefore, findMapNeighboring, listAll2, list2AreSameLengthAndAll, drop2EndingsWhile, listIndexedFilterMap, listLast, traverse, traverseConcat, uniqueByThenMap, listMapToStringsThenJoin
     , listFilledFromList, listFilledHead, listFilledInit, listFilledLast, listFilledLength, listFilledMap, listFilledTail, listFilledToList
     )
 
@@ -15,7 +15,7 @@ moved to a separate module for easier testing etc.
 
 ## List
 
-@docs consIf, countUnique, countUniqueBy, findMap, listFind, indexedFindMap, findMapAndAllBefore, findMapNeighboring, listAll2, list2AreSameLengthAndAll, drop2EndingsWhile, listIndexedFilterMap, listLast, traverse, traverseConcat, uniqueByThenMap, listMapToStringsThenJoin
+@docs consIf, countUnique, findMap, listFind, indexedFindMap, findMapAndAllBefore, findMapNeighboring, listAll2, list2AreSameLengthAndAll, drop2EndingsWhile, listIndexedFilterMap, listLast, traverse, traverseConcat, uniqueByThenMap, listMapToStringsThenJoin
 
 
 ## `( a, List a )`

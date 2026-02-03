@@ -21,10 +21,22 @@ all =
         , stringWordsTests
         , stringLinesTests
         , stringAppendTests
+        , stringToLowerTests
+        , stringToUpperTests
         , stringReverseTests
+        , stringTrimLeftTests
+        , stringTrimRightTests
+        , stringTrimTests
         , stringSliceTests
         , stringRightTests
         , stringLeftTests
+        , stringDropRightTests
+        , stringDropLeftTests
+        , stringFilterTests
+        , stringUnconsTests
+        , stringMapTests
+        , stringAnyTests
+        , stringAllTests
         , stringFoldlTests
         , stringFoldrTests
         ]
@@ -73,6 +85,214 @@ a = String.isEmpty "a"
 a = False
 """
                         ]
+        , test "should replace String.isEmpty (String.fromChar c) by False" <|
+            \() ->
+                """module A exposing (..)
+a = String.isEmpty (String.fromChar c)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "String.isEmpty on this string will result in False"
+                            , details = [ "You can replace this call by False." ]
+                            , under = "String.isEmpty"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = False
+"""
+                        ]
+        , test "should replace String.isEmpty (String.fromInt n) by False" <|
+            \() ->
+                """module A exposing (..)
+a = String.isEmpty (String.fromInt n)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "String.isEmpty on this string will result in False"
+                            , details = [ "You can replace this call by False." ]
+                            , under = "String.isEmpty"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = False
+"""
+                        ]
+        , test "should replace String.isEmpty (String.fromFloat n) by False" <|
+            \() ->
+                """module A exposing (..)
+a = String.isEmpty (String.fromFloat n)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "String.isEmpty on this string will result in False"
+                            , details = [ "You can replace this call by False." ]
+                            , under = "String.isEmpty"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = False
+"""
+                        ]
+        , test "should replace String.isEmpty (String.cons h t) by False" <|
+            \() ->
+                """module A exposing (..)
+a = String.isEmpty (String.cons h t)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "String.isEmpty on this string will result in False"
+                            , details = [ "You can replace this call by False." ]
+                            , under = "String.isEmpty"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = False
+"""
+                        ]
+        , test "should replace String.isEmpty (String.fromList (h :: t)) by False" <|
+            \() ->
+                """module A exposing (..)
+a = String.isEmpty (String.fromList (h :: t))
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "String.isEmpty on this string will result in False"
+                            , details = [ "You can replace this call by False." ]
+                            , under = "String.isEmpty"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = False
+"""
+                        ]
+        , test "should replace String.isEmpty (String.repeat 2 (String.fromChar 'x')) by False" <|
+            \() ->
+                """module A exposing (..)
+a = String.isEmpty (String.repeat 2 (String.fromChar 'x'))
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "String.isEmpty on this string will result in False"
+                            , details = [ "You can replace this call by False." ]
+                            , under = "String.isEmpty"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = False
+"""
+                        ]
+        , test "should replace String.isEmpty (str ++ String.fromChar 'x') by False" <|
+            \() ->
+                """module A exposing (..)
+a = String.isEmpty (str ++ String.fromChar 'x')
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "String.isEmpty on this string will result in False"
+                            , details = [ "You can replace this call by False." ]
+                            , under = "String.isEmpty"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = False
+"""
+                        ]
+        , test "should replace String.isEmpty (String.fromChar 'x' ++ str) by False" <|
+            \() ->
+                """module A exposing (..)
+a = String.isEmpty (String.fromChar 'x' ++ str)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "String.isEmpty on this string will result in False"
+                            , details = [ "You can replace this call by False." ]
+                            , under = "String.isEmpty"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = False
+"""
+                        ]
+        , test "should replace String.isEmpty (String.append str <| String.fromChar 'x') by False" <|
+            \() ->
+                """module A exposing (..)
+a = String.isEmpty (String.append str <| String.fromChar 'x')
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "String.isEmpty on this string will result in False"
+                            , details = [ "You can replace this call by False." ]
+                            , under = "String.isEmpty"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = False
+"""
+                        ]
+        , test "should replace String.isEmpty (String.reverse string) by String.isEmpty string" <|
+            \() ->
+                """module A exposing (..)
+a = String.isEmpty (String.reverse string)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary String.reverse before String.isEmpty"
+                            , details = [ "Reordering the chars in a string does not affect its length. You can replace the String.reverse call by the unchanged string." ]
+                            , under = "String.isEmpty"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = String.isEmpty string
+"""
+                        ]
+        , test "should replace String.isEmpty (String.map f string) by String.isEmpty string" <|
+            \() ->
+                """module A exposing (..)
+a = String.isEmpty (String.map f string)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary String.map before String.isEmpty"
+                            , details = [ "Changing each char in a string to another char can never make a non-empty string empty or an empty string non-empty. You can replace the String.map call by the unchanged string." ]
+                            , under = "String.isEmpty"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = String.isEmpty string
+"""
+                        ]
+        , test "should replace String.isEmpty (String.fromList list) by List.isEmpty list" <|
+            \() ->
+                """module A exposing (..)
+a = String.isEmpty (String.fromList list)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "String.fromList, then String.isEmpty can be combined into List.isEmpty"
+                            , details = [ "You can replace this call by List.isEmpty with the same argument given to String.fromList which is meant for this exact purpose." ]
+                            , under = "String.isEmpty"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (List.isEmpty list)
+"""
+                        ]
+        , test "should replace String.isEmpty << String.fromList by List.isEmpty" <|
+            \() ->
+                """module A exposing (..)
+a = String.isEmpty << String.fromList
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "String.fromList, then String.isEmpty can be combined into List.isEmpty"
+                            , details = [ "You can replace this composition by List.isEmpty which is meant for this exact purpose." ]
+                            , under = "String.isEmpty"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.isEmpty
+"""
+                        ]
         ]
 
 
@@ -87,6 +307,29 @@ b = String.length str
 """
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectNoErrors
+        , test "should not report String.length (String.fromList list) because String.length measures UTF-16 parts, not code points" <|
+            \() ->
+                """module A exposing (..)
+a = String.length (String.fromList list)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectNoErrors
+        , test "should not report String.length (String.fromChar c) because c could have 2 UTF-16 parts and therefore length 2"
+            (\() ->
+                """module A exposing (..)
+a = String.length (String.fromChar c)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectNoErrors
+            )
+        , test "should not report String.length (String.fromList [ c0, c1 ]) because any Char could have 2 UTF-16 parts and therefore length 2"
+            (\() ->
+                """module A exposing (..)
+a = String.length (String.fromList [ c0, c1 ])
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectNoErrors
+            )
         , test "should replace String.length \"\" by 0" <|
             \() ->
                 """module A exposing (..)
@@ -151,6 +394,40 @@ a = String.length \"\"\"a\\t🚀b\\\\c🇲🇻\\u{000D}\\r\"\"\"
                             |> Review.Test.whenFixed
                                 """module A exposing (..)
 a = 13
+"""
+                        ]
+        , test "should replace if l == \"\" then String.length l else 1 by if l == \"\" then 0 else 1" <|
+            \() ->
+                """module A exposing (..)
+a = if l == "" then String.length l else 1
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "The length of the string is 0"
+                            , details =
+                                [ "The length of the string can be determined by looking at the code."
+                                ]
+                            , under = "String.length"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = if l == "" then 0 else 1
+"""
+                        ]
+        , test "should replace String.length (String.reverse string) by String.length string" <|
+            \() ->
+                """module A exposing (..)
+a = String.length (String.reverse string)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary String.reverse before String.length"
+                            , details = [ "Reordering the chars in a string does not affect its length. You can replace the String.reverse call by the unchanged string." ]
+                            , under = "String.length"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = String.length string
 """
                         ]
         ]
@@ -288,7 +565,7 @@ a = String.concat << List.repeat n
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "List.repeat, then String.concat can be combined into String.repeat"
-                            , details = [ "You can replace this composition by String.repeat with the same arguments given to List.repeat which is meant for this exact purpose." ]
+                            , details = [ "You can replace this composition by String.repeat with the same argument given to List.repeat which is meant for this exact purpose." ]
                             , under = "String.concat"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -336,7 +613,7 @@ a = String.concat << List.intersperse str
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "List.intersperse, then String.concat can be combined into String.join"
-                            , details = [ "You can replace this composition by String.join with the same arguments given to List.intersperse which is meant for this exact purpose." ]
+                            , details = [ "You can replace this composition by String.join with the same argument given to List.intersperse which is meant for this exact purpose." ]
                             , under = "String.concat"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -1451,6 +1728,124 @@ a = [ b, c , d, e ] |> String.fromList
         ]
 
 
+stringToLowerTests : Test
+stringToLowerTests =
+    describe "String.toLower"
+        [ test "should not report String.toLower with okay arguments" <|
+            \() ->
+                """module A exposing (..)
+a0 = String.toLower
+a1 = String.toLower str
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectNoErrors
+        , test "should not report String.toLower on String.toUpper because for example ß splits into SS on toUpper" <|
+            \() ->
+                """module A exposing (..)
+a0 = String.toLower (String.toUpper str)
+a1 = String.toLower << String.toUpper
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectNoErrors
+        , test "should replace String.toLower (String.toLower str) to String.toLower str" <|
+            \() ->
+                """module A exposing (..)
+a = String.toLower (String.toLower str)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary String.toLower after String.toLower"
+                            , details = [ "You can remove this additional operation." ]
+                            , under = "String.toLower"
+                            }
+                            |> Review.Test.atExactly { start = { row = 2, column = 5 }, end = { row = 2, column = 19 } }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = String.toLower str
+"""
+                        ]
+        , test "should replace String.toLower << String.toLower to String.toLower" <|
+            \() ->
+                """module A exposing (..)
+a = String.toLower << String.toLower
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary String.toLower after String.toLower"
+                            , details = [ "You can remove this additional operation." ]
+                            , under = "String.toLower"
+                            }
+                            |> Review.Test.atExactly { start = { row = 2, column = 5 }, end = { row = 2, column = 19 } }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = String.toLower
+"""
+                        ]
+        ]
+
+
+stringToUpperTests : Test
+stringToUpperTests =
+    describe "String.toUpper"
+        [ test "should not report String.toUpper with okay arguments" <|
+            \() ->
+                """module A exposing (..)
+a0 = String.toUpper
+a1 = String.toUpper str
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectNoErrors
+        , test "should replace String.toUpper (String.toUpper str) to String.toUpper str" <|
+            \() ->
+                """module A exposing (..)
+a = String.toUpper (String.toUpper str)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary String.toUpper after String.toUpper"
+                            , details = [ "You can remove this additional operation." ]
+                            , under = "String.toUpper"
+                            }
+                            |> Review.Test.atExactly { start = { row = 2, column = 5 }, end = { row = 2, column = 19 } }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = String.toUpper str
+"""
+                        ]
+        , test "should replace String.toUpper << String.toUpper to String.toUpper" <|
+            \() ->
+                """module A exposing (..)
+a = String.toUpper << String.toUpper
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary String.toUpper after String.toUpper"
+                            , details = [ "You can remove this additional operation." ]
+                            , under = "String.toUpper"
+                            }
+                            |> Review.Test.atExactly { start = { row = 2, column = 5 }, end = { row = 2, column = 19 } }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = String.toUpper
+"""
+                        ]
+        , test "should not report String.toUpper (String.toLower str), see https://github.com/jfmengels/elm-review-simplify/pull/429#issuecomment-3746681750" <|
+            \() ->
+                """module A exposing (..)
+a = String.toUpper (String.toLower str)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectNoErrors
+        , test "should not report String.toUpper << String.toLower, see https://github.com/jfmengels/elm-review-simplify/pull/429#issuecomment-3746681750" <|
+            \() ->
+                """module A exposing (..)
+a = String.toUpper << String.toLower
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectNoErrors
+        ]
+
+
 stringReverseTests : Test
 stringReverseTests =
     describe "String.reverse"
@@ -1493,7 +1888,7 @@ a = String.reverse (String.fromChar b)
                             , under = "String.reverse"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
-a = (String.fromChar b)
+a = String.fromChar b
 """
                         ]
         , test "should replace a |> String.fromChar |> String.reverse by a |> String.fromChar" <|
@@ -1615,6 +2010,201 @@ a = (f)
         ]
 
 
+stringTrimLeftTests : Test
+stringTrimLeftTests =
+    describe "String.trimLeft"
+        [ test "should not report String.trimLeft with okay arguments" <|
+            \() ->
+                """module A exposing (..)
+a0 = String.trimLeft
+a1 = String.trimLeft str
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectNoErrors
+        , test "should replace String.trimLeft (String.trimLeft str) by String.trimLeft str" <|
+            \() ->
+                """module A exposing (..)
+a = String.trimLeft (String.trimLeft str)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary String.trimLeft after String.trimLeft"
+                            , details = [ "You can remove this additional operation." ]
+                            , under = "String.trimLeft"
+                            }
+                            |> Review.Test.atExactly { start = { row = 2, column = 5 }, end = { row = 2, column = 20 } }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = String.trimLeft str
+"""
+                        ]
+        , test "should replace String.trimLeft (String.trimRight str) by String.trim str" <|
+            \() ->
+                """module A exposing (..)
+a = String.trimLeft (String.trimRight str)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "String.trimRight, then String.trimLeft can be combined into String.trim"
+                            , details = [ "You can replace this call by String.trim with the same argument given to String.trimRight which is meant for this exact purpose." ]
+                            , under = "String.trimLeft"
+                            }
+                            |> Review.Test.atExactly { start = { row = 2, column = 5 }, end = { row = 2, column = 20 } }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (String.trim str)
+"""
+                        ]
+        , test "should replace String.trimLeft (String.trim str) by String.trim str" <|
+            \() ->
+                """module A exposing (..)
+a = String.trimLeft (String.trim str)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary String.trimLeft on a String.trim call"
+                            , details = [ "You can replace this call by the given String.trim call." ]
+                            , under = "String.trimLeft"
+                            }
+                            |> Review.Test.atExactly { start = { row = 2, column = 5 }, end = { row = 2, column = 20 } }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = String.trim str
+"""
+                        ]
+        ]
+
+
+stringTrimRightTests : Test
+stringTrimRightTests =
+    describe "String.trimRight"
+        [ test "should not report String.trimRight with okay arguments" <|
+            \() ->
+                """module A exposing (..)
+a0 = String.trimRight
+a1 = String.trimRight str
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectNoErrors
+        , test "should replace String.trimRight (String.trimRight str) by String.trimRight str" <|
+            \() ->
+                """module A exposing (..)
+a = String.trimRight (String.trimRight str)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary String.trimRight after String.trimRight"
+                            , details = [ "You can remove this additional operation." ]
+                            , under = "String.trimRight"
+                            }
+                            |> Review.Test.atExactly { start = { row = 2, column = 5 }, end = { row = 2, column = 21 } }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = String.trimRight str
+"""
+                        ]
+        , test "should replace String.trimRight (String.trimLeft str) by String.trim str" <|
+            \() ->
+                """module A exposing (..)
+a = String.trimRight (String.trimLeft str)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "String.trimLeft, then String.trimRight can be combined into String.trim"
+                            , details = [ "You can replace this call by String.trim with the same argument given to String.trimLeft which is meant for this exact purpose." ]
+                            , under = "String.trimRight"
+                            }
+                            |> Review.Test.atExactly { start = { row = 2, column = 5 }, end = { row = 2, column = 21 } }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (String.trim str)
+"""
+                        ]
+        , test "should replace String.trimRight (String.trim str) by String.trim str" <|
+            \() ->
+                """module A exposing (..)
+a = String.trimRight (String.trim str)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary String.trimRight on a String.trim call"
+                            , details = [ "You can replace this call by the given String.trim call." ]
+                            , under = "String.trimRight"
+                            }
+                            |> Review.Test.atExactly { start = { row = 2, column = 5 }, end = { row = 2, column = 21 } }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = String.trim str
+"""
+                        ]
+        ]
+
+
+stringTrimTests : Test
+stringTrimTests =
+    describe "String.trim"
+        [ test "should not report String.trim with okay arguments" <|
+            \() ->
+                """module A exposing (..)
+a0 = String.trim
+a1 = String.trim str
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectNoErrors
+        , test "should replace String.trim (String.trim str) by String.trim str" <|
+            \() ->
+                """module A exposing (..)
+a = String.trim (String.trim str)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary String.trim after String.trim"
+                            , details = [ "You can remove this additional operation." ]
+                            , under = "String.trim"
+                            }
+                            |> Review.Test.atExactly { start = { row = 2, column = 5 }, end = { row = 2, column = 16 } }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = String.trim str
+"""
+                        ]
+        , test "should replace String.trim (String.trimLeft str) by String.trim str" <|
+            \() ->
+                """module A exposing (..)
+a = String.trim (String.trimLeft str)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary String.trimLeft before String.trim"
+                            , details = [ "Trimming from the start is already covered by the final String.trim. You can replace the String.trimLeft call by the unchanged string." ]
+                            , under = "String.trim"
+                            }
+                            |> Review.Test.atExactly { start = { row = 2, column = 5 }, end = { row = 2, column = 16 } }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = String.trim str
+"""
+                        ]
+        , test "should replace String.trim (String.trimRight str) by String.trim str" <|
+            \() ->
+                """module A exposing (..)
+a = String.trim (String.trimRight str)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary String.trimRight before String.trim"
+                            , details = [ "Trimming from the end is already covered by the final String.trim. You can replace the String.trimRight call by the unchanged string." ]
+                            , under = "String.trim"
+                            }
+                            |> Review.Test.atExactly { start = { row = 2, column = 5 }, end = { row = 2, column = 16 } }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = String.trim str
+"""
+                        ]
+        ]
+
+
 stringSliceTests : Test
 stringSliceTests =
     describe "String.slice"
@@ -1633,6 +2223,29 @@ b = String.slice 0 n
 """
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectNoErrors
+        , test "should not report String.slice on String.map because the given function could change the UTF-16 length (String.slice is not unicode-aware)" <|
+            \() ->
+                """module A exposing (..)
+a = String.slice start end (String.map f string)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectNoErrors
+        , test "should replace String.slice start end \"\" by always \"\"" <|
+            \() ->
+                """module A exposing (..)
+a = String.slice start end ""
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "String.slice on \"\" will result in \"\""
+                            , details = [ "You can replace this call by \"\"." ]
+                            , under = "String.slice"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = ""
+"""
+                        ]
         , test "should replace String.slice b 0 by always \"\"" <|
             \() ->
                 """module A exposing (..)
@@ -1775,6 +2388,13 @@ b = String.left n0 (String.left n1 string)
 """
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectNoErrors
+        , test "should not report String.left on String.map because the given function could change the UTF-16 length (String.left is not unicode-aware)" <|
+            \() ->
+                """module A exposing (..)
+a = String.left n (String.map f string)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectNoErrors
         , test "should replace String.left 0 str by \"\"" <|
             \() ->
                 """module A exposing (..)
@@ -1853,7 +2473,7 @@ a = String.left n (String.left n string)
                             }
                             |> Review.Test.atExactly { start = { row = 2, column = 5 }, end = { row = 2, column = 16 } }
                             |> Review.Test.whenFixed """module A exposing (..)
-a = (String.left n string)
+a = String.left n string
 """
                         ]
         , test "should replace String.left n >> String.left n by String.left n" <|
@@ -1900,7 +2520,14 @@ stringRightTests =
             \() ->
                 """module A exposing (..)
 a = String.right n string
-a = String.right n0 (String.right n1 string)
+b = String.right n0 (String.right n1 string)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectNoErrors
+        , test "should not report String.right on String.map because the given function could change the UTF-16 length (String.right is not unicode-aware)" <|
+            \() ->
+                """module A exposing (..)
+a = String.right n (String.map f string)
 """
                     |> Review.Test.run ruleWithDefaults
                     |> Review.Test.expectNoErrors
@@ -1918,7 +2545,7 @@ a = String.right n (String.right n string)
                             }
                             |> Review.Test.atExactly { start = { row = 2, column = 5 }, end = { row = 2, column = 17 } }
                             |> Review.Test.whenFixed """module A exposing (..)
-a = (String.right n string)
+a = String.right n string
 """
                         ]
         , test "should replace String.right n >> String.right n by String.right n" <|
@@ -2033,6 +2660,663 @@ a = String.right n ""
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 a = ""
+"""
+                        ]
+        ]
+
+
+stringDropLeftTests : Test
+stringDropLeftTests =
+    describe "String.dropLeft"
+        [ test "should not report String.dropLeft with okay arguments" <|
+            \() ->
+                """module A exposing (..)
+a0 = String.dropLeft
+a1 = String.dropLeft n
+a2 = String.dropLeft n str
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectNoErrors
+        , test "should replace String.dropLeft n \"\" by \"\"" <|
+            \() ->
+                """module A exposing (..)
+a = String.dropLeft n ""
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "String.dropLeft on \"\" will result in \"\""
+                            , details = [ "You can replace this call by \"\"." ]
+                            , under = "String.dropLeft"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = ""
+"""
+                        ]
+        , test "should replace String.dropLeft 0 str by str" <|
+            \() ->
+                """module A exposing (..)
+a = String.dropLeft 0 str
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "String.dropLeft with count 0 will always return the same given string"
+                            , details = [ "You can replace this call by the string itself." ]
+                            , under = "String.dropLeft"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = str
+"""
+                        ]
+        , test "should replace String.dropLeft -1 str by str" <|
+            \() ->
+                """module A exposing (..)
+a = String.dropLeft -1 str
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "String.dropLeft with negative count will always return the same given string"
+                            , details = [ "You can replace this call by the string itself." ]
+                            , under = "String.dropLeft"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = str
+"""
+                        ]
+        , test "should replace String.dropLeft 10 \"Hello\" by \"\"" <|
+            \() ->
+                """module A exposing (..)
+a = String.dropLeft 10 "Hello"
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "String.dropLeft with a count greater than or equal to the given string's length will always result in \"\""
+                            , details = [ "You can replace this call by \"\"." ]
+                            , under = "String.dropLeft"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = ""
+"""
+                        ]
+        , test "should not report String.dropLeft on String.map because the given function could change the UTF-16 length (String.dropLeft is not unicode-aware)" <|
+            \() ->
+                """module A exposing (..)
+a = String.dropLeft n (String.map f string)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectNoErrors
+        ]
+
+
+stringUnconsTests : Test
+stringUnconsTests =
+    describe "String.uncons"
+        [ test "should not report String.uncons with okay arguments" <|
+            \() ->
+                """module A exposing (..)
+a0 = String.uncons
+a1 = String.uncons str
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectNoErrors
+        , test "should replace String.uncons \"\" by Nothing" <|
+            \() ->
+                """module A exposing (..)
+a = String.uncons ""
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "String.uncons on \"\" will result in Nothing"
+                            , details = [ "You can replace this call by Nothing." ]
+                            , under = "String.uncons"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = Nothing
+"""
+                        ]
+        ]
+
+
+stringDropRightTests : Test
+stringDropRightTests =
+    describe "String.dropRight"
+        [ test "should not report String.dropRight with okay arguments" <|
+            \() ->
+                """module A exposing (..)
+a0 = String.dropRight
+a1 = String.dropRight n
+a2 = String.dropRight n str
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectNoErrors
+        , test "should replace String.dropRight n \"\" by \"\"" <|
+            \() ->
+                """module A exposing (..)
+a = String.dropRight n ""
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "String.dropRight on \"\" will result in \"\""
+                            , details = [ "You can replace this call by \"\"." ]
+                            , under = "String.dropRight"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = ""
+"""
+                        ]
+        , test "should replace String.dropRight 0 str by str" <|
+            \() ->
+                """module A exposing (..)
+a = String.dropRight 0 str
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "String.dropRight with count 0 will always return the same given string"
+                            , details = [ "You can replace this call by the string itself." ]
+                            , under = "String.dropRight"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = str
+"""
+                        ]
+        , test "should replace String.dropRight -1 str by str" <|
+            \() ->
+                """module A exposing (..)
+a = String.dropRight -1 str
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "String.dropRight with negative count will always return the same given string"
+                            , details = [ "You can replace this call by the string itself." ]
+                            , under = "String.dropRight"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = str
+"""
+                        ]
+        , test "should replace String.dropRight 10 \"Hello\" by \"\"" <|
+            \() ->
+                """module A exposing (..)
+a = String.dropRight 10 "Hello"
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "String.dropRight with a count greater than or equal to the given string's length will always result in \"\""
+                            , details = [ "You can replace this call by \"\"." ]
+                            , under = "String.dropRight"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = ""
+"""
+                        ]
+        , test "should not report String.dropRight on String.map because the given function could change the UTF-16 length (String.dropRight is not unicode-aware)" <|
+            \() ->
+                """module A exposing (..)
+a = String.dropRight n (String.map f string)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectNoErrors
+        ]
+
+
+stringFilterTests : Test
+stringFilterTests =
+    describe "String.filter"
+        [ test "should not report String.filter used with okay arguments" <|
+            \() ->
+                """module A exposing (..)
+a0 = String.filter f x
+a1 = String.filter f (String.filter g x)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectNoErrors
+        , test "should replace String.filter f \"\" by \"\"" <|
+            \() ->
+                """module A exposing (..)
+a = String.filter f ""
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "String.filter on \"\" will result in \"\""
+                            , details = [ "You can replace this call by \"\"." ]
+                            , under = "String.filter"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = ""
+"""
+                        ]
+        , test "should replace String.filter f (String.filter f string) by String.filter f string" <|
+            \() ->
+                """module A exposing (..)
+a = String.filter f (String.filter f string)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary String.filter after equivalent String.filter"
+                            , details = [ "You can remove this additional operation." ]
+                            , under = "String.filter"
+                            }
+                            |> Review.Test.atExactly { start = { row = 2, column = 5 }, end = { row = 2, column = 18 } }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = String.filter f string
+"""
+                        ]
+        , test "should replace String.filter f << String.filter f by String.filter f" <|
+            \() ->
+                """module A exposing (..)
+a = String.filter f << String.filter f
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary String.filter after equivalent String.filter"
+                            , details = [ "You can remove this additional operation." ]
+                            , under = "String.filter"
+                            }
+                            |> Review.Test.atExactly { start = { row = 2, column = 5 }, end = { row = 2, column = 18 } }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = String.filter f
+"""
+                        ]
+        , test "should replace String.filter (always True) x by x" <|
+            \() ->
+                """module A exposing (..)
+a = String.filter (always True) x
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "String.filter with a function that will always return True will always return the same given string"
+                            , details = [ "You can replace this call by the string itself." ]
+                            , under = "String.filter"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = x
+"""
+                        ]
+        , test "should replace String.filter (always True) by identity" <|
+            \() ->
+                """module A exposing (..)
+a = String.filter (always True)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "String.filter with a function that will always return True will always return the same given string"
+                            , details = [ "You can replace this call by identity." ]
+                            , under = "String.filter"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = identity
+"""
+                        ]
+        , test "should replace String.filter (always False) x by \"\"" <|
+            \() ->
+                """module A exposing (..)
+a = String.filter (always False) x
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "String.filter with a function that will always return False will always result in \"\""
+                            , details = [ "You can replace this call by \"\"." ]
+                            , under = "String.filter"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = ""
+"""
+                        ]
+        , test "should replace String.filter (always False) by always \"\"" <|
+            \() ->
+                """module A exposing (..)
+a = String.filter (always False)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "String.filter with a function that will always return False will always result in \"\""
+                            , details = [ "You can replace this call by always \"\"." ]
+                            , under = "String.filter"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = always ""
+"""
+                        ]
+        , test "should replace String.filter f (String.reverse string) by String.reverse (String.filter f string)" <|
+            \() ->
+                """module A exposing (..)
+a = String.filter f (String.reverse string)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "String.filter on String.reverse can be optimized to String.reverse on String.filter"
+                            , details = [ "You can replace this call by String.reverse, on String.filter with the function given to the original String.filter." ]
+                            , under = "String.filter"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = String.reverse (String.filter f string)
+"""
+                        ]
+        , test "should replace String.filter f << String.reverse by String.reverse << String.filter f" <|
+            \() ->
+                """module A exposing (..)
+a = String.filter f << String.reverse
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "String.filter on String.reverse can be optimized to String.reverse on String.filter"
+                            , details = [ "You can replace this composition by String.filter with the function given to the original String.filter, then String.reverse." ]
+                            , under = "String.filter"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (String.reverse << String.filter f)
+"""
+                        ]
+        ]
+
+
+stringMapTests : Test
+stringMapTests =
+    describe "String.map"
+        [ test "should not report String.map with okay arguments"
+            (\() ->
+                """module A exposing (..)
+a0 = String.map
+a1 = String.map f
+a2 = String.map f str
+a3 = String.map f (String.repeat n str)
+a4 = String.repeat n (String.map f str)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectNoErrors
+            )
+        , test "should replace String.map f \"\" by \"\"" <|
+            \() ->
+                """module A exposing (..)
+a = String.map f ""
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "String.map on \"\" will result in \"\""
+                            , details = [ "You can replace this call by \"\"." ]
+                            , under = "String.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = ""
+"""
+                        ]
+        , test "should replace String.map identity str by str" <|
+            \() ->
+                """module A exposing (..)
+a = String.map identity str
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "String.map with an identity function will always return the same given string"
+                            , details = [ "You can replace this call by the string itself." ]
+                            , under = "String.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = str
+"""
+                        ]
+        , test "should replace String.map identity by identity" <|
+            \() ->
+                """module A exposing (..)
+a = String.map identity
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "String.map with an identity function will always return the same given string"
+                            , details = [ "You can replace this call by identity." ]
+                            , under = "String.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = identity
+"""
+                        ]
+        , test "should replace String.map f (String.repeat n (String.fromChar c)) by String.repeat n (String.fromChar (f c))" <|
+            \() ->
+                """module A exposing (..)
+a = String.map f (String.repeat n (String.fromChar c))
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "String.map on String.repeat on String.fromChar is the same as String.repeat on String.fromChar with the mapped char"
+                            , details = [ "You can replace this call by the String.repeat on String.fromChar operation but with the function given to the String.map operation applied to the original char." ]
+                            , under = "String.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = String.repeat n (String.fromChar (f c))
+"""
+                        ]
+        , test "should replace String.map (f ; x) (String.repeat n <| String.fromChar (g ; y)) by String.repeat n <| String.fromChar ((f ; x) ; (g ; y))" <|
+            \() ->
+                """module A exposing (..)
+a = String.map (f
+                x) (String.repeat n<|String.fromChar (g
+                                                        y))
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "String.map on String.repeat on String.fromChar is the same as String.repeat on String.fromChar with the mapped char"
+                            , details = [ "You can replace this call by the String.repeat on String.fromChar operation but with the function given to the String.map operation applied to the original char." ]
+                            , under = "String.map"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (String.repeat n<|String.fromChar ((f
+                x)
+                                                     (g
+                                                        y)))
+"""
+                        ]
+        ]
+
+
+stringAnyTests : Test
+stringAnyTests =
+    describe "String.any"
+        [ test "should not report String.any with okay arguments"
+            (\() ->
+                """module A exposing (..)
+a0 = String.any
+a1 = String.any f
+a2 = String.any f str
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectNoErrors
+            )
+        , test "should replace String.any f \"\" by False" <|
+            \() ->
+                """module A exposing (..)
+a = String.any f ""
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "String.any on \"\" will result in False"
+                            , details = [ "You can replace this call by False." ]
+                            , under = "String.any"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = False
+"""
+                        ]
+        , test "should replace String.any (always False) str by False" <|
+            \() ->
+                """module A exposing (..)
+a = String.any (always False) str
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "String.any with a function that will always return False will always result in False"
+                            , details = [ "You can replace this call by False." ]
+                            , under = "String.any"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = False
+"""
+                        ]
+        , test "should replace String.any (always False) by False" <|
+            \() ->
+                """module A exposing (..)
+a = String.any (always False)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "String.any with a function that will always return False will always result in False"
+                            , details = [ "You can replace this call by always False." ]
+                            , under = "String.any"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = always False
+"""
+                        ]
+        , test "should replace String.any (always True) string by not (String.isEmpty string)" <|
+            \() ->
+                """module A exposing (..)
+a = String.any (always True) string
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "String.any with a function that will always return True is the same as Basics.not on String.isEmpty"
+                            , details = [ "You can replace this call by Basics.not on String.isEmpty on the string given to the String.any call." ]
+                            , under = "String.any"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = not (String.isEmpty string)
+"""
+                        ]
+        , test "should replace String.any (always True) by not << String.isEmpty" <|
+            \() ->
+                """module A exposing (..)
+a = String.any (always True)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "String.any with a function that will always return True is the same as Basics.not on String.isEmpty"
+                            , details = [ "You can replace this call by String.isEmpty, then Basics.not." ]
+                            , under = "String.any"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (not << String.isEmpty)
+"""
+                        ]
+        ]
+
+
+stringAllTests : Test
+stringAllTests =
+    describe "String.all"
+        [ test "should not report String.all with okay arguments"
+            (\() ->
+                """module A exposing (..)
+a0 = String.all
+a1 = String.all f
+a2 = String.all f str
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectNoErrors
+            )
+        , test "should replace String.all f \"\" by \"\"" <|
+            \() ->
+                """module A exposing (..)
+a = String.all f ""
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "String.all on \"\" will result in True"
+                            , details = [ "You can replace this call by True." ]
+                            , under = "String.all"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = True
+"""
+                        ]
+        , test "should replace String.all (always True) str by True" <|
+            \() ->
+                """module A exposing (..)
+a = String.all (always True) str
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "String.all with a function that will always return True will always result in True"
+                            , details = [ "You can replace this call by True." ]
+                            , under = "String.all"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = True
+"""
+                        ]
+        , test "should replace String.all (always True) by True" <|
+            \() ->
+                """module A exposing (..)
+a = String.all (always True)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "String.all with a function that will always return True will always result in True"
+                            , details = [ "You can replace this call by always True." ]
+                            , under = "String.all"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = always True
+"""
+                        ]
+        , test "should replace String.all (always False) string by String.isEmpty string" <|
+            \() ->
+                """module A exposing (..)
+a = String.all (always False) string
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "String.all with a function that will always return False is the same as String.isEmpty"
+                            , details = [ "You can replace this call by String.isEmpty on the string given to the String.all call." ]
+                            , under = "String.all"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = String.isEmpty string
+"""
+                        ]
+        , test "should replace String.all (always False) by String.isEmpty" <|
+            \() ->
+                """module A exposing (..)
+a = String.all (always False)
+"""
+                    |> Review.Test.run ruleWithDefaults
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "String.all with a function that will always return False is the same as String.isEmpty"
+                            , details = [ "You can replace this call by String.isEmpty." ]
+                            , under = "String.all"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = String.isEmpty
 """
                         ]
         ]
