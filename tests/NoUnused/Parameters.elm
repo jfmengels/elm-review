@@ -8,8 +8,6 @@ module NoUnused.Parameters exposing (rule)
 
 import Array exposing (Array)
 import Dict exposing (Dict)
-import Elm.Module
-import Elm.Project
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Exposing as Exposing
 import Elm.Syntax.Expression as Expression exposing (Expression)
@@ -125,7 +123,6 @@ elm-review --template jfmengels/elm-review-unused/example --rules NoUnused.Param
 rule : Rule
 rule =
     Rule.newProjectRuleSchema "NoUnused.Parameters" initialContext
-        |> Rule.withElmJsonProjectVisitor elmJsonVisitor
         |> Rule.withModuleVisitor moduleVisitor
         |> Rule.withModuleContextWithErrors
             { fromProjectToModule = fromProjectToModule
@@ -136,39 +133,6 @@ rule =
         |> Rule.withContextFromImportedModules
         |> Rule.providesFixesForProjectRule
         |> Rule.fromProjectRuleSchema
-
-
-elmJsonVisitor : Maybe { a | project : Elm.Project.Project } -> ProjectContext -> ( List nothing, ProjectContext )
-elmJsonVisitor maybeProject projectContext =
-    let
-        exposedModules : Set ModuleName
-        exposedModules =
-            case maybeProject |> Maybe.map .project of
-                Just (Elm.Project.Package { exposed }) ->
-                    let
-                        exposedModuleNames : List Elm.Module.Name
-                        exposedModuleNames =
-                            case exposed of
-                                Elm.Project.ExposedList names ->
-                                    names
-
-                                Elm.Project.ExposedDict fakeDict ->
-                                    List.concatMap Tuple.second fakeDict
-                    in
-                    List.foldl
-                        (\moduleName acc ->
-                            Set.insert (moduleName |> Elm.Module.toString |> String.split ".") acc
-                        )
-                        Set.empty
-                        exposedModuleNames
-
-                Just (Elm.Project.Application _) ->
-                    Set.empty
-
-                Nothing ->
-                    Set.empty
-    in
-    ( [], { projectContext | exposedModules = exposedModules } )
 
 
 moduleVisitor : Rule.ModuleRuleSchema schemaState ModuleContext -> Rule.ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } ModuleContext
@@ -187,8 +151,7 @@ moduleVisitor schema =
 
 
 type alias ProjectContext =
-    { exposedModules : Set ModuleName
-    , toReport : Dict ModuleName { key : ModuleKey, args : List ArgumentToReport }
+    { toReport : Dict ModuleName { key : ModuleKey, args : List ArgumentToReport }
     , functionCallsWithArguments : Dict ( ModuleName, FunctionName ) (List { key : ModuleKey, isFileFixable : Bool, callSites : List CallSite })
     }
 
@@ -201,15 +164,13 @@ type alias CallSite =
 
 initialContext : ProjectContext
 initialContext =
-    { exposedModules = Set.empty
-    , toReport = Dict.empty
+    { toReport = Dict.empty
     , functionCallsWithArguments = Dict.empty
     }
 
 
 type alias ModuleContext =
-    { exposedModules : Set ModuleName
-    , lookupTable : ModuleNameLookupTable
+    { lookupTable : ModuleNameLookupTable
     , scopes : Nonempty Scope
     , recursiveFunctions : Dict String FunctionArgs
     , locationsToIgnoreForRecursiveArguments : LocationsToIgnore
@@ -285,8 +246,7 @@ fromProjectToModule : Rule.ContextCreator ProjectContext ModuleContext
 fromProjectToModule =
     Rule.initContextCreator
         (\lookupTable projectContent ->
-            { exposedModules = projectContent.exposedModules
-            , lookupTable = lookupTable
+            { lookupTable = lookupTable
             , scopes =
                 NonemptyList.fromElement
                     { functionName = "root"
@@ -317,8 +277,12 @@ fromProjectToModule =
 fromModuleToProject : Rule.ContextCreator ModuleContext ( List (Rule.Error {}), ProjectContext )
 fromModuleToProject =
     Rule.initContextCreator
-        (\moduleName moduleKey ast isFileIgnored isFileFixable moduleContext ->
+        (\moduleName moduleKey isModuleExposed_ ast isFileIgnored isFileFixable moduleContext ->
             let
+                isModuleExposed : Bool
+                isModuleExposed =
+                    Maybe.withDefault False isModuleExposed_
+
                 isExposed : String -> Bool
                 isExposed =
                     case Module.exposingList (Node.value ast.moduleDefinition) of
@@ -335,13 +299,12 @@ fromModuleToProject =
             in
             if isFileIgnored then
                 ( []
-                , { exposedModules = Set.empty
-                  , toReport = Dict.empty
+                , { toReport = Dict.empty
                   , functionCallsWithArguments =
                         List.foldl
                             (\arg functionCallsWithArguments ->
                                 if isExposed arg.functionName then
-                                    if Set.member moduleName moduleContext.exposedModules then
+                                    if isModuleExposed then
                                         functionCallsWithArguments
 
                                     else
@@ -376,7 +339,7 @@ fromModuleToProject =
                         List.foldl
                             (\arg acc ->
                                 if isExposed arg.functionName then
-                                    if Set.member moduleName moduleContext.exposedModules then
+                                    if isModuleExposed then
                                         let
                                             newErrors : List (Rule.Error {})
                                             newErrors =
@@ -433,14 +396,14 @@ fromModuleToProject =
                             (NonemptyList.head moduleContext.scopes).toReport
                 in
                 ( errors
-                , { exposedModules = Set.empty
-                  , toReport = Dict.singleton moduleName { key = moduleKey, args = toReport }
+                , { toReport = Dict.singleton moduleName { key = moduleKey, args = toReport }
                   , functionCallsWithArguments = functionCallsWithArguments
                   }
                 )
         )
         |> Rule.withModuleName
         |> Rule.withModuleKey
+        |> Rule.withIsModuleExposed
         |> Rule.withFullAst
         |> Rule.withIsFileIgnored
         |> Rule.withIsFileFixable
@@ -448,8 +411,7 @@ fromModuleToProject =
 
 foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext
 foldProjectContexts newContext previousContext =
-    { exposedModules = previousContext.exposedModules
-    , toReport = Dict.union newContext.toReport previousContext.toReport
+    { toReport = Dict.union newContext.toReport previousContext.toReport
     , functionCallsWithArguments = mergeFunctionCallsWithArguments previousContext.functionCallsWithArguments newContext.functionCallsWithArguments
     }
 
@@ -583,8 +545,7 @@ declarationEnterVisitor (Node _ node) context =
                 declared =
                     findDeclared functionName NamedFunction functionNameRange.end declaration.arguments f.signature
             in
-            { exposedModules = context.exposedModules
-            , lookupTable = context.lookupTable
+            { lookupTable = context.lookupTable
             , scopes =
                 NonemptyList.cons
                     { functionName = functionName
