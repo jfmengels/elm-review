@@ -7,8 +7,6 @@ module NoUnused.CustomTypeConstructors exposing (rule)
 -}
 
 import Dict exposing (Dict)
-import Elm.Module
-import Elm.Project
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Exposing as Exposing
 import Elm.Syntax.Expression as Expression exposing (Expression)
@@ -130,7 +128,6 @@ elm-review --template jfmengels/elm-review-unused/example --rules NoUnused.Custo
 rule : List { moduleName : String, typeName : String, index : Int } -> Rule
 rule phantomTypes =
     Rule.newProjectRuleSchema "NoUnused.CustomTypeConstructors" (initialProjectContext phantomTypes)
-        |> Rule.withElmJsonProjectVisitor elmJsonVisitor
         |> Rule.withModuleVisitor moduleVisitor
         |> Rule.withModuleContextWithErrors
             { fromProjectToModule = fromProjectToModule
@@ -190,8 +187,7 @@ type alias ConstructorInformation =
 
 
 type alias ProjectContext =
-    { exposedModules : Set ModuleNameAsString
-    , moduleKeys : Dict ModuleNameAsString Rule.ModuleKey
+    { moduleKeys : Dict ModuleNameAsString Rule.ModuleKey
     , declaredConstructors : Dict ModuleNameAsString ExposedConstructors
     , usedConstructors : Dict ModuleNameAsString (Set ConstructorName)
     , phantomVariables : Dict ModuleNameAsString (List ( CustomTypeName, Int ))
@@ -220,8 +216,7 @@ type alias ModuleContext =
 
 initialProjectContext : List { moduleName : String, typeName : String, index : Int } -> ProjectContext
 initialProjectContext phantomTypes =
-    { exposedModules = Set.empty
-    , moduleKeys = Dict.empty
+    { moduleKeys = Dict.empty
     , declaredConstructors = Dict.empty
     , usedConstructors = Dict.empty
     , phantomVariables =
@@ -240,7 +235,7 @@ initialProjectContext phantomTypes =
 fromProjectToModule : Rule.ContextCreator ProjectContext ModuleContext
 fromProjectToModule =
     Rule.initContextCreator
-        (\lookupTable moduleName projectContext ->
+        (\lookupTable moduleName isModuleExposed projectContext ->
             let
                 moduleNameAsString : ModuleNameAsString
                 moduleNameAsString =
@@ -249,7 +244,7 @@ fromProjectToModule =
             { lookupTable = lookupTable
             , currentModuleName = moduleNameAsString
             , exposedCustomTypesWithConstructors = Set.empty
-            , isExposed = Set.member moduleNameAsString projectContext.exposedModules
+            , isExposed = Maybe.withDefault False isModuleExposed
             , exposesEverything = False
             , declaredTypesWithConstructors = Dict.empty
             , usedFunctionsOrValues = Dict.empty
@@ -263,6 +258,7 @@ fromProjectToModule =
         )
         |> Rule.withModuleNameLookupTable
         |> Rule.withModuleName
+        |> Rule.withIsModuleExposed
 
 
 fromModuleToProject : Rule.ContextCreator ModuleContext ( List (Rule.Error {}), ProjectContext )
@@ -287,8 +283,7 @@ fromModuleToProjectHelp moduleKey moduleContext =
                 |> Dict.get moduleContext.currentModuleName
                 |> Maybe.withDefault []
     in
-    { exposedModules = Set.empty
-    , moduleKeys = Dict.singleton moduleContext.currentModuleName moduleKey
+    { moduleKeys = Dict.singleton moduleContext.currentModuleName moduleKey
     , declaredConstructors =
         if moduleContext.isExposed then
             if moduleContext.exposesEverything then
@@ -323,8 +318,7 @@ fromModuleToProjectHelp moduleKey moduleContext =
 
 foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext
 foldProjectContexts newContext previousContext =
-    { exposedModules = previousContext.exposedModules
-    , moduleKeys = Dict.union newContext.moduleKeys previousContext.moduleKeys
+    { moduleKeys = Dict.union newContext.moduleKeys previousContext.moduleKeys
     , declaredConstructors = Dict.union newContext.declaredConstructors previousContext.declaredConstructors
     , usedConstructors =
         Dict.foldl
@@ -384,39 +378,6 @@ updateToInsert key value dict =
                     Just (Set.singleton value)
         )
         dict
-
-
-
--- ELM.JSON VISITOR
-
-
-elmJsonVisitor : Maybe { elmJsonKey : Rule.ElmJsonKey, project : Elm.Project.Project } -> ProjectContext -> ( List nothing, ProjectContext )
-elmJsonVisitor maybeElmJson projectContext =
-    case maybeElmJson |> Maybe.map .project of
-        Just (Elm.Project.Package package) ->
-            let
-                exposedModules : List Elm.Module.Name
-                exposedModules =
-                    case package.exposed of
-                        Elm.Project.ExposedList list ->
-                            list
-
-                        Elm.Project.ExposedDict list ->
-                            List.concatMap Tuple.second list
-
-                exposedNames : Set String
-                exposedNames =
-                    exposedModules
-                        |> List.map Elm.Module.toString
-                        |> Set.fromList
-            in
-            ( [], { projectContext | exposedModules = exposedNames } )
-
-        Just (Elm.Project.Application _) ->
-            ( [], projectContext )
-
-        Nothing ->
-            ( [], projectContext )
 
 
 
