@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- Added [`Review.Rule.withIsModuleExposed`].
 - Added [`Review.Rule.withContextFromImportedModulesIncludingIndirect`].
 - Added [`Review.Project.getModuleByPath`].
 - Fixed an issue where changes to `elm.json` (through an automatic fix or in watch mode) would get ignored, yielding incorrect results.
@@ -296,6 +297,7 @@ This release contains HUGE performance updates. `elm-review` should now run quit
 
 [`NoDeprecated`]: https://package.elm-lang.org/packages/jfmengels/elm-review-common/latest/NoDeprecated
 [`Review.Rule.withIsFileIgnored`]: https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule#withIsFileIgnored
+[`Review.Rule.withIsModuleExposed`]: https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule#withIsModuleExposed
 [`Review.Rule.withRuleId`]: https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule#withRuleId
 [`Review.Rule.withContextFromImportedModulesIncludingIndirect`]: https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule#withContextFromImportedModulesIncludingIndirect
 [`Review.Rule.errorFixFailure`]: https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule#errorFixFailure
