@@ -7,8 +7,6 @@ module Docs.ReviewAtDocs exposing (rule)
 -}
 
 import Dict
-import Docs.Utils.ExposedFromProject as ExposedFromProject
-import Elm.Project
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Exposing as Exposing exposing (Exposing)
 import Elm.Syntax.Module as Module exposing (Module)
@@ -91,8 +89,7 @@ elm-review --template jfmengels/elm-review-documentation/example --rules Docs.Re
 -}
 rule : Rule
 rule =
-    Rule.newModuleRuleSchema "Docs.ReviewAtDocs" initialContext
-        |> Rule.withElmJsonModuleVisitor elmJsonVisitor
+    Rule.newModuleRuleSchemaUsingContextCreator "Docs.ReviewAtDocs" initialContext
         |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
         |> Rule.withModuleDocumentationVisitor moduleDocumentationVisitor
         |> Rule.withDeclarationListVisitor (\nodes context -> ( declarationListVisitor nodes context, context ))
@@ -100,41 +97,24 @@ rule =
 
 
 type alias Context =
-    { exposedModulesFromProject : Set String
-    , moduleIsExposed : Bool
+    { moduleIsExposed : Bool
     , exposedFromModule : Exposing
     , hasMalformedDocs : Bool
     , docsReferences : List (Node String)
     }
 
 
-initialContext : Context
+initialContext : Rule.ContextCreator () Context
 initialContext =
-    { exposedModulesFromProject = Set.empty
-    , moduleIsExposed = False
-    , exposedFromModule = Exposing.All Range.emptyRange
-    , hasMalformedDocs = False
-    , docsReferences = []
-    }
-
-
-
--- ELM.JSON VISITOR
-
-
-elmJsonVisitor : Maybe Elm.Project.Project -> Context -> Context
-elmJsonVisitor maybeProject context =
-    let
-        exposedModules : Set String
-        exposedModules =
-            case maybeProject of
-                Just project ->
-                    ExposedFromProject.exposedModules project
-
-                _ ->
-                    Set.empty
-    in
-    { context | exposedModulesFromProject = exposedModules }
+    Rule.initContextCreator
+        (\isModuleExposed () ->
+            { moduleIsExposed = Maybe.withDefault False isModuleExposed
+            , exposedFromModule = Exposing.All Range.emptyRange
+            , hasMalformedDocs = False
+            , docsReferences = []
+            }
+        )
+        |> Rule.withIsModuleExposed
 
 
 
@@ -146,7 +126,6 @@ moduleDefinitionVisitor node context =
     ( []
     , { context
         | exposedFromModule = Module.exposingList (Node.value node)
-        , moduleIsExposed = Set.member (Module.moduleName (Node.value node) |> String.join ".") context.exposedModulesFromProject
       }
     )
 
