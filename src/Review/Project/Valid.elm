@@ -19,6 +19,7 @@ module Review.Project.Valid exposing
     , getGraphNode
     , getModuleByModuleName
     , getModuleByPath
+    , isModuleExposed
     , parse
     , projectCache
     , readme
@@ -32,6 +33,7 @@ module Review.Project.Valid exposing
     )
 
 import Dict exposing (Dict)
+import Elm.Module
 import Elm.Project
 import Elm.Syntax.File
 import Elm.Syntax.ModuleName exposing (ModuleName)
@@ -46,6 +48,7 @@ import Review.Project.ModuleIds as ModuleIds exposing (ModuleId, ModuleIds)
 import Review.Project.ProjectCache exposing (ProjectCache)
 import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModule)
 import Review.WorkList as WorkList exposing (WorkList)
+import Set exposing (Set)
 import Vendor.Graph as Graph exposing (Graph)
 
 
@@ -61,6 +64,7 @@ type alias ValidProjectData =
     , extraFiles : Dict FilePath {- content -} String
     , extraFilesContentHash : ContentHash
     , extraFilesContentHashes : Dict FilePath ContentHash
+    , exposedModules : Maybe (Set String)
     , dependencies : Dict String Dependency
     , directDependencies : Dict String Dependency
     , sourceDirectories : List String
@@ -170,6 +174,7 @@ fromProjectAndGraph moduleGraph sortedModules (Project project) =
         , extraFiles = project.extraFiles
         , extraFilesContentHash = extraFilesContentHash
         , extraFilesContentHashes = project.extraFilesContentHashes
+        , exposedModules = Maybe.andThen (\( elmJson_, _ ) -> computeExposedModules elmJson_.project) project.elmJson
         , dependencies = project.dependencies
         , directDependencies = project.directDependencies
         , sourceDirectories = project.sourceDirectories
@@ -180,6 +185,45 @@ fromProjectAndGraph moduleGraph sortedModules (Project project) =
         , moduleIds = project.moduleIds
         , workList = WorkList.recomputeModules moduleGraph sortedModules project.workList
         }
+
+
+computeExposedModules : Elm.Project.Project -> Maybe (Set String)
+computeExposedModules elmJsonProject =
+    case elmJsonProject of
+        Elm.Project.Package package ->
+            case package.exposed of
+                Elm.Project.ExposedList list ->
+                    List.foldl
+                        (\m set -> Set.insert (Elm.Module.toString m) set)
+                        Set.empty
+                        list
+                        |> Just
+
+                Elm.Project.ExposedDict list ->
+                    List.foldl
+                        (\( _, modules ) set ->
+                            List.foldl
+                                (\m subSet ->
+                                    Set.insert (Elm.Module.toString m) subSet
+                                )
+                                set
+                                modules
+                        )
+                        Set.empty
+                        list
+                        |> Just
+
+        Elm.Project.Application _ ->
+            Nothing
+
+
+isModuleExposed : ValidProject -> ModuleName -> Maybe Bool
+isModuleExposed (ValidProject project) moduleName =
+    Maybe.map
+        (\exposedModules ->
+            Set.member (String.join "." moduleName) exposedModules
+        )
+        project.exposedModules
 
 
 duplicateModuleNames : Dict ModuleName String -> List OpaqueProjectModule -> Maybe { moduleName : ModuleName, paths : List String }

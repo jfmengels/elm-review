@@ -20,7 +20,13 @@ module Review.Rule exposing
     , withElmJsonProjectVisitor, withReadmeProjectVisitor, withDirectDependenciesProjectVisitor, withDependenciesProjectVisitor, withExtraFilesProjectVisitor, withFinalProjectEvaluation
     , withContextFromImportedModules, withContextFromImportedModulesIncludingIndirect
     , providesFixesForProjectRule
-    , ContextCreator, initContextCreator, withModuleName, withModuleNameNode, withIsInSourceDirectories, withFilePath, withIsFileIgnored, withIsFileFixable, withModuleNameLookupTable, withModuleKey, withSourceCodeExtractor, withFullAst, withModuleDocumentation
+    , ContextCreator, initContextCreator
+    , withModuleName, withModuleNameNode
+    , withIsInSourceDirectories, withFilePath
+    , withIsFileIgnored, withIsFileFixable
+    , withModuleNameLookupTable, withModuleKey
+    , withFullAst, withModuleDocumentation, withIsModuleExposed
+    , withSourceCodeExtractor
     , Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix
     , ElmJsonKey, errorForElmJson, errorForElmJsonWithFix
     , ReadmeKey, errorForReadme, errorForReadmeWithFix
@@ -247,7 +253,13 @@ first, as they are in practice a simpler version of project rules.
 
 ## Requesting more information
 
-@docs ContextCreator, initContextCreator, withModuleName, withModuleNameNode, withIsInSourceDirectories, withFilePath, withIsFileIgnored, withIsFileFixable, withModuleNameLookupTable, withModuleKey, withSourceCodeExtractor, withFullAst, withModuleDocumentation
+@docs ContextCreator, initContextCreator
+@docs withModuleName, withModuleNameNode
+@docs withIsInSourceDirectories, withFilePath
+@docs withIsFileIgnored, withIsFileFixable
+@docs withModuleNameLookupTable, withModuleKey
+@docs withFullAst, withModuleDocumentation, withIsModuleExposed
+@docs withSourceCodeExtractor
 
 
 ## Errors
@@ -1451,6 +1463,7 @@ mergeModuleVisitorsHelp ruleName_ initialProjectContext moduleContextCreator vis
             { ast = dummyAst
             , moduleKey = ModuleKey "dummy"
             , moduleDocumentation = Nothing
+            , isModuleExposed = Nothing
             , moduleNameLookupTable = ModuleNameLookupTableInternal.empty []
             , extractSourceCode = \() _ -> "dummy"
             , filePath = "dummy file path"
@@ -5657,12 +5670,17 @@ computeModuleWithRuleVisitors project module_ inputRuleModuleVisitors (Requested
         filePath =
             ProjectModule.path module_
 
+        moduleNameNode_ : Node ModuleName
+        moduleNameNode_ =
+            moduleNameNode ast.moduleDefinition
+
         availableData : AvailableData
         availableData =
             { ast = ast
             , moduleKey = ModuleKey filePath
             , moduleNameLookupTable = moduleNameLookupTable
             , moduleDocumentation = findModuleDocumentation ast
+            , isModuleExposed = ValidProject.isModuleExposed project (Node.value moduleNameNode_)
             , extractSourceCode =
                 \() ->
                     let
@@ -7601,6 +7619,35 @@ withModuleDocumentation (ContextCreator fn requested) =
         requested
 
 
+{-| Request to know whether the current module is exposed as part of the package.
+
+This will yield:
+
+  - `Just True` if the project is a package and the current module is part of the `"exposed-modules"`
+  - `Just False` if the project is a package and the current module is not part of the `"exposed-modules"`
+  - `Nothing` if the project is an application
+
+```
+contextCreator : Rule.ContextCreator () Context
+contextCreator =
+    Rule.initContextCreator
+        (\isModuleExposed () ->
+            { isModuleExposed = isModuleExposed
+
+            -- ...other fields
+            }
+        )
+        |> Rule.withIsModuleExposed
+```
+
+-}
+withIsModuleExposed : ContextCreator (Maybe Bool) (from -> to) -> ContextCreator from to
+withIsModuleExposed (ContextCreator fn requested) =
+    ContextCreator
+        (\data isFileIgnored isFileFixable -> fn data isFileIgnored isFileFixable data.isModuleExposed)
+        requested
+
+
 {-| Request the [module key](#ModuleKey) for this module.
 
     rule : Rule
@@ -7705,6 +7752,7 @@ type alias AvailableData =
     { ast : Elm.Syntax.File.File
     , moduleKey : ModuleKey
     , moduleDocumentation : Maybe (Node String)
+    , isModuleExposed : Maybe Bool
     , moduleNameLookupTable : ModuleNameLookupTable
     , extractSourceCode : () -> Range -> String
     , filePath : FilePath
