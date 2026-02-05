@@ -7,8 +7,6 @@ module NoUnused.CustomTypeConstructorArgs exposing (rule)
 -}
 
 import Dict exposing (Dict)
-import Elm.Module
-import Elm.Project
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Exposing as Exposing exposing (Exposing)
 import Elm.Syntax.Expression as Expression exposing (Expression)
@@ -80,7 +78,6 @@ elm-review --template jfmengels/elm-review-unused/example --rules NoUnused.Custo
 rule : Rule
 rule =
     Rule.newProjectRuleSchema "NoUnused.CustomTypeConstructorArgs" initialProjectContext
-        |> Rule.withElmJsonProjectVisitor elmJsonVisitor
         |> Rule.withModuleVisitor moduleVisitor
         |> Rule.withModuleContextUsingContextCreator
             { fromProjectToModule = fromProjectToModule
@@ -92,8 +89,7 @@ rule =
 
 
 type alias ProjectContext =
-    { exposedModules : Set ModuleName
-    , customTypeArgs :
+    { customTypeArgs :
         Dict
             ModuleName
             { moduleKey : Rule.ModuleKey
@@ -106,7 +102,6 @@ type alias ProjectContext =
 
 type alias ModuleContext =
     { lookupTable : ModuleNameLookupTable
-    , isModuleExposed : Bool
     , exposed : Exposing
     , customTypeArgs : List ( String, Dict String (List Range) )
     , usedArguments : Dict ( ModuleName, String ) (Set Int)
@@ -122,36 +117,9 @@ moduleVisitor schema =
         |> Rule.withExpressionEnterVisitor (\node context -> ( [], expressionVisitor node context ))
 
 
-elmJsonVisitor : Maybe { a | project : Elm.Project.Project } -> ProjectContext -> ( List nothing, ProjectContext )
-elmJsonVisitor maybeEProject projectContext =
-    case Maybe.map .project maybeEProject of
-        Just (Elm.Project.Package package) ->
-            let
-                exposedModules : List Elm.Module.Name
-                exposedModules =
-                    case package.exposed of
-                        Elm.Project.ExposedList list ->
-                            list
-
-                        Elm.Project.ExposedDict list ->
-                            List.concatMap Tuple.second list
-
-                exposedNames : Set ModuleName
-                exposedNames =
-                    exposedModules
-                        |> List.map (Elm.Module.toString >> String.split ".")
-                        |> Set.fromList
-            in
-            ( [], { projectContext | exposedModules = exposedNames } )
-
-        _ ->
-            ( [], projectContext )
-
-
 initialProjectContext : ProjectContext
 initialProjectContext =
-    { exposedModules = Set.empty
-    , customTypeArgs = Dict.empty
+    { customTypeArgs = Dict.empty
     , usedArguments = Dict.empty
     , customTypesNotToReport = Set.empty
     }
@@ -160,9 +128,8 @@ initialProjectContext =
 fromProjectToModule : Rule.ContextCreator ProjectContext ModuleContext
 fromProjectToModule =
     Rule.initContextCreator
-        (\lookupTable moduleName projectContext ->
+        (\lookupTable _ ->
             { lookupTable = lookupTable
-            , isModuleExposed = Set.member moduleName projectContext.exposedModules
             , exposed = Exposing.Explicit []
             , customTypeArgs = []
             , usedArguments = Dict.empty
@@ -170,19 +137,17 @@ fromProjectToModule =
             }
         )
         |> Rule.withModuleNameLookupTable
-        |> Rule.withModuleName
 
 
 fromModuleToProject : Rule.ContextCreator ModuleContext ProjectContext
 fromModuleToProject =
     Rule.initContextCreator
-        (\moduleKey moduleName moduleContext ->
-            { exposedModules = Set.empty
-            , customTypeArgs =
+        (\moduleKey moduleName isModuleExposed moduleContext ->
+            { customTypeArgs =
                 Dict.singleton
                     moduleName
                     { moduleKey = moduleKey
-                    , args = getNonExposedCustomTypes moduleContext
+                    , args = getNonExposedCustomTypes (Maybe.withDefault False isModuleExposed) moduleContext
                     }
             , usedArguments = replaceLocalModuleNameForDict moduleName moduleContext.usedArguments
             , customTypesNotToReport = replaceLocalModuleNameForSet moduleName moduleContext.customTypesNotToReport
@@ -190,6 +155,7 @@ fromModuleToProject =
         )
         |> Rule.withModuleKey
         |> Rule.withModuleName
+        |> Rule.withIsModuleExposed
 
 
 replaceLocalModuleNameForSet : ModuleName -> Set ( ModuleName, comparable ) -> Set ( ModuleName, comparable )
@@ -226,9 +192,9 @@ replaceLocalModuleNameForDict moduleName dict =
         dict
 
 
-getNonExposedCustomTypes : ModuleContext -> Dict String (List Range)
-getNonExposedCustomTypes moduleContext =
-    if moduleContext.isModuleExposed then
+getNonExposedCustomTypes : Bool -> ModuleContext -> Dict String (List Range)
+getNonExposedCustomTypes isModuleExposed moduleContext =
+    if isModuleExposed then
         case moduleContext.exposed of
             Exposing.All _ ->
                 Dict.empty
@@ -274,8 +240,7 @@ getNonExposedCustomTypes moduleContext =
 
 foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext
 foldProjectContexts newContext previousContext =
-    { exposedModules = previousContext.exposedModules
-    , customTypeArgs =
+    { customTypeArgs =
         Dict.union
             newContext.customTypeArgs
             previousContext.customTypeArgs
