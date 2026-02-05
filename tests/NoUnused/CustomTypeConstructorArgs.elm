@@ -8,8 +8,6 @@ module NoUnused.CustomTypeConstructorArgs exposing (rule)
 
 import Array exposing (Array)
 import Dict exposing (Dict)
-import Elm.Module
-import Elm.Project
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Exposing as Exposing exposing (Exposing)
 import Elm.Syntax.Expression as Expression exposing (Expression)
@@ -85,7 +83,6 @@ elm-review --template jfmengels/elm-review-unused/example --rules NoUnused.Custo
 rule : Rule
 rule =
     Rule.newProjectRuleSchema "NoUnused.CustomTypeConstructorArgs" initialProjectContext
-        |> Rule.withElmJsonProjectVisitor elmJsonVisitor
         |> Rule.withDependenciesProjectVisitor dependenciesVisitor
         |> Rule.withModuleVisitor moduleVisitor
         |> Rule.withModuleContextUsingContextCreator
@@ -98,8 +95,7 @@ rule =
 
 
 type alias ProjectContext =
-    { exposedModules : Set ModuleName
-    , dependencyModules : Set ModuleName
+    { dependencyModules : Set ModuleName
     , constructorsPerModule : Dict ModuleName ModuleConstructors
     , unusedArgumentsInPatterns :
         Dict
@@ -124,7 +120,6 @@ type alias ModuleConstructors =
 
 type alias ModuleContext =
     { lookupTable : ModuleNameLookupTable
-    , isModuleExposed : Bool
     , exposed : Exposing
     , dependencyModules : Set ModuleName
     , customTypeArgs : List ( TypeName, Dict ConstructorName { nameRange : Range, args : List Range } )
@@ -169,32 +164,6 @@ moduleVisitor schema =
         |> Rule.withExpressionEnterVisitor (\node context -> ( [], expressionVisitor node context ))
 
 
-elmJsonVisitor : Maybe { a | project : Elm.Project.Project } -> ProjectContext -> ( List nothing, ProjectContext )
-elmJsonVisitor maybeProject projectContext =
-    case Maybe.map .project maybeProject of
-        Just (Elm.Project.Package package) ->
-            let
-                exposedModules : List Elm.Module.Name
-                exposedModules =
-                    case package.exposed of
-                        Elm.Project.ExposedList list ->
-                            list
-
-                        Elm.Project.ExposedDict list ->
-                            List.concatMap Tuple.second list
-
-                exposedNames : Set ModuleName
-                exposedNames =
-                    exposedModules
-                        |> List.map (Elm.Module.toString >> String.split ".")
-                        |> Set.fromList
-            in
-            ( [], { projectContext | exposedModules = exposedNames } )
-
-        _ ->
-            ( [], projectContext )
-
-
 dependenciesVisitor : Dict String Dependency -> ProjectContext -> ( List nothing, ProjectContext )
 dependenciesVisitor dependencies projectContext =
     let
@@ -214,8 +183,7 @@ dependenciesVisitor dependencies projectContext =
 
 initialProjectContext : ProjectContext
 initialProjectContext =
-    { exposedModules = Set.empty
-    , dependencyModules = Set.empty
+    { dependencyModules = Set.empty
     , constructorsPerModule = Dict.empty
     , unusedArgumentsInPatterns = Dict.empty
     , constructorsNotToReport = Set.empty
@@ -226,9 +194,8 @@ initialProjectContext =
 fromProjectToModule : Rule.ContextCreator ProjectContext ModuleContext
 fromProjectToModule =
     Rule.initContextCreator
-        (\lookupTable moduleName projectContext ->
+        (\lookupTable projectContext ->
             { lookupTable = lookupTable
-            , isModuleExposed = Set.member moduleName projectContext.exposedModules
             , dependencyModules = projectContext.dependencyModules
             , exposed = Exposing.Explicit []
             , customTypeArgs = []
@@ -239,20 +206,18 @@ fromProjectToModule =
             }
         )
         |> Rule.withModuleNameLookupTable
-        |> Rule.withModuleName
 
 
 fromModuleToProject : Rule.ContextCreator ModuleContext ProjectContext
 fromModuleToProject =
     Rule.initContextCreator
-        (\moduleKey moduleName moduleContext ->
-            { exposedModules = Set.empty
-            , dependencyModules = Set.empty
+        (\moduleKey moduleName isModuleExposed moduleContext ->
+            { dependencyModules = Set.empty
             , constructorsPerModule =
                 Dict.singleton
                     moduleName
                     { moduleKey = moduleKey
-                    , constructors = getNonPublicConstructors moduleContext
+                    , constructors = getNonPublicConstructors (Maybe.withDefault False isModuleExposed) moduleContext
                     }
             , unusedArgumentsInPatterns = Dict.map (\_ args -> Maybe.map (\args_ -> [ { moduleKey = moduleKey, args = args_ } ]) args) moduleContext.unusedArgumentsInPatterns
             , constructorsNotToReport = moduleContext.constructorsNotToReport
@@ -261,14 +226,15 @@ fromModuleToProject =
         )
         |> Rule.withModuleKey
         |> Rule.withModuleName
+        |> Rule.withIsModuleExposed
 
 
 {-| Get all custom types from the module whose constructors are not part of the public API of the package.
 If the module is private or the project is an application, then all open custom types are collected.
 -}
-getNonPublicConstructors : ModuleContext -> Dict ConstructorName { nameRange : Range, args : List Range }
-getNonPublicConstructors moduleContext =
-    if moduleContext.isModuleExposed then
+getNonPublicConstructors : Bool -> ModuleContext -> Dict ConstructorName { nameRange : Range, args : List Range }
+getNonPublicConstructors isModuleExposed moduleContext =
+    if isModuleExposed then
         case moduleContext.exposed of
             Exposing.All _ ->
                 Dict.empty
@@ -319,8 +285,7 @@ collectExposedTypes exposed =
 
 foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext
 foldProjectContexts newContext previousContext =
-    { exposedModules = previousContext.exposedModules
-    , dependencyModules = previousContext.dependencyModules
+    { dependencyModules = previousContext.dependencyModules
     , constructorsPerModule =
         Dict.union
             newContext.constructorsPerModule
