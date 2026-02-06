@@ -25,7 +25,7 @@ module Review.Rule exposing
     , withIsInSourceDirectories, withFilePath
     , withIsFileIgnored, withIsFileFixable
     , withModuleNameLookupTable, withModuleKey
-    , withFullAst, withModuleDocumentation, withIsModuleExposed
+    , withFullAst, withModuleDocumentation, withIsModuleExposed, withExposed
     , withSourceCodeExtractor
     , Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix
     , ElmJsonKey, errorForElmJson, errorForElmJsonWithFix
@@ -258,7 +258,7 @@ first, as they are in practice a simpler version of project rules.
 @docs withIsInSourceDirectories, withFilePath
 @docs withIsFileIgnored, withIsFileFixable
 @docs withModuleNameLookupTable, withModuleKey
-@docs withFullAst, withModuleDocumentation, withIsModuleExposed
+@docs withFullAst, withModuleDocumentation, withIsModuleExposed, withExposed
 @docs withSourceCodeExtractor
 
 
@@ -347,6 +347,7 @@ These types and functions are deprecated and should not be used, as there are no
 -}
 
 import Dict exposing (Dict)
+import Elm.Docs
 import Elm.Project
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Exposing as Exposing
@@ -395,6 +396,7 @@ import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModu
 import Review.Project.Valid as ValidProject exposing (ValidProject)
 import Review.RequestedData as RequestedData exposing (RequestedData(..))
 import Review.WorkList as WorkList
+import Set exposing (Set)
 import Unicode
 import Vendor.Graph as Graph
 import Vendor.IntSet as IntSet
@@ -1464,6 +1466,7 @@ mergeModuleVisitorsHelp ruleName_ initialProjectContext moduleContextCreator vis
             , moduleKey = ModuleKey "dummy"
             , moduleDocumentation = Nothing
             , isModuleExposed = Nothing
+            , exposed = { exposesAll = True, exposed = Set.empty }
             , moduleNameLookupTable = ModuleNameLookupTableInternal.empty []
             , extractSourceCode = \() _ -> "dummy"
             , filePath = "dummy file path"
@@ -5681,6 +5684,17 @@ computeModuleWithRuleVisitors project module_ inputRuleModuleVisitors (Requested
             , moduleNameLookupTable = moduleNameLookupTable
             , moduleDocumentation = findModuleDocumentation ast
             , isModuleExposed = ValidProject.isModuleExposed project (Node.value moduleNameNode_)
+            , exposed =
+                { exposesAll =
+                    case Module.exposingList (Node.value ast.moduleDefinition) of
+                        Exposing.All _ ->
+                            True
+
+                        Exposing.Explicit _ ->
+                            False
+                , exposed =
+                    collectExposed (Dict.get (Node.value moduleNameNode_) (ValidProject.projectCache newProject).modules)
+                }
             , extractSourceCode =
                 \() ->
                     let
@@ -5700,6 +5714,28 @@ computeModuleWithRuleVisitors project module_ inputRuleModuleVisitors (Requested
                 |> List.map (\(RuleModuleVisitor ruleModuleVisitor) -> ruleModuleVisitor.toProjectVisitor ())
     in
     ( newProject, List.append rulesNotToRun outputRuleProjectVisitors )
+
+
+collectExposed : Maybe Elm.Docs.Module -> Set String
+collectExposed maybeDocs =
+    case maybeDocs of
+        Nothing ->
+            Set.empty
+
+        Just docs ->
+            Set.empty
+                |> addNamesFrom docs.unions
+                |> addNamesFrom docs.aliases
+                |> addNamesFrom docs.values
+                |> addNamesFrom docs.binops
+
+
+addNamesFrom : List { a | name : String } -> Set String -> Set String
+addNamesFrom list initial =
+    List.foldl
+        (\a set -> Set.insert a.name set)
+        initial
+        list
 
 
 computeModuleNameLookupTable : { a | moduleNameLookupTable : Bool } -> ValidProject -> OpaqueProjectModule -> ( ModuleNameLookupTableInternal.ModuleNameLookupTable, ValidProject )
@@ -7648,6 +7684,67 @@ withIsModuleExposed (ContextCreator fn requested) =
         requested
 
 
+{-| Request information about what is exposed from the current module.
+
+    contextCreator : Rule.ContextCreator () Context
+    contextCreator =
+        Rule.initContextCreator
+            (\{ exposesAll, exposed } () ->
+                { exposesAll = exposesAll
+                , exposed = exposed
+
+                -- ...other fields
+                }
+            )
+            |> Rule.withIsExposed
+
+`exposesAll` indicates whether the module is `exposing (..)`.
+
+`exposed` is a dictionary of all the exposed elements of the module, available even if `exposesAll` is `True`.
+The keys for the dictionary are the value and type names. The value is `True` whether the type is a custom type
+whose constructors are exposed, and `False` otherwise.
+
+For example, given the following module definition:
+
+```-
+module A exposing
+    ( ExposedConstructors(..)
+    , Opaque
+    , TypeAlias
+    , value
+    )
+
+type ExposedConstructors = ExposedConstructors
+type Opaque = Opaque
+type Hidden = Hidden
+type alias TypeAlias = {}
+value = 1
+hidden = Hidden
+```
+
+then
+
+    Dict.get "ExposedConstructors" exposed
+    --> Just True
+    Dict.get "Opaque" exposed
+    --> Just False
+    Dict.get "TypeAlias" exposed
+    --> Just False
+    Dict.get "value" exposed
+    --> Just False
+    Dict.get "Hidden" exposed
+    --> Nothing
+    Dict.get "hidden" exposed
+    --> Nothing
+
+-}
+withExposed : ContextCreator { exposesAll : Bool, exposed : Set String } (from -> to) -> ContextCreator from to
+withExposed (ContextCreator fn requested) =
+    ContextCreator
+        (\data isFileIgnored isFileFixable -> fn data isFileIgnored isFileFixable data.exposed)
+        requested
+
+
 {-| Request the [module key](#ModuleKey) for this module.
 
     rule : Rule
@@ -7753,10 +7850,17 @@ type alias AvailableData =
     , moduleKey : ModuleKey
     , moduleDocumentation : Maybe (Node String)
     , isModuleExposed : Maybe Bool
+    , exposed : Exposed
     , moduleNameLookupTable : ModuleNameLookupTable
     , extractSourceCode : () -> Range -> String
     , filePath : FilePath
     , isInSourceDirectories : Bool
+    }
+
+
+type alias Exposed =
+    { exposesAll : Bool
+    , exposed : Set String
     }
 
 
