@@ -303,30 +303,26 @@ fromModuleToProject =
                   , functionCallsWithArguments =
                         List.foldl
                             (\arg functionCallsWithArguments ->
-                                if isExposed arg.functionName then
-                                    if isModuleExposed then
-                                        functionCallsWithArguments
-
-                                    else
-                                        case Dict.get arg.functionName moduleContext.functionCallsWithArguments of
-                                            Just callSites ->
-                                                let
-                                                    key : ( ModuleName, FunctionName )
-                                                    key =
-                                                        ( moduleName, arg.functionName )
-                                                in
-                                                case Dict.get key functionCallsWithArguments of
-                                                    Just previous ->
-                                                        Dict.insert key ({ key = moduleKey, isFileFixable = isFileFixable, callSites = callSites } :: previous) functionCallsWithArguments
-
-                                                    Nothing ->
-                                                        Dict.insert key [ { key = moduleKey, isFileFixable = isFileFixable, callSites = callSites } ] functionCallsWithArguments
-
-                                            Nothing ->
-                                                functionCallsWithArguments
+                                if isModuleExposed || not (isExposed arg.functionName) || then
+                                    functionCallsWithArguments
 
                                 else
-                                    functionCallsWithArguments
+                                    case Dict.get arg.functionName moduleContext.functionCallsWithArguments of
+                                        Nothing ->
+                                            functionCallsWithArguments
+
+                                        Just callSites ->
+                                            let
+                                                key : ( ModuleName, FunctionName )
+                                                key =
+                                                    ( moduleName, arg.functionName )
+                                            in
+                                            case Dict.get key functionCallsWithArguments of
+                                                Just previous ->
+                                                    Dict.insert key ({ key = moduleKey, isFileFixable = isFileFixable, callSites = callSites } :: previous) functionCallsWithArguments
+
+                                                Nothing ->
+                                                    Dict.insert key [ { key = moduleKey, isFileFixable = isFileFixable, callSites = callSites } ] functionCallsWithArguments
                             )
                             (Dict.map (\_ callSites -> [ { key = moduleKey, isFileFixable = isFileFixable, callSites = callSites } ]) moduleContext.functionCallsWithArgumentsForOtherModules)
                             (NonemptyList.head moduleContext.scopes).toReport
