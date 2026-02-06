@@ -24,6 +24,7 @@ type alias Context =
     , exposedUnions : List Elm.Docs.Union
     , exposedAliases : List Elm.Docs.Alias
     , exposedValues : List Elm.Docs.Value
+    , exposedBinops : List Elm.Docs.Binop
     , lookupTable : ModuleNameLookupTableBuilder
     , branches : NonEmpty ( Range, Scope )
     , caseToExit : NonEmpty Range
