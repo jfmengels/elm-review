@@ -25,6 +25,7 @@ type RequestedData
     = RequestedData
         { moduleNameLookupTable : Bool
         , sourceCodeExtractor : Bool
+        , exposed : Bool
         , ignoredFiles : Bool
         , ignoredFixes : Bool
         , files : List { files : List { pattern : String, included : Bool }, excludedDirectories : List String }
@@ -36,6 +37,7 @@ none =
     RequestedData
         { moduleNameLookupTable = False
         , sourceCodeExtractor = False
+        , exposed = False
         , ignoredFiles = False
         , ignoredFixes = False
         , files = []
@@ -71,6 +73,7 @@ combineJust (RequestedData a) (RequestedData b) =
     RequestedData
         { moduleNameLookupTable = a.moduleNameLookupTable || b.moduleNameLookupTable
         , sourceCodeExtractor = a.sourceCodeExtractor || b.sourceCodeExtractor
+        , exposed = a.exposed || b.exposed
         , ignoredFiles = a.ignoredFiles || b.ignoredFiles
         , ignoredFixes = a.ignoredFixes || b.ignoredFixes
         , files = a.files ++ b.files

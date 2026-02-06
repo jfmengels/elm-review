@@ -25,7 +25,7 @@ module Review.Rule exposing
     , withIsInSourceDirectories, withFilePath
     , withIsFileIgnored, withIsFileFixable
     , withModuleNameLookupTable, withModuleKey
-    , withFullAst, withModuleDocumentation, withIsModuleExposed
+    , withFullAst, withModuleDocumentation, withIsModuleExposed, withExposed
     , withSourceCodeExtractor
     , Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix
     , ElmJsonKey, errorForElmJson, errorForElmJsonWithFix
@@ -258,7 +258,7 @@ first, as they are in practice a simpler version of project rules.
 @docs withIsInSourceDirectories, withFilePath
 @docs withIsFileIgnored, withIsFileFixable
 @docs withModuleNameLookupTable, withModuleKey
-@docs withFullAst, withModuleDocumentation, withIsModuleExposed
+@docs withFullAst, withModuleDocumentation, withIsModuleExposed, withExposed
 @docs withSourceCodeExtractor
 
 
@@ -347,6 +347,7 @@ These types and functions are deprecated and should not be used, as there are no
 -}
 
 import Dict exposing (Dict)
+import Elm.Docs
 import Elm.Project
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Exposing as Exposing
@@ -1463,6 +1464,7 @@ mergeModuleVisitorsHelp ruleName_ initialProjectContext moduleContextCreator vis
             { ast = dummyAst
             , moduleDocumentation = Nothing
             , isModuleExposed = Nothing
+            , exposed = { exposesAll = True, exposed = Dict.empty }
             , moduleNameLookupTable = ModuleNameLookupTableInternal.empty []
             , extractSourceCode = always "dummy"
             , filePath = "dummy file path"
@@ -5656,10 +5658,10 @@ computeWhatsRequiredToAnalyze project module_ ruleProjectVisitors =
 
 
 computeModuleWithRuleVisitors : ValidProject -> OpaqueProjectModule -> List (AvailableData -> RuleModuleVisitor) -> RequestedData -> List RuleProjectVisitor -> ( ValidProject, List RuleProjectVisitor )
-computeModuleWithRuleVisitors project module_ inputRuleModuleVisitors (RequestedData requestedData) rulesNotToRun =
+computeModuleWithRuleVisitors initialProject module_ inputRuleModuleVisitors (RequestedData requestedData) rulesNotToRun =
     let
-        ( moduleNameLookupTable, newProject ) =
-            computeModuleNameLookupTable requestedData project module_
+        { moduleNameLookupTable, exposed, project } =
+            computeModuleNameLookupTable requestedData initialProject module_
 
         ast : File
         ast =
@@ -5678,7 +5680,8 @@ computeModuleWithRuleVisitors project module_ inputRuleModuleVisitors (Requested
             { ast = ast
             , moduleNameLookupTable = moduleNameLookupTable
             , moduleDocumentation = findModuleDocumentation ast
-            , isModuleExposed = ValidProject.isModuleExposed project (Node.value moduleNameNode_)
+            , isModuleExposed = ValidProject.isModuleExposed initialProject (Node.value moduleNameNode_)
+            , exposed = exposed
             , extractSourceCode =
                 if requestedData.sourceCodeExtractor then
                     let
@@ -5700,10 +5703,53 @@ computeModuleWithRuleVisitors project module_ inputRuleModuleVisitors (Requested
                 |> visitModuleForProjectRule availableData
                 |> List.map (\(RuleModuleVisitor ruleModuleVisitor) -> ruleModuleVisitor.toProjectVisitor ())
     in
-    ( newProject, List.append rulesNotToRun outputRuleProjectVisitors )
+    ( project, List.append rulesNotToRun outputRuleProjectVisitors )
 
 
-computeModuleNameLookupTable : { a | moduleNameLookupTable : Bool } -> ValidProject -> OpaqueProjectModule -> ( ModuleNameLookupTableInternal.ModuleNameLookupTable, ValidProject )
+exposesAll : Elm.Syntax.File.File -> Bool
+exposesAll ast =
+    case Module.exposingList (Node.value ast.moduleDefinition) of
+        Exposing.All _ ->
+            True
+
+        Exposing.Explicit _ ->
+            False
+
+
+collectExposed : Elm.Docs.Module -> Dict String Bool
+collectExposed docs =
+    Dict.empty
+        |> addUnions docs.unions
+        |> addNamesFrom docs.aliases
+        |> addNamesFrom docs.values
+        |> addNamesFrom docs.binops
+
+
+addNamesFrom : List { a | name : String } -> Dict String Bool -> Dict String Bool
+addNamesFrom list initial =
+    List.foldl
+        (\a dict -> Dict.insert a.name False dict)
+        initial
+        list
+
+
+addUnions : List Elm.Docs.Union -> Dict String Bool -> Dict String Bool
+addUnions list initial =
+    List.foldl
+        (\union dict -> Dict.insert union.name (not (List.isEmpty union.tags)) dict)
+        initial
+        list
+
+
+computeModuleNameLookupTable :
+    { a | moduleNameLookupTable : Bool, exposed : Bool }
+    -> ValidProject
+    -> OpaqueProjectModule
+    ->
+        { moduleNameLookupTable : ModuleNameLookupTable
+        , exposed : Exposed
+        , project : ValidProject
+        }
 computeModuleNameLookupTable requestedData project module_ =
     let
         moduleName : ModuleName
@@ -5712,10 +5758,51 @@ computeModuleNameLookupTable requestedData project module_ =
     in
     -- TODO If the file has changed, then compute the module docs anyway.
     if requestedData.moduleNameLookupTable then
-        Review.ModuleNameLookupTable.Compute.compute moduleName module_ project
+        let
+            computeResult : { moduleNameLookupTable : ModuleNameLookupTable, moduleDocs : Elm.Docs.Module, project : ValidProject }
+            computeResult =
+                Review.ModuleNameLookupTable.Compute.compute moduleName module_ project
+
+            exposesAll_ : Bool
+            exposesAll_ =
+                exposesAll (ProjectModule.ast module_)
+        in
+        { moduleNameLookupTable = computeResult.moduleNameLookupTable
+        , exposed =
+            { exposesAll = exposesAll_
+            , exposed = collectExposed computeResult.moduleDocs
+            }
+        , project = computeResult.project
+        }
+
+    else if requestedData.exposed then
+        let
+            computeResult : { moduleDocs : Elm.Docs.Module, project : ValidProject }
+            computeResult =
+                Review.ModuleNameLookupTable.Compute.computeSimple moduleName module_ project
+
+            exposesAll_ : Bool
+            exposesAll_ =
+                exposesAll (ProjectModule.ast module_)
+        in
+        { moduleNameLookupTable = ModuleNameLookupTableInternal.empty moduleName
+        , exposed =
+            { exposesAll = exposesAll_
+            , exposed = collectExposed computeResult.moduleDocs
+            }
+        , project = project
+        }
 
     else
-        ( ModuleNameLookupTableInternal.empty moduleName, project )
+        { moduleNameLookupTable = ModuleNameLookupTableInternal.empty moduleName
+        , exposed = dummyExposed
+        , project = project
+        }
+
+
+dummyExposed : Exposed
+dummyExposed =
+    { exposesAll = False, exposed = Dict.empty }
 
 
 findFixInComputeModuleResults :
@@ -7649,6 +7736,67 @@ withIsModuleExposed (ContextCreator fn requested) =
         requested
 
 
+{-| Request information about what is exposed from the current module.
+
+    contextCreator : Rule.ContextCreator () Context
+    contextCreator =
+        Rule.initContextCreator
+            (\{ exposesAll, exposed } () ->
+                { exposesAll = exposesAll
+                , exposed = exposed
+
+                -- ...other fields
+                }
+            )
+            |> Rule.withIsExposed
+
+`exposesAll` indicates whether the module is `exposing (..)`.
+
+`exposed` is a dictionary of all the exposed elements of the module, available even if `exposesAll` is `True`.
+The keys for the dictionary are the value and type names. The value is `True` whether the type is a custom type
+whose constructors are exposed, and `False` otherwise.
+
+For example, given the following module definition:
+
+```-
+module A exposing
+    ( ExposedConstructors(..)
+    , Opaque
+    , TypeAlias
+    , value
+    )
+
+type ExposedConstructors = ExposedConstructors
+type Opaque = Opaque
+type Hidden = Hidden
+type alias TypeAlias = {}
+value = 1
+hidden = Hidden
+```
+
+then
+
+    Dict.get "ExposedConstructors" exposed
+    --> Just True
+    Dict.get "Opaque" exposed
+    --> Just False
+    Dict.get "TypeAlias" exposed
+    --> Just False
+    Dict.get "value" exposed
+    --> Just False
+    Dict.get "Hidden" exposed
+    --> Nothing
+    Dict.get "hidden" exposed
+    --> Nothing
+
+-}
+withExposed : ContextCreator { exposesAll : Bool, exposed : Dict String Bool } (from -> to) -> ContextCreator from to
+withExposed (ContextCreator fn (RequestedData requested)) =
+    ContextCreator
+        (\data isFileIgnored isFileFixable -> fn data isFileIgnored isFileFixable data.exposed)
+        (RequestedData { requested | exposed = True })
+
+
 {-| Request the [module key](#ModuleKey) for this module.
 
     rule : Rule
@@ -7753,10 +7901,17 @@ type alias AvailableData =
     { ast : Elm.Syntax.File.File
     , moduleDocumentation : Maybe (Node String)
     , isModuleExposed : Maybe Bool
+    , exposed : Exposed
     , moduleNameLookupTable : ModuleNameLookupTable
     , extractSourceCode : Range -> String
     , filePath : FilePath
     , isInSourceDirectories : Bool
+    }
+
+
+type alias Exposed =
+    { exposesAll : Bool
+    , exposed : Dict String Bool
     }
 
 
