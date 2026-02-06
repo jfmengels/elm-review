@@ -390,9 +390,10 @@ declarationListVisitor declarations context =
     let
         knownSections : List { slug : String, isExposed : Bool }
         knownSections =
-            List.append
-                (List.map (\slug -> { slug = slug, isExposed = True }) (Set.toList context.exposedElements))
+            Set.foldl
+                (\slug list -> { slug = slug, isExposed = True } :: list)
                 context.sections
+                context.exposedElements
 
         sectionsAndLinks : List { titleSections : List SectionWithRange, links : List MaybeExposedLink }
         sectionsAndLinks =
