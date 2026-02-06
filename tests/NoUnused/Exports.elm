@@ -99,7 +99,6 @@ elm-review --template jfmengels/elm-review-unused/example-ignore-tests --rules N
 -}
 
 import Dict exposing (Dict)
-import Elm.Module
 import Elm.Project
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Exposing as Exposing exposing (Exposing, TopLevelExpose)
@@ -464,6 +463,7 @@ type alias ProjectContext =
         Dict
             ModuleNameStr
             { moduleKey : Rule.ModuleKey
+            , isModuleExposed : Bool
             , exposed : Dict String ExposedElement
             , isExposingAll : Bool
             , moduleNameLocation : Range
@@ -488,7 +488,7 @@ type alias ExposedElement =
 
 type ProjectType
     = IsApplication ElmApplicationType
-    | IsPackage (Set ModuleNameStr)
+    | IsPackage ()
 
 
 type ElmApplicationType
@@ -703,7 +703,7 @@ hasMultiplePorts declarations count =
 fromModuleToProject : Config -> Rule.ContextCreator ModuleContext ProjectContext
 fromModuleToProject config =
     Rule.initContextCreator
-        (\moduleKey (Node moduleNameRange moduleName) filePath isInSourceDirectories moduleContext ->
+        (\moduleKey (Node moduleNameRange moduleName) isModuleExposed_ filePath isInSourceDirectories moduleContext ->
             let
                 moduleNameStr : ModuleNameStr
                 moduleNameStr =
@@ -725,6 +725,7 @@ fromModuleToProject config =
                 Dict.singleton
                     moduleNameStr
                     { moduleKey = moduleKey
+                    , isModuleExposed = Maybe.withDefault False isModuleExposed_
                     , exposed = moduleContext.exposed
                     , isExposingAll = moduleContext.isExposingAll
                     , moduleNameLocation = moduleNameRange
@@ -773,6 +774,7 @@ fromModuleToProject config =
         )
         |> Rule.withModuleKey
         |> Rule.withModuleNameNode
+        |> Rule.withIsModuleExposed
         |> Rule.withFilePath
         |> Rule.withIsInSourceDirectories
 
@@ -815,27 +817,8 @@ registerAsUsed key moduleContext =
 elmJsonVisitor : Maybe { a | project : Elm.Project.Project } -> ProjectContext -> ProjectContext
 elmJsonVisitor maybeProject projectContext =
     case maybeProject |> Maybe.map .project of
-        Just (Elm.Project.Package { exposed }) ->
-            let
-                exposedModuleNames : List Elm.Module.Name
-                exposedModuleNames =
-                    case exposed of
-                        Elm.Project.ExposedList names ->
-                            names
-
-                        Elm.Project.ExposedDict fakeDict ->
-                            List.concatMap Tuple.second fakeDict
-            in
-            { projectContext
-                | projectType =
-                    exposedModuleNames
-                        |> List.foldl
-                            (\moduleName acc ->
-                                Set.insert (Elm.Module.toString moduleName) acc
-                            )
-                            Set.empty
-                        |> IsPackage
-            }
+        Just (Elm.Project.Package _) ->
+            { projectContext | projectType = IsPackage () }
 
         Just (Elm.Project.Application { depsDirect }) ->
             if LamderaSupport.isLamderaApplication depsDirect then
@@ -907,14 +890,10 @@ finalEvaluationForProject exceptionExplanation projectContext =
                 )
                 projectContext.usedInIgnoredModules
                 projectContext.usedInIgnoredModules
-
-        isModuleExposed_ : ModuleNameStr -> Bool
-        isModuleExposed_ =
-            isModuleExposed projectContext
     in
     Dict.foldl
         (\moduleName module_ acc ->
-            if isModuleExposed_ moduleName || moduleName == "ReviewConfig" then
+            if module_.isModuleExposed || moduleName == "ReviewConfig" then
                 acc
 
             else if Set.member moduleName projectContext.usedModules then
@@ -1089,20 +1068,10 @@ what elementType =
             "Exposed type"
 
 
-isModuleExposed : ProjectContext -> ModuleNameStr -> Bool
-isModuleExposed projectContext =
-    case projectContext.projectType of
-        IsApplication _ ->
-            always False
-
-        IsPackage exposedModuleNames ->
-            \moduleName -> Set.member moduleName exposedModuleNames
-
-
 isApplicationException : ProjectContext -> String -> Bool
 isApplicationException projectContext name =
     case projectContext.projectType of
-        IsPackage _ ->
+        IsPackage () ->
             False
 
         IsApplication ElmApplication ->
@@ -1641,7 +1610,7 @@ getDeclarationDocumentation node =
 doesModuleContainMainFunction : ProjectType -> Declaration -> Bool
 doesModuleContainMainFunction projectType declaration =
     case projectType of
-        IsPackage _ ->
+        IsPackage () ->
             False
 
         IsApplication elmApplicationType ->
