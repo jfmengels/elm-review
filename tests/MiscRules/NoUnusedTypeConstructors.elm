@@ -14,7 +14,7 @@ import Elm.Syntax.Declaration exposing (Declaration(..))
 import Elm.Syntax.Exposing exposing (Exposing(..), TopLevelExpose(..))
 import Elm.Syntax.Expression exposing (Expression(..))
 import Elm.Syntax.Module as Module exposing (Module)
-import Elm.Syntax.Node as Node exposing (Node)
+import Elm.Syntax.Node as Node exposing (Node(..))
 import Review.Rule as Rule exposing (Error, Rule)
 import Set exposing (Set)
 
@@ -113,30 +113,26 @@ moduleDefinitionVisitor moduleNode context =
 
         Explicit list ->
             let
-                names : List String
-                names =
-                    List.filterMap
-                        (\node ->
-                            case Node.value node of
+                exposedCustomTypesWithConstructors : Set String
+                exposedCustomTypesWithConstructors =
+                    List.foldl
+                        (\(Node _ node) exposed ->
+                            case node of
                                 TypeExpose { name, open } ->
                                     case open of
                                         Just _ ->
-                                            Just name
+                                            Set.insert name exposed
 
                                         Nothing ->
-                                            Nothing
+                                            exposed
 
                                 _ ->
-                                    Nothing
+                                    exposed
                         )
+                        context.exposedCustomTypesWithConstructors
                         list
             in
-            ( []
-            , { context
-                | exposedCustomTypesWithConstructors =
-                    Set.union (Set.fromList names) context.exposedCustomTypesWithConstructors
-              }
-            )
+            ( [], { context | exposedCustomTypesWithConstructors = exposedCustomTypesWithConstructors } )
 
 
 declarationVisitor : Node Declaration -> Context -> ( List nothing, Context )
