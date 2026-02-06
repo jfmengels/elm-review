@@ -9,9 +9,7 @@ module NoUnused.Parameters exposing (rule)
 import Array exposing (Array)
 import Dict exposing (Dict)
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
-import Elm.Syntax.Exposing as Exposing
 import Elm.Syntax.Expression as Expression exposing (Expression)
-import Elm.Syntax.Module as Module
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern as Pattern exposing (Pattern)
@@ -277,25 +275,11 @@ fromProjectToModule =
 fromModuleToProject : Rule.ContextCreator ModuleContext ( List (Rule.Error {}), ProjectContext )
 fromModuleToProject =
     Rule.initContextCreator
-        (\moduleName moduleKey isModuleExposed_ ast isFileIgnored isFileFixable moduleContext ->
+        (\moduleName moduleKey isModuleExposed_ { exposed } isFileIgnored isFileFixable moduleContext ->
             let
                 isModuleExposed : Bool
                 isModuleExposed =
                     Maybe.withDefault False isModuleExposed_
-
-                isExposed : String -> Bool
-                isExposed =
-                    case Module.exposingList (Node.value ast.moduleDefinition) of
-                        Exposing.All _ ->
-                            always True
-
-                        Exposing.Explicit explicitlyExposed ->
-                            let
-                                exposed : Set String
-                                exposed =
-                                    collectExposedElements explicitlyExposed
-                            in
-                            \name -> Set.member name exposed
             in
             if isFileIgnored then
                 ( []
@@ -303,7 +287,7 @@ fromModuleToProject =
                   , functionCallsWithArguments =
                         List.foldl
                             (\arg functionCallsWithArguments ->
-                                if isModuleExposed || not (isExposed arg.functionName) then
+                                if isModuleExposed || not (Dict.member arg.functionName exposed) then
                                     functionCallsWithArguments
 
                                 else
@@ -334,7 +318,7 @@ fromModuleToProject =
                     { errors, toReport, functionCallsWithArguments } =
                         List.foldl
                             (\arg acc ->
-                                if isExposed arg.functionName then
+                                if Dict.member arg.functionName exposed then
                                     if isModuleExposed then
                                         let
                                             newErrors : List (Rule.Error {})
@@ -400,7 +384,7 @@ fromModuleToProject =
         |> Rule.withModuleName
         |> Rule.withModuleKey
         |> Rule.withIsModuleExposed
-        |> Rule.withFullAst
+        |> Rule.withExposed
         |> Rule.withIsFileIgnored
         |> Rule.withIsFileFixable
 
@@ -500,25 +484,6 @@ applyFixesAcrossModules arg callSitesPerFile fixesSoFar =
 
             else
                 Nothing
-
-
-
--- MODULE DEFINITION
-
-
-collectExposedElements : List (Node Exposing.TopLevelExpose) -> Set String
-collectExposedElements exposed =
-    List.foldl
-        (\(Node _ exp) set ->
-            case exp of
-                Exposing.FunctionExpose name ->
-                    Set.insert name set
-
-                _ ->
-                    set
-        )
-        Set.empty
-        exposed
 
 
 
