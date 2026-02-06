@@ -303,7 +303,7 @@ fromModuleToProject =
                   , functionCallsWithArguments =
                         List.foldl
                             (\arg functionCallsWithArguments ->
-                                if isModuleExposed || not (isExposed arg.functionName) || then
+                                if isModuleExposed || not (isExposed arg.functionName) then
                                     functionCallsWithArguments
 
                                 else
