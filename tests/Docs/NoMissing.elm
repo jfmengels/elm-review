@@ -34,8 +34,7 @@ elm-review --template jfmengels/elm-review-documentation/example --rules Docs.No
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Exposing as Exposing
 import Elm.Syntax.Module as Module exposing (Module)
-import Elm.Syntax.Node as Node exposing (Node(..))
-import Elm.Syntax.Range as Range
+import Elm.Syntax.Node as Node exposing (Node)
 import Review.Rule as Rule exposing (Error, Rule)
 import Set exposing (Set)
 
@@ -116,12 +115,13 @@ type alias Context =
 initialContext : Rule.ContextCreator () Context
 initialContext =
     Rule.initContextCreator
-        (\isModuleExposed () ->
-            { moduleNameNode = Node Range.emptyRange ""
+        (\moduleNameNode isModuleExposed () ->
+            { moduleNameNode = Node.map (String.join ".") moduleNameNode
             , exposedElements = EverythingIsExposed
             , shouldBeReported = Maybe.withDefault False isModuleExposed
             }
         )
+        |> Rule.withModuleNameNode
         |> Rule.withIsModuleExposed
 
 
@@ -186,24 +186,6 @@ exposedModules =
 moduleDefinitionVisitor : From -> Node Module -> Context -> ( List nothing, Context )
 moduleDefinitionVisitor fromConfig node context =
     let
-        moduleNameNode : Node String
-        moduleNameNode =
-            case Node.value node of
-                Module.NormalModule x ->
-                    Node
-                        (Node.range x.moduleName)
-                        (Node.value x.moduleName |> String.join ".")
-
-                Module.PortModule x ->
-                    Node
-                        (Node.range x.moduleName)
-                        (Node.value x.moduleName |> String.join ".")
-
-                Module.EffectModule x ->
-                    Node
-                        (Node.range x.moduleName)
-                        (Node.value x.moduleName |> String.join ".")
-
         shouldBeReported : Bool
         shouldBeReported =
             case fromConfig of
@@ -223,7 +205,7 @@ moduleDefinitionVisitor fromConfig node context =
                     ExplicitList (List.map collectExposing list |> Set.fromList)
     in
     ( []
-    , { moduleNameNode = moduleNameNode
+    , { moduleNameNode = context.moduleNameNode
       , shouldBeReported = shouldBeReported
       , exposedElements = exposed
       }
