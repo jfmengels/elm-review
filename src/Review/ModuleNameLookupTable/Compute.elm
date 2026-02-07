@@ -30,7 +30,14 @@ import Set exposing (Set)
 import Vendor.ListExtra as ListExtra
 
 
-compute : ModuleName -> OpaqueProjectModule -> ValidProject -> ( ModuleNameLookupTable, ValidProject )
+compute :
+    ModuleName
+    -> OpaqueProjectModule
+    -> ValidProject
+    ->
+        { moduleNameLookupTable : ModuleNameLookupTable
+        , project : ValidProject
+        }
 compute moduleName module_ project =
     let
         projectCache : ProjectCache
@@ -56,7 +63,7 @@ compute moduleName module_ project =
                 Dict.empty
                 (ProjectModule.ast module_).imports
 
-        computeLookupTableForModule : () -> ( ModuleNameLookupTable, ValidProject )
+        computeLookupTableForModule : () -> { moduleNameLookupTable : ModuleNameLookupTable, project : ValidProject }
         computeLookupTableForModule () =
             computeHelp
                 { implicitImports = implicitImports
@@ -69,7 +76,7 @@ compute moduleName module_ project =
     case Dict.get moduleName projectCache.lookupTables of
         Just cache ->
             if cache.key.contentHash == ProjectModule.contentHash module_ && cache.key.implicitImports == implicitImports then
-                ( cache.lookupTable, project )
+                { moduleNameLookupTable = cache.lookupTable, project = project }
 
             else
                 computeLookupTableForModule ()
@@ -78,7 +85,7 @@ compute moduleName module_ project =
             computeLookupTableForModule ()
 
 
-computeHelp : ProjectCache.ModuleCacheKey -> ModuleName -> OpaqueProjectModule -> ValidProject -> ( ModuleNameLookupTable, ValidProject )
+computeHelp : ProjectCache.ModuleCacheKey -> ModuleName -> OpaqueProjectModule -> ValidProject -> { moduleNameLookupTable : ModuleNameLookupTable, project : ValidProject }
 computeHelp cacheKey moduleName module_ project =
     let
         projectCache : ProjectCache
@@ -169,7 +176,9 @@ computeHelp cacheKey moduleName module_ project =
                     projectCache.lookupTables
             }
     in
-    ( lookupTable, ValidProject.updateProjectCache newProjectCache project )
+    { moduleNameLookupTable = lookupTable
+    , project = ValidProject.updateProjectCache newProjectCache project
+    }
 
 
 computeImplicitlyImportedElements :

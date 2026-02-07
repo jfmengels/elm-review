@@ -5660,10 +5660,10 @@ computeWhatsRequiredToAnalyze project module_ ruleProjectVisitors =
 
 
 computeModuleWithRuleVisitors : ValidProject -> OpaqueProjectModule -> List (AvailableData -> RuleModuleVisitor) -> RequestedData -> List RuleProjectVisitor -> ( ValidProject, List RuleProjectVisitor )
-computeModuleWithRuleVisitors project module_ inputRuleModuleVisitors (RequestedData requestedData) rulesNotToRun =
+computeModuleWithRuleVisitors initialProject module_ inputRuleModuleVisitors (RequestedData requestedData) rulesNotToRun =
     let
-        ( moduleNameLookupTable, newProject ) =
-            computeModuleNameLookupTable requestedData project module_
+        { moduleNameLookupTable, project } =
+            computeModuleNameLookupTable requestedData initialProject module_
 
         ast : File
         ast =
@@ -5683,7 +5683,7 @@ computeModuleWithRuleVisitors project module_ inputRuleModuleVisitors (Requested
             , moduleKey = ModuleKey filePath
             , moduleNameLookupTable = moduleNameLookupTable
             , moduleDocumentation = findModuleDocumentation ast
-            , isModuleExposed = ValidProject.isModuleExposed project (Node.value moduleNameNode_)
+            , isModuleExposed = ValidProject.isModuleExposed initialProject (Node.value moduleNameNode_)
             , exposed =
                 { exposesAll =
                     case Module.exposingList (Node.value ast.moduleDefinition) of
@@ -5693,7 +5693,7 @@ computeModuleWithRuleVisitors project module_ inputRuleModuleVisitors (Requested
                         Exposing.Explicit _ ->
                             False
                 , exposed =
-                    collectExposed (Dict.get (Node.value moduleNameNode_) (ValidProject.projectCache newProject).modules)
+                    collectExposed (Dict.get (Node.value moduleNameNode_) (ValidProject.projectCache project).modules)
                 }
             , extractSourceCode =
                 \() ->
@@ -5713,7 +5713,7 @@ computeModuleWithRuleVisitors project module_ inputRuleModuleVisitors (Requested
                 |> visitModuleForProjectRule availableData
                 |> List.map (\(RuleModuleVisitor ruleModuleVisitor) -> ruleModuleVisitor.toProjectVisitor ())
     in
-    ( newProject, List.append rulesNotToRun outputRuleProjectVisitors )
+    ( project, List.append rulesNotToRun outputRuleProjectVisitors )
 
 
 collectExposed : Maybe Elm.Docs.Module -> Set String
@@ -5738,7 +5738,14 @@ addNamesFrom list initial =
         list
 
 
-computeModuleNameLookupTable : { a | moduleNameLookupTable : Bool } -> ValidProject -> OpaqueProjectModule -> ( ModuleNameLookupTableInternal.ModuleNameLookupTable, ValidProject )
+computeModuleNameLookupTable :
+    { a | moduleNameLookupTable : Bool }
+    -> ValidProject
+    -> OpaqueProjectModule
+    ->
+        { moduleNameLookupTable : ModuleNameLookupTableInternal.ModuleNameLookupTable
+        , project : ValidProject
+        }
 computeModuleNameLookupTable requestedData project module_ =
     let
         moduleName : ModuleName
@@ -5750,7 +5757,9 @@ computeModuleNameLookupTable requestedData project module_ =
         Review.ModuleNameLookupTable.Compute.compute moduleName module_ project
 
     else
-        ( ModuleNameLookupTableInternal.empty moduleName, project )
+        { moduleNameLookupTable = ModuleNameLookupTableInternal.empty moduleName
+        , project = project
+        }
 
 
 findFixInComputeModuleResults :
