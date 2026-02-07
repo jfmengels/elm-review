@@ -14,8 +14,6 @@ import Elm.Package
 import Elm.Project
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Documentation exposing (Documentation)
-import Elm.Syntax.Exposing as Exposing
-import Elm.Syntax.Module as Module
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Range exposing (Range)
@@ -192,27 +190,17 @@ type alias MaybeExposedLinkData =
 fromProjectToModule : Rule.ContextCreator ProjectContext ModuleContext
 fromProjectToModule =
     Rule.initContextCreator
-        (\ast moduleName projectContext ->
-            let
-                exposedElements : Set String
-                exposedElements =
-                    case Module.exposingList (Node.value ast.moduleDefinition) of
-                        Exposing.All _ ->
-                            Set.fromList (List.filterMap nameOfDeclaration ast.declarations)
-
-                        Exposing.Explicit explicitlyExposed ->
-                            Set.fromList (List.map exposedName explicitlyExposed)
-            in
+        (\moduleName { exposed } projectContext ->
             { isModuleExposed = Set.member moduleName projectContext.exposedModules
-            , exposedElements = exposedElements
+            , exposedElements = exposed
             , moduleName = moduleName
             , commentSections = []
             , sections = []
             , links = []
             }
         )
-        |> Rule.withFullAst
         |> Rule.withModuleName
+        |> Rule.withExposed
 
 
 fromModuleToProject : Rule.ContextCreator ModuleContext ProjectContext
@@ -326,26 +314,6 @@ readmeVisitor maybeReadmeInfo projectContext =
 
         Nothing ->
             ( [], projectContext )
-
-
-
--- MODULE DEFINITION VISITOR
-
-
-exposedName : Node Exposing.TopLevelExpose -> String
-exposedName node =
-    case Node.value node of
-        Exposing.InfixExpose string ->
-            string
-
-        Exposing.FunctionExpose string ->
-            string
-
-        Exposing.TypeOrAliasExpose string ->
-            string
-
-        Exposing.TypeExpose exposedType ->
-            exposedType.name
 
 
 
