@@ -230,7 +230,7 @@ computeHelp cacheKey moduleName module_ project =
             , unions = moduleContext.exposedUnions
             , aliases = moduleContext.exposedAliases
             , values = moduleContext.exposedValues
-            , binops = []
+            , binops = moduleContext.exposedBinops
             }
 
         modules : Dict ModuleName Elm.Docs.Module
@@ -327,7 +327,7 @@ computeSimpleHelp moduleName module_ project =
             , unions = moduleContext.exposedUnions
             , aliases = moduleContext.exposedAliases
             , values = moduleContext.exposedValues
-            , binops = []
+            , binops = moduleContext.exposedBinops
             }
 
         modules : Dict ModuleName Elm.Docs.Module
@@ -544,7 +544,7 @@ computeOnlyModuleDocs ({ baseModuleContext } as data) moduleName module_ basePro
             , unions = moduleContext.exposedUnions
             , aliases = moduleContext.exposedAliases
             , values = moduleContext.exposedValues
-            , binops = []
+            , binops = moduleContext.exposedBinops
             }
     in
     { moduleDocs = moduleDocs
@@ -582,6 +582,7 @@ computeBaseModule elmCorePreludeModules =
         , exposedUnions = []
         , exposedAliases = []
         , exposedValues = []
+        , exposedBinops = []
         , lookupTable = Builder.empty
         , branches = NonEmpty.fromElement ( Range.empty, Set.empty )
         , caseToExit = NonEmpty.fromElement Range.empty
@@ -808,8 +809,14 @@ registerDeclaration (Node declarationRange declaration) innerContext =
                     )
                     signature.name
 
-        Declaration.InfixDeclaration _ ->
+        Declaration.InfixDeclaration infix_ ->
             innerContext
+                |> addToScope (Node.value infix_.operator)
+                |> registerIfExposed
+                    (\name ctx ->
+                        registerExposedBinop { documentation = Nothing, signature = Nothing } name ctx
+                    )
+                    infix_.operator
 
         Declaration.Destructuring _ _ ->
             -- Not possible in 0.19 code
@@ -874,6 +881,19 @@ registerExposedTypeAlias name innerContext =
             , tipe = Elm.Type.Tuple []
             }
                 :: innerContext.exposedAliases
+    }
+
+
+registerExposedBinop : { a | documentation : Maybe (Node String), signature : Maybe (Node Signature) } -> String -> Context -> Context
+registerExposedBinop function name innerContext =
+    -- TODO Get comment and type from the aliased function?
+    { innerContext
+        | exposedValues =
+            { name = name
+            , comment = ""
+            , tipe = convertTypeSignatureToDocsType innerContext function.signature
+            }
+                :: innerContext.exposedValues
     }
 
 
@@ -968,8 +988,8 @@ exposedElements nodes =
                 Exposing.TypeExpose { name } ->
                     Set.insert name acc
 
-                Exposing.InfixExpose _ ->
-                    acc
+                Exposing.InfixExpose name ->
+                    Set.insert name acc
         )
         Set.empty
         nodes
