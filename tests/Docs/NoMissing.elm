@@ -98,8 +98,8 @@ relevant information _can_ be found without too much effort.
 -}
 rule : { document : What, from : From } -> Rule
 rule configuration =
-    Rule.newModuleRuleSchemaUsingContextCreator "Docs.NoMissing" initialContext
-        |> Rule.withModuleDefinitionVisitor (moduleDefinitionVisitor configuration.from)
+    Rule.newModuleRuleSchemaUsingContextCreator "Docs.NoMissing" (initialContext configuration.from)
+        |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
         |> Rule.withModuleDocumentationVisitor moduleDocumentationVisitor
         |> Rule.withDeclarationEnterVisitor (declarationVisitor configuration.document)
         |> Rule.fromModuleRuleSchema
@@ -112,13 +112,19 @@ type alias Context =
     }
 
 
-initialContext : Rule.ContextCreator () Context
-initialContext =
+initialContext : From -> Rule.ContextCreator () Context
+initialContext fromConfig =
     Rule.initContextCreator
         (\moduleNameNode isModuleExposed () ->
             { moduleNameNode = Node.map (String.join ".") moduleNameNode
             , exposedElements = EverythingIsExposed
-            , shouldBeReported = Maybe.withDefault False isModuleExposed
+            , shouldBeReported =
+                case fromConfig of
+                    AllModules ->
+                        True
+
+                    ExposedModules ->
+                        Maybe.withDefault False isModuleExposed
             }
         )
         |> Rule.withModuleNameNode
@@ -183,18 +189,9 @@ exposedModules =
 -- MODULE DEFINITION VISITOR
 
 
-moduleDefinitionVisitor : From -> Node Module -> Context -> ( List nothing, Context )
-moduleDefinitionVisitor fromConfig node context =
+moduleDefinitionVisitor : Node Module -> Context -> ( List nothing, Context )
+moduleDefinitionVisitor node context =
     let
-        shouldBeReported : Bool
-        shouldBeReported =
-            case fromConfig of
-                AllModules ->
-                    True
-
-                ExposedModules ->
-                    context.shouldBeReported
-
         exposed : Exposed
         exposed =
             case Node.value node |> Module.exposingList of
@@ -206,7 +203,7 @@ moduleDefinitionVisitor fromConfig node context =
     in
     ( []
     , { moduleNameNode = context.moduleNameNode
-      , shouldBeReported = shouldBeReported
+      , shouldBeReported = context.shouldBeReported
       , exposedElements = exposed
       }
     )
