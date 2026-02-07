@@ -7739,10 +7739,10 @@ then
 
 -}
 withExposed : ContextCreator { exposesAll : Bool, exposed : Set String } (from -> to) -> ContextCreator from to
-withExposed (ContextCreator fn requested) =
+withExposed (ContextCreator fn (RequestedData requested)) =
     ContextCreator
         (\data isFileIgnored isFileFixable -> fn data isFileIgnored isFileFixable data.exposed)
-        requested
+        (RequestedData { requested | exposed = True })
 
 
 {-| Request the [module key](#ModuleKey) for this module.
