@@ -13,7 +13,6 @@ import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Exposing as Exposing exposing (TopLevelExpose)
 import Elm.Syntax.Expression as Expression exposing (Expression, Function, FunctionImplementation)
 import Elm.Syntax.Import exposing (Import)
-import Elm.Syntax.Module as Module exposing (Module)
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern as Pattern exposing (Pattern)
@@ -120,7 +119,6 @@ rule =
 moduleVisitor : Rule.ModuleRuleSchema schemaState ModuleContext -> Rule.ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } ModuleContext
 moduleVisitor schema =
     schema
-        |> Rule.withModuleDefinitionVisitor (\module_ context -> ( [], moduleDefinitionVisitor module_ context ))
         |> Rule.withImportVisitor importVisitor
         |> Rule.withDeclarationListVisitor (\nodes context -> ( [], declarationListVisitor nodes context ))
         |> Rule.withDeclarationEnterVisitor declarationEnterVisitor
@@ -235,11 +233,11 @@ initialContext =
 fromProjectToModule : Rule.ContextCreator ProjectContext ModuleContext
 fromProjectToModule =
     Rule.initContextCreator
-        (\lookupTable { isApplication, customTypes } ->
+        (\lookupTable { exposesAll, exposed } { isApplication, customTypes } ->
             { lookupTable = lookupTable
-            , scopes = NonemptyList.fromElement emptyScope
+            , scopes = NonemptyList.fromElement (scopeWithUsedExports exposed)
             , inTheDeclarationOf = []
-            , exposesEverything = False
+            , exposesEverything = exposesAll
             , isApplication = isApplication
             , constructorNameToTypeName = Dict.empty
             , declaredModules = []
@@ -252,6 +250,7 @@ fromProjectToModule =
             }
         )
         |> Rule.withModuleNameLookupTable
+        |> Rule.withExposed
 
 
 fromModuleToProject : Rule.ContextCreator ModuleContext ProjectContext
@@ -277,10 +276,10 @@ foldProjectContexts newProjectContext previousProjectContext =
     }
 
 
-emptyScope : Scope
-emptyScope =
+scopeWithUsedExports : Dict String Bool -> Scope
+scopeWithUsedExports exposed =
     { declared = Dict.empty
-    , used = Dict.empty
+    , used = Dict.singleton [] (Dict.foldl (\key _ set -> Set.insert key set) Set.empty exposed)
     , namesToIgnore = Set.empty
     }
 
@@ -358,39 +357,6 @@ unionsToDict unions =
         (\{ name, tags } acc -> Dict.insert name (List.map Tuple.first tags) acc)
         Dict.empty
         unions
-
-
-
--- MODULE DEFINITION VISITOR
-
-
-moduleDefinitionVisitor : Node Module -> ModuleContext -> ModuleContext
-moduleDefinitionVisitor (Node _ moduleNode) context =
-    case Module.exposingList moduleNode of
-        Exposing.All _ ->
-            { context | exposesEverything = True }
-
-        Exposing.Explicit list ->
-            List.foldl
-                (\element ctx -> markAsUsed (getExposingName element) ctx)
-                context
-                list
-
-
-getExposingName : Node Exposing.TopLevelExpose -> String
-getExposingName node =
-    case Node.value node of
-        Exposing.FunctionExpose name ->
-            name
-
-        Exposing.TypeOrAliasExpose name ->
-            name
-
-        Exposing.TypeExpose { name } ->
-            name
-
-        Exposing.InfixExpose name ->
-            name
 
 
 importVisitor : Node Import -> ModuleContext -> ( List (Error {}), ModuleContext )
