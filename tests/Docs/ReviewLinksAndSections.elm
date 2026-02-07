@@ -190,9 +190,9 @@ type alias MaybeExposedLinkData =
 fromProjectToModule : Rule.ContextCreator ProjectContext ModuleContext
 fromProjectToModule =
     Rule.initContextCreator
-        (\moduleName { exposed } projectContext ->
-            { isModuleExposed = Set.member moduleName projectContext.exposedModules
-            , exposedElements = exposed
+        (\moduleName isModuleExposed { exposed } _ ->
+            { isModuleExposed = Maybe.withDefault False isModuleExposed
+            , exposedElements = Dict.foldl (\key _ set -> Set.insert key set) Set.empty exposed
             , moduleName = moduleName
             , commentSections = []
             , sections = []
@@ -200,6 +200,7 @@ fromProjectToModule =
             }
         )
         |> Rule.withModuleName
+        |> Rule.withIsModuleExposed
         |> Rule.withExposed
 
 
