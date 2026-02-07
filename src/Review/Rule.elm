@@ -5662,7 +5662,7 @@ computeWhatsRequiredToAnalyze project module_ ruleProjectVisitors =
 computeModuleWithRuleVisitors : ValidProject -> OpaqueProjectModule -> List (AvailableData -> RuleModuleVisitor) -> RequestedData -> List RuleProjectVisitor -> ( ValidProject, List RuleProjectVisitor )
 computeModuleWithRuleVisitors initialProject module_ inputRuleModuleVisitors (RequestedData requestedData) rulesNotToRun =
     let
-        { moduleNameLookupTable, project } =
+        { moduleNameLookupTable, exposed, project } =
             computeModuleNameLookupTable requestedData initialProject module_
 
         ast : File
@@ -5684,17 +5684,7 @@ computeModuleWithRuleVisitors initialProject module_ inputRuleModuleVisitors (Re
             , moduleNameLookupTable = moduleNameLookupTable
             , moduleDocumentation = findModuleDocumentation ast
             , isModuleExposed = ValidProject.isModuleExposed initialProject (Node.value moduleNameNode_)
-            , exposed =
-                { exposesAll =
-                    case Module.exposingList (Node.value ast.moduleDefinition) of
-                        Exposing.All _ ->
-                            True
-
-                        Exposing.Explicit _ ->
-                            False
-                , exposed =
-                    collectExposed (Dict.get (Node.value moduleNameNode_) (ValidProject.projectCache project).modules)
-                }
+            , exposed = exposed
             , extractSourceCode =
                 \() ->
                     let
@@ -5716,18 +5706,23 @@ computeModuleWithRuleVisitors initialProject module_ inputRuleModuleVisitors (Re
     ( project, List.append rulesNotToRun outputRuleProjectVisitors )
 
 
-collectExposed : Maybe Elm.Docs.Module -> Set String
-collectExposed maybeDocs =
-    case maybeDocs of
-        Nothing ->
-            Set.empty
+collectExposed : Elm.Docs.Module -> Set String
+collectExposed docs =
+    Set.empty
+        |> addNamesFrom docs.unions
+        |> addNamesFrom docs.aliases
+        |> addNamesFrom docs.values
+        |> addNamesFrom docs.binops
 
-        Just docs ->
-            Set.empty
-                |> addNamesFrom docs.unions
-                |> addNamesFrom docs.aliases
-                |> addNamesFrom docs.values
-                |> addNamesFrom docs.binops
+
+exposesAll : Elm.Syntax.File.File -> Bool
+exposesAll ast =
+    case Module.exposingList (Node.value ast.moduleDefinition) of
+        Exposing.All _ ->
+            True
+
+        Exposing.Explicit _ ->
+            False
 
 
 addNamesFrom : List { a | name : String } -> Set String -> Set String
@@ -5739,11 +5734,12 @@ addNamesFrom list initial =
 
 
 computeModuleNameLookupTable :
-    { a | moduleNameLookupTable : Bool }
+    { a | moduleNameLookupTable : Bool, exposed : Bool }
     -> ValidProject
     -> OpaqueProjectModule
     ->
-        { moduleNameLookupTable : ModuleNameLookupTableInternal.ModuleNameLookupTable
+        { moduleNameLookupTable : ModuleNameLookupTable
+        , exposed : Exposed
         , project : ValidProject
         }
 computeModuleNameLookupTable requestedData project module_ =
@@ -5754,12 +5750,51 @@ computeModuleNameLookupTable requestedData project module_ =
     in
     -- TODO If the file has changed, then compute the module docs anyway.
     if requestedData.moduleNameLookupTable then
-        Review.ModuleNameLookupTable.Compute.compute moduleName module_ project
+        let
+            computeResult : { moduleNameLookupTable : ModuleNameLookupTable, moduleDocs : Elm.Docs.Module, project : ValidProject }
+            computeResult =
+                Review.ModuleNameLookupTable.Compute.compute moduleName module_ project
+
+            exposesAll_ : Bool
+            exposesAll_ =
+                exposesAll (ProjectModule.ast module_)
+        in
+        { moduleNameLookupTable = computeResult.moduleNameLookupTable
+        , exposed =
+            { exposesAll = exposesAll_
+            , exposed = collectExposed computeResult.moduleDocs
+            }
+        , project = computeResult.project
+        }
+
+    else if requestedData.exposed then
+        let
+            computeResult : { moduleNameLookupTable : ModuleNameLookupTable, moduleDocs : Elm.Docs.Module, project : ValidProject }
+            computeResult =
+                Review.ModuleNameLookupTable.Compute.compute moduleName module_ project
+
+            exposesAll_ : Bool
+            exposesAll_ =
+                exposesAll (ProjectModule.ast module_)
+        in
+        { moduleNameLookupTable = ModuleNameLookupTableInternal.empty moduleName
+        , exposed =
+            { exposesAll = exposesAll_
+            , exposed = collectExposed computeResult.moduleDocs
+            }
+        , project = project
+        }
 
     else
         { moduleNameLookupTable = ModuleNameLookupTableInternal.empty moduleName
+        , exposed = dummyExposed
         , project = project
         }
+
+
+dummyExposed : Exposed
+dummyExposed =
+    { exposesAll = False, exposed = Set.empty }
 
 
 findFixInComputeModuleResults :

@@ -36,6 +36,7 @@ compute :
     -> ValidProject
     ->
         { moduleNameLookupTable : ModuleNameLookupTable
+        , moduleDocs : Elm.Docs.Module
         , project : ValidProject
         }
 compute moduleName module_ project =
@@ -63,7 +64,13 @@ compute moduleName module_ project =
                 Dict.empty
                 (ProjectModule.ast module_).imports
 
-        computeLookupTableForModule : () -> { moduleNameLookupTable : ModuleNameLookupTable, project : ValidProject }
+        computeLookupTableForModule :
+            ()
+            ->
+                { moduleNameLookupTable : ModuleNameLookupTable
+                , moduleDocs : Elm.Docs.Module
+                , project : ValidProject
+                }
         computeLookupTableForModule () =
             computeHelp
                 { implicitImports = implicitImports
@@ -76,7 +83,10 @@ compute moduleName module_ project =
     case Dict.get moduleName projectCache.lookupTables of
         Just cache ->
             if cache.key.contentHash == ProjectModule.contentHash module_ && cache.key.implicitImports == implicitImports then
-                { moduleNameLookupTable = cache.lookupTable, project = project }
+                { moduleNameLookupTable = cache.lookupTable
+                , moduleDocs = Dict.get moduleName projectCache.modules |> Maybe.withDefault emptyModuleDocs
+                , project = project
+                }
 
             else
                 computeLookupTableForModule ()
@@ -85,7 +95,16 @@ compute moduleName module_ project =
             computeLookupTableForModule ()
 
 
-computeHelp : ProjectCache.ModuleCacheKey -> ModuleName -> OpaqueProjectModule -> ValidProject -> { moduleNameLookupTable : ModuleNameLookupTable, project : ValidProject }
+computeHelp :
+    ProjectCache.ModuleCacheKey
+    -> ModuleName
+    -> OpaqueProjectModule
+    -> ValidProject
+    ->
+        { moduleNameLookupTable : ModuleNameLookupTable
+        , moduleDocs : Elm.Docs.Module
+        , project : ValidProject
+        }
 computeHelp cacheKey moduleName module_ project =
     let
         projectCache : ProjectCache
@@ -124,21 +143,17 @@ computeHelp cacheKey moduleName module_ project =
                 Nothing ->
                     computeDepsAndBaseModuleContext ()
 
-        moduleDocs : { projectModules : Dict ModuleName Elm.Docs.Module, deps : Dict ModuleName Elm.Docs.Module }
-        moduleDocs =
-            { projectModules = projectCache.modules, deps = deps }
-
         dataForModuleDocs : DataForModuleDocs
         dataForModuleDocs =
             { getModule = ValidProject.getModuleByModuleName project
             , baseModuleContext = baseModuleContext
-            , deps = moduleDocs.deps
+            , deps = deps
             }
 
         { imported, projectModules } =
             List.foldl
                 (\node acc -> computeImportedModulesDocs dataForModuleDocs node acc)
-                { imported = baseModuleContext.modules, projectModules = moduleDocs.projectModules }
+                { imported = baseModuleContext.modules, projectModules = projectCache.modules }
                 moduleAst.imports
 
         moduleContext : Context
@@ -151,17 +166,19 @@ computeHelp cacheKey moduleName module_ project =
         lookupTable =
             Builder.finalize moduleName moduleContext.lookupTable
 
+        moduleDocsForFile : Elm.Docs.Module
+        moduleDocsForFile =
+            { name = String.join "." moduleName
+            , comment = ""
+            , unions = moduleContext.exposedUnions
+            , aliases = moduleContext.exposedAliases
+            , values = moduleContext.exposedValues
+            , binops = []
+            }
+
         modules : Dict ModuleName Elm.Docs.Module
         modules =
-            Dict.insert moduleName
-                { name = String.join "." moduleName
-                , comment = ""
-                , unions = moduleContext.exposedUnions
-                , aliases = moduleContext.exposedAliases
-                , values = moduleContext.exposedValues
-                , binops = []
-                }
-                projectModules
+            Dict.insert moduleName moduleDocsForFile projectModules
 
         newProjectCache : ProjectCache
         newProjectCache =
@@ -177,7 +194,19 @@ computeHelp cacheKey moduleName module_ project =
             }
     in
     { moduleNameLookupTable = lookupTable
+    , moduleDocs = moduleDocsForFile
     , project = ValidProject.updateProjectCache newProjectCache project
+    }
+
+
+emptyModuleDocs : Elm.Docs.Module
+emptyModuleDocs =
+    { name = ""
+    , comment = ""
+    , unions = []
+    , aliases = []
+    , values = []
+    , binops = []
     }
 
 
