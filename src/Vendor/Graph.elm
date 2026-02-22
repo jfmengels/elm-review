@@ -231,9 +231,24 @@ removeEdge edge (Graph rep) =
 
 
 addNode : Node n -> Graph n -> Graph n
-addNode n (Graph rep) =
-    IntDict.insert n.id (NodeContext n IntSet.empty IntSet.empty) rep
-        |> Graph
+addNode n ((Graph rep) as graph) =
+    case get n.id graph of
+        Just previousNode ->
+            if previousNode.node.label == n.label then
+                graph
+
+            else
+                IntDict.insert n.id
+                    { node = n
+                    , incoming = previousNode.incoming
+                    , outgoing = previousNode.outgoing
+                    }
+                    rep
+                    |> Graph
+
+        Nothing ->
+            IntDict.insert n.id (NodeContext n IntSet.empty IntSet.empty) rep
+                |> Graph
 
 
 checkOrdering : Graph n -> List Int -> List (NodeContext n) -> IntSet -> Result Edge (List (NodeContext n))

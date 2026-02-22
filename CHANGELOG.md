@@ -1,6 +1,9 @@
 # Changelog
 
 ## [Unreleased]
+ 
+- Fixed an issue where rules would yield unexpected results due to not having the context from imported modules,
+  after the file has been loaded from the file system.
 
 ## [2.16.5] - 2026-02-22
 
