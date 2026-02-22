@@ -379,8 +379,7 @@ addParsedModule { path, source, ast } (ValidProject project) =
             Ok
                 (ValidProject
                     { project
-                        | moduleGraph = Graph.addNode (Graph.Node moduleId (ProjectModule.path module_)) project.moduleGraph
-                        , edgeChanges = edgeChanges
+                        | edgeChanges = edgeChanges
                         , moduleIds = moduleIds
                         , modulesByPath = modulesByPath
                         , workList = WorkList.touchedModule path project.workList

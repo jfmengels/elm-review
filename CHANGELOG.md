@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Fixed an issue where rules would yield unexpected results due to not having the context from imported modules.
+
 ## [2.16.4] - 2026-02-02
 
 - Fixed an issue where `elm-review` would yield incorrect results after a re-run, because of an issue in its caching system introduced in `2.16.3`.
