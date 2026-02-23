@@ -1,6 +1,8 @@
 # Changelog
 
 ## [Unreleased]
+
+## [2.16.6] - 2026-02-23
  
 - Fixed an issue where rules would yield unexpected results due to not having the context from imported modules,
   after the file has been loaded from the file system.
@@ -295,7 +297,8 @@ Help would be appreciated to fill the blanks!
 [`Review.Rule.errorFixFailure`]: https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule#errorFixFailure
 [`Review.Test.ignoredFilesImpactResults`]: https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule-Test#ignoredFilesImpactResults
 
-[Unreleased]: https://github.com/jfmengels/elm-review/compare/v2.16.5...HEAD
+[Unreleased]: https://github.com/jfmengels/elm-review/compare/v2.16.6...HEAD
+[2.16.6]: https://github.com/jfmengels/elm-review/releases/tag/2.16.6
 [2.16.5]: https://github.com/jfmengels/elm-review/releases/tag/2.16.5
 [2.16.4]: https://github.com/jfmengels/elm-review/releases/tag/2.16.4
 [2.16.3]: https://github.com/jfmengels/elm-review/releases/tag/2.16.3
