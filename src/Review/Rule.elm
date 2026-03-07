@@ -1861,6 +1861,7 @@ withModuleContext functions (ProjectRuleSchema schema) =
                             |> withModuleKey
                             |> withModuleNameNode
                     , foldProjectContexts = functions.foldProjectContexts
+                    , foldIndirectImports = False
                     }
         }
 
@@ -1915,6 +1916,7 @@ withModuleContextUsingContextCreator functions (ProjectRuleSchema schema) =
                 Just
                     { fromModuleToProject = mapContextCreator (Tuple.pair []) functions.fromModuleToProject
                     , foldProjectContexts = functions.foldProjectContexts
+                    , foldIndirectImports = False
                     }
         }
 
@@ -1967,6 +1969,7 @@ withModuleContextWithErrors functions (ProjectRuleSchema schema) =
                 Just
                     { fromModuleToProject = functions.fromModuleToProject
                     , foldProjectContexts = functions.foldProjectContexts
+                    , foldIndirectImports = False
                     }
         }
 
@@ -5028,6 +5031,7 @@ type TraversalAndFolder projectContext moduleContext
 type alias Folder projectContext moduleContext =
     { fromModuleToProject : ContextCreator moduleContext ( List (Error {}), projectContext )
     , foldProjectContexts : projectContext -> projectContext -> projectContext
+    , foldIndirectImports : Bool
     }
 
 
