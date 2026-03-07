@@ -32,6 +32,7 @@ module Review.Rule exposing
     , Required, Forbidden
     , errorFixes, errorFixFailure
     , Metadata, withMetadata, moduleNameFromMetadata, moduleNameNodeFromMetadata, isInSourceDirectories
+    , withContextFromImportedModulesIncludingIndirect
     )
 
 {-| This module contains functions that are used for writing rules.
@@ -1283,6 +1284,7 @@ type alias ProjectRuleSchemaData projectContext moduleContext =
 type TraversalType
     = AllModulesInParallel
     | ImportedModulesFirst
+    | ImportedModulesFirstIncludingIndirect
 
 
 {-| Creates a schema for a project rule. Will require adding project visitors and calling
@@ -2336,6 +2338,11 @@ the results of other modules' analysis.
 withContextFromImportedModules : ProjectRuleSchema schemaState projectContext moduleContext -> ProjectRuleSchema schemaState projectContext moduleContext
 withContextFromImportedModules (ProjectRuleSchema schema) =
     ProjectRuleSchema { schema | traversalType = ImportedModulesFirst }
+
+
+withContextFromImportedModulesIncludingIndirect : ProjectRuleSchema schemaState projectContext moduleContext -> ProjectRuleSchema schemaState projectContext moduleContext
+withContextFromImportedModulesIncludingIndirect (ProjectRuleSchema schema) =
+    ProjectRuleSchema { schema | traversalType = ImportedModulesFirstIncludingIndirect }
 
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's [module definition](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.2.1/Elm-Syntax-Module) (`module SomeModuleName exposing (a, b)`) and report patterns.
@@ -6721,6 +6728,12 @@ createModuleVisitorFromProjectVisitor schema raise hidden =
                             TraverseImportedModulesFirst folder
 
                         ( ImportedModulesFirst, Nothing ) ->
+                            TraverseAllModulesInParallel Nothing
+
+                        ( ImportedModulesFirstIncludingIndirect, Just folder ) ->
+                            TraverseImportedModulesFirst { folder | foldIndirectImports = True }
+
+                        ( ImportedModulesFirstIncludingIndirect, Nothing ) ->
                             TraverseAllModulesInParallel Nothing
             in
             Just (createModuleVisitorFromProjectVisitorHelp schema raise hidden traversalAndFolder moduleRuleSchema)
