@@ -5160,20 +5160,8 @@ computeFinalContext schema cache =
     let
         ( _, projectContext ) =
             findInitialInputContext cache AfterProjectFilesStep schema.initialProjectContext
-
-        traversalAndFolder : TraversalAndFolder projectContext moduleContext
-        traversalAndFolder =
-            case ( schema.traversalType, schema.folder ) of
-                ( AllModulesInParallel, _ ) ->
-                    TraverseAllModulesInParallel schema.folder
-
-                ( ImportedModulesFirst, Just folder ) ->
-                    TraverseImportedModulesFirst folder
-
-                ( ImportedModulesFirst, Nothing ) ->
-                    TraverseAllModulesInParallel Nothing
     in
-    case getFolderFromTraversal traversalAndFolder of
+    case schema.folder of
         Just { foldProjectContexts } ->
             Dict.foldl
                 (\_ cacheEntry acc -> foldProjectContexts (ModuleCache.outputContext cacheEntry) acc)
