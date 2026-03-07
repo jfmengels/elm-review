@@ -5769,21 +5769,38 @@ computeProjectContext traversalAndFolder project cache incoming initial =
         TraverseAllModulesInParallel _ ->
             initial
 
-        TraverseImportedModulesFirst { foldProjectContexts } ->
-            IntSet.foldl
-                (\key accContext ->
-                    case
-                        ValidProject.getGraphNode key project
-                            |> Maybe.andThen (\graphModule -> Dict.get graphModule.node.label cache)
-                    of
-                        Just importedModuleCache ->
-                            foldProjectContexts (ModuleCache.outputContext importedModuleCache) accContext
+        TraverseImportedModulesFirst { foldProjectContexts, foldIndirectImports } ->
+            if foldIndirectImports then
+                IntSet.foldl
+                    (\key accContext ->
+                        case
+                            ValidProject.getGraphNode key project
+                                |> Maybe.andThen (\graphModule -> Dict.get graphModule.node.label cache)
+                        of
+                            Just importedModuleCache ->
+                                foldProjectContexts (ModuleCache.outputContext importedModuleCache) accContext
 
-                        Nothing ->
-                            accContext
-                )
-                initial
-                incoming
+                            Nothing ->
+                                accContext
+                    )
+                    initial
+                    incoming
+
+            else
+                IntSet.foldl
+                    (\key accContext ->
+                        case
+                            ValidProject.getGraphNode key project
+                                |> Maybe.andThen (\graphModule -> Dict.get graphModule.node.label cache)
+                        of
+                            Just importedModuleCache ->
+                                foldProjectContexts (ModuleCache.outputContext importedModuleCache) accContext
+
+                            Nothing ->
+                                accContext
+                    )
+                    initial
+                    incoming
 
 
 computeModules :
