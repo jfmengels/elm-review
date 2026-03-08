@@ -5771,7 +5771,7 @@ computeProjectContext traversalAndFolder project cache incoming initial =
 
         TraverseImportedModulesFirst { foldProjectContexts, foldIndirectImports } ->
             if foldIndirectImports then
-                computeProjectContextIncludingIndirect foldProjectContexts project cache incoming initial
+                computeProjectContextIncludingIndirect foldProjectContexts project cache (IntSet.foldl (::) [] incoming) incoming initial
 
             else
                 IntSet.foldl
@@ -5794,24 +5794,30 @@ computeProjectContextIncludingIndirect :
     (projectContext -> projectContext -> projectContext)
     -> ValidProject
     -> Dict String (ModuleCacheEntry projectContext)
+    -> List Int
     -> Graph.Adjacency
     -> projectContext
     -> projectContext
-computeProjectContextIncludingIndirect foldProjectContexts project cache nodesToVisit initial =
-    IntSet.foldl
-        (\key accContext ->
+computeProjectContextIncludingIndirect foldProjectContexts project cache remainingNodesToVisit nodesToVisit acc =
+    case remainingNodesToVisit of
+        [] ->
+            acc
+
+        key :: rest ->
             case
                 ValidProject.getGraphNode key project
                     |> Maybe.andThen (\graphModule -> Dict.get graphModule.node.label cache)
             of
                 Just importedModuleCache ->
-                    foldProjectContexts (ModuleCache.outputContext importedModuleCache) accContext
+                    computeProjectContextIncludingIndirect foldProjectContexts
+                        project
+                        cache
+                        rest
+                        nodesToVisit
+                        (foldProjectContexts (ModuleCache.outputContext importedModuleCache) acc)
 
                 Nothing ->
-                    accContext
-        )
-        initial
-        nodesToVisit
+                    computeProjectContextIncludingIndirect foldProjectContexts project cache rest nodesToVisit acc
 
 
 computeModules :
