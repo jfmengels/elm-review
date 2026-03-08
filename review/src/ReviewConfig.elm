@@ -79,6 +79,7 @@ config =
         |> Rule.ignoreErrorsForFiles
             [ "src/Review/Test/Dependencies/Unsafe.elm"
             , "src/Review/Logger.elm"
+            , "tests/NoUnsortedRecords.elm"
             ]
     , NoForbiddenWords.rule [ "REPLACEME" ]
     ]
