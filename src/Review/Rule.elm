@@ -5797,7 +5797,7 @@ computeProjectContextIncludingIndirect :
     -> Graph.Adjacency
     -> projectContext
     -> projectContext
-computeProjectContextIncludingIndirect foldProjectContexts project cache incoming initial =
+computeProjectContextIncludingIndirect foldProjectContexts project cache nodesToVisit initial =
     IntSet.foldl
         (\key accContext ->
             case
@@ -5811,7 +5811,7 @@ computeProjectContextIncludingIndirect foldProjectContexts project cache incomin
                     accContext
         )
         initial
-        incoming
+        nodesToVisit
 
 
 computeModules :
