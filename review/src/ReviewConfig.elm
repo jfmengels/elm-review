@@ -36,7 +36,7 @@ import NoUnused.Variables
 import Review.FilePattern as FilePattern
 import Review.Rule as Rule exposing (Rule)
 import Simplify
-
+import NoUnsortedRecords
 
 config : List Rule
 config =
@@ -47,6 +47,7 @@ config =
         |> Rule.ignoreErrorsForDirectories [ "tests/" ]
     , Docs.NoMissing.rule { document = onlyExposed, from = exposedModules }
     , NoDebug.Log.rule
+    , NoUnsortedRecords.rule NoUnsortedRecords.defaults
     , NoDebug.TodoOrToString.rule
         |> Rule.ignoreErrorsForDirectories [ "tests/" ]
     , NoExposingEverything.rule
