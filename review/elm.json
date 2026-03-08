@@ -12,16 +12,22 @@
             "elm/parser": "1.1.0",
             "elm/project-metadata-utils": "1.0.2",
             "elm/regex": "1.0.0",
+            "elm-community/dict-extra": "2.4.0",
+            "elm-community/graph": "6.0.0",
+            "elm-community/maybe-extra": "5.3.0",
+            "elm-community/result-extra": "2.4.0",
             "jfmengels/elm-review": "2.16.1",
             "pzp1997/assoc-list": "1.0.0",
             "stil4m/elm-syntax": "7.3.9"
         },
         "indirect": {
+            "avh4/elm-fifo": "1.0.4",
             "elm/bytes": "1.0.8",
             "elm/html": "1.0.1",
             "elm/random": "1.0.0",
             "elm/time": "1.0.0",
             "elm/virtual-dom": "1.0.5",
+            "elm-community/intdict": "3.1.0",
             "elm-explorations/test": "2.2.0",
             "rtfeldman/elm-hex": "1.0.0",
             "stil4m/structured-writer": "1.0.3"

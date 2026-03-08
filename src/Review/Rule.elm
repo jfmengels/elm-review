@@ -32,6 +32,7 @@ module Review.Rule exposing
     , Required, Forbidden
     , errorFixes, errorFixFailure
     , Metadata, withMetadata, moduleNameFromMetadata, moduleNameNodeFromMetadata, isInSourceDirectories
+    , withContextFromImportedModulesIncludingIndirect
     )
 
 {-| This module contains functions that are used for writing rules.
@@ -1283,6 +1284,7 @@ type alias ProjectRuleSchemaData projectContext moduleContext =
 type TraversalType
     = AllModulesInParallel
     | ImportedModulesFirst
+    | ImportedModulesFirstIncludingIndirect
 
 
 {-| Creates a schema for a project rule. Will require adding project visitors and calling
@@ -1861,6 +1863,7 @@ withModuleContext functions (ProjectRuleSchema schema) =
                             |> withModuleKey
                             |> withModuleNameNode
                     , foldProjectContexts = functions.foldProjectContexts
+                    , foldIndirectImports = False
                     }
         }
 
@@ -1915,6 +1918,7 @@ withModuleContextUsingContextCreator functions (ProjectRuleSchema schema) =
                 Just
                     { fromModuleToProject = mapContextCreator (Tuple.pair []) functions.fromModuleToProject
                     , foldProjectContexts = functions.foldProjectContexts
+                    , foldIndirectImports = False
                     }
         }
 
@@ -1967,6 +1971,7 @@ withModuleContextWithErrors functions (ProjectRuleSchema schema) =
                 Just
                     { fromModuleToProject = functions.fromModuleToProject
                     , foldProjectContexts = functions.foldProjectContexts
+                    , foldIndirectImports = False
                     }
         }
 
@@ -2333,6 +2338,11 @@ the results of other modules' analysis.
 withContextFromImportedModules : ProjectRuleSchema schemaState projectContext moduleContext -> ProjectRuleSchema schemaState projectContext moduleContext
 withContextFromImportedModules (ProjectRuleSchema schema) =
     ProjectRuleSchema { schema | traversalType = ImportedModulesFirst }
+
+
+withContextFromImportedModulesIncludingIndirect : ProjectRuleSchema schemaState projectContext moduleContext -> ProjectRuleSchema schemaState projectContext moduleContext
+withContextFromImportedModulesIncludingIndirect (ProjectRuleSchema schema) =
+    ProjectRuleSchema { schema | traversalType = ImportedModulesFirstIncludingIndirect }
 
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's [module definition](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.2.1/Elm-Syntax-Module) (`module SomeModuleName exposing (a, b)`) and report patterns.
@@ -5028,6 +5038,7 @@ type TraversalAndFolder projectContext moduleContext
 type alias Folder projectContext moduleContext =
     { fromModuleToProject : ContextCreator moduleContext ( List (Error {}), projectContext )
     , foldProjectContexts : projectContext -> projectContext -> projectContext
+    , foldIndirectImports : Bool
     }
 
 
@@ -5130,20 +5141,8 @@ computeFinalContextHashes schema cache =
     let
         ( projectContextHash, _ ) =
             findInitialInputContext cache AfterProjectFilesStep schema.initialProjectContext
-
-        traversalAndFolder : TraversalAndFolder projectContext moduleContext
-        traversalAndFolder =
-            case ( schema.traversalType, schema.folder ) of
-                ( AllModulesInParallel, _ ) ->
-                    TraverseAllModulesInParallel schema.folder
-
-                ( ImportedModulesFirst, Just folder ) ->
-                    TraverseImportedModulesFirst folder
-
-                ( ImportedModulesFirst, Nothing ) ->
-                    TraverseAllModulesInParallel Nothing
     in
-    case getFolderFromTraversal traversalAndFolder of
+    case schema.folder of
         Just _ ->
             Dict.foldl
                 (\_ cacheEntry acc -> ModuleCache.outputContextHash cacheEntry :: acc)
@@ -5160,20 +5159,8 @@ computeFinalContext schema cache =
     let
         ( _, projectContext ) =
             findInitialInputContext cache AfterProjectFilesStep schema.initialProjectContext
-
-        traversalAndFolder : TraversalAndFolder projectContext moduleContext
-        traversalAndFolder =
-            case ( schema.traversalType, schema.folder ) of
-                ( AllModulesInParallel, _ ) ->
-                    TraverseAllModulesInParallel schema.folder
-
-                ( ImportedModulesFirst, Just folder ) ->
-                    TraverseImportedModulesFirst folder
-
-                ( ImportedModulesFirst, Nothing ) ->
-                    TraverseAllModulesInParallel Nothing
     in
-    case getFolderFromTraversal traversalAndFolder of
+    case schema.folder of
         Just { foldProjectContexts } ->
             Dict.foldl
                 (\_ cacheEntry acc -> foldProjectContexts (ModuleCache.outputContext cacheEntry) acc)
@@ -5782,21 +5769,69 @@ computeProjectContext traversalAndFolder project cache incoming initial =
         TraverseAllModulesInParallel _ ->
             initial
 
-        TraverseImportedModulesFirst { foldProjectContexts } ->
-            IntSet.foldl
-                (\key accContext ->
-                    case
-                        ValidProject.getGraphNode key project
-                            |> Maybe.andThen (\graphModule -> Dict.get graphModule.node.label cache)
-                    of
-                        Just importedModuleCache ->
-                            foldProjectContexts (ModuleCache.outputContext importedModuleCache) accContext
+        TraverseImportedModulesFirst { foldProjectContexts, foldIndirectImports } ->
+            if foldIndirectImports then
+                computeProjectContextIncludingIndirect foldProjectContexts project cache (IntSet.foldl (::) [] incoming) incoming initial
 
-                        Nothing ->
-                            accContext
-                )
-                initial
-                incoming
+            else
+                IntSet.foldl
+                    (\key accContext ->
+                        case
+                            ValidProject.getGraphNode key project
+                                |> Maybe.andThen (\graphModule -> Dict.get graphModule.node.label cache)
+                        of
+                            Just importedModuleCache ->
+                                foldProjectContexts (ModuleCache.outputContext importedModuleCache) accContext
+
+                            Nothing ->
+                                accContext
+                    )
+                    initial
+                    incoming
+
+
+computeProjectContextIncludingIndirect :
+    (projectContext -> projectContext -> projectContext)
+    -> ValidProject
+    -> Dict String (ModuleCacheEntry projectContext)
+    -> List Int
+    -> Graph.Adjacency
+    -> projectContext
+    -> projectContext
+computeProjectContextIncludingIndirect foldProjectContexts project cache remainingNodesToVisit nodesToVisit acc =
+    case remainingNodesToVisit of
+        [] ->
+            acc
+
+        key :: rest ->
+            case ValidProject.getGraphNode key project of
+                Just graphModule ->
+                    computeProjectContextIncludingIndirect
+                        foldProjectContexts
+                        project
+                        cache
+                        (IntSet.foldl
+                            (\int x ->
+                                if IntSet.member int nodesToVisit then
+                                    x
+
+                                else
+                                    int :: x
+                            )
+                            rest
+                            graphModule.incoming
+                        )
+                        nodesToVisit
+                        (case Dict.get graphModule.node.label cache of
+                            Just importedModuleCache ->
+                                foldProjectContexts (ModuleCache.outputContext importedModuleCache) acc
+
+                            Nothing ->
+                                acc
+                        )
+
+                Nothing ->
+                    computeProjectContextIncludingIndirect foldProjectContexts project cache rest nodesToVisit acc
 
 
 computeModules :
@@ -6741,6 +6776,12 @@ createModuleVisitorFromProjectVisitor schema raise hidden =
                             TraverseImportedModulesFirst folder
 
                         ( ImportedModulesFirst, Nothing ) ->
+                            TraverseAllModulesInParallel Nothing
+
+                        ( ImportedModulesFirstIncludingIndirect, Just folder ) ->
+                            TraverseImportedModulesFirst { folder | foldIndirectImports = True }
+
+                        ( ImportedModulesFirstIncludingIndirect, Nothing ) ->
                             TraverseAllModulesInParallel Nothing
             in
             Just (createModuleVisitorFromProjectVisitorHelp schema raise hidden traversalAndFolder moduleRuleSchema)
