@@ -5804,17 +5804,31 @@ computeProjectContextIncludingIndirect foldProjectContexts project cache remaini
             acc
 
         key :: rest ->
-            case
-                ValidProject.getGraphNode key project
-                    |> Maybe.andThen (\graphModule -> Dict.get graphModule.node.label cache)
-            of
-                Just importedModuleCache ->
-                    computeProjectContextIncludingIndirect foldProjectContexts
+            case ValidProject.getGraphNode key project of
+                Just graphModule ->
+                    computeProjectContextIncludingIndirect
+                        foldProjectContexts
                         project
                         cache
-                        rest
+                        (IntSet.foldl
+                            (\int x ->
+                                if IntSet.member int nodesToVisit then
+                                    x
+
+                                else
+                                    int :: x
+                            )
+                            rest
+                            graphModule.incoming
+                        )
                         nodesToVisit
-                        (foldProjectContexts (ModuleCache.outputContext importedModuleCache) acc)
+                        (case Dict.get graphModule.node.label cache of
+                            Just importedModuleCache ->
+                                foldProjectContexts (ModuleCache.outputContext importedModuleCache) acc
+
+                            Nothing ->
+                                acc
+                        )
 
                 Nothing ->
                     computeProjectContextIncludingIndirect foldProjectContexts project cache rest nodesToVisit acc
