@@ -27,6 +27,10 @@
         "stil4m/elm-syntax": "7.3.8 <= v < 8.0.0"
     },
     "test-dependencies": {
+        "elm-community/dict-extra": "2.4.0 <= v < 3.0.0",
+        "elm-community/graph": "6.0.0 <= v < 7.0.0",
+        "elm-community/maybe-extra": "5.3.0 <= v < 6.0.0",
+        "elm-community/result-extra": "2.4.0 <= v < 3.0.0",
         "pzp1997/assoc-list": "1.0.0 <= v < 2.0.0"
     }
 }
