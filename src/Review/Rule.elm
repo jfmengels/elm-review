@@ -1838,13 +1838,7 @@ withModuleContext functions (ProjectRuleSchema schema) =
     let
         moduleContextCreator : ContextCreator projectContext moduleContext
         moduleContextCreator =
-            initContextCreator
-                (\moduleKey moduleNameNode_ projectContext ->
-                    functions.fromProjectToModule
-                        moduleKey
-                        moduleNameNode_
-                        projectContext
-                )
+            initContextCreator functions.fromProjectToModule
                 |> withModuleKey
                 |> withModuleNameNode
     in
