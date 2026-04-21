@@ -5057,7 +5057,15 @@ type alias ExtractCache projectContext =
 
 qualifyErrors : { ruleName : String, exceptions : Exceptions, filePath : FilePath } -> List (Error {}) -> List (Error {}) -> List (Error {})
 qualifyErrors params errors acc =
-    List.foldl (\err subAcc -> qualifyError params err subAcc) acc errors
+    -- Hot path: the overwhelming majority of visitor invocations produce no
+    -- errors, so short-circuit the List.foldl + lambda allocation when the
+    -- new-errors list is empty.
+    case errors of
+        [] ->
+            acc
+
+        _ ->
+            List.foldl (\err subAcc -> qualifyError params err subAcc) acc errors
 
 
 qualifyError : { ruleName : String, exceptions : Exceptions, filePath : FilePath } -> Error {} -> List (Error {}) -> List (Error {})
@@ -6150,8 +6158,7 @@ visitDeclarationAndExpressions declaration rules =
     let
         updatedRules : JsArray RuleModuleVisitor
         updatedRules =
-            rules
-                |> mutatingMap (\acc -> runVisitor .declarationVisitorOnEnter declaration acc)
+            mutatingMap (runDeclarationVisitorOnEnter declaration) rules
     in
     (case Node.value declaration of
         Declaration.FunctionDeclaration function ->
@@ -6160,52 +6167,92 @@ visitDeclarationAndExpressions declaration rules =
         _ ->
             updatedRules
     )
-        |> mutatingMap (\acc -> runVisitor .declarationVisitorOnExit declaration acc)
+        |> mutatingMap (runDeclarationVisitorOnExit declaration)
 
 
 visitExpression : Node Expression -> JsArray RuleModuleVisitor -> JsArray RuleModuleVisitor
 visitExpression node rules =
-    case Node.value node of
-        Expression.LetExpression letBlock ->
-            let
-                updatedRules : JsArray RuleModuleVisitor
-                updatedRules =
-                    rules
-                        |> mutatingMap (\acc -> runVisitor .expressionVisitorOnEnter node acc)
-            in
-            List.foldl
-                (visitLetDeclaration (Node (Node.range node) letBlock))
-                updatedRules
-                letBlock.declarations
-                |> visitExpression letBlock.expression
-                |> mutatingMap (\acc -> runVisitor .expressionVisitorOnExit node acc)
+    let
+        afterEnter : JsArray RuleModuleVisitor
+        afterEnter =
+            mutatingMap (runExpressionVisitorOnEnter node) rules
 
-        Expression.CaseExpression caseBlock ->
-            let
-                updatedRules : JsArray RuleModuleVisitor
-                updatedRules =
-                    rules
-                        |> mutatingMap (\acc -> runVisitor .expressionVisitorOnEnter node acc)
-                        |> visitExpression caseBlock.expression
-            in
-            List.foldl
-                (\case_ acc -> visitCaseBranch (Node (Node.range node) caseBlock) case_ acc)
-                updatedRules
-                caseBlock.cases
-                |> mutatingMap (\acc -> runVisitor .expressionVisitorOnExit node acc)
+        afterChildren : JsArray RuleModuleVisitor
+        afterChildren =
+            -- Walk the expression's children in place without allocating an
+            -- intermediate `List (Node Expression)` via `expressionChildren`.
+            -- Pattern-matching once here (vs. once in visitExpression + once
+            -- in expressionChildren) also halves the case-dispatch cost for
+            -- every expression node in the project.
+            case Node.value node of
+                Expression.Application expressions ->
+                    List.foldl visitExpression afterEnter expressions
 
-        _ ->
-            let
-                updatedRules : JsArray RuleModuleVisitor
-                updatedRules =
-                    rules
-                        |> mutatingMap (\acc -> runVisitor .expressionVisitorOnEnter node acc)
-            in
-            List.foldl
-                visitExpression
-                updatedRules
-                (expressionChildren node)
-                |> mutatingMap (\acc -> runVisitor .expressionVisitorOnExit node acc)
+                Expression.ListExpr elements ->
+                    List.foldl visitExpression afterEnter elements
+
+                Expression.OperatorApplication _ direction left right ->
+                    case direction of
+                        Infix.Right ->
+                            visitExpression left (visitExpression right afterEnter)
+
+                        _ ->
+                            visitExpression right (visitExpression left afterEnter)
+
+                Expression.IfBlock cond then_ else_ ->
+                    visitExpression else_ (visitExpression then_ (visitExpression cond afterEnter))
+
+                Expression.ParenthesizedExpression expr ->
+                    visitExpression expr afterEnter
+
+                Expression.LetExpression letBlock ->
+                    let
+                        letBlockWithRange : Node Expression.LetBlock
+                        letBlockWithRange =
+                            Node (Node.range node) letBlock
+                    in
+                    visitExpression letBlock.expression
+                        (List.foldl (visitLetDeclaration letBlockWithRange) afterEnter letBlock.declarations)
+
+                Expression.CaseExpression caseBlock ->
+                    let
+                        caseBlockWithRange : Node Expression.CaseBlock
+                        caseBlockWithRange =
+                            Node (Node.range node) caseBlock
+
+                        afterSubject : JsArray RuleModuleVisitor
+                        afterSubject =
+                            visitExpression caseBlock.expression afterEnter
+                    in
+                    List.foldl (visitCaseBranch caseBlockWithRange) afterSubject caseBlock.cases
+
+                Expression.LambdaExpression lambda ->
+                    visitExpression lambda.expression afterEnter
+
+                Expression.TupledExpression expressions ->
+                    List.foldl visitExpression afterEnter expressions
+
+                Expression.RecordExpr fields ->
+                    List.foldl visitRecordSetter afterEnter fields
+
+                Expression.RecordUpdateExpression _ setters ->
+                    List.foldl visitRecordSetter afterEnter setters
+
+                Expression.Negation expr ->
+                    visitExpression expr afterEnter
+
+                Expression.RecordAccess expr _ ->
+                    visitExpression expr afterEnter
+
+                _ ->
+                    afterEnter
+    in
+    mutatingMap (runExpressionVisitorOnExit node) afterChildren
+
+
+visitRecordSetter : Node Expression.RecordSetter -> JsArray RuleModuleVisitor -> JsArray RuleModuleVisitor
+visitRecordSetter (Node _ ( _, expr )) rules =
+    visitExpression expr rules
 
 
 visitLetDeclaration :
@@ -6225,9 +6272,9 @@ visitLetDeclaration letBlockWithRange ((Node _ letDeclaration) as letDeclaration
                     expr
     in
     rules
-        |> mutatingMap (\acc -> runVisitor2 .letDeclarationVisitorOnEnter letBlockWithRange letDeclarationWithRange acc)
+        |> mutatingMap (runLetDeclarationVisitorOnEnter letBlockWithRange letDeclarationWithRange)
         |> visitExpression expressionNode
-        |> mutatingMap (\acc -> runVisitor2 .letDeclarationVisitorOnExit letBlockWithRange letDeclarationWithRange acc)
+        |> mutatingMap (runLetDeclarationVisitorOnExit letBlockWithRange letDeclarationWithRange)
 
 
 visitCaseBranch :
@@ -6237,9 +6284,9 @@ visitCaseBranch :
     -> JsArray RuleModuleVisitor
 visitCaseBranch caseBlockWithRange (( _, caseExpression ) as caseBranch) rules =
     rules
-        |> mutatingMap (\acc -> runVisitor2 .caseBranchVisitorOnEnter caseBlockWithRange caseBranch acc)
+        |> mutatingMap (runCaseBranchVisitorOnEnter caseBlockWithRange caseBranch)
         |> visitExpression caseExpression
-        |> mutatingMap (\acc -> runVisitor2 .caseBranchVisitorOnExit caseBlockWithRange caseBranch acc)
+        |> mutatingMap (runCaseBranchVisitorOnExit caseBlockWithRange caseBranch)
 
 
 extractSourceCode : List String -> Range -> String
@@ -6937,7 +6984,22 @@ createVisitor params raise errorsAndContext maybeVisitor =
             Nothing
 
         Just visitor ->
-            Just (\node -> raise (accumulate params (visitor node) errorsAndContext))
+            -- Inline `accumulate` so we avoid (a) the extra function call and
+            -- (b) `visitor node` returning a partial-application closure that
+            -- gets immediately consumed. This closure fires per expression
+            -- node per rule with an expression visitor — millions of calls on
+            -- a large project.
+            Just
+                (\node ->
+                    let
+                        ( previousErrors, previousContext ) =
+                            errorsAndContext
+
+                        ( newErrors, newContext ) =
+                            visitor node previousContext
+                    in
+                    raise ( qualifyErrors params newErrors previousErrors, newContext )
+                )
 
 
 createVisitor2 :
@@ -6952,7 +7014,17 @@ createVisitor2 params raise errorsAndContext maybeVisitor =
             Nothing
 
         Just visitor ->
-            Just (\a b -> raise (accumulate params (visitor a b) errorsAndContext))
+            Just
+                (\a b ->
+                    let
+                        ( previousErrors, previousContext ) =
+                            errorsAndContext
+
+                        ( newErrors, newContext ) =
+                            visitor a b previousContext
+                    in
+                    raise ( qualifyErrors params newErrors previousErrors, newContext )
+                )
 
 
 createImportsVisitor :
@@ -7016,79 +7088,91 @@ runVisitor field a ((RuleModuleVisitor ruleModuleVisitor) as original) =
             original
 
 
-runVisitor2 : (RuleModuleVisitorOperations -> Maybe (a -> b -> RuleModuleVisitor)) -> a -> b -> RuleModuleVisitor -> RuleModuleVisitor
-runVisitor2 field a b ((RuleModuleVisitor ruleModuleVisitor) as original) =
-    case field ruleModuleVisitor of
+{-| Specialised variants of `runVisitor`/`runVisitor2` that read the field
+directly. The general versions take a field accessor `RuleModuleVisitorOperations -> Maybe (…)`
+as a first argument, which compiles to an extra closure allocation on every
+call inside `mutatingMap`. Per expression node we do six of those calls,
+multiplied by the number of rules and AST nodes in a project — easily millions
+on a large Elm codebase. These helpers eliminate that closure.
+-}
+runExpressionVisitorOnEnter : Node Expression -> RuleModuleVisitor -> RuleModuleVisitor
+runExpressionVisitorOnEnter node ((RuleModuleVisitor ops) as original) =
+    case ops.expressionVisitorOnEnter of
         Just visitor ->
-            visitor a b
+            visitor node
 
         Nothing ->
             original
 
 
-expressionChildren : Node Expression -> List (Node Expression)
-expressionChildren node =
-    case Node.value node of
-        Expression.Application expressions ->
-            expressions
+runExpressionVisitorOnExit : Node Expression -> RuleModuleVisitor -> RuleModuleVisitor
+runExpressionVisitorOnExit node ((RuleModuleVisitor ops) as original) =
+    case ops.expressionVisitorOnExit of
+        Just visitor ->
+            visitor node
 
-        Expression.ListExpr elements ->
-            elements
+        Nothing ->
+            original
 
-        Expression.RecordExpr fields ->
-            List.map (\(Node _ ( _, expr )) -> expr) fields
 
-        Expression.RecordUpdateExpression _ setters ->
-            List.map (\(Node _ ( _, expr )) -> expr) setters
+runDeclarationVisitorOnEnter : Node Declaration -> RuleModuleVisitor -> RuleModuleVisitor
+runDeclarationVisitorOnEnter node ((RuleModuleVisitor ops) as original) =
+    case ops.declarationVisitorOnEnter of
+        Just visitor ->
+            visitor node
 
-        Expression.ParenthesizedExpression expr ->
-            [ expr ]
+        Nothing ->
+            original
 
-        Expression.OperatorApplication _ direction left right ->
-            case direction of
-                Infix.Left ->
-                    [ left, right ]
 
-                Infix.Right ->
-                    [ right, left ]
+runDeclarationVisitorOnExit : Node Declaration -> RuleModuleVisitor -> RuleModuleVisitor
+runDeclarationVisitorOnExit node ((RuleModuleVisitor ops) as original) =
+    case ops.declarationVisitorOnExit of
+        Just visitor ->
+            visitor node
 
-                Infix.Non ->
-                    [ left, right ]
+        Nothing ->
+            original
 
-        Expression.IfBlock cond then_ else_ ->
-            [ cond, then_, else_ ]
 
-        Expression.LetExpression { expression, declarations } ->
-            List.foldr
-                (\declaration acc ->
-                    case Node.value declaration of
-                        Expression.LetFunction function ->
-                            functionToExpression function :: acc
+runLetDeclarationVisitorOnEnter : Node Expression.LetBlock -> Node Expression.LetDeclaration -> RuleModuleVisitor -> RuleModuleVisitor
+runLetDeclarationVisitorOnEnter letBlock letDeclaration ((RuleModuleVisitor ops) as original) =
+    case ops.letDeclarationVisitorOnEnter of
+        Just visitor ->
+            visitor letBlock letDeclaration
 
-                        Expression.LetDestructuring _ expr ->
-                            expr :: acc
-                )
-                [ expression ]
-                declarations
+        Nothing ->
+            original
 
-        Expression.CaseExpression { expression, cases } ->
-            expression
-                :: List.map (\( _, caseExpression ) -> caseExpression) cases
 
-        Expression.LambdaExpression { expression } ->
-            [ expression ]
+runLetDeclarationVisitorOnExit : Node Expression.LetBlock -> Node Expression.LetDeclaration -> RuleModuleVisitor -> RuleModuleVisitor
+runLetDeclarationVisitorOnExit letBlock letDeclaration ((RuleModuleVisitor ops) as original) =
+    case ops.letDeclarationVisitorOnExit of
+        Just visitor ->
+            visitor letBlock letDeclaration
 
-        Expression.TupledExpression expressions ->
-            expressions
+        Nothing ->
+            original
 
-        Expression.Negation expr ->
-            [ expr ]
 
-        Expression.RecordAccess expr _ ->
-            [ expr ]
+runCaseBranchVisitorOnEnter : Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> RuleModuleVisitor -> RuleModuleVisitor
+runCaseBranchVisitorOnEnter caseBlock branch ((RuleModuleVisitor ops) as original) =
+    case ops.caseBranchVisitorOnEnter of
+        Just visitor ->
+            visitor caseBlock branch
 
-        _ ->
-            []
+        Nothing ->
+            original
+
+
+runCaseBranchVisitorOnExit : Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> RuleModuleVisitor -> RuleModuleVisitor
+runCaseBranchVisitorOnExit caseBlock branch ((RuleModuleVisitor ops) as original) =
+    case ops.caseBranchVisitorOnExit of
+        Just visitor ->
+            visitor caseBlock branch
+
+        Nothing ->
+            original
 
 
 functionToExpression : Function -> Node Expression
