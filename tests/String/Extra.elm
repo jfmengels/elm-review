@@ -1,7 +1,9 @@
-module String.Extra exposing (isCapitalized)
+module String.Extra exposing (changeCase, decapitalize, isCapitalized)
 
 {-| Some utilities.
 -}
+
+import Char exposing (toLower)
 
 
 {-| Check if the first character of a string is upper case, unicode aware.
@@ -21,3 +23,15 @@ isCapitalized string =
 
         Nothing ->
             False
+
+
+decapitalize : String -> String
+decapitalize word =
+    changeCase toLower word
+
+
+changeCase : (Char -> Char) -> String -> String
+changeCase mutator word =
+    String.uncons word
+        |> Maybe.map (\( head, tail ) -> String.cons (mutator head) tail)
+        |> Maybe.withDefault ""
