@@ -2,7 +2,7 @@ module Review.Project exposing
     ( Project, new
     , ProjectModule, addModule, addParsedModule
     , removeModule
-    , modules, modulesThatFailedToParse
+    , getModuleByPath, modules, modulesThatFailedToParse
     , addElmJson, elmJson
     , addReadme, readme
     , addExtraFiles, addExtraFile, updateFile
@@ -33,7 +33,7 @@ does not look at project information (like the `elm.json`, dependencies, ...).
 
 @docs ProjectModule, addModule, addParsedModule
 @docs removeModule
-@docs modules, modulesThatFailedToParse
+@docs getModuleByPath, modules, modulesThatFailedToParse
 
 
 # `elm.json`
@@ -267,6 +267,14 @@ removeModule path (Internal.Project project) =
                 { project
                     | modulesThatFailedToParse = Dict.remove path project.modulesThatFailedToParse
                 }
+
+
+{-| Get a module by its path.
+-}
+getModuleByPath : String -> Project -> Maybe ProjectModule
+getModuleByPath path (Internal.Project project) =
+    Dict.get path project.modulesByPath
+        |> Maybe.map ProjectModule.toRecord
 
 
 {-| Get the list of modules in the project.

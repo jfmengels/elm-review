@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 - Added [`Review.Rule.withContextFromImportedModulesIncludingIndirect`].
+- Added [`Review.Project.getModuleByPath`].
 - Fixed an issue where changes to `elm.json` (through an automatic fix or in watch mode) would get ignored, yielding incorrect results.
 - When Elm files are syntactically incorrect, there is now a single global error reported listing the files, instead of one error per file.  
 - Some performance optimizations (thanks [@Arkham](https://github.com/Arkham)!)
@@ -298,6 +299,7 @@ This release contains HUGE performance updates. `elm-review` should now run quit
 [`Review.Rule.withContextFromImportedModulesIncludingIndirect`]: https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule#withContextFromImportedModulesIncludingIndirect
 [`Review.Rule.errorFixFailure`]: https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule#errorFixFailure
 [`Review.Test.ignoredFilesImpactResults`]: https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Test#ignoredFilesImpactResults
+[`Review.Project.getModuleByPath`]: https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Project#getModuleByPath
 
 [Unreleased]: https://github.com/jfmengels/elm-review/compare/v2.16.6...HEAD
 [2.16.6]: https://github.com/jfmengels/elm-review/releases/tag/2.16.6
