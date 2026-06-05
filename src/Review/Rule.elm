@@ -498,7 +498,7 @@ review : List Rule -> Project -> ( List ReviewError, List Rule )
 review rules project =
     case ValidProject.parse project of
         Err (InvalidProjectError.SomeModulesFailedToParse pathsThatFailedToParse) ->
-            ( List.map parsingError pathsThatFailedToParse, rules )
+            ( [ parsingError pathsThatFailedToParse ], rules )
 
         Err (InvalidProjectError.DuplicateModuleNames duplicate) ->
             ( [ duplicateModulesGlobalError duplicate ], rules )
@@ -716,7 +716,7 @@ getModulesSortedByImport : Project -> Result (List ReviewError) ValidProject
 getModulesSortedByImport project =
     case ValidProject.parse project of
         Err (InvalidProjectError.SomeModulesFailedToParse pathsThatFailedToParse) ->
-            Err (List.map parsingError pathsThatFailedToParse)
+            Err [ parsingError pathsThatFailedToParse ]
 
         Err (InvalidProjectError.DuplicateModuleNames duplicate) ->
             Err [ duplicateModulesGlobalError duplicate ]
@@ -4309,23 +4309,21 @@ globalError { message, details } =
         }
 
 
-parsingError : String -> Review.Error.ReviewError.ReviewError
-parsingError path =
-    Review.Error.ReviewError.fromBaseError
-        { filePath = path
-        , ruleName = "ParsingError"
-        , message = path ++ " is not a correct Elm module"
-        , details =
-            [ "I could not understand the content of this file, and this prevents me from analyzing it. It is highly likely that the contents of the file is not correct Elm code."
-            , "I need this file to be fixed before analyzing the rest of the project. If I didn't, I would potentially report incorrect things."
-            , "Hint: Try running `elm make`. The compiler should give you better hints on how to resolve the problem."
-            ]
-        , range = Range.emptyRange
-        , fixes = ErrorFixes.none
-        , fixProblem = Nothing
-        , target = Target.module_ path
-        , preventsExtract = False
-        }
+parsingError : List String -> Review.Error.ReviewError.ReviewError
+parsingError paths =
+    let
+        (Error baseError) =
+            globalError
+                { message = "Found incorrect Elm modules"
+                , details =
+                    [ "I couldn't parse the following files because they contain syntax errors:"
+                    , " - " ++ String.join "\n - " paths
+                    , "I need these files to be fixed before analyzing the rest of the project. If I didn't, I would potentially report incorrect things."
+                    , "Hint: Try running `elm make`. The compiler should give you better hints on how to resolve the problem."
+                    ]
+                }
+    in
+    Review.Error.ReviewError.fromBaseError baseError
 
 
 {-| Give a list of fixes to automatically fix the error.
