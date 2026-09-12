@@ -26,7 +26,7 @@ unusedModuleDetails =
 
 all : Test
 all =
-    describe "NoUnusedExports"
+    describe "NoUnused.Exports"
         [ functionsAndValuesTests
         , typesTests
         , typeAliasesTests
@@ -490,6 +490,12 @@ type Unused = T
                                 , details = unusedExposedElementDetails
                                 , under = "Unused(..)"
                                 }
+                                |> Review.Test.whenFixed """
+module M exposing (T, t)
+type alias T = ()
+t = ()
+type Unused = T
+"""
                             ]
                           )
                         ]
@@ -516,6 +522,12 @@ type Unused = T
                                 , details = unusedExposedElementDetails
                                 , under = "Unused(..)"
                                 }
+                                |> Review.Test.whenFixed """
+module M exposing (T, t)
+type alias T = ()
+t = ()
+type Unused = T
+"""
                             ]
                           )
                         ]
@@ -691,6 +703,62 @@ type1 = Type1
 """ ]
                     |> Review.Test.runOnModulesWithProjectData application rule
                     |> Review.Test.expectNoErrors
+        , test "should report and autofix the exposing of an unused custom type with exposed constructors" <|
+            \() ->
+                [ """module Main exposing (main)
+import B exposing (..)
+value = used
+main = value
+"""
+                , """module B exposing (used, MyType(..))
+used = 1
+type MyType
+    = MyValue
+"""
+                ]
+                    |> Review.Test.runOnModulesWithProjectData application rule
+                    |> Review.Test.expectErrorsForModules
+                        [ ( "B"
+                          , [ Review.Test.error
+                                { message = "Exposed type `MyType` is never used outside this module"
+                                , details = unusedExposedElementDetails
+                                , under = "MyType(..)"
+                                }
+                                |> Review.Test.whenFixed """module B exposing (used)
+used = 1
+type MyType
+    = MyValue
+"""
+                            ]
+                          )
+                        ]
+        , test "should report and autofix the exposing of an unused custom type with exposed constructors (exposing all)" <|
+            \() ->
+                [ """module Main exposing (main)
+import B exposing (..)
+value = used
+main = value
+"""
+                , """module B exposing (..)
+used = 1
+type MyType
+    = MyValue
+"""
+                ]
+                    |> Review.Test.runOnModulesWithProjectData application rule
+                    |> Review.Test.expectErrorsForModules
+                        [ ( "B"
+                          , [ Review.Test.error
+                                { message = "Exposed type `MyType` is never used in the project"
+                                , details = unusedExposedElementWhenExposingAllDetails
+                                , under = "MyType"
+                                }
+                                |> Review.Test.whenFixed """module B exposing (..)
+used = 1
+"""
+                            ]
+                          )
+                        ]
         ]
 
 
@@ -1057,7 +1125,7 @@ app = foo
 """
                     |> Review.Test.runWithProjectData lamderaApplication rule
                     |> Review.Test.expectNoErrors
-        , test "should not special types from module Types" <|
+        , test "should not report special types from module Types" <|
             \() ->
                 [ """
 module Types exposing (..)
@@ -1791,15 +1859,16 @@ used = ()
                             ]
                           )
                         ]
-        , test "reports an unused type alias" <|
+        , test "reports an unused type alias (exposing all)" <|
             \() ->
                 [ """
 module Main exposing (main)
 import Reported
-main = ()
+main = Reported.value
 """
                 , """
 module Reported exposing (..)
+value = 1
 type alias Unused = ()
 """
                 ]
@@ -1811,6 +1880,40 @@ type alias Unused = ()
                                 , details = unusedExposedElementWhenExposingAllDetails
                                 , under = "Unused"
                                 }
+                                |> Review.Test.whenFixed """
+module Reported exposing (..)
+value = 1
+"""
+                            ]
+                          )
+                        ]
+        , test "reports and removes an unused type alias" <|
+            \() ->
+                [ """
+module Main exposing (main)
+import Reported
+main = Reported.value
+"""
+                , """
+module Reported exposing (Unused, value)
+value = 1
+type alias Unused = ()
+"""
+                ]
+                    |> Review.Test.runOnModulesWithProjectData application rule
+                    |> Review.Test.expectErrorsForModules
+                        [ ( "Reported"
+                          , [ Review.Test.error
+                                { message = "Exposed type or type alias `Unused` is never used outside this module"
+                                , details = unusedExposedElementDetails
+                                , under = "Unused"
+                                }
+                                |> Review.Test.atExactly { start = { row = 2, column = 27 }, end = { row = 2, column = 33 } }
+                                |> Review.Test.whenFixed """
+module Reported exposing (value)
+value = 1
+type alias Unused = ()
+"""
                             ]
                           )
                         ]
@@ -1837,15 +1940,16 @@ type UnusedT = UnusedC
                             ]
                           )
                         ]
-        , test "reports an unused port" <|
+        , test "reports an unused port and remove the port keyword if it's the only one" <|
             \() ->
                 [ """
 module Main exposing (main)
 import Reported
-main = ()
+main = Reported.value
 """
                 , """
 port module Reported exposing (..)
+value = 1
 port unused : ()
 """
                 ]
@@ -1853,10 +1957,42 @@ port unused : ()
                     |> Review.Test.expectErrorsForModules
                         [ ( "Reported"
                           , [ Review.Test.error
-                                { message = "Exposed function or value `unused` is never used in the project"
+                                { message = "Exposed port `unused` is never used in the project"
                                 , details = unusedExposedElementWhenExposingAllDetails
                                 , under = "unused"
                                 }
+                                |> Review.Test.whenFixed """
+module Reported exposing (..)
+value = 1
+"""
+                            ]
+                          )
+                        ]
+        , test "reports an unused port and keep the port keyword if there are multiples" <|
+            \() ->
+                [ """
+module Main exposing (main)
+import Reported
+main = Reported.used
+"""
+                , """
+port module Reported exposing (..)
+port used : ()
+port unused : ()
+"""
+                ]
+                    |> Review.Test.runOnModulesWithProjectData application rule
+                    |> Review.Test.expectErrorsForModules
+                        [ ( "Reported"
+                          , [ Review.Test.error
+                                { message = "Exposed port `unused` is never used in the project"
+                                , details = unusedExposedElementWhenExposingAllDetails
+                                , under = "unused"
+                                }
+                                |> Review.Test.whenFixed """
+port module Reported exposing (..)
+port used : ()
+"""
                             ]
                           )
                         ]

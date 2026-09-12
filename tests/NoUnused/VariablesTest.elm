@@ -20,7 +20,7 @@ details =
 
 all : Test
 all =
-    describe "NoUnusedVariables"
+    describe "NoUnused.Variables"
         [ describe "Top-level variables" topLevelVariablesTests
         , describe "Recursive functions" recursiveFunctionsTests
         , describe "let..in" letInTests

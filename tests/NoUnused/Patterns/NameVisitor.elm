@@ -273,7 +273,7 @@ noopVisitor _ context =
 
 visitDeclarationList : List (Node Declaration) -> List Name
 visitDeclarationList nodes =
-    fastConcatMap visitDeclaration nodes
+    List.concatMap visitDeclaration nodes
 
 
 visitDeclaration : Node Declaration -> List Name
@@ -318,7 +318,7 @@ visitFunctionImplementation node =
 
 visitValueConstructorList : List (Node Type.ValueConstructor) -> List Name
 visitValueConstructorList list =
-    fastConcatMap visitValueConstructor list
+    List.concatMap visitValueConstructor list
 
 
 visitValueConstructor : Node Type.ValueConstructor -> List Name
@@ -328,7 +328,7 @@ visitValueConstructor node =
 
 visitTypeAnnotationList : List (Node TypeAnnotation) -> List Name
 visitTypeAnnotationList list =
-    fastConcatMap visitTypeAnnotation list
+    List.concatMap visitTypeAnnotation list
 
 
 visitTypeAnnotation : Node TypeAnnotation -> List Name
@@ -360,7 +360,7 @@ visitTypeAnnotation node =
 
 visitRecordFieldList : List (Node TypeAnnotation.RecordField) -> List Name
 visitRecordFieldList list =
-    fastConcatMap visitRecordField list
+    List.concatMap visitRecordField list
 
 
 visitRecordField : Node TypeAnnotation.RecordField -> List Name
@@ -392,7 +392,7 @@ visitExpression (Node range expression) =
 
 visitLetDeclarationList : List (Node Expression.LetDeclaration) -> List Name
 visitLetDeclarationList list =
-    fastConcatMap visitLetDeclaration list
+    List.concatMap visitLetDeclaration list
 
 
 visitLetDeclaration : Node Expression.LetDeclaration -> List Name
@@ -408,7 +408,7 @@ visitLetDeclaration node =
 
 visitCaseList : List Expression.Case -> List Name
 visitCaseList list =
-    fastConcatMap visitCase list
+    List.concatMap visitCase list
 
 
 visitCase : Expression.Case -> List Name
@@ -418,7 +418,7 @@ visitCase ( pattern, _ ) =
 
 visitPatternList : List (Node Pattern) -> List Name
 visitPatternList list =
-    fastConcatMap visitPattern list
+    List.concatMap visitPattern list
 
 
 visitPattern : Node Pattern -> List Name
@@ -464,12 +464,3 @@ visitValue node =
 visitType : Node ( ModuleName, String ) -> List Name
 visitType node =
     [ Type node ]
-
-
-
---- High Performance List
-
-
-fastConcatMap : (a -> List b) -> List a -> List b
-fastConcatMap fn =
-    List.foldr (fn >> (++)) []

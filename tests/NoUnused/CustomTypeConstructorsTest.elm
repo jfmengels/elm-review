@@ -102,7 +102,7 @@ phantomTypesHint =
 
 all : Test
 all =
-    describe "NoUnusedCustomTypeConstructors"
+    describe "NoUnused.CustomTypeConstructors"
         [ unusedTests "package project" packageProject
         , unusedTests "application project" applicationProject
         , phantomTypeTests "package project" packageProject

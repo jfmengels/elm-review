@@ -14,7 +14,7 @@ details =
 
 all : Test
 all =
-    describe "NoUnusedModules"
+    describe "NoUnused.Modules"
         [ test "should not report a module when all modules are used" <|
             \() ->
                 [ """

@@ -109,7 +109,7 @@ import Elm.Syntax.Module as Module
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern as Pattern exposing (Pattern)
-import Elm.Syntax.Range as Range exposing (Range)
+import Elm.Syntax.Range as Range exposing (Location, Range)
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
 import List.Extra
 import NoUnused.LamderaSupport as LamderaSupport
@@ -498,6 +498,7 @@ type ElmApplicationType
 
 type ExposedElementType
     = Function
+    | Port
     | TypeOrTypeAlias Bool
     | ExposedType (List String)
 
@@ -580,7 +581,21 @@ fromProjectToModule =
                 exposed =
                     case exposingList of
                         Exposing.All _ ->
-                            collectExposedElementsForAll docsReferences ast.declarations
+                            let
+                                portKeywordLocation : Maybe Location
+                                portKeywordLocation =
+                                    case ast.moduleDefinition of
+                                        Node { start } (Module.PortModule _) ->
+                                            if hasMultiplePorts ast.declarations 0 then
+                                                Nothing
+
+                                            else
+                                                Just start
+
+                                        _ ->
+                                            Nothing
+                            in
+                            collectExposedElementsForAll portKeywordLocation docsReferences ast.declarations
 
                         Exposing.Explicit explicitlyExposed ->
                             collectExposedElements docsReferences explicitlyExposed ast.declarations
@@ -634,54 +649,55 @@ createConstructorNameToTypeNameDict exposingList declarations =
             Dict.empty
 
 
-declarationToTopLevelExpose : Declaration -> Maybe (Node TopLevelExpose)
-declarationToTopLevelExpose declaration =
+declarationName : Declaration -> Maybe String
+declarationName declaration =
     case declaration of
         Declaration.FunctionDeclaration function ->
             function.declaration
                 |> Node.value
                 |> .name
-                |> Node.map Exposing.FunctionExpose
+                |> Node.value
                 |> Just
 
         Declaration.AliasDeclaration typeAlias ->
             typeAlias.name
-                |> Node.map Exposing.TypeOrAliasExpose
+                |> Node.value
                 |> Just
 
         Declaration.CustomTypeDeclaration type_ ->
             type_.name
-                |> Node.map (\name -> Exposing.TypeExpose { name = name, open = Nothing })
+                |> Node.value
                 |> Just
 
         Declaration.PortDeclaration signature ->
             signature.name
-                |> Node.map Exposing.FunctionExpose
+                |> Node.value
                 |> Just
 
         Declaration.InfixDeclaration infix_ ->
             infix_.operator
-                |> Node.map Exposing.InfixExpose
+                |> Node.value
                 |> Just
 
         Declaration.Destructuring _ _ ->
             Nothing
 
 
-topLevelExposeName : TopLevelExpose -> String
-topLevelExposeName topLevelExpose =
-    case topLevelExpose of
-        Exposing.InfixExpose name ->
-            name
+hasMultiplePorts : List (Node Declaration) -> Int -> Bool
+hasMultiplePorts declarations count =
+    case declarations of
+        (Node _ (Declaration.PortDeclaration _)) :: rest ->
+            if count == 1 then
+                True
 
-        Exposing.FunctionExpose name ->
-            name
+            else
+                hasMultiplePorts rest (count + 1)
 
-        Exposing.TypeOrAliasExpose name ->
-            name
+        _ :: rest ->
+            hasMultiplePorts rest count
 
-        Exposing.TypeExpose { name } ->
-            name
+        [] ->
+            False
 
 
 fromModuleToProject : Config -> Rule.ContextCreator ModuleContext ProjectContext
@@ -963,6 +979,9 @@ errorsForModule { exceptionExplanation, projectContext, used, usedInIgnoredModul
                             Function ->
                                 valueRealm
 
+                            Port ->
+                                valueRealm
+
                             TypeOrTypeAlias _ ->
                                 typeRealm
 
@@ -1044,6 +1063,9 @@ isCustomTypeExposingUnusedVariants typesWithUsedConstructors moduleName name ele
         Function ->
             False
 
+        Port ->
+            False
+
         TypeOrTypeAlias _ ->
             False
 
@@ -1056,6 +1078,9 @@ what elementType =
     case elementType of
         Function ->
             "Exposed function or value"
+
+        Port ->
+            "Exposed port"
 
         TypeOrTypeAlias _ ->
             "Exposed type or type alias"
@@ -1357,7 +1382,7 @@ collectExposedElementsHelp docsReferences declarations declaredNames typesThatCa
                             if Set.member name declaredNames then
                                 Dict.insert name
                                     { range = untilEndOfVariable name range
-                                    , rangesToRemove = []
+                                    , rangesToRemove = getRangesToRemove docsReferences canRemoveExposed name index maybePreviousRange range nextRange
                                     , elementType = ExposedType (findConstructorsForExposedCustomType name declarations)
                                     }
                                     acc
@@ -1380,13 +1405,13 @@ collectExposedElementsHelp docsReferences declarations declaredNames typesThatCa
                 newAcc
 
 
-collectExposedElementsForAll : List ( Int, String ) -> List (Node Declaration) -> Dict String ExposedElement
-collectExposedElementsForAll docsReferences declarations =
-    collectExposedElementsForAllHelp docsReferences (List.length declarations /= 1) Nothing 0 declarations Dict.empty
+collectExposedElementsForAll : Maybe Location -> List ( Int, String ) -> List (Node Declaration) -> Dict String ExposedElement
+collectExposedElementsForAll portKeywordLocation docsReferences declarations =
+    collectExposedElementsForAllHelp docsReferences (List.length declarations /= 1) portKeywordLocation Nothing 0 declarations Dict.empty
 
 
-collectExposedElementsForAllHelp : List ( Int, String ) -> Bool -> Maybe Range -> Int -> List (Node Declaration) -> Dict String ExposedElement -> Dict String ExposedElement
-collectExposedElementsForAllHelp docsReferences canRemoveExposed maybePreviousRange index declarations acc =
+collectExposedElementsForAllHelp : List ( Int, String ) -> Bool -> Maybe Location -> Maybe Range -> Int -> List (Node Declaration) -> Dict String ExposedElement -> Dict String ExposedElement
+collectExposedElementsForAllHelp docsReferences canRemoveExposed portKeywordLocation maybePreviousRange index declarations acc =
     case declarations of
         [] ->
             acc
@@ -1420,8 +1445,17 @@ collectExposedElementsForAllHelp docsReferences canRemoveExposed maybePreviousRa
                         Declaration.PortDeclaration { name } ->
                             Dict.insert (Node.value name)
                                 { range = Node.range name
-                                , rangesToRemove = getRangesToRemove docsReferences canRemoveExposed (Node.value name) index maybePreviousRange range nextRange
-                                , elementType = Function
+                                , rangesToRemove =
+                                    getRangesToRemove docsReferences canRemoveExposed (Node.value name) index maybePreviousRange range nextRange
+                                        |> (\ranges ->
+                                                case portKeywordLocation of
+                                                    Just start ->
+                                                        { start = start, end = { row = start.row, column = start.column + 5 } } :: ranges
+
+                                                    Nothing ->
+                                                        ranges
+                                           )
+                                , elementType = Port
                                 }
                                 acc
 
@@ -1444,7 +1478,7 @@ collectExposedElementsForAllHelp docsReferences canRemoveExposed maybePreviousRa
                         Declaration.CustomTypeDeclaration { name, constructors } ->
                             Dict.insert (Node.value name)
                                 { range = Node.range name
-                                , rangesToRemove = []
+                                , rangesToRemove = getRangesToRemove docsReferences canRemoveExposed (Node.value name) index maybePreviousRange range nextRange
                                 , elementType = ExposedType (List.map (\c -> c |> Node.value |> .name |> Node.value) constructors)
                                 }
                                 acc
@@ -1458,6 +1492,7 @@ collectExposedElementsForAllHelp docsReferences canRemoveExposed maybePreviousRa
             collectExposedElementsForAllHelp
                 docsReferences
                 canRemoveExposed
+                portKeywordLocation
                 (Just range)
                 (index + 1)
                 rest
@@ -1465,10 +1500,10 @@ collectExposedElementsForAllHelp docsReferences canRemoveExposed maybePreviousRa
 
 
 declarationVisitor : Config -> Node Declaration -> ModuleContext -> ModuleContext
-declarationVisitor config node moduleContext =
+declarationVisitor config (Node _ declaration) moduleContext =
     let
         ( allUsedTypes, comesFromCustomTypeWithHiddenConstructors ) =
-            typesUsedInDeclaration moduleContext node
+            typesUsedInDeclaration moduleContext declaration
 
         elementsNotToReport : Set ( String, Realm )
         elementsNotToReport =
@@ -1478,7 +1513,7 @@ declarationVisitor config node moduleContext =
              else
                 List.foldl (\( _, name, realm ) acc -> Set.insert ( name, realm ) acc) moduleContext.elementsNotToReport allUsedTypes
             )
-                |> maybeSetInsert (testFunctionName moduleContext node)
+                |> maybeSetInsert (testFunctionName moduleContext declaration)
 
         exposed : Dict String ExposedElement
         exposed =
@@ -1495,7 +1530,7 @@ declarationVisitor config node moduleContext =
 
         ignoredElementsNotToReport : Set String
         ignoredElementsNotToReport =
-            case isException config node of
+            case isException config declaration of
                 Just name ->
                     Set.insert name moduleContext.ignoredElementsNotToReport
 
@@ -1508,9 +1543,9 @@ declarationVisitor config node moduleContext =
 
         inTheDeclarationOf : String
         inTheDeclarationOf =
-            case Node.value node of
-                Declaration.FunctionDeclaration { declaration } ->
-                    Node.value (Node.value declaration).name
+            case declaration of
+                Declaration.FunctionDeclaration function ->
+                    Node.value (Node.value function.declaration).name
 
                 _ ->
                     moduleContext.inTheDeclarationOf
@@ -1523,17 +1558,17 @@ declarationVisitor config node moduleContext =
         , inTheDeclarationOf = inTheDeclarationOf
         , containsMainFunction =
             moduleContext.containsMainFunction
-                || doesModuleContainMainFunction moduleContext.projectType node
+                || doesModuleContainMainFunction moduleContext.projectType declaration
     }
 
 
-isException : Config -> Node Declaration -> Maybe String
-isException config node =
+isException : Config -> Declaration -> Maybe String
+isException config declaration =
     if config.exceptionByName == Nothing && List.isEmpty config.exceptionTags then
         Nothing
 
     else
-        case getDeclarationName node of
+        case declarationName declaration of
             Just name ->
                 case config.exceptionByName of
                     Just exceptionByName ->
@@ -1541,16 +1576,16 @@ isException config node =
                             Just name
 
                         else
-                            isExceptionByAnnotation config name node
+                            isExceptionByAnnotation config name declaration
 
                     Nothing ->
-                        isExceptionByAnnotation config name node
+                        isExceptionByAnnotation config name declaration
 
             Nothing ->
                 Nothing
 
 
-isExceptionByAnnotation : Config -> b -> Node Declaration -> Maybe b
+isExceptionByAnnotation : Config -> b -> Declaration -> Maybe b
 isExceptionByAnnotation config name node =
     if List.isEmpty config.exceptionTags then
         Nothing
@@ -1568,14 +1603,9 @@ isExceptionByAnnotation config name node =
                 Nothing
 
 
-getDeclarationName : Node Declaration -> Maybe String
-getDeclarationName =
-    Node.value >> declarationName
-
-
-getDeclarationDocumentation : Node Declaration -> Maybe String
+getDeclarationDocumentation : Declaration -> Maybe String
 getDeclarationDocumentation node =
-    case Node.value node of
+    case node of
         Declaration.FunctionDeclaration { documentation } ->
             case documentation of
                 Just doc ->
@@ -1608,14 +1638,14 @@ getDeclarationDocumentation node =
             Nothing
 
 
-doesModuleContainMainFunction : ProjectType -> Node Declaration -> Bool
+doesModuleContainMainFunction : ProjectType -> Declaration -> Bool
 doesModuleContainMainFunction projectType declaration =
     case projectType of
         IsPackage _ ->
             False
 
         IsApplication elmApplicationType ->
-            case Node.value declaration of
+            case declaration of
                 Declaration.FunctionDeclaration function ->
                     isMainFunction elmApplicationType (function.declaration |> Node.value |> .name |> Node.value)
 
@@ -1663,21 +1693,13 @@ findConstructorsForExposedCustomType typeName declarations =
         |> Maybe.withDefault []
 
 
-declarationName : Declaration -> Maybe String
-declarationName =
-    declarationToTopLevelExpose >> Maybe.map (Node.value >> topLevelExposeName)
-
-
-testFunctionName : ModuleContext -> Node Declaration -> Maybe ( String, Realm )
-testFunctionName moduleContext node =
-    case Node.value node of
+testFunctionName : ModuleContext -> Declaration -> Maybe ( String, Realm )
+testFunctionName moduleContext declaration =
+    case declaration of
         Declaration.FunctionDeclaration function ->
             case Maybe.map (\(Node _ value) -> Node.value value.typeAnnotation) function.signature of
-                Just (TypeAnnotation.Typed typeNode _) ->
-                    if
-                        (Tuple.second (Node.value typeNode) == "Test")
-                            && (ModuleNameLookupTable.moduleNameFor moduleContext.lookupTable typeNode == Just [ "Test" ])
-                    then
+                Just (TypeAnnotation.Typed (Node typeNodeRange ( _, "Test" )) _) ->
+                    if ModuleNameLookupTable.moduleNameAt moduleContext.lookupTable typeNodeRange == Just [ "Test" ] then
                         ( function.declaration
                             |> Node.value
                             |> .name
@@ -1696,9 +1718,9 @@ testFunctionName moduleContext node =
             Nothing
 
 
-typesUsedInDeclaration : ModuleContext -> Node Declaration -> ( List ElementIdentifier, Bool )
+typesUsedInDeclaration : ModuleContext -> Declaration -> ( List ElementIdentifier, Bool )
 typesUsedInDeclaration moduleContext declaration =
-    case Node.value declaration of
+    case declaration of
         Declaration.FunctionDeclaration function ->
             ( case function.signature of
                 Just signature ->

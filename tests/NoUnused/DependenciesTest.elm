@@ -379,7 +379,6 @@ all =
 module A exposing (a)
 a = 1
 """
-                    |> String.replace "\u{000D}" ""
                     |> Review.Test.run rule
                     |> Review.Test.expectNoErrors
         , test "should report unused dependencies for an application when none of their modules are imported" <|
@@ -388,7 +387,6 @@ a = 1
 module A exposing (a)
 a = 1
 """
-                    |> String.replace "\u{000D}" ""
                     |> Review.Test.runWithProjectData (createProject Nothing applicationElmJson) rule
                     |> Review.Test.expectErrorsForElmJson
                         [ Review.Test.error
@@ -528,7 +526,6 @@ import TestBar
 
 suite = 0
 """
-                            |> String.replace "\u{000D}" ""
                 in
                 """
 module A exposing (a)
@@ -536,7 +533,6 @@ import Foo
 import Bar
 a = 1
 """
-                    |> String.replace "\u{000D}" ""
                     |> Review.Test.runWithProjectData (createProject (Just testModule) applicationElmJson) rule
                     |> Review.Test.expectNoErrors
         , test "should not report dependencies for an application whose modules are imported indirect name clash" <|
@@ -551,7 +547,6 @@ import TestBar
 
 suite = 0
 """
-                            |> String.replace "\u{000D}" ""
                 in
                 """
 module A exposing (a)
@@ -559,7 +554,6 @@ import Foo
 import Bar
 a = 1
 """
-                    |> String.replace "\u{000D}" ""
                     |> Review.Test.runWithProjectData
                         (createProject (Just testModule) applicationElmJsonWithIndirectOtherFooWithoutTestDeps
                             |> Project.addDependency packageWithOtherFoo
@@ -572,7 +566,6 @@ a = 1
 module A exposing (a)
 a = 1
 """
-                    |> String.replace "\u{000D}" ""
                     |> Review.Test.runWithProjectData (createProject Nothing packageElmJson) rule
                     |> Review.Test.expectErrorsForElmJson
                         [ Review.Test.error
@@ -583,7 +576,7 @@ a = 1
                                 ]
                             , under = "author/package-with-bar"
                             }
-                            |> Review.Test.whenFixed ("""{
+                            |> Review.Test.whenFixed """{
     "type": "package",
     "name": "author/package",
     "summary": "Summary",
@@ -602,7 +595,7 @@ a = 1
         "author/package-with-test-foo": "1.0.0 <= v < 2.0.0"
     }
 }
-""" |> String.replace "\u{000D}" "")
+"""
                         , Review.Test.error
                             { message = "Unused dependency `author/package-with-foo`"
                             , details =
@@ -611,7 +604,7 @@ a = 1
                                 ]
                             , under = "author/package-with-foo"
                             }
-                            |> Review.Test.whenFixed ("""{
+                            |> Review.Test.whenFixed """{
     "type": "package",
     "name": "author/package",
     "summary": "Summary",
@@ -630,7 +623,7 @@ a = 1
         "author/package-with-test-foo": "1.0.0 <= v < 2.0.0"
     }
 }
-""" |> String.replace "\u{000D}" "")
+"""
                         , Review.Test.error
                             { message = "Unused test dependency `author/package-with-test-bar`"
                             , details =
@@ -639,7 +632,7 @@ a = 1
                                 ]
                             , under = "author/package-with-test-bar"
                             }
-                            |> Review.Test.whenFixed ("""{
+                            |> Review.Test.whenFixed """{
     "type": "package",
     "name": "author/package",
     "summary": "Summary",
@@ -658,7 +651,7 @@ a = 1
         "author/package-with-test-foo": "1.0.0 <= v < 2.0.0"
     }
 }
-""" |> String.replace "\u{000D}" "")
+"""
                         , Review.Test.error
                             { message = "Unused test dependency `author/package-with-test-foo`"
                             , details =
@@ -667,7 +660,7 @@ a = 1
                                 ]
                             , under = "author/package-with-test-foo"
                             }
-                            |> Review.Test.whenFixed ("""{
+                            |> Review.Test.whenFixed """{
     "type": "package",
     "name": "author/package",
     "summary": "Summary",
@@ -686,7 +679,7 @@ a = 1
         "author/package-with-test-bar": "1.0.0 <= v < 2.0.0"
     }
 }
-""" |> String.replace "\u{000D}" "")
+"""
                         ]
         , test "should not report dependencies for a package whose modules are imported" <|
             \() ->
@@ -700,7 +693,6 @@ import TestBar
 
 suite = 0
 """
-                            |> String.replace "\u{000D}" ""
                 in
                 """
 module A exposing (a)
@@ -708,7 +700,6 @@ import Foo
 import Bar
 a = 1
 """
-                    |> String.replace "\u{000D}" ""
                     |> Review.Test.runWithProjectData (createProject (Just testModule) packageElmJson) rule
                     |> Review.Test.expectNoErrors
         , test "should report dependencies that's only used in tests" <|
@@ -724,14 +715,12 @@ import TestBar
 
 suite = 0
 """
-                            |> String.replace "\u{000D}" ""
                 in
                 """
 module A exposing (a)
 import Bar
 a = 1
 """
-                    |> String.replace "\u{000D}" ""
                     |> Review.Test.runWithProjectData (createProject (Just testModule) applicationElmJson) rule
                     |> Review.Test.expectErrorsForElmJson
                         [ Review.Test.error
@@ -775,7 +764,6 @@ module A exposing (a)
 import Foo
 a = 1
 """
-                    |> String.replace "\u{000D}" ""
                     |> Review.Test.runWithProjectData
                         (createProject Nothing applicationElmJsonWithoutTestDeps
                             |> Project.addDependency packageWithFooDependingOnBar
@@ -826,14 +814,12 @@ import TestBar
 
 suite = 0
 """
-                            |> String.replace "\u{000D}" ""
                 in
                 """
 module A exposing (a)
 import Foo
 a = 1
 """
-                    |> String.replace "\u{000D}" ""
                     |> Review.Test.runWithProjectData
                         (createProject (Just testModule) applicationElmJson
                             |> Project.addDependency packageWithFooDependingOnBar
@@ -886,7 +872,6 @@ import TestFoo
 import TestBar
 a = 1
 """
-                    |> String.replace "\u{000D}" ""
                     |> Review.Test.runWithProjectData (createProject Nothing packageElmJson) rule
                     |> Review.Test.expectNoErrors
         , test "should re-organize the indirect dependencies when a dependency gets removed" <|
@@ -898,13 +883,11 @@ a = 1
 import Foo
 suite = 0
 """
-                            |> String.replace "\u{000D}" ""
                 in
                 """
 module A exposing (a)
 a = 1
 """
-                    |> String.replace "\u{000D}" ""
                     |> Review.Test.runWithProjectData
                         (createProject (Just testModule) applicationElmJsonWithoutBar
                             |> Project.addDependency packageWithFooDependingOnBar
@@ -959,7 +942,6 @@ import TestBar
 
 suite = 0
 """
-                            |> String.replace "\u{000D}" ""
 
                     expected : String
                     expected =
@@ -984,14 +966,12 @@ suite = 0
     }
 }
 """
-                            |> String.replace "\u{000D}" ""
                 in
                 """
 module A exposing (a)
 import Bar
 a = 1
 """
-                    |> String.replace "\u{000D}" ""
                     |> Review.Test.runWithProjectData (createProject (Just testModule) packageElmJson) rule
                     |> Review.Test.expectErrorsForElmJson
                         [ Review.Test.error
@@ -1015,7 +995,6 @@ import TestFoo
 import TestBar
 a = 1
 """
-                    |> String.replace "\u{000D}" ""
                     |> Review.Test.runWithProjectData (createProject Nothing packageElmJsonWithLamdera) rule
                     |> Review.Test.expectNoErrors
         ]
