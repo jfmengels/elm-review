@@ -230,7 +230,7 @@ ranges : String -> Node String -> List Range
 ranges needle (Node range haystack) =
     String.lines haystack
         |> List.indexedMap (rangesInLine needle range.start)
-        |> fastConcat
+        |> List.concat
 
 
 rangesInLine : String -> Range.Location -> Int -> String -> List Range
@@ -274,7 +274,7 @@ jsonFieldLocation fieldName rawJson =
     in
     String.lines rawJson
         |> List.indexedMap (jsonFieldLocationsInLine regex)
-        |> fastConcat
+        |> List.concat
         |> List.head
 
 
@@ -317,11 +317,6 @@ forbiddenWordError word range =
 
 
 --- List Performance
-
-
-fastConcat : List (List a) -> List a
-fastConcat =
-    List.concat
 
 
 fastConcatMap : (a -> List b) -> List a -> List b
