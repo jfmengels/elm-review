@@ -1,10 +1,13 @@
 module Review.Rule.CacheTest exposing (all)
 
 import Dict exposing (Dict)
+import Elm.Project
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Node as Node exposing (Node)
 import Expect
+import Json.Decode as Decode
 import Json.Encode as Encode
+import NoUnused.Dependencies
 import NoUnused.Variables
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Options
@@ -129,4 +132,92 @@ a = value ++ "ok"
                 Rule.reviewV3 Review.Options.defaults reviewResult.rules updatedProject
                     |> .errors
                     |> Expect.equal reviewResult.errors
+        , -- Regression test
+          test
+            "Updating elm.json after a review should not lead to using outdated cache data"
+          <|
+            \() ->
+                let
+                    initialElmJson : String
+                    initialElmJson =
+                        """{
+    "type": "application",
+    "source-directories": [
+        "src"
+    ],
+    "elm-version": "0.19.2",
+    "dependencies": {
+        "direct": {
+            "abc/def": "1.0.0",
+            "elm/core": "1.0.5"
+        },
+        "indirect": {}
+    },
+    "test-dependencies": {
+        "direct": {},
+        "indirect": {}
+    }
+}"""
+
+                    project : Project
+                    project =
+                        Review.Test.Dependencies.projectWithElmCore
+                            |> Project.addElmJson (createElmJson initialElmJson)
+                            |> Project.addModule
+                                { path = "src/A.elm"
+                                , source =
+                                    """
+module A exposing (a)
+a = 1
+"""
+                                }
+
+                    elmJsonAfterFix : String
+                    elmJsonAfterFix =
+                        """{
+    "type": "application",
+    "source-directories": [
+        "src"
+    ],
+    "elm-version": "0.19.2",
+    "dependencies": {
+        "direct": {
+            "elm/core": "1.0.5"
+        },
+        "indirect": {}
+    },
+    "test-dependencies": {
+        "direct": {},
+        "indirect": {}
+    }
+}"""
+                in
+                Expect.all
+                    [ \reviewResult ->
+                        reviewResult.errors
+                            |> List.map Rule.errorMessage
+                            |> Expect.equal [ "Unused dependency `abc/def`" ]
+                            |> Expect.onFail "Expected pre-test assertion failed"
+                    , \reviewResult ->
+                        Rule.reviewV3
+                            Review.Options.defaults
+                            reviewResult.rules
+                            (Project.addElmJson (createElmJson elmJsonAfterFix) reviewResult.project)
+                            |> .errors
+                            |> Expect.equal []
+                    ]
+                    (Rule.reviewV3 Review.Options.defaults [ NoUnused.Dependencies.rule ] project)
         ]
+
+
+createElmJson : String -> { path : String, raw : String, project : Elm.Project.Project }
+createElmJson rawElmJson =
+    case Decode.decodeString Elm.Project.decoder rawElmJson of
+        Ok elmJson ->
+            { path = "elm.json"
+            , raw = rawElmJson
+            , project = elmJson
+            }
+
+        Err err ->
+            Debug.todo ("Invalid elm.json supplied to test: " ++ Debug.toString err)

@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Fixed an issue where changes to `elm.json` (through an automatic fix or in watch mode) would get ignored, yielding incorrect results.
+
 ## [2.16.6] - 2026-02-23
  
 - Fixed an issue where rules would yield unexpected results due to not having the context from imported modules,
