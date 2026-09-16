@@ -15,29 +15,35 @@ empty =
 
 fromList : List ( Range, v ) -> RangeDict v
 fromList entries =
-    entries
-        |> List.map (Tuple.mapFirst rangeAsString)
-        |> Dict.fromList
+    List.foldl
+        (\( range, v ) dict -> Dict.insert (rangeAsString range) v dict)
+        Dict.empty
+        entries
 
 
 insert : Range -> v -> RangeDict v -> RangeDict v
-insert range =
-    Dict.insert (rangeAsString range)
+insert range v dict =
+    Dict.insert (rangeAsString range) v dict
 
 
 modify : Range -> (v -> v) -> RangeDict v -> RangeDict v
 modify range mapper dict =
-    case Dict.get (rangeAsString range) dict of
+    let
+        key : String
+        key =
+            rangeAsString range
+    in
+    case Dict.get key dict of
         Just value ->
-            Dict.insert (rangeAsString range) (mapper value) dict
+            Dict.insert key (mapper value) dict
 
         Nothing ->
             dict
 
 
 values : RangeDict v -> List v
-values rangeDict =
-    Dict.values rangeDict
+values =
+    Dict.values
 
 
 get : Range -> RangeDict v -> Maybe v

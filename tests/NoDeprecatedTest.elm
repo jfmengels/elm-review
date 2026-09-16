@@ -39,8 +39,8 @@ a = Other.normalFunction
 normalFunction = 1
 """ ]
                     |> Review.Test.runOnModules (rule NoDeprecated.defaults)
-                    |> Review.Test.expectNoErrors
-        , test "should report an error when referencing a local function whose name contains '@deprecated'" <|
+                    |> Review.Test.expectDataExtract "{}"
+        , test "should report an error when referencing a local function whose name contains 'deprecated'" <|
             \() ->
                 """module A exposing (..)
 somethingDeprecated = 1
@@ -48,16 +48,28 @@ somethingDeprecated = 1
 a = somethingDeprecated
 """
                     |> Review.Test.run (rule NoDeprecated.defaults)
-                    |> Review.Test.expectErrors
-                        [ Review.Test.error
-                            { message = "Found new usage of deprecated element"
-                            , details =
-                                [ "This element was marked as deprecated and should not be used anymore."
-                                , "Please check its documentation to know the alternative solutions."
-                                ]
-                            , under = "somethingDeprecated"
-                            }
-                            |> Review.Test.atExactly { start = { row = 4, column = 5 }, end = { row = 4, column = 24 } }
+                    |> Review.Test.expect
+                        [ Review.Test.moduleErrors "A"
+                            [ Review.Test.error
+                                { message = "Found new usage of deprecated element"
+                                , details =
+                                    [ "This element was marked as deprecated and should not be used anymore."
+                                    , "Please check its documentation to know the alternative solutions."
+                                    ]
+                                , under = "somethingDeprecated"
+                                }
+                                |> Review.Test.atExactly { start = { row = 4, column = 5 }, end = { row = 4, column = 24 } }
+                            ]
+                        , Review.Test.dataExtract """
+                            {
+                               "A": {
+                                 "total": 1,
+                                 "isModuleDeprecated": false,
+                                 "usages": {
+                                   "somethingDeprecated": 1
+                                 }
+                               }
+                            }"""
                         ]
         , test "should report an error when referencing a local function whose documentation contains '@deprecated'" <|
             \() ->
@@ -71,16 +83,106 @@ a = something
 something = 1
 """
                     |> Review.Test.run (rule NoDeprecated.defaults)
-                    |> Review.Test.expectErrors
-                        [ Review.Test.error
-                            { message = "Found new usage of deprecated element"
-                            , details =
-                                [ "This element was marked as deprecated and should not be used anymore."
-                                , "Please check its documentation to know the alternative solutions."
-                                ]
-                            , under = "something"
-                            }
-                            |> Review.Test.atExactly { start = { row = 2, column = 5 }, end = { row = 2, column = 14 } }
+                    |> Review.Test.expect
+                        [ Review.Test.moduleErrors "A"
+                            [ Review.Test.error
+                                { message = "Found new usage of deprecated element"
+                                , details =
+                                    [ "This element was marked as deprecated and should not be used anymore."
+                                    , "Deprecation: This is deprecated, use Y instead."
+                                    ]
+                                , under = "something"
+                                }
+                                |> Review.Test.atExactly { start = { row = 2, column = 5 }, end = { row = 2, column = 14 } }
+                            ]
+                        , Review.Test.dataExtract """
+                            {
+                               "A": {
+                                 "total": 1,
+                                 "isModuleDeprecated": false,
+                                 "usages": {
+                                   "something": 1
+                                 }
+                               }
+                            }"""
+                        ]
+        , test "should report an error when referencing a local function whose documentation contains '@deprecated' even without a message afterwards" <|
+            \() ->
+                """module A exposing (..)
+a = something
+
+{-| Does X.
+
+@deprecated
+-}
+something = 1
+"""
+                    |> Review.Test.run (rule NoDeprecated.defaults)
+                    |> Review.Test.expect
+                        [ Review.Test.moduleErrors "A"
+                            [ Review.Test.error
+                                { message = "Found new usage of deprecated element"
+                                , details =
+                                    [ "This element was marked as deprecated and should not be used anymore."
+                                    , "Please check its documentation to know the alternative solutions."
+                                    ]
+                                , under = "something"
+                                }
+                                |> Review.Test.atExactly { start = { row = 2, column = 5 }, end = { row = 2, column = 14 } }
+                            ]
+                        , Review.Test.dataExtract """
+                            {
+                               "A": {
+                                 "total": 1,
+                                 "isModuleDeprecated": false,
+                                 "usages": {
+                                   "something": 1
+                                 }
+                               }
+                            }"""
+                        ]
+        , test "should report an error when referencing a local function whose documentation seems to have an end '@deprecation' section" <|
+            \() ->
+                """module A exposing (..)
+a = something
+
+{-| Does X.
+
+**@deprecated**
+
+We don't want this anymore.
+
+Use Y instead.
+
+**/@deprecated**
+-}
+something = 1
+"""
+                    |> Review.Test.run (rule NoDeprecated.defaults)
+                    |> Review.Test.expect
+                        [ Review.Test.moduleErrors "A"
+                            [ Review.Test.error
+                                { message = "Found new usage of deprecated element"
+                                , details =
+                                    [ "This element was marked as deprecated and should not be used anymore."
+                                    , """Deprecation: We don't want this anymore.
+
+Use Y instead."""
+                                    ]
+                                , under = "something"
+                                }
+                                |> Review.Test.atExactly { start = { row = 2, column = 5 }, end = { row = 2, column = 14 } }
+                            ]
+                        , Review.Test.dataExtract """
+                            {
+                               "A": {
+                                 "total": 1,
+                                 "isModuleDeprecated": false,
+                                 "usages": {
+                                   "something": 1
+                                 }
+                               }
+                            }"""
                         ]
         , test "should report an error when referencing a local function whose documentation starts with '@deprecated'" <|
             \() ->
@@ -92,16 +194,28 @@ a = something
 something = 1
 """
                     |> Review.Test.run (rule NoDeprecated.defaults)
-                    |> Review.Test.expectErrors
-                        [ Review.Test.error
-                            { message = "Found new usage of deprecated element"
-                            , details =
-                                [ "This element was marked as deprecated and should not be used anymore."
-                                , "Please check its documentation to know the alternative solutions."
-                                ]
-                            , under = "something"
-                            }
-                            |> Review.Test.atExactly { start = { row = 2, column = 5 }, end = { row = 2, column = 14 } }
+                    |> Review.Test.expect
+                        [ Review.Test.moduleErrors "A"
+                            [ Review.Test.error
+                                { message = "Found new usage of deprecated element"
+                                , details =
+                                    [ "This element was marked as deprecated and should not be used anymore."
+                                    , "Deprecation: This is deprecated, use Y instead."
+                                    ]
+                                , under = "something"
+                                }
+                                |> Review.Test.atExactly { start = { row = 2, column = 5 }, end = { row = 2, column = 14 } }
+                            ]
+                        , Review.Test.dataExtract """
+                            {
+                               "A": {
+                                 "total": 1,
+                                 "isModuleDeprecated": false,
+                                 "usages": {
+                                   "something": 1
+                                 }
+                               }
+                            }"""
                         ]
         , test "should report an error when referencing a local function whose documentation has a line starting with '**@deprecated'" <|
             \() ->
@@ -115,16 +229,28 @@ a = something
 something = 1
 """
                     |> Review.Test.run (rule NoDeprecated.defaults)
-                    |> Review.Test.expectErrors
-                        [ Review.Test.error
-                            { message = "Found new usage of deprecated element"
-                            , details =
-                                [ "This element was marked as deprecated and should not be used anymore."
-                                , "Please check its documentation to know the alternative solutions."
-                                ]
-                            , under = "something"
-                            }
-                            |> Review.Test.atExactly { start = { row = 2, column = 5 }, end = { row = 2, column = 14 } }
+                    |> Review.Test.expect
+                        [ Review.Test.moduleErrors "A"
+                            [ Review.Test.error
+                                { message = "Found new usage of deprecated element"
+                                , details =
+                                    [ "This element was marked as deprecated and should not be used anymore."
+                                    , "Deprecation: This is deprecated, use Y instead."
+                                    ]
+                                , under = "something"
+                                }
+                                |> Review.Test.atExactly { start = { row = 2, column = 5 }, end = { row = 2, column = 14 } }
+                            ]
+                        , Review.Test.dataExtract """
+                            {
+                               "A": {
+                                 "total": 1,
+                                 "isModuleDeprecated": false,
+                                 "usages": {
+                                   "something": 1
+                                 }
+                               }
+                            }"""
                         ]
         , test "should report an error when referencing a local function whose documentation starts with '**@deprecated**'" <|
             \() ->
@@ -136,16 +262,28 @@ a = something
 something = 1
 """
                     |> Review.Test.run (rule NoDeprecated.defaults)
-                    |> Review.Test.expectErrors
-                        [ Review.Test.error
-                            { message = "Found new usage of deprecated element"
-                            , details =
-                                [ "This element was marked as deprecated and should not be used anymore."
-                                , "Please check its documentation to know the alternative solutions."
-                                ]
-                            , under = "something"
-                            }
-                            |> Review.Test.atExactly { start = { row = 2, column = 5 }, end = { row = 2, column = 14 } }
+                    |> Review.Test.expect
+                        [ Review.Test.moduleErrors "A"
+                            [ Review.Test.error
+                                { message = "Found new usage of deprecated element"
+                                , details =
+                                    [ "This element was marked as deprecated and should not be used anymore."
+                                    , "Deprecation: This is deprecated, use Y instead."
+                                    ]
+                                , under = "something"
+                                }
+                                |> Review.Test.atExactly { start = { row = 2, column = 5 }, end = { row = 2, column = 14 } }
+                            ]
+                        , Review.Test.dataExtract """
+                            {
+                               "A": {
+                                 "total": 1,
+                                 "isModuleDeprecated": false,
+                                 "usages": {
+                                   "something": 1
+                                 }
+                               }
+                            }"""
                         ]
         , test "should report an error when referencing a function from a module whose name contains 'deprecated' (qualified import)" <|
             \() ->
@@ -154,9 +292,9 @@ import Some.DeprecatedModule
 a = Some.DeprecatedModule.something
 """, moduleWithDeprecatedInItsName ]
                     |> Review.Test.runOnModules (rule NoDeprecated.defaults)
-                    |> Review.Test.expectErrorsForModules
-                        [ ( "A"
-                          , [ Review.Test.error
+                    |> Review.Test.expect
+                        [ Review.Test.moduleErrors "A"
+                            [ Review.Test.error
                                 { message = "Found new usage of deprecated element"
                                 , details =
                                     [ "The module where this element is defined was marked as deprecated and should not be used anymore."
@@ -165,7 +303,16 @@ a = Some.DeprecatedModule.something
                                 , under = "Some.DeprecatedModule.something"
                                 }
                             ]
-                          )
+                        , Review.Test.dataExtract """
+                            {
+                               "Some.DeprecatedModule": {
+                                 "total": 1,
+                                 "isModuleDeprecated": true,
+                                 "usages": {
+                                   "something": 1
+                                 }
+                               }
+                            }"""
                         ]
         , test "should report an error when referencing a function from a module whose name contains 'deprecated' (unqualifed import)" <|
             \() ->
@@ -174,9 +321,9 @@ import Some.DeprecatedModule as S
 a = S.something
 """, moduleWithDeprecatedInItsName ]
                     |> Review.Test.runOnModules (rule NoDeprecated.defaults)
-                    |> Review.Test.expectErrorsForModules
-                        [ ( "A"
-                          , [ Review.Test.error
+                    |> Review.Test.expect
+                        [ Review.Test.moduleErrors "A"
+                            [ Review.Test.error
                                 { message = "Found new usage of deprecated element"
                                 , details =
                                     [ "The module where this element is defined was marked as deprecated and should not be used anymore."
@@ -185,7 +332,16 @@ a = S.something
                                 , under = "S.something"
                                 }
                             ]
-                          )
+                        , Review.Test.dataExtract """
+                            {
+                               "Some.DeprecatedModule": {
+                                 "total": 1,
+                                 "isModuleDeprecated": true,
+                                 "usages": {
+                                   "something": 1
+                                 }
+                               }
+                            }"""
                         ]
         , test "should report an error when referencing a function from a module whose name contains 'deprecated' (record update)" <|
             \() ->
@@ -194,9 +350,9 @@ import Some.DeprecatedModule exposing (something)
 a = { something | b = 1 }
 """, moduleWithDeprecatedInItsName ]
                     |> Review.Test.runOnModules (rule NoDeprecated.defaults)
-                    |> Review.Test.expectErrorsForModules
-                        [ ( "A"
-                          , [ Review.Test.error
+                    |> Review.Test.expect
+                        [ Review.Test.moduleErrors "A"
+                            [ Review.Test.error
                                 { message = "Found new usage of deprecated element"
                                 , details =
                                     [ "The module where this element is defined was marked as deprecated and should not be used anymore."
@@ -206,7 +362,16 @@ a = { something | b = 1 }
                                 }
                                 |> Review.Test.atExactly { start = { row = 3, column = 7 }, end = { row = 3, column = 16 } }
                             ]
-                          )
+                        , Review.Test.dataExtract """
+                            {
+                               "Some.DeprecatedModule": {
+                                 "total": 1,
+                                 "isModuleDeprecated": true,
+                                 "usages": {
+                                   "something": 1
+                                 }
+                               }
+                            }"""
                         ]
         , test "should report an error when referencing a function from a module whose documentation has a '@deprecated' annotation" <|
             \() ->
@@ -219,18 +384,27 @@ import Basics
 a = 1
 """ ]
                     |> Review.Test.runOnModules (rule NoDeprecated.defaults)
-                    |> Review.Test.expectErrorsForModules
-                        [ ( "A"
-                          , [ Review.Test.error
+                    |> Review.Test.expect
+                        [ Review.Test.moduleErrors "A"
+                            [ Review.Test.error
                                 { message = "Found new usage of deprecated element"
                                 , details =
                                     [ "The module where this element is defined was marked as deprecated and should not be used anymore."
-                                    , "Please check its documentation to know the alternative solutions."
+                                    , "Deprecation: Use some other module instead"
                                     ]
                                 , under = "Some.Module.something"
                                 }
                             ]
-                          )
+                        , Review.Test.dataExtract """
+                            {
+                               "Some.Module": {
+                                 "total": 1,
+                                 "isModuleDeprecated": true,
+                                 "usages": {
+                                   "something": 1
+                                 }
+                               }
+                            }"""
                         ]
         , test "should not report an error when referencing a function whose name contains deprecated but is marked as an exception (local reference)" <|
             \() ->
@@ -243,7 +417,7 @@ a = [ Deprecated, NotDeprecated ]
                             |> NoDeprecated.withExceptionsForElements [ "A.Deprecated", "A.NotDeprecated" ]
                             |> rule
                         )
-                    |> Review.Test.expectNoErrors
+                    |> Review.Test.expectDataExtract "{}"
         , test "should not report an error when referencing a function whose name contains deprecated but is marked as an exception (other module reference)" <|
             \() ->
                 [ """module A exposing (..)
@@ -257,7 +431,7 @@ type Status = Deprecated | NotDeprecated
                             |> NoDeprecated.withExceptionsForElements [ "Status.Deprecated", "Status.NotDeprecated" ]
                             |> rule
                         )
-                    |> Review.Test.expectNoErrors
+                    |> Review.Test.expectDataExtract "{}"
         , test "should report a configuration error when giving an invalid exception " <|
             \() ->
                 NoDeprecated.defaults
@@ -290,16 +464,28 @@ type Deprecated = Deprecated
 a = Deprecated
 """
                     |> Review.Test.run (rule NoDeprecated.defaults)
-                    |> Review.Test.expectErrors
-                        [ Review.Test.error
-                            { message = "Found new usage of deprecated element"
-                            , details =
-                                [ "This element was marked as deprecated and should not be used anymore."
-                                , "Please check its documentation to know the alternative solutions."
-                                ]
-                            , under = "Deprecated"
-                            }
-                            |> Review.Test.atExactly { start = { row = 3, column = 5 }, end = { row = 3, column = 15 } }
+                    |> Review.Test.expect
+                        [ Review.Test.moduleErrors "A"
+                            [ Review.Test.error
+                                { message = "Found new usage of deprecated element"
+                                , details =
+                                    [ "This element was marked as deprecated and should not be used anymore."
+                                    , "Please check its documentation to know the alternative solutions."
+                                    ]
+                                , under = "Deprecated"
+                                }
+                                |> Review.Test.atExactly { start = { row = 3, column = 5 }, end = { row = 3, column = 15 } }
+                            ]
+                        , Review.Test.dataExtract """
+                            {
+                               "A": {
+                                 "total": 1,
+                                 "isModuleDeprecated": false,
+                                 "usages": {
+                                   "Deprecated": 1
+                                 }
+                               }
+                            }"""
                         ]
         , test "should report an error when referencing a type alias constructor whose name contains 'deprecated'" <|
             \() ->
@@ -308,16 +494,28 @@ type alias Deprecated = {}
 a = Deprecated
 """
                     |> Review.Test.run (rule NoDeprecated.defaults)
-                    |> Review.Test.expectErrors
-                        [ Review.Test.error
-                            { message = "Found new usage of deprecated element"
-                            , details =
-                                [ "This element was marked as deprecated and should not be used anymore."
-                                , "Please check its documentation to know the alternative solutions."
-                                ]
-                            , under = "Deprecated"
-                            }
-                            |> Review.Test.atExactly { start = { row = 3, column = 5 }, end = { row = 3, column = 15 } }
+                    |> Review.Test.expect
+                        [ Review.Test.moduleErrors "A"
+                            [ Review.Test.error
+                                { message = "Found new usage of deprecated element"
+                                , details =
+                                    [ "This element was marked as deprecated and should not be used anymore."
+                                    , "Please check its documentation to know the alternative solutions."
+                                    ]
+                                , under = "Deprecated"
+                                }
+                                |> Review.Test.atExactly { start = { row = 3, column = 5 }, end = { row = 3, column = 15 } }
+                            ]
+                        , Review.Test.dataExtract """
+                            {
+                               "A": {
+                                 "total": 1,
+                                 "isModuleDeprecated": false,
+                                 "usages": {
+                                   "Deprecated": 1
+                                 }
+                               }
+                            }"""
                         ]
         , test "should not report an error when referencing a non-deprecated type alias or type alias constructor" <|
             \() ->
@@ -327,7 +525,7 @@ a : TypeAlias
 a = TypeAlias
 """
                     |> Review.Test.run (rule NoDeprecated.defaults)
-                    |> Review.Test.expectNoErrors
+                    |> Review.Test.expectDataExtract "{}"
         , test "should report an error when referencing a type whose name contains 'deprecated' (top-level declaration annotation)" <|
             \() ->
                 """module A exposing (..)
@@ -336,16 +534,28 @@ a : Deprecated
 a = 1
 """
                     |> Review.Test.run (rule NoDeprecated.defaults)
-                    |> Review.Test.expectErrors
-                        [ Review.Test.error
-                            { message = "Found new usage of deprecated element"
-                            , details =
-                                [ "This element was marked as deprecated and should not be used anymore."
-                                , "Please check its documentation to know the alternative solutions."
-                                ]
-                            , under = "Deprecated"
-                            }
-                            |> Review.Test.atExactly { start = { row = 3, column = 5 }, end = { row = 3, column = 15 } }
+                    |> Review.Test.expect
+                        [ Review.Test.moduleErrors "A"
+                            [ Review.Test.error
+                                { message = "Found new usage of deprecated element"
+                                , details =
+                                    [ "This element was marked as deprecated and should not be used anymore."
+                                    , "Please check its documentation to know the alternative solutions."
+                                    ]
+                                , under = "Deprecated"
+                                }
+                                |> Review.Test.atExactly { start = { row = 3, column = 5 }, end = { row = 3, column = 15 } }
+                            ]
+                        , Review.Test.dataExtract """
+                            {
+                               "A": {
+                                 "total": 1,
+                                 "isModuleDeprecated": false,
+                                 "usages": {
+                                   "Deprecated": 1
+                                 }
+                               }
+                            }"""
                         ]
         , test "should report an error when referencing a type whose name contains 'deprecated' (top-level declaration)" <|
             \() ->
@@ -354,16 +564,28 @@ type Deprecated = Deprecated Int
 a (Deprecated value) = 1
 """
                     |> Review.Test.run (rule NoDeprecated.defaults)
-                    |> Review.Test.expectErrors
-                        [ Review.Test.error
-                            { message = "Found new usage of deprecated element"
-                            , details =
-                                [ "This element was marked as deprecated and should not be used anymore."
-                                , "Please check its documentation to know the alternative solutions."
-                                ]
-                            , under = "Deprecated"
-                            }
-                            |> Review.Test.atExactly { start = { row = 3, column = 4 }, end = { row = 3, column = 14 } }
+                    |> Review.Test.expect
+                        [ Review.Test.moduleErrors "A"
+                            [ Review.Test.error
+                                { message = "Found new usage of deprecated element"
+                                , details =
+                                    [ "This element was marked as deprecated and should not be used anymore."
+                                    , "Please check its documentation to know the alternative solutions."
+                                    ]
+                                , under = "Deprecated"
+                                }
+                                |> Review.Test.atExactly { start = { row = 3, column = 4 }, end = { row = 3, column = 14 } }
+                            ]
+                        , Review.Test.dataExtract """
+                            {
+                               "A": {
+                                 "total": 1,
+                                 "isModuleDeprecated": false,
+                                 "usages": {
+                                   "Deprecated": 1
+                                 }
+                               }
+                            }"""
                         ]
         , test "should report an error when referencing a custom type whose documentation contains '@deprecated' (top-level declaration)" <|
             \() ->
@@ -377,16 +599,28 @@ a = 1
 type Something = Foo Int
 """
                     |> Review.Test.run (rule NoDeprecated.defaults)
-                    |> Review.Test.expectErrors
-                        [ Review.Test.error
-                            { message = "Found new usage of deprecated element"
-                            , details =
-                                [ "This element was marked as deprecated and should not be used anymore."
-                                , "Please check its documentation to know the alternative solutions."
-                                ]
-                            , under = "Something"
-                            }
-                            |> Review.Test.atExactly { start = { row = 2, column = 5 }, end = { row = 2, column = 14 } }
+                    |> Review.Test.expect
+                        [ Review.Test.moduleErrors "A"
+                            [ Review.Test.error
+                                { message = "Found new usage of deprecated element"
+                                , details =
+                                    [ "This element was marked as deprecated and should not be used anymore."
+                                    , "Deprecation: This is deprecated, use Y instead."
+                                    ]
+                                , under = "Something"
+                                }
+                                |> Review.Test.atExactly { start = { row = 2, column = 5 }, end = { row = 2, column = 14 } }
+                            ]
+                        , Review.Test.dataExtract """
+                            {
+                               "A": {
+                                 "total": 1,
+                                 "isModuleDeprecated": false,
+                                 "usages": {
+                                   "Something": 1
+                                 }
+                               }
+                            }"""
                         ]
         , test "should report an error when referencing a custom type constructor whose documentation contains '@deprecated' (top-level declaration)" <|
             \() ->
@@ -399,16 +633,28 @@ a (A value) = 1
 type Something = A Int
 """
                     |> Review.Test.run (rule NoDeprecated.defaults)
-                    |> Review.Test.expectErrors
-                        [ Review.Test.error
-                            { message = "Found new usage of deprecated element"
-                            , details =
-                                [ "This element was marked as deprecated and should not be used anymore."
-                                , "Please check its documentation to know the alternative solutions."
-                                ]
-                            , under = "A"
-                            }
-                            |> Review.Test.atExactly { start = { row = 2, column = 4 }, end = { row = 2, column = 5 } }
+                    |> Review.Test.expect
+                        [ Review.Test.moduleErrors "A"
+                            [ Review.Test.error
+                                { message = "Found new usage of deprecated element"
+                                , details =
+                                    [ "This element was marked as deprecated and should not be used anymore."
+                                    , "Deprecation: This is deprecated, use Y instead."
+                                    ]
+                                , under = "A"
+                                }
+                                |> Review.Test.atExactly { start = { row = 2, column = 4 }, end = { row = 2, column = 5 } }
+                            ]
+                        , Review.Test.dataExtract """
+                            {
+                               "A": {
+                                 "total": 1,
+                                 "isModuleDeprecated": false,
+                                 "usages": {
+                                   "A": 1
+                                 }
+                               }
+                            }"""
                         ]
         , test "should report an error when referencing a type alias whose documentation contains '@deprecated' (top-level declaration)" <|
             \() ->
@@ -422,16 +668,28 @@ a = 1
 type alias Something = Int
 """
                     |> Review.Test.run (rule NoDeprecated.defaults)
-                    |> Review.Test.expectErrors
-                        [ Review.Test.error
-                            { message = "Found new usage of deprecated element"
-                            , details =
-                                [ "This element was marked as deprecated and should not be used anymore."
-                                , "Please check its documentation to know the alternative solutions."
-                                ]
-                            , under = "Something"
-                            }
-                            |> Review.Test.atExactly { start = { row = 2, column = 5 }, end = { row = 2, column = 14 } }
+                    |> Review.Test.expect
+                        [ Review.Test.moduleErrors "A"
+                            [ Review.Test.error
+                                { message = "Found new usage of deprecated element"
+                                , details =
+                                    [ "This element was marked as deprecated and should not be used anymore."
+                                    , "Deprecation: This is deprecated, use Y instead."
+                                    ]
+                                , under = "Something"
+                                }
+                                |> Review.Test.atExactly { start = { row = 2, column = 5 }, end = { row = 2, column = 14 } }
+                            ]
+                        , Review.Test.dataExtract """
+                            {
+                               "A": {
+                                 "total": 1,
+                                 "isModuleDeprecated": false,
+                                 "usages": {
+                                   "Something": 1
+                                 }
+                               }
+                            }"""
                         ]
         , test "should report an error when referencing a type alias constructor whose documentation contains '@deprecated' (top-level declaration)" <|
             \() ->
@@ -444,16 +702,28 @@ a = Something 1
 type alias Something = { b : Int }
 """
                     |> Review.Test.run (rule NoDeprecated.defaults)
-                    |> Review.Test.expectErrors
-                        [ Review.Test.error
-                            { message = "Found new usage of deprecated element"
-                            , details =
-                                [ "This element was marked as deprecated and should not be used anymore."
-                                , "Please check its documentation to know the alternative solutions."
-                                ]
-                            , under = "Something"
-                            }
-                            |> Review.Test.atExactly { start = { row = 2, column = 5 }, end = { row = 2, column = 14 } }
+                    |> Review.Test.expect
+                        [ Review.Test.moduleErrors "A"
+                            [ Review.Test.error
+                                { message = "Found new usage of deprecated element"
+                                , details =
+                                    [ "This element was marked as deprecated and should not be used anymore."
+                                    , "Deprecation: This is deprecated, use Y instead."
+                                    ]
+                                , under = "Something"
+                                }
+                                |> Review.Test.atExactly { start = { row = 2, column = 5 }, end = { row = 2, column = 14 } }
+                            ]
+                        , Review.Test.dataExtract """
+                            {
+                               "A": {
+                                 "total": 1,
+                                 "isModuleDeprecated": false,
+                                 "usages": {
+                                   "Something": 1
+                                 }
+                               }
+                            }"""
                         ]
         , test "should report an error when referencing a type whose name contains 'deprecated' (custom type declaration)" <|
             \() ->
@@ -462,16 +732,28 @@ type alias Deprecated = String
 type A = Thing ( A, { b : Deprecated } )
 """
                     |> Review.Test.run (rule NoDeprecated.defaults)
-                    |> Review.Test.expectErrors
-                        [ Review.Test.error
-                            { message = "Found new usage of deprecated element"
-                            , details =
-                                [ "This element was marked as deprecated and should not be used anymore."
-                                , "Please check its documentation to know the alternative solutions."
-                                ]
-                            , under = "Deprecated"
-                            }
-                            |> Review.Test.atExactly { start = { row = 3, column = 27 }, end = { row = 3, column = 37 } }
+                    |> Review.Test.expect
+                        [ Review.Test.moduleErrors "A"
+                            [ Review.Test.error
+                                { message = "Found new usage of deprecated element"
+                                , details =
+                                    [ "This element was marked as deprecated and should not be used anymore."
+                                    , "Please check its documentation to know the alternative solutions."
+                                    ]
+                                , under = "Deprecated"
+                                }
+                                |> Review.Test.atExactly { start = { row = 3, column = 27 }, end = { row = 3, column = 37 } }
+                            ]
+                        , Review.Test.dataExtract """
+                            {
+                               "A": {
+                                 "total": 1,
+                                 "isModuleDeprecated": false,
+                                 "usages": {
+                                   "Deprecated": 1
+                                 }
+                               }
+                            }"""
                         ]
         , test "should report an error when referencing a type whose name contains 'deprecated' (type alias declaration)" <|
             \() ->
@@ -480,16 +762,28 @@ type alias Deprecated = String
 type alias A = Thing { b : Deprecated }
 """
                     |> Review.Test.run (rule NoDeprecated.defaults)
-                    |> Review.Test.expectErrors
-                        [ Review.Test.error
-                            { message = "Found new usage of deprecated element"
-                            , details =
-                                [ "This element was marked as deprecated and should not be used anymore."
-                                , "Please check its documentation to know the alternative solutions."
-                                ]
-                            , under = "Deprecated"
-                            }
-                            |> Review.Test.atExactly { start = { row = 3, column = 28 }, end = { row = 3, column = 38 } }
+                    |> Review.Test.expect
+                        [ Review.Test.moduleErrors "A"
+                            [ Review.Test.error
+                                { message = "Found new usage of deprecated element"
+                                , details =
+                                    [ "This element was marked as deprecated and should not be used anymore."
+                                    , "Please check its documentation to know the alternative solutions."
+                                    ]
+                                , under = "Deprecated"
+                                }
+                                |> Review.Test.atExactly { start = { row = 3, column = 28 }, end = { row = 3, column = 38 } }
+                            ]
+                        , Review.Test.dataExtract """
+                            {
+                               "A": {
+                                 "total": 1,
+                                 "isModuleDeprecated": false,
+                                 "usages": {
+                                   "Deprecated": 1
+                                 }
+                               }
+                            }"""
                         ]
         ]
 
@@ -503,30 +797,54 @@ parametersTests =
 a thingDeprecated = 1
 """
                     |> Review.Test.run (rule NoDeprecated.defaults)
-                    |> Review.Test.expectErrors
-                        [ Review.Test.error
-                            { message = "Found new usage of deprecated element"
-                            , details =
-                                [ "This element was marked as deprecated and should not be used anymore."
-                                ]
-                            , under = "thingDeprecated"
-                            }
+                    |> Review.Test.expect
+                        [ Review.Test.moduleErrors "A"
+                            [ Review.Test.error
+                                { message = "Found new usage of deprecated element"
+                                , details =
+                                    [ "This element was marked as deprecated and should not be used anymore."
+                                    ]
+                                , under = "thingDeprecated"
+                                }
+                            ]
+                        , Review.Test.dataExtract """
+                            {
+                               "A": {
+                                 "total": 1,
+                                 "isModuleDeprecated": false,
+                                 "usages": {
+                                   "thingDeprecated": 1
+                                 }
+                               }
+                            }"""
                         ]
-        , test "should report an error when destructuring a field whose name contains 'deprecated' (top-level declaration)" <|
+        , test "should report an error when destructuring a field whos]e name contains 'deprecated' (top-level declaration)" <|
             \() ->
                 """module A exposing (..)
 a ({deprecated}) = 1
 """
                     |> Review.Test.run (rule NoDeprecated.defaults)
-                    |> Review.Test.expectErrors
-                        [ Review.Test.error
-                            { message = "Found new usage of deprecated element"
-                            , details =
-                                [ "This element was marked as deprecated and should not be used anymore."
-                                , "Please check its documentation to know the alternative solutions."
-                                ]
-                            , under = "deprecated"
-                            }
+                    |> Review.Test.expect
+                        [ Review.Test.moduleErrors "A"
+                            [ Review.Test.error
+                                { message = "Found new usage of deprecated element"
+                                , details =
+                                    [ "This element was marked as deprecated and should not be used anymore."
+                                    , "Please check its documentation to know the alternative solutions."
+                                    ]
+                                , under = "deprecated"
+                                }
+                            ]
+                        , Review.Test.dataExtract """
+                            {
+                               "A": {
+                                 "total": 1,
+                                 "isModuleDeprecated": false,
+                                 "usages": {
+                                   "deprecated": 1
+                                 }
+                               }
+                            }"""
                         ]
         , test "should report an error when using a parameter alias whose name contains 'deprecated' (top-level declaration)" <|
             \() ->
@@ -534,14 +852,26 @@ a ({deprecated}) = 1
 a (( x, y ) as deprecated) = 1
 """
                     |> Review.Test.run (rule NoDeprecated.defaults)
-                    |> Review.Test.expectErrors
-                        [ Review.Test.error
-                            { message = "Found new usage of deprecated element"
-                            , details =
-                                [ "This element was marked as deprecated and should not be used anymore."
-                                ]
-                            , under = "deprecated"
-                            }
+                    |> Review.Test.expect
+                        [ Review.Test.moduleErrors "A"
+                            [ Review.Test.error
+                                { message = "Found new usage of deprecated element"
+                                , details =
+                                    [ "This element was marked as deprecated and should not be used anymore."
+                                    ]
+                                , under = "deprecated"
+                                }
+                            ]
+                        , Review.Test.dataExtract """
+                            {
+                               "A": {
+                                 "total": 1,
+                                 "isModuleDeprecated": false,
+                                 "usages": {
+                                   "deprecated": 1
+                                 }
+                               }
+                            }"""
                         ]
         ]
 
@@ -561,16 +891,28 @@ a =
     b
 """
                     |> Review.Test.run (rule NoDeprecated.defaults)
-                    |> Review.Test.expectErrors
-                        [ Review.Test.error
-                            { message = "Found new usage of deprecated element"
-                            , details =
-                                [ "This element was marked as deprecated and should not be used anymore."
-                                , "Please check its documentation to know the alternative solutions."
-                                ]
-                            , under = "Deprecated"
-                            }
-                            |> Review.Test.atExactly { start = { row = 5, column = 13 }, end = { row = 5, column = 23 } }
+                    |> Review.Test.expect
+                        [ Review.Test.moduleErrors "A"
+                            [ Review.Test.error
+                                { message = "Found new usage of deprecated element"
+                                , details =
+                                    [ "This element was marked as deprecated and should not be used anymore."
+                                    , "Please check its documentation to know the alternative solutions."
+                                    ]
+                                , under = "Deprecated"
+                                }
+                                |> Review.Test.atExactly { start = { row = 5, column = 13 }, end = { row = 5, column = 23 } }
+                            ]
+                        , Review.Test.dataExtract """
+                            {
+                               "A": {
+                                 "total": 1,
+                                 "isModuleDeprecated": false,
+                                 "usages": {
+                                   "Deprecated": 1
+                                 }
+                               }
+                            }"""
                         ]
         , test "should report an error when referencing a type whose name contains 'deprecated' (let declaration)" <|
             \() ->
@@ -583,16 +925,28 @@ a =
     b
 """
                     |> Review.Test.run (rule NoDeprecated.defaults)
-                    |> Review.Test.expectErrors
-                        [ Review.Test.error
-                            { message = "Found new usage of deprecated element"
-                            , details =
-                                [ "This element was marked as deprecated and should not be used anymore."
-                                , "Please check its documentation to know the alternative solutions."
-                                ]
-                            , under = "Deprecated"
-                            }
-                            |> Review.Test.atExactly { start = { row = 5, column = 12 }, end = { row = 5, column = 22 } }
+                    |> Review.Test.expect
+                        [ Review.Test.moduleErrors "A"
+                            [ Review.Test.error
+                                { message = "Found new usage of deprecated element"
+                                , details =
+                                    [ "This element was marked as deprecated and should not be used anymore."
+                                    , "Please check its documentation to know the alternative solutions."
+                                    ]
+                                , under = "Deprecated"
+                                }
+                                |> Review.Test.atExactly { start = { row = 5, column = 12 }, end = { row = 5, column = 22 } }
+                            ]
+                        , Review.Test.dataExtract """
+                            {
+                               "A": {
+                                 "total": 1,
+                                 "isModuleDeprecated": false,
+                                 "usages": {
+                                   "Deprecated": 1
+                                 }
+                               }
+                            }"""
                         ]
         , test "should report an error when having a parameter whose name contains 'deprecated' (let declaration)" <|
             \() ->
@@ -604,14 +958,26 @@ a =
     b
 """
                     |> Review.Test.run (rule NoDeprecated.defaults)
-                    |> Review.Test.expectErrors
-                        [ Review.Test.error
-                            { message = "Found new usage of deprecated element"
-                            , details =
-                                [ "This element was marked as deprecated and should not be used anymore."
-                                ]
-                            , under = "thingDeprecated"
-                            }
+                    |> Review.Test.expect
+                        [ Review.Test.moduleErrors "A"
+                            [ Review.Test.error
+                                { message = "Found new usage of deprecated element"
+                                , details =
+                                    [ "This element was marked as deprecated and should not be used anymore."
+                                    ]
+                                , under = "thingDeprecated"
+                                }
+                            ]
+                        , Review.Test.dataExtract """
+                            {
+                               "A": {
+                                 "total": 1,
+                                 "isModuleDeprecated": false,
+                                 "usages": {
+                                   "thingDeprecated": 1
+                                 }
+                               }
+                            }"""
                         ]
         , test "should report an error when referencing a type whose name contains 'deprecated' (let destructuring)" <|
             \() ->
@@ -624,16 +990,28 @@ a =
     b
 """
                     |> Review.Test.run (rule NoDeprecated.defaults)
-                    |> Review.Test.expectErrors
-                        [ Review.Test.error
-                            { message = "Found new usage of deprecated element"
-                            , details =
-                                [ "This element was marked as deprecated and should not be used anymore."
-                                , "Please check its documentation to know the alternative solutions."
-                                ]
-                            , under = "Deprecated"
-                            }
-                            |> Review.Test.atExactly { start = { row = 5, column = 10 }, end = { row = 5, column = 20 } }
+                    |> Review.Test.expect
+                        [ Review.Test.moduleErrors "A"
+                            [ Review.Test.error
+                                { message = "Found new usage of deprecated element"
+                                , details =
+                                    [ "This element was marked as deprecated and should not be used anymore."
+                                    , "Please check its documentation to know the alternative solutions."
+                                    ]
+                                , under = "Deprecated"
+                                }
+                                |> Review.Test.atExactly { start = { row = 5, column = 10 }, end = { row = 5, column = 20 } }
+                            ]
+                        , Review.Test.dataExtract """
+                            {
+                               "A": {
+                                 "total": 1,
+                                 "isModuleDeprecated": false,
+                                 "usages": {
+                                   "Deprecated": 1
+                                 }
+                               }
+                            }"""
                         ]
         ]
 
@@ -650,16 +1028,28 @@ a =
         ThingDeprecated b -> 1
 """
                     |> Review.Test.run (rule NoDeprecated.defaults)
-                    |> Review.Test.expectErrors
-                        [ Review.Test.error
-                            { message = "Found new usage of deprecated element"
-                            , details =
-                                [ "This element was marked as deprecated and should not be used anymore."
-                                , "Please check its documentation to know the alternative solutions."
-                                ]
-                            , under = "ThingDeprecated"
-                            }
-                            |> Review.Test.atExactly { start = { row = 5, column = 9 }, end = { row = 5, column = 24 } }
+                    |> Review.Test.expect
+                        [ Review.Test.moduleErrors "A"
+                            [ Review.Test.error
+                                { message = "Found new usage of deprecated element"
+                                , details =
+                                    [ "This element was marked as deprecated and should not be used anymore."
+                                    , "Please check its documentation to know the alternative solutions."
+                                    ]
+                                , under = "ThingDeprecated"
+                                }
+                                |> Review.Test.atExactly { start = { row = 5, column = 9 }, end = { row = 5, column = 24 } }
+                            ]
+                        , Review.Test.dataExtract """
+                            {
+                               "A": {
+                                 "total": 1,
+                                 "isModuleDeprecated": false,
+                                 "usages": {
+                                   "ThingDeprecated": 1
+                                 }
+                               }
+                            }"""
                         ]
         ]
 
@@ -673,15 +1063,27 @@ fieldsTests =
 a = some.thingDeprecated
 """
                     |> Review.Test.run (rule NoDeprecated.defaults)
-                    |> Review.Test.expectErrors
-                        [ Review.Test.error
-                            { message = "Found new usage of deprecated element"
-                            , details =
-                                [ "This element was marked as deprecated and should not be used anymore."
-                                , "Please check its documentation to know the alternative solutions."
-                                ]
-                            , under = "thingDeprecated"
-                            }
+                    |> Review.Test.expect
+                        [ Review.Test.moduleErrors "A"
+                            [ Review.Test.error
+                                { message = "Found new usage of deprecated element"
+                                , details =
+                                    [ "This element was marked as deprecated and should not be used anymore."
+                                    , "Please check its documentation to know the alternative solutions."
+                                    ]
+                                , under = "thingDeprecated"
+                                }
+                            ]
+                        , Review.Test.dataExtract """
+                            {
+                               "A": {
+                                 "total": 1,
+                                 "isModuleDeprecated": false,
+                                 "usages": {
+                                   "thingDeprecated": 1
+                                 }
+                               }
+                            }"""
                         ]
         , test "should report an error when referencing a field whose name contains 'deprecated' (record access function)" <|
             \() ->
@@ -689,15 +1091,27 @@ a = some.thingDeprecated
 a = .thingDeprecated
 """
                     |> Review.Test.run (rule NoDeprecated.defaults)
-                    |> Review.Test.expectErrors
-                        [ Review.Test.error
-                            { message = "Found new usage of deprecated element"
-                            , details =
-                                [ "This element was marked as deprecated and should not be used anymore."
-                                , "Please check its documentation to know the alternative solutions."
-                                ]
-                            , under = ".thingDeprecated"
-                            }
+                    |> Review.Test.expect
+                        [ Review.Test.moduleErrors "A"
+                            [ Review.Test.error
+                                { message = "Found new usage of deprecated element"
+                                , details =
+                                    [ "This element was marked as deprecated and should not be used anymore."
+                                    , "Please check its documentation to know the alternative solutions."
+                                    ]
+                                , under = ".thingDeprecated"
+                                }
+                            ]
+                        , Review.Test.dataExtract """
+                            {
+                               "A": {
+                                 "total": 1,
+                                 "isModuleDeprecated": false,
+                                 "usages": {
+                                   ".thingDeprecated": 1
+                                 }
+                               }
+                            }"""
                         ]
         ]
 
@@ -712,16 +1126,28 @@ type alias DeprecatedString = String
 port input : (DeprecatedString -> msg) -> Sub msg
 """
                     |> Review.Test.run (rule NoDeprecated.defaults)
-                    |> Review.Test.expectErrors
-                        [ Review.Test.error
-                            { message = "Found new usage of deprecated element"
-                            , details =
-                                [ "This element was marked as deprecated and should not be used anymore."
-                                , "Please check its documentation to know the alternative solutions."
-                                ]
-                            , under = "DeprecatedString"
-                            }
-                            |> Review.Test.atExactly { start = { row = 3, column = 15 }, end = { row = 3, column = 31 } }
+                    |> Review.Test.expect
+                        [ Review.Test.moduleErrors "A"
+                            [ Review.Test.error
+                                { message = "Found new usage of deprecated element"
+                                , details =
+                                    [ "This element was marked as deprecated and should not be used anymore."
+                                    , "Please check its documentation to know the alternative solutions."
+                                    ]
+                                , under = "DeprecatedString"
+                                }
+                                |> Review.Test.atExactly { start = { row = 3, column = 15 }, end = { row = 3, column = 31 } }
+                            ]
+                        , Review.Test.dataExtract """
+                            {
+                               "A": {
+                                 "total": 1,
+                                 "isModuleDeprecated": false,
+                                 "usages": {
+                                   "DeprecatedString": 1
+                                 }
+                               }
+                            }"""
                         ]
         , test "should report an error when referencing a type whose name contains 'deprecated' (Cmd port)" <|
             \() ->
@@ -730,16 +1156,28 @@ type alias DeprecatedString = String
 port output : DeprecatedString -> Cmd msg
 """
                     |> Review.Test.run (rule NoDeprecated.defaults)
-                    |> Review.Test.expectErrors
-                        [ Review.Test.error
-                            { message = "Found new usage of deprecated element"
-                            , details =
-                                [ "This element was marked as deprecated and should not be used anymore."
-                                , "Please check its documentation to know the alternative solutions."
-                                ]
-                            , under = "DeprecatedString"
-                            }
-                            |> Review.Test.atExactly { start = { row = 3, column = 15 }, end = { row = 3, column = 31 } }
+                    |> Review.Test.expect
+                        [ Review.Test.moduleErrors "A"
+                            [ Review.Test.error
+                                { message = "Found new usage of deprecated element"
+                                , details =
+                                    [ "This element was marked as deprecated and should not be used anymore."
+                                    , "Please check its documentation to know the alternative solutions."
+                                    ]
+                                , under = "DeprecatedString"
+                                }
+                                |> Review.Test.atExactly { start = { row = 3, column = 15 }, end = { row = 3, column = 31 } }
+                            ]
+                        , Review.Test.dataExtract """
+                            {
+                               "A": {
+                                 "total": 1,
+                                 "isModuleDeprecated": false,
+                                 "usages": {
+                                   "DeprecatedString": 1
+                                 }
+                               }
+                            }"""
                         ]
         ]
 
@@ -754,18 +1192,27 @@ import OtherModule
 a = OtherModule.something
 """, deprecatedModule ]
                     |> Review.Test.runOnModules (rule NoDeprecated.defaults)
-                    |> Review.Test.expectErrorsForModules
-                        [ ( "A"
-                          , [ Review.Test.error
+                    |> Review.Test.expect
+                        [ Review.Test.moduleErrors "A"
+                            [ Review.Test.error
                                 { message = "Found new usage of deprecated element"
                                 , details =
-                                    [ "The module where this element is defined was marked as deprecated and should not be used anymore."
-                                    , "Please check its documentation to know the alternative solutions."
+                                    [ "This element was marked as deprecated and should not be used anymore."
+                                    , "Deprecation: This is deprecated, use Y.something instead."
                                     ]
                                 , under = "OtherModule.something"
                                 }
                             ]
-                          )
+                        , Review.Test.dataExtract """
+                            {
+                               "OtherModule": {
+                                 "total": 1,
+                                 "isModuleDeprecated": true,
+                                 "usages": {
+                                   "something": 1
+                                 }
+                               }
+                            }"""
                         ]
         , test "should report an error when referencing a custom type from a deprecated module" <|
             \() ->
@@ -775,18 +1222,27 @@ a : OtherModule.CustomType
 a = 1
 """, deprecatedModule ]
                     |> Review.Test.runOnModules (rule NoDeprecated.defaults)
-                    |> Review.Test.expectErrorsForModules
-                        [ ( "A"
-                          , [ Review.Test.error
+                    |> Review.Test.expect
+                        [ Review.Test.moduleErrors "A"
+                            [ Review.Test.error
                                 { message = "Found new usage of deprecated element"
                                 , details =
                                     [ "The module where this element is defined was marked as deprecated and should not be used anymore."
-                                    , "Please check its documentation to know the alternative solutions."
+                                    , "Deprecation: This is deprecated, use Y instead."
                                     ]
                                 , under = "OtherModule.CustomType"
                                 }
                             ]
-                          )
+                        , Review.Test.dataExtract """
+                            {
+                               "OtherModule": {
+                                 "total": 1,
+                                 "isModuleDeprecated": true,
+                                 "usages": {
+                                   "CustomType": 1
+                                 }
+                               }
+                            }"""
                         ]
         , test "should report an error when referencing a custom type constructor from a deprecated module" <|
             \() ->
@@ -795,18 +1251,27 @@ import OtherModule
 a = OtherModule.Constructor
 """, deprecatedModule ]
                     |> Review.Test.runOnModules (rule NoDeprecated.defaults)
-                    |> Review.Test.expectErrorsForModules
-                        [ ( "A"
-                          , [ Review.Test.error
+                    |> Review.Test.expect
+                        [ Review.Test.moduleErrors "A"
+                            [ Review.Test.error
                                 { message = "Found new usage of deprecated element"
                                 , details =
                                     [ "The module where this element is defined was marked as deprecated and should not be used anymore."
-                                    , "Please check its documentation to know the alternative solutions."
+                                    , "Deprecation: This is deprecated, use Y instead."
                                     ]
                                 , under = "OtherModule.Constructor"
                                 }
                             ]
-                          )
+                        , Review.Test.dataExtract """
+                            {
+                               "OtherModule": {
+                                 "total": 1,
+                                 "isModuleDeprecated": true,
+                                 "usages": {
+                                   "Constructor": 1
+                                 }
+                               }
+                            }"""
                         ]
         , test "should report an error when referencing a type alias from a deprecated module" <|
             \() ->
@@ -816,18 +1281,27 @@ a : OtherModule.Alias
 a = 1
 """, modulesWithDeprecatedThings ]
                     |> Review.Test.runOnModules (rule NoDeprecated.defaults)
-                    |> Review.Test.expectErrorsForModules
-                        [ ( "A"
-                          , [ Review.Test.error
+                    |> Review.Test.expect
+                        [ Review.Test.moduleErrors "A"
+                            [ Review.Test.error
                                 { message = "Found new usage of deprecated element"
                                 , details =
                                     [ "This element was marked as deprecated and should not be used anymore."
-                                    , "Please check its documentation to know the alternative solutions."
+                                    , "Deprecation: This is deprecated, use Y instead."
                                     ]
                                 , under = "OtherModule.Alias"
                                 }
                             ]
-                          )
+                        , Review.Test.dataExtract """
+                            {
+                               "OtherModule": {
+                                 "total": 1,
+                                 "isModuleDeprecated": false,
+                                 "usages": {
+                                   "Alias": 1
+                                 }
+                               }
+                            }"""
                         ]
         , test "should report an error when referencing a deprecated value from a different module" <|
             \() ->
@@ -836,18 +1310,27 @@ import OtherModule
 a = OtherModule.value
 """, modulesWithDeprecatedThings ]
                     |> Review.Test.runOnModules (rule NoDeprecated.defaults)
-                    |> Review.Test.expectErrorsForModules
-                        [ ( "A"
-                          , [ Review.Test.error
+                    |> Review.Test.expect
+                        [ Review.Test.moduleErrors "A"
+                            [ Review.Test.error
                                 { message = "Found new usage of deprecated element"
                                 , details =
                                     [ "This element was marked as deprecated and should not be used anymore."
-                                    , "Please check its documentation to know the alternative solutions."
+                                    , "Deprecation: This is deprecated, use Y instead."
                                     ]
                                 , under = "OtherModule.value"
                                 }
                             ]
-                          )
+                        , Review.Test.dataExtract """
+                            {
+                               "OtherModule": {
+                                 "total": 1,
+                                 "isModuleDeprecated": false,
+                                 "usages": {
+                                   "value": 1
+                                 }
+                               }
+                            }"""
                         ]
         , test "should report an error when referencing a deprecated custom type from a different module" <|
             \() ->
@@ -857,18 +1340,27 @@ a : OtherModule.CustomType
 a = 1
 """, modulesWithDeprecatedThings ]
                     |> Review.Test.runOnModules (rule NoDeprecated.defaults)
-                    |> Review.Test.expectErrorsForModules
-                        [ ( "A"
-                          , [ Review.Test.error
+                    |> Review.Test.expect
+                        [ Review.Test.moduleErrors "A"
+                            [ Review.Test.error
                                 { message = "Found new usage of deprecated element"
                                 , details =
                                     [ "This element was marked as deprecated and should not be used anymore."
-                                    , "Please check its documentation to know the alternative solutions."
+                                    , "Deprecation: This is deprecated, use Y instead."
                                     ]
                                 , under = "OtherModule.CustomType"
                                 }
                             ]
-                          )
+                        , Review.Test.dataExtract """
+                            {
+                               "OtherModule": {
+                                 "total": 1,
+                                 "isModuleDeprecated": false,
+                                 "usages": {
+                                   "CustomType": 1
+                                 }
+                               }
+                            }"""
                         ]
         , test "should report an error when referencing a constructor of a deprecated custom type from a different module" <|
             \() ->
@@ -877,18 +1369,27 @@ import OtherModule
 a = OtherModule.Constructor
 """, modulesWithDeprecatedThings ]
                     |> Review.Test.runOnModules (rule NoDeprecated.defaults)
-                    |> Review.Test.expectErrorsForModules
-                        [ ( "A"
-                          , [ Review.Test.error
+                    |> Review.Test.expect
+                        [ Review.Test.moduleErrors "A"
+                            [ Review.Test.error
                                 { message = "Found new usage of deprecated element"
                                 , details =
                                     [ "This element was marked as deprecated and should not be used anymore."
-                                    , "Please check its documentation to know the alternative solutions."
+                                    , "Deprecation: This is deprecated, use Y instead."
                                     ]
                                 , under = "OtherModule.Constructor"
                                 }
                             ]
-                          )
+                        , Review.Test.dataExtract """
+                            {
+                               "OtherModule": {
+                                 "total": 1,
+                                 "isModuleDeprecated": false,
+                                 "usages": {
+                                   "Constructor": 1
+                                 }
+                               }
+                            }"""
                         ]
         , test "should report an error when referencing a deprecated type alias from a different module" <|
             \() ->
@@ -898,18 +1399,27 @@ a : OtherModule.Alias
 a = 1
 """, modulesWithDeprecatedThings ]
                     |> Review.Test.runOnModules (rule NoDeprecated.defaults)
-                    |> Review.Test.expectErrorsForModules
-                        [ ( "A"
-                          , [ Review.Test.error
+                    |> Review.Test.expect
+                        [ Review.Test.moduleErrors "A"
+                            [ Review.Test.error
                                 { message = "Found new usage of deprecated element"
                                 , details =
                                     [ "This element was marked as deprecated and should not be used anymore."
-                                    , "Please check its documentation to know the alternative solutions."
+                                    , "Deprecation: This is deprecated, use Y instead."
                                     ]
                                 , under = "OtherModule.Alias"
                                 }
                             ]
-                          )
+                        , Review.Test.dataExtract """
+                            {
+                               "OtherModule": {
+                                 "total": 1,
+                                 "isModuleDeprecated": false,
+                                 "usages": {
+                                   "Alias": 1
+                                 }
+                               }
+                            }"""
                         ]
         , test "should report an error when referencing a constructor of a deprecated record alias from a different module" <|
             \() ->
@@ -918,18 +1428,27 @@ import OtherModule
 a = OtherModule.RecordAlias
 """, modulesWithDeprecatedThings ]
                     |> Review.Test.runOnModules (rule NoDeprecated.defaults)
-                    |> Review.Test.expectErrorsForModules
-                        [ ( "A"
-                          , [ Review.Test.error
+                    |> Review.Test.expect
+                        [ Review.Test.moduleErrors "A"
+                            [ Review.Test.error
                                 { message = "Found new usage of deprecated element"
                                 , details =
                                     [ "This element was marked as deprecated and should not be used anymore."
-                                    , "Please check its documentation to know the alternative solutions."
+                                    , "Deprecation: This is deprecated, use Y instead."
                                     ]
                                 , under = "OtherModule.RecordAlias"
                                 }
                             ]
-                          )
+                        , Review.Test.dataExtract """
+                            {
+                               "OtherModule": {
+                                 "total": 1,
+                                 "isModuleDeprecated": false,
+                                 "usages": {
+                                   "RecordAlias": 1
+                                 }
+                               }
+                            }"""
                         ]
         ]
 
@@ -944,15 +1463,27 @@ import ModuleFromDependency_1
 a = ModuleFromDependency_1.something
 """
                     |> Review.Test.runWithProjectData projectWithDeprecations (rule NoDeprecated.defaults)
-                    |> Review.Test.expectErrors
-                        [ Review.Test.error
-                            { message = "Found new usage of deprecated element"
-                            , details =
-                                [ "The module where this element is defined was marked as deprecated and should not be used anymore."
-                                , "Please check its documentation to know the alternative solutions."
-                                ]
-                            , under = "ModuleFromDependency_1.something"
-                            }
+                    |> Review.Test.expect
+                        [ Review.Test.moduleErrors "A"
+                            [ Review.Test.error
+                                { message = "Found new usage of deprecated element"
+                                , details =
+                                    [ "The module where this element is defined was marked as deprecated and should not be used anymore."
+                                    , "Deprecation: This is deprecated, use Y instead."
+                                    ]
+                                , under = "ModuleFromDependency_1.something"
+                                }
+                            ]
+                        , Review.Test.dataExtract """
+                            {
+                               "ModuleFromDependency_1": {
+                                 "total": 1,
+                                 "isModuleDeprecated": true,
+                                 "usages": {
+                                   "something": 1
+                                 }
+                               }
+                            }"""
                         ]
         , test "should report an error when referencing a custom type from a deprecated dependency module" <|
             \() ->
@@ -962,15 +1493,27 @@ a : ModuleFromDependency_1.CustomType
 a = 1
 """
                     |> Review.Test.runWithProjectData projectWithDeprecations (rule NoDeprecated.defaults)
-                    |> Review.Test.expectErrors
-                        [ Review.Test.error
-                            { message = "Found new usage of deprecated element"
-                            , details =
-                                [ "The module where this element is defined was marked as deprecated and should not be used anymore."
-                                , "Please check its documentation to know the alternative solutions."
-                                ]
-                            , under = "ModuleFromDependency_1.CustomType"
-                            }
+                    |> Review.Test.expect
+                        [ Review.Test.moduleErrors "A"
+                            [ Review.Test.error
+                                { message = "Found new usage of deprecated element"
+                                , details =
+                                    [ "The module where this element is defined was marked as deprecated and should not be used anymore."
+                                    , "Deprecation: This is deprecated, use Y instead."
+                                    ]
+                                , under = "ModuleFromDependency_1.CustomType"
+                                }
+                            ]
+                        , Review.Test.dataExtract """
+                            {
+                               "ModuleFromDependency_1": {
+                                 "total": 1,
+                                 "isModuleDeprecated": true,
+                                 "usages": {
+                                   "CustomType": 1
+                                 }
+                               }
+                            }"""
                         ]
         , test "should report an error when referencing a custom type constructor from a deprecated dependency module" <|
             \() ->
@@ -979,15 +1522,27 @@ import ModuleFromDependency_1
 a = ModuleFromDependency_1.Constructor
 """
                     |> Review.Test.runWithProjectData projectWithDeprecations (rule NoDeprecated.defaults)
-                    |> Review.Test.expectErrors
-                        [ Review.Test.error
-                            { message = "Found new usage of deprecated element"
-                            , details =
-                                [ "The module where this element is defined was marked as deprecated and should not be used anymore."
-                                , "Please check its documentation to know the alternative solutions."
-                                ]
-                            , under = "ModuleFromDependency_1.Constructor"
-                            }
+                    |> Review.Test.expect
+                        [ Review.Test.moduleErrors "A"
+                            [ Review.Test.error
+                                { message = "Found new usage of deprecated element"
+                                , details =
+                                    [ "The module where this element is defined was marked as deprecated and should not be used anymore."
+                                    , "Deprecation: This is deprecated, use Y instead."
+                                    ]
+                                , under = "ModuleFromDependency_1.Constructor"
+                                }
+                            ]
+                        , Review.Test.dataExtract """
+                            {
+                               "ModuleFromDependency_1": {
+                                 "total": 1,
+                                 "isModuleDeprecated": true,
+                                 "usages": {
+                                   "Constructor": 1
+                                 }
+                               }
+                            }"""
                         ]
         , test "should report an error when referencing a type alias from a deprecated dependency module" <|
             \() ->
@@ -997,15 +1552,27 @@ a : ModuleFromDependency_1.Alias
 a = 1
 """
                     |> Review.Test.runWithProjectData projectWithDeprecations (rule NoDeprecated.defaults)
-                    |> Review.Test.expectErrors
-                        [ Review.Test.error
-                            { message = "Found new usage of deprecated element"
-                            , details =
-                                [ "The module where this element is defined was marked as deprecated and should not be used anymore."
-                                , "Please check its documentation to know the alternative solutions."
-                                ]
-                            , under = "ModuleFromDependency_1.Alias"
-                            }
+                    |> Review.Test.expect
+                        [ Review.Test.moduleErrors "A"
+                            [ Review.Test.error
+                                { message = "Found new usage of deprecated element"
+                                , details =
+                                    [ "The module where this element is defined was marked as deprecated and should not be used anymore."
+                                    , "Deprecation: This is deprecated, use Y instead."
+                                    ]
+                                , under = "ModuleFromDependency_1.Alias"
+                                }
+                            ]
+                        , Review.Test.dataExtract """
+                            {
+                               "ModuleFromDependency_1": {
+                                 "total": 1,
+                                 "isModuleDeprecated": true,
+                                 "usages": {
+                                   "Alias": 1
+                                 }
+                               }
+                            }"""
                         ]
         , test "should report an error when referencing a deprecated value from a dependency" <|
             \() ->
@@ -1014,15 +1581,27 @@ import ModuleFromDependency_2
 a = ModuleFromDependency_2.value
 """
                     |> Review.Test.runWithProjectData projectWithDeprecations (rule NoDeprecated.defaults)
-                    |> Review.Test.expectErrors
-                        [ Review.Test.error
-                            { message = "Found new usage of deprecated element"
-                            , details =
-                                [ "This element was marked as deprecated and should not be used anymore."
-                                , "Please check its documentation to know the alternative solutions."
-                                ]
-                            , under = "ModuleFromDependency_2.value"
-                            }
+                    |> Review.Test.expect
+                        [ Review.Test.moduleErrors "A"
+                            [ Review.Test.error
+                                { message = "Found new usage of deprecated element"
+                                , details =
+                                    [ "This element was marked as deprecated and should not be used anymore."
+                                    , "Deprecation: This is deprecated, use Y instead."
+                                    ]
+                                , under = "ModuleFromDependency_2.value"
+                                }
+                            ]
+                        , Review.Test.dataExtract """
+                            {
+                               "ModuleFromDependency_2": {
+                                 "total": 1,
+                                 "isModuleDeprecated": false,
+                                 "usages": {
+                                   "value": 1
+                                 }
+                               }
+                            }"""
                         ]
         , test "should report an error when referencing a deprecated custom type from a dependency" <|
             \() ->
@@ -1032,15 +1611,27 @@ a : ModuleFromDependency_2.CustomType
 a = 1
 """
                     |> Review.Test.runWithProjectData projectWithDeprecations (rule NoDeprecated.defaults)
-                    |> Review.Test.expectErrors
-                        [ Review.Test.error
-                            { message = "Found new usage of deprecated element"
-                            , details =
-                                [ "This element was marked as deprecated and should not be used anymore."
-                                , "Please check its documentation to know the alternative solutions."
-                                ]
-                            , under = "ModuleFromDependency_2.CustomType"
-                            }
+                    |> Review.Test.expect
+                        [ Review.Test.moduleErrors "A"
+                            [ Review.Test.error
+                                { message = "Found new usage of deprecated element"
+                                , details =
+                                    [ "This element was marked as deprecated and should not be used anymore."
+                                    , "Deprecation: This is deprecated, use Y instead."
+                                    ]
+                                , under = "ModuleFromDependency_2.CustomType"
+                                }
+                            ]
+                        , Review.Test.dataExtract """
+                            {
+                               "ModuleFromDependency_2": {
+                                 "total": 1,
+                                 "isModuleDeprecated": false,
+                                 "usages": {
+                                   "CustomType": 1
+                                 }
+                               }
+                            }"""
                         ]
         , test "should report an error when referencing a constructor of a deprecated custom type from a dependency" <|
             \() ->
@@ -1049,15 +1640,27 @@ import ModuleFromDependency_2
 a = ModuleFromDependency_2.Constructor
 """
                     |> Review.Test.runWithProjectData projectWithDeprecations (rule NoDeprecated.defaults)
-                    |> Review.Test.expectErrors
-                        [ Review.Test.error
-                            { message = "Found new usage of deprecated element"
-                            , details =
-                                [ "This element was marked as deprecated and should not be used anymore."
-                                , "Please check its documentation to know the alternative solutions."
-                                ]
-                            , under = "ModuleFromDependency_2.Constructor"
-                            }
+                    |> Review.Test.expect
+                        [ Review.Test.moduleErrors "A"
+                            [ Review.Test.error
+                                { message = "Found new usage of deprecated element"
+                                , details =
+                                    [ "This element was marked as deprecated and should not be used anymore."
+                                    , "Deprecation: This is deprecated, use Y instead."
+                                    ]
+                                , under = "ModuleFromDependency_2.Constructor"
+                                }
+                            ]
+                        , Review.Test.dataExtract """
+                            {
+                               "ModuleFromDependency_2": {
+                                 "total": 1,
+                                 "isModuleDeprecated": false,
+                                 "usages": {
+                                   "Constructor": 1
+                                 }
+                               }
+                            }"""
                         ]
         , test "should report an error when referencing a deprecated type alias from a dependency" <|
             \() ->
@@ -1067,15 +1670,27 @@ a : ModuleFromDependency_2.Alias
 a = 1
 """
                     |> Review.Test.runWithProjectData projectWithDeprecations (rule NoDeprecated.defaults)
-                    |> Review.Test.expectErrors
-                        [ Review.Test.error
-                            { message = "Found new usage of deprecated element"
-                            , details =
-                                [ "This element was marked as deprecated and should not be used anymore."
-                                , "Please check its documentation to know the alternative solutions."
-                                ]
-                            , under = "ModuleFromDependency_2.Alias"
-                            }
+                    |> Review.Test.expect
+                        [ Review.Test.moduleErrors "A"
+                            [ Review.Test.error
+                                { message = "Found new usage of deprecated element"
+                                , details =
+                                    [ "This element was marked as deprecated and should not be used anymore."
+                                    , "Deprecation: This is deprecated, use Y instead."
+                                    ]
+                                , under = "ModuleFromDependency_2.Alias"
+                                }
+                            ]
+                        , Review.Test.dataExtract """
+                            {
+                               "ModuleFromDependency_2": {
+                                 "total": 1,
+                                 "isModuleDeprecated": false,
+                                 "usages": {
+                                   "Alias": 1
+                                 }
+                               }
+                            }"""
                         ]
         , test "should report an error when referencing a constructor of a deprecated record alias from a dependency" <|
             \() ->
@@ -1084,15 +1699,27 @@ import ModuleFromDependency_2
 a = ModuleFromDependency_2.RecordAlias
 """
                     |> Review.Test.runWithProjectData projectWithDeprecations (rule NoDeprecated.defaults)
-                    |> Review.Test.expectErrors
-                        [ Review.Test.error
-                            { message = "Found new usage of deprecated element"
-                            , details =
-                                [ "This element was marked as deprecated and should not be used anymore."
-                                , "Please check its documentation to know the alternative solutions."
-                                ]
-                            , under = "ModuleFromDependency_2.RecordAlias"
-                            }
+                    |> Review.Test.expect
+                        [ Review.Test.moduleErrors "A"
+                            [ Review.Test.error
+                                { message = "Found new usage of deprecated element"
+                                , details =
+                                    [ "This element was marked as deprecated and should not be used anymore."
+                                    , "Deprecation: This is deprecated, use Y instead."
+                                    ]
+                                , under = "ModuleFromDependency_2.RecordAlias"
+                                }
+                            ]
+                        , Review.Test.dataExtract """
+                            {
+                               "ModuleFromDependency_2": {
+                                 "total": 1,
+                                 "isModuleDeprecated": false,
+                                 "usages": {
+                                   "RecordAlias": 1
+                                 }
+                               }
+                            }"""
                         ]
         ]
 
@@ -1111,15 +1738,27 @@ a = OkModule.something
                             |> NoDeprecated.dependencies [ "author/package" ]
                             |> rule
                         )
-                    |> Review.Test.expectErrors
-                        [ Review.Test.error
-                            { message = "Found new usage of deprecated element"
-                            , details =
-                                [ "The dependency where this element is defined was marked as deprecated and should not be used anymore."
-                                , "Please check its documentation or your review configuration to know the alternative solutions."
-                                ]
-                            , under = "OkModule.something"
-                            }
+                    |> Review.Test.expect
+                        [ Review.Test.moduleErrors "A"
+                            [ Review.Test.error
+                                { message = "Found new usage of deprecated element"
+                                , details =
+                                    [ "The dependency where this element is defined was marked as deprecated and should not be used anymore."
+                                    , "Please check its documentation or your review configuration to know the alternative solutions."
+                                    ]
+                                , under = "OkModule.something"
+                                }
+                            ]
+                        , Review.Test.dataExtract """
+                            {
+                               "OkModule": {
+                                 "total": 1,
+                                 "isModuleDeprecated": true,
+                                 "usages": {
+                                   "something": 1
+                                 }
+                               }
+                            }"""
                         ]
         , test "should report a global error when deprecating a package not in the dependencies" <|
             \() ->
@@ -1132,13 +1771,16 @@ a = OkModule.something
                             |> NoDeprecated.dependencies [ "author/package" ]
                             |> rule
                         )
-                    |> Review.Test.expectGlobalErrors
-                        [ { message = "Could not find package `author/package`"
-                          , details =
-                                [ "You marked this package as deprecated, but I can't find it in your dependencies."
-                                , "It could be a typo, or maybe you've successfully removed it from your project?"
-                                ]
-                          }
+                    |> Review.Test.expect
+                        [ Review.Test.globalErrors
+                            [ { message = "Could not find package `author/package`"
+                              , details =
+                                    [ "You marked this package as deprecated, but I can't find it in your dependencies."
+                                    , "It could be a typo, or maybe you've successfully removed it from your project?"
+                                    ]
+                              }
+                            ]
+                        , Review.Test.dataExtract "{}"
                         ]
         ]
 
@@ -1151,7 +1793,12 @@ deprecatedModule =
 @deprecated This is deprecated, use Y instead.
 -}
 import Basics
-a = 1
+
+{-| Does X.something.
+
+@deprecated This is deprecated, use Y.something instead.
+-}
+something = 1
 """
 
 

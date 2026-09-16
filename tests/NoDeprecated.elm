@@ -13,31 +13,6 @@ This rule is recommended to be used with `elm-review`'s suppression system (see 
 That way, current uses of deprecated elements won't be reported, but the rule will report new usages, in practice
 allowing you to stop the bleed.
 
-An additional benefit is that the suppressed errors will make it easy to have an overview of the number of times
-deprecated elements are used and where they are located. Looking at the error reports (using `elm-review --unsuppress`
-for instance) will give you the more precise problems and locations.
-
-
-## Recommendations
-
-I recommend making it extra explicit when deprecating elements in your application code, for instance by renaming
-them to include "deprecated" in their name, or in their module name for modules.
-
-That way, it will be very clear for you and your teammates when you're using something that is deprecated, even in
-Git diffs.
-
-For packages, renaming something is a breaking change so that is not a viable option (if it is, remove the function and
-release a new major version). Instead, what you can do is to start a line in your module/value/type's documentation
-with `@deprecated`. There is no official nor conventional approach around deprecation in the Elm community, but this may
-be a good start. But definitely pitch in the discussion around making a standard!
-(I'll put a link here soon. If I haven't, please remind me!)
-
-For both application and packages, when you deprecate something, I highly recommend documenting (in the most appropriate
-location) **why it is deprecated** but especially **what alternatives should be used** or explored. It can be frustrating to
-learn that something is deprecated without an explanation or any guidance on what to use instead.
-
-@docs Configuration, defaults, dependencies, withExceptionsForElements
-
 
 ## Fail
 
@@ -48,6 +23,105 @@ learn that something is deprecated without an explanation or any guidance on wha
 
     b =
         Button.view_DEPRECATED "Click me!" OnClick
+
+
+## Tagging recommendations
+
+I recommend making it extra explicit when deprecating elements in your application code, for instance by renaming
+them to include "deprecated" in their name, or in their module name for modules. That way, it will be very clear for you and your teammates when you're using something that is deprecated, even in
+Git diffs.
+
+I recommend also including `@deprecated` in the deprecated element's documentation, as that will both consider the
+element as deprecated, and allow this rule to pick up the reasons and recommendations and present them in the error's details.
+This is the recommended way to deprecate something from an Elm package.
+
+If you include a single `@deprecated` at the beginning of a line (potentially between `*` for Markdown styling),
+then this rule will pick the text until the end of a line.
+
+    {-| Does X.
+
+    **@deprecated** Not performant. Use Y instead.
+
+    Bla bla.
+
+    -}
+    value =
+        1
+
+Here, "Not performant. Use Y instead." will be picked up.
+
+Alternatively, you can have start and end `@deprecated` tags, and anything between two will be presented to the user.
+
+    {-| Does X.
+
+    **@deprecated** Not performant. Use Y instead.
+
+    Bla bla.
+
+    **/@deprecated**
+
+    -}
+    value =
+        1
+
+Here, "Not performant. Use Y instead." and "Bla bla" will be picked up. (the `/` before the `@` is optional).
+
+There is no official nor conventional approach around deprecation in the Elm community, but this may
+be a good start. But definitely pitch in the discussion around making a standard!
+(I'll put a link here soon. If I haven't, please remind me!)
+
+For both application and packages, when you deprecate something, I highly recommend documenting (in the most appropriate
+location) **why it is deprecated** but especially **what alternatives should be used** or explored. It can be frustrating to
+learn that something is deprecated without an explanation or any guidance on what to use instead.
+
+It is absolutely fine to suppress **more** things. While it's normal to want to suppress as few problems as possible,
+identifying technical debt is important, and that is exactly what this rule can help with. Your efforts on reducing the
+number of deprecated usages should not be a hard goal, and it should be done in parallel of identifying technical debt.
+
+
+## Tackling reported issues
+
+As mentioned before, this rule is recommended to be used with `elm-review`'s suppression system. One of its benefits,
+is that the number of usages will be tallied per file in the `<review>/suppressed/NoDeprecated.json` file. You can look
+at it, and decide to tackle one file over another based on how many problems are in the file and how you prefer tackling
+these issues.
+
+While tackling issues file by file might work for some cases, sometimes it is nicer to organize work based on how often
+a deprecated function/type is used. For instance, you might want to look at the functions that are used only once or twice,
+or look at the functions that are the most widespread in your codebase.
+
+To get this point of view, you can run this rule as an insight rule:
+
+```bash
+elm-review --report=json --extract --rules NoDeprecated | jq -r '.extracts.NoDeprecated'
+```
+
+which will yield a result like the following:
+
+```json
+{
+  "Some.Deprecated.Module": {
+    "total": 28,
+    "isModuleDeprecated": true,
+    "usages": {
+      "someFunction": 20,
+      "someType": 8
+    }
+  },
+  "Some.Module": {
+    "total": 1,
+    "isModuleDeprecated": false,
+    "usages": {
+      "someDeprecatedFunction": 1
+    }
+  }
+}
+```
+
+
+## Configure
+
+@docs Configuration, defaults, dependencies, withExceptionsForElements
 
 
 ## When (not) to enable this rule
@@ -78,10 +152,12 @@ import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern as Pattern exposing (Pattern)
-import Elm.Syntax.Range as Range exposing (Range)
+import Elm.Syntax.Range exposing (Range)
 import Elm.Syntax.Type
 import Elm.Syntax.TypeAlias
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
+import Json.Encode as Encode
+import Regex exposing (Regex)
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Project.Dependency
 import Review.Rule as Rule exposing (Rule)
@@ -96,23 +172,19 @@ import Set exposing (Set)
 
 -}
 rule : Configuration -> Rule
-rule configuration =
-    case createElementPredicate configuration of
-        Ok elementPredicate ->
-            let
-                stableConfiguration : StableConfiguration
-                stableConfiguration =
-                    userConfigurationToStableConfiguration configuration elementPredicate
-            in
+rule (Configuration { exceptionsForElements, deprecatedDependencies }) =
+    case parseExceptions exceptionsForElements of
+        Ok exceptions ->
             Rule.newProjectRuleSchema "NoDeprecated" initialProjectContext
-                |> Rule.withDirectDependenciesProjectVisitor (dependenciesVisitor stableConfiguration)
-                |> Rule.withModuleVisitor (moduleVisitor stableConfiguration)
+                |> Rule.withDirectDependenciesProjectVisitor (dependenciesVisitor deprecatedDependencies)
+                |> Rule.withModuleVisitor (moduleVisitor exceptions)
                 |> Rule.withModuleContextUsingContextCreator
-                    { fromProjectToModule = fromProjectToModule stableConfiguration
+                    { fromProjectToModule = fromProjectToModule
                     , fromModuleToProject = fromModuleToProject
                     , foldProjectContexts = foldProjectContexts
                     }
                 |> Rule.withContextFromImportedModules
+                |> Rule.withDataExtractor dataExtractor
                 |> Rule.fromProjectRuleSchema
 
         Err faultyNames ->
@@ -127,16 +199,18 @@ rule configuration =
                 }
 
 
-initialProjectContext : ProjectContext
-initialProjectContext =
-    { deprecatedModules = []
-    , deprecatedElements = []
+type alias ProjectContext =
+    { deprecatedModules : Dict ModuleName DeprecationReason
+    , deprecatedElements : Dict ( ModuleName, String ) (Maybe String)
+    , usages : Dict ( ModuleName, String ) Int
     }
 
 
-type alias ProjectContext =
-    { deprecatedModules : List ( ModuleName, DeprecationReason )
-    , deprecatedElements : List ( ModuleName, String )
+initialProjectContext : ProjectContext
+initialProjectContext =
+    { deprecatedModules = Dict.empty
+    , deprecatedElements = Dict.empty
+    , usages = Dict.empty
     }
 
 
@@ -144,68 +218,99 @@ type alias ModuleContext =
     { lookupTable : ModuleNameLookupTable
     , currentModuleName : ModuleName
     , deprecatedModules : Dict ModuleName DeprecationReason
-    , deprecatedElements : Set ( ModuleName, String )
-    , isModuleDeprecated : Bool
-    , localDeprecatedElements : List ( ModuleName, String )
+    , deprecatedElements : Dict ( ModuleName, String ) (Maybe String)
+    , isModuleDeprecated : Status
+    , localDeprecatedElements : Dict ( ModuleName, String ) (Maybe String)
+    , usages : List DeprecatedElementUsage
     }
 
 
 type DeprecationReason
-    = DeprecatedModule
-    | DeprecatedDependency
+    = DeprecatedModule (Maybe String)
+    | DeprecatedDependency ()
 
 
-fromProjectToModule : StableConfiguration -> Rule.ContextCreator ProjectContext ModuleContext
-fromProjectToModule (StableConfiguration configuration) =
+deprecatedDependency : DeprecationReason
+deprecatedDependency =
+    DeprecatedDependency ()
+
+
+fromProjectToModule : Rule.ContextCreator ProjectContext ModuleContext
+fromProjectToModule =
     Rule.initContextCreator
-        (\metadata lookupTable projectContext ->
-            let
-                moduleName : ModuleName
-                moduleName =
-                    Rule.moduleNameFromMetadata metadata
-            in
+        (\moduleName lookupTable projectContext ->
             { lookupTable = lookupTable
             , currentModuleName = moduleName
-            , deprecatedModules = Dict.fromList projectContext.deprecatedModules
-            , deprecatedElements = Set.fromList projectContext.deprecatedElements
-            , isModuleDeprecated = configuration.moduleNamePredicate moduleName
-            , localDeprecatedElements = []
+            , deprecatedModules = projectContext.deprecatedModules
+            , deprecatedElements = projectContext.deprecatedElements
+            , isModuleDeprecated = moduleNamePredicate moduleName
+            , localDeprecatedElements = Dict.empty
+            , usages = []
             }
         )
-        |> Rule.withMetadata
+        |> Rule.withModuleName
         |> Rule.withModuleNameLookupTable
 
 
 fromModuleToProject : Rule.ContextCreator ModuleContext ProjectContext
 fromModuleToProject =
     Rule.initContextCreator
-        (\metadata moduleContext ->
+        (\currentModuleName moduleContext ->
             { deprecatedModules =
-                if moduleContext.isModuleDeprecated then
-                    [ ( Rule.moduleNameFromMetadata metadata, DeprecatedModule ) ]
+                case moduleContext.isModuleDeprecated of
+                    Deprecated message ->
+                        Dict.singleton currentModuleName (DeprecatedModule message)
 
-                else
-                    []
+                    NotDeprecated () ->
+                        Dict.empty
             , deprecatedElements = moduleContext.localDeprecatedElements
+            , usages =
+                List.foldl
+                    (\{ moduleName, name } acc ->
+                        let
+                            key : ( ModuleName, String )
+                            key =
+                                ( moduleName, name )
+
+                            count : Int
+                            count =
+                                Dict.get key acc |> Maybe.withDefault 0
+                        in
+                        Dict.insert key (count + 1) acc
+                    )
+                    Dict.empty
+                    moduleContext.usages
             }
         )
-        |> Rule.withMetadata
+        |> Rule.withModuleName
 
 
 foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext
 foldProjectContexts newContext previousContext =
-    { deprecatedModules = newContext.deprecatedModules ++ previousContext.deprecatedModules
-    , deprecatedElements = newContext.deprecatedElements ++ previousContext.deprecatedElements
+    { deprecatedModules = Dict.union newContext.deprecatedModules previousContext.deprecatedModules
+    , deprecatedElements = Dict.union newContext.deprecatedElements previousContext.deprecatedElements
+    , usages =
+        Dict.foldl
+            (\key countForNew acc ->
+                let
+                    count : Int
+                    count =
+                        Dict.get key previousContext.usages |> Maybe.withDefault 0
+                in
+                Dict.insert key (countForNew + count) acc
+            )
+            previousContext.usages
+            newContext.usages
     }
 
 
-moduleVisitor : StableConfiguration -> Rule.ModuleRuleSchema schemaState ModuleContext -> Rule.ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } ModuleContext
+moduleVisitor : Exceptions -> Rule.ModuleRuleSchema schemaState ModuleContext -> Rule.ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } ModuleContext
 moduleVisitor configuration schema =
     schema
-        |> Rule.withModuleDocumentationVisitor (\moduleDocumentation context -> ( [], moduleDocumentationVisitor configuration moduleDocumentation context ))
+        |> Rule.withModuleDocumentationVisitor (\moduleDocumentation context -> ( [], moduleDocumentationVisitor moduleDocumentation context ))
         |> Rule.withDeclarationListVisitor (\nodes context -> ( [], declarationListVisitor configuration nodes context ))
-        |> Rule.withDeclarationEnterVisitor (\node context -> ( declarationVisitor configuration node context, context ))
-        |> Rule.withExpressionEnterVisitor (\node context -> ( expressionVisitor configuration node context, context ))
+        |> Rule.withDeclarationEnterVisitor declarationVisitor
+        |> Rule.withExpressionEnterVisitor expressionVisitor
 
 
 {-| Configuration for the rule.
@@ -216,66 +321,46 @@ Create one using [`defaults`](#defaults), then change it using functions like [`
 -}
 type Configuration
     = Configuration
-        { moduleNamePredicate : ModuleName -> Bool
-        , documentationPredicate : String -> Bool
-        , elementPredicate : ModuleName -> String -> Bool
-        , exceptionsForElements : List String
-        , recordFieldPredicate : String -> Bool
-        , parameterPredicate : String -> Bool
+        { exceptionsForElements : List String
         , deprecatedDependencies : List String
         }
 
 
-type StableConfiguration
-    = StableConfiguration
-        { moduleNamePredicate : ModuleName -> Bool
-        , documentationPredicate : String -> Bool
-        , elementPredicate : ModuleName -> String -> Bool
-        , recordFieldPredicate : String -> Bool
-        , parameterPredicate : String -> Bool
-        , deprecatedDependencies : List String
-        }
+type Exceptions
+    = Exceptions (Set ( ModuleName, String ))
 
 
-userConfigurationToStableConfiguration : Configuration -> (ModuleName -> String -> Bool) -> StableConfiguration
-userConfigurationToStableConfiguration (Configuration configuration) elementPredicate =
-    StableConfiguration
-        { moduleNamePredicate = configuration.moduleNamePredicate
-        , documentationPredicate = configuration.documentationPredicate
-        , elementPredicate = elementPredicate
-        , recordFieldPredicate = configuration.recordFieldPredicate
-        , parameterPredicate = configuration.parameterPredicate
-        , deprecatedDependencies = configuration.deprecatedDependencies
-        }
+type Status
+    = Deprecated (Maybe String)
+    | NotDeprecated ()
 
 
-createElementPredicate : Configuration -> Result (List String) (ModuleName -> String -> Bool)
-createElementPredicate (Configuration configuration) =
-    if List.isEmpty configuration.exceptionsForElements then
-        Ok
-            (\moduleName name ->
-                configuration.elementPredicate moduleName name
-            )
-
-    else
-        case parseNames configuration.exceptionsForElements of
-            Ok exceptionsForElements ->
-                Ok
-                    (\moduleName name ->
-                        configuration.elementPredicate moduleName name
-                            && not (Set.member ( moduleName, name ) exceptionsForElements)
-                    )
-
-            Err faultyNames ->
-                Err faultyNames
+deprecatedPlain : Status
+deprecatedPlain =
+    Deprecated Nothing
 
 
-parseNames : List String -> Result (List String) (Set ( ModuleName, String ))
-parseNames strings =
+notDeprecated : Status
+notDeprecated =
+    NotDeprecated ()
+
+
+orElse : (() -> Status) -> Status -> Status
+orElse fn status =
+    case status of
+        Deprecated _ ->
+            status
+
+        NotDeprecated () ->
+            fn ()
+
+
+parseExceptions : List String -> Result (List String) Exceptions
+parseExceptions exceptionsForElements =
     let
         parsedNames : List (Result String ( ModuleName, String ))
         parsedNames =
-            List.map isValidName strings
+            List.map isValidName exceptionsForElements
 
         invalidNames : List String
         invalidNames =
@@ -294,6 +379,7 @@ parseNames strings =
         parsedNames
             |> List.filterMap Result.toMaybe
             |> Set.fromList
+            |> Exceptions
             |> Ok
 
     else
@@ -314,7 +400,7 @@ isValidName name =
 
 By default are considered as deprecated:
 
-  - Values / types / modules that contain "deprecated" (case insensitive) in their name.
+  - Values / parameters / types / modules that contain "deprecated" (case insensitive) in their name.
   - Values / types / modules whose documentation comment has a line starting with "@deprecated" or (for better visibility) "\*\*@deprecated"
   - Values / types from modules that are considered as deprecated
 
@@ -324,38 +410,103 @@ Configure this further using functions like [`dependencies`](#dependencies) and
 -}
 defaults : Configuration
 defaults =
-    let
-        containsDeprecated : String -> Bool
-        containsDeprecated name =
-            name
-                |> String.toLower
-                |> String.contains "deprecated"
-
-        documentationPredicate : String -> Bool
-        documentationPredicate doc =
-            doc
-                |> String.dropLeft 3
-                |> String.lines
-                |> List.any
-                    (\rawLine ->
-                        let
-                            line : String
-                            line =
-                                String.trimLeft rawLine
-                        in
-                        String.startsWith "@deprecated" line
-                            || String.startsWith "**@deprecated" line
-                    )
-    in
     Configuration
-        { moduleNamePredicate = \moduleName -> containsDeprecated (String.join "." moduleName)
-        , documentationPredicate = documentationPredicate
-        , elementPredicate = \_ name -> containsDeprecated name
-        , exceptionsForElements = []
-        , recordFieldPredicate = containsDeprecated
-        , parameterPredicate = containsDeprecated
+        { exceptionsForElements = []
         , deprecatedDependencies = []
         }
+
+
+containsDeprecated : String -> Status
+containsDeprecated name =
+    if String.contains "deprecated" (String.toLower name) then
+        deprecatedPlain
+
+    else
+        notDeprecated
+
+
+moduleNamePredicate : List String -> Status
+moduleNamePredicate moduleName =
+    containsDeprecated (String.join "." moduleName)
+
+
+elementPredicate : Exceptions -> ModuleName -> String -> Status
+elementPredicate (Exceptions exceptions) moduleName name =
+    if
+        String.contains "deprecated" (String.toLower name)
+            && not (Set.member ( moduleName, name ) exceptions)
+    then
+        deprecatedPlain
+
+    else
+        notDeprecated
+
+
+documentationPredicate : String -> Status
+documentationPredicate doc =
+    case Regex.findAtMost 1 deprecationStartRegex (String.slice 3 -3 doc) of
+        match :: _ ->
+            let
+                offset : Int
+                offset =
+                    match.index + String.length match.match + 3
+            in
+            case Regex.findAtMost 1 deprecationEndRegex (String.slice offset -3 doc) of
+                endMatch :: _ ->
+                    doc
+                        |> String.slice offset (offset + endMatch.index)
+                        |> Just
+                        |> Deprecated
+
+                _ ->
+                    case match.submatches of
+                        _ :: subMatch :: _ ->
+                            Deprecated subMatch
+
+                        _ ->
+                            deprecatedPlain
+
+        [] ->
+            if
+                doc
+                    |> String.slice 3 -3
+                    |> String.lines
+                    |> List.any
+                        (\rawLine ->
+                            let
+                                line : String
+                                line =
+                                    String.trimLeft rawLine
+                            in
+                            String.startsWith "@deprecated" line
+                                || String.startsWith "**@deprecated" line
+                        )
+            then
+                deprecatedPlain
+
+            else
+                notDeprecated
+
+
+deprecationStartRegex : Regex
+deprecationStartRegex =
+    "^(\\s*\\**@deprecated\\**)(.*)$"
+        |> Regex.fromStringWith { caseInsensitive = True, multiline = True }
+        |> Maybe.withDefault Regex.never
+
+
+deprecationEndRegex : Regex
+deprecationEndRegex =
+    "@deprecated"
+        |> Regex.fromStringWith { caseInsensitive = True, multiline = False }
+        |> Maybe.withDefault Regex.never
+
+
+trimEndRegex : Regex
+trimEndRegex =
+    "(\\s|[/*])*$"
+        |> Regex.fromString
+        |> Maybe.withDefault Regex.never
 
 
 {-| Mark one or more dependencies as deprecated.
@@ -386,11 +537,20 @@ contain "deprecated" in their name without actually being deprecated.
 -}
 withExceptionsForElements : List String -> Configuration -> Configuration
 withExceptionsForElements exceptionsForElements (Configuration configuration) =
-    Configuration { configuration | exceptionsForElements = exceptionsForElements ++ configuration.exceptionsForElements }
+    Configuration { configuration | exceptionsForElements = configuration.exceptionsForElements ++ exceptionsForElements }
 
 
-dependenciesVisitor : StableConfiguration -> Dict String Review.Project.Dependency.Dependency -> ProjectContext -> ( List (Rule.Error global), ProjectContext )
-dependenciesVisitor (StableConfiguration configuration) dict projectContext =
+type alias DeprecatedElementUsage =
+    { moduleName : ModuleName
+    , name : String
+    , origin : Origin
+    , range : Range
+    , deprecationMessage : Maybe String
+    }
+
+
+dependenciesVisitor : List String -> Dict String Review.Project.Dependency.Dependency -> ProjectContext -> ( List (Rule.Error global), ProjectContext )
+dependenciesVisitor deprecatedDependencies dict projectContext =
     let
         newContext : ProjectContext
         newContext =
@@ -401,27 +561,24 @@ dependenciesVisitor (StableConfiguration configuration) dict projectContext =
                         modules =
                             Review.Project.Dependency.modules dependency
                     in
-                    if List.member packageName configuration.deprecatedDependencies then
+                    if List.member packageName deprecatedDependencies then
                         { acc
                             | deprecatedModules =
-                                List.map
-                                    (\{ name } -> ( String.split "." name, DeprecatedDependency ))
+                                List.foldl
+                                    (\{ name } subAcc -> Dict.insert (String.split "." name) deprecatedDependency subAcc)
+                                    acc.deprecatedModules
                                     modules
-                                    ++ acc.deprecatedModules
                         }
 
                     else
-                        List.foldl
-                            (registerDeprecatedThings (StableConfiguration configuration))
-                            acc
-                            modules
+                        List.foldl registerDeprecatedThings acc modules
                 )
                 projectContext
                 dict
 
         unknownDependenciesErrors : List (Rule.Error global)
         unknownDependenciesErrors =
-            configuration.deprecatedDependencies
+            deprecatedDependencies
                 |> List.filter (\name -> not (Dict.member name dict))
                 |> List.map
                     (\name ->
@@ -437,78 +594,102 @@ dependenciesVisitor (StableConfiguration configuration) dict projectContext =
     ( unknownDependenciesErrors, newContext )
 
 
-registerDeprecatedThings : StableConfiguration -> Elm.Docs.Module -> ProjectContext -> ProjectContext
-registerDeprecatedThings (StableConfiguration configuration) module_ acc =
+registerDeprecatedThings : Elm.Docs.Module -> ProjectContext -> ProjectContext
+registerDeprecatedThings module_ context =
     let
         moduleName : ModuleName
         moduleName =
             String.split "." module_.name
     in
-    if configuration.documentationPredicate module_.comment then
-        { deprecatedModules = ( moduleName, DeprecatedModule ) :: acc.deprecatedModules
-        , deprecatedElements = acc.deprecatedElements
-        }
+    case documentationPredicate module_.comment of
+        Deprecated message ->
+            { deprecatedModules = Dict.insert moduleName (DeprecatedModule message) context.deprecatedModules
+            , deprecatedElements = context.deprecatedElements
+            , usages = context.usages
+            }
 
-    else
-        let
-            commentIndicatesDeprecation : { a | comment : String } -> Bool
-            commentIndicatesDeprecation { comment } =
-                configuration.documentationPredicate comment
+        NotDeprecated () ->
+            let
+                addDeprecatedValues : Dict ( ModuleName, String ) (Maybe String) -> Dict ( ModuleName, String ) (Maybe String)
+                addDeprecatedValues acc =
+                    List.foldl
+                        (\element subAcc ->
+                            case documentationPredicate element.comment of
+                                Deprecated message ->
+                                    Dict.insert ( moduleName, element.name ) message subAcc
 
-            deprecatedAliases : List Elm.Docs.Alias
-            deprecatedAliases =
-                module_.aliases
-                    |> List.filter commentIndicatesDeprecation
+                                NotDeprecated () ->
+                                    subAcc
+                        )
+                        acc
+                        module_.values
 
-            deprecatedUnions : List Elm.Docs.Union
-            deprecatedUnions =
-                module_.unions
-                    |> List.filter commentIndicatesDeprecation
+                addDeprecatedAliases : Dict ( ModuleName, String ) (Maybe String) -> Dict ( ModuleName, String ) (Maybe String)
+                addDeprecatedAliases acc =
+                    List.foldl
+                        (\element subAcc ->
+                            case documentationPredicate element.comment of
+                                Deprecated message ->
+                                    Dict.insert ( moduleName, element.name ) message subAcc
 
-            newValues : List ( ModuleName, String )
-            newValues =
-                List.concat
-                    [ module_.values
-                        |> List.filter commentIndicatesDeprecation
-                        |> List.map (\value -> ( moduleName, value.name ))
-                    , deprecatedUnions
-                        |> List.map (\{ name } -> ( moduleName, name ))
-                    , deprecatedUnions
-                        |> List.concatMap .tags
-                        |> List.map (\( name, _ ) -> ( moduleName, name ))
-                    , deprecatedAliases
-                        |> List.map (\{ name } -> ( moduleName, name ))
-                    ]
-        in
-        { deprecatedModules = acc.deprecatedModules
-        , deprecatedElements = newValues ++ acc.deprecatedElements
-        }
+                                NotDeprecated () ->
+                                    subAcc
+                        )
+                        acc
+                        module_.aliases
+
+                addDeprecatedUnions : Dict ( ModuleName, String ) (Maybe String) -> Dict ( ModuleName, String ) (Maybe String)
+                addDeprecatedUnions acc =
+                    List.foldl
+                        (\element subAcc ->
+                            case documentationPredicate element.comment of
+                                Deprecated message ->
+                                    List.foldl
+                                        (\( name, _ ) subSubAcc ->
+                                            Dict.insert ( moduleName, name ) message subSubAcc
+                                        )
+                                        (Dict.insert ( moduleName, element.name ) message subAcc)
+                                        element.tags
+
+                                NotDeprecated () ->
+                                    subAcc
+                        )
+                        acc
+                        module_.unions
+
+                deprecatedElements : Dict ( ModuleName, String ) (Maybe String)
+                deprecatedElements =
+                    context.deprecatedElements
+                        |> addDeprecatedValues
+                        |> addDeprecatedAliases
+                        |> addDeprecatedUnions
+            in
+            { deprecatedModules = context.deprecatedModules
+            , deprecatedElements = deprecatedElements
+            , usages = context.usages
+            }
 
 
-moduleDocumentationVisitor : StableConfiguration -> Maybe (Node String) -> ModuleContext -> ModuleContext
-moduleDocumentationVisitor (StableConfiguration configuration) maybeModuleDocumentation moduleContext =
-    if moduleContext.isModuleDeprecated then
-        moduleContext
+moduleDocumentationVisitor : Maybe (Node String) -> ModuleContext -> ModuleContext
+moduleDocumentationVisitor maybeModuleDocumentation moduleContext =
+    case maybeModuleDocumentation of
+        Just (Node _ moduleDocumentation) ->
+            { moduleContext
+                | isModuleDeprecated =
+                    documentationPredicate moduleDocumentation
+                        |> orElse (\() -> moduleContext.isModuleDeprecated)
+            }
 
-    else
-        case maybeModuleDocumentation of
-            Just (Node _ moduleDocumentation) ->
-                { moduleContext | isModuleDeprecated = configuration.documentationPredicate moduleDocumentation }
-
-            Nothing ->
-                moduleContext
+        Nothing ->
+            moduleContext
 
 
-declarationListVisitor : StableConfiguration -> List (Node Declaration) -> ModuleContext -> ModuleContext
+declarationListVisitor : Exceptions -> List (Node Declaration) -> ModuleContext -> ModuleContext
 declarationListVisitor configuration nodes context =
-    if context.isModuleDeprecated then
-        context
-
-    else
-        List.foldl (registerDeclaration configuration) context nodes
+    List.foldl (registerDeclaration configuration) context nodes
 
 
-registerDeclaration : StableConfiguration -> Node Declaration -> ModuleContext -> ModuleContext
+registerDeclaration : Exceptions -> Node Declaration -> ModuleContext -> ModuleContext
 registerDeclaration configuration node context =
     case Node.value node of
         Declaration.FunctionDeclaration declaration ->
@@ -524,117 +705,121 @@ registerDeclaration configuration node context =
             context
 
 
-registerFunctionDeclaration : StableConfiguration -> Expression.Function -> ModuleContext -> ModuleContext
-registerFunctionDeclaration (StableConfiguration configuration) declaration context =
+registerFunctionDeclaration : Exceptions -> Expression.Function -> ModuleContext -> ModuleContext
+registerFunctionDeclaration exceptions declaration context =
     let
         name : String
         name =
             declaration.declaration |> Node.value |> .name |> Node.value
     in
-    if
-        configuration.elementPredicate context.currentModuleName name
-            || checkDocumentation configuration.documentationPredicate declaration.documentation
-    then
-        registerElement name context
-
-    else
+    registerElement
+        (checkDocumentation declaration.documentation
+            |> orElse (\() -> elementPredicate exceptions context.currentModuleName name)
+        )
+        name
         context
 
 
-registerAliasDeclaration : StableConfiguration -> Elm.Syntax.TypeAlias.TypeAlias -> ModuleContext -> ModuleContext
-registerAliasDeclaration (StableConfiguration configuration) type_ context =
+registerAliasDeclaration : Exceptions -> Elm.Syntax.TypeAlias.TypeAlias -> ModuleContext -> ModuleContext
+registerAliasDeclaration exceptions type_ context =
     let
         name : String
         name =
             Node.value type_.name
     in
-    if
-        configuration.elementPredicate context.currentModuleName name
-            || checkDocumentation configuration.documentationPredicate type_.documentation
-    then
-        registerElement name context
-
-    else
+    registerElement
+        (checkDocumentation type_.documentation
+            |> orElse (\() -> elementPredicate exceptions context.currentModuleName name)
+        )
+        name
         context
 
 
-registerCustomTypeDeclaration : StableConfiguration -> Elm.Syntax.Type.Type -> ModuleContext -> ModuleContext
-registerCustomTypeDeclaration (StableConfiguration configuration) type_ context =
+registerCustomTypeDeclaration : Exceptions -> Elm.Syntax.Type.Type -> ModuleContext -> ModuleContext
+registerCustomTypeDeclaration exceptions type_ context =
     let
         name : String
         name =
             Node.value type_.name
-
-        register : ModuleContext -> ModuleContext
-        register ctx =
+    in
+    case
+        checkDocumentation type_.documentation
+            |> orElse (\() -> elementPredicate exceptions context.currentModuleName name)
+    of
+        (Deprecated _) as status ->
             List.foldl
-                (\(Node _ constructor) -> registerElement (Node.value constructor.name))
-                (registerElement name ctx)
+                (\(Node _ constructor) -> registerElement status (Node.value constructor.name))
+                (registerElement status name context)
                 type_.constructors
-    in
-    if
-        configuration.elementPredicate context.currentModuleName name
-            || checkDocumentation configuration.documentationPredicate type_.documentation
-    then
-        register context
 
-    else
-        List.foldl
-            (\(Node _ constructor) ctx ->
-                if configuration.elementPredicate ctx.currentModuleName (Node.value constructor.name) then
-                    registerElement (Node.value constructor.name) ctx
-
-                else
-                    ctx
-            )
-            context
-            type_.constructors
+        NotDeprecated () ->
+            List.foldl
+                (\(Node _ constructor) ctx ->
+                    registerElement
+                        (elementPredicate exceptions ctx.currentModuleName (Node.value constructor.name))
+                        (Node.value constructor.name)
+                        ctx
+                )
+                context
+                type_.constructors
 
 
-checkDocumentation : (String -> Bool) -> Maybe (Node String) -> Bool
-checkDocumentation documentationPredicate documentationNode =
+checkDocumentation : Maybe (Node String) -> Status
+checkDocumentation documentationNode =
     case documentationNode of
         Just (Node _ str) ->
             documentationPredicate str
 
         Nothing ->
-            False
+            notDeprecated
 
 
-registerElement : String -> ModuleContext -> ModuleContext
-registerElement name context =
-    { context
-        | deprecatedElements = Set.insert ( [], name ) context.deprecatedElements
-        , localDeprecatedElements = ( context.currentModuleName, name ) :: context.localDeprecatedElements
-    }
+registerElement : Status -> String -> ModuleContext -> ModuleContext
+registerElement status name context =
+    case status of
+        NotDeprecated () ->
+            context
+
+        Deprecated message ->
+            let
+                key : ( ModuleName, String )
+                key =
+                    ( context.currentModuleName, name )
+            in
+            { context
+                | deprecatedElements = Dict.insert key message context.deprecatedElements
+                , localDeprecatedElements = Dict.insert key message context.localDeprecatedElements
+            }
 
 
-declarationVisitor : StableConfiguration -> Node Declaration -> ModuleContext -> List (Rule.Error {})
-declarationVisitor configuration node context =
+declarationVisitor : Node Declaration -> ModuleContext -> ( List (Rule.Error {}), ModuleContext )
+declarationVisitor node context =
+    let
+        usages : List DeprecatedElementUsage
+        usages =
+            declarationVisitorHelp node context
+    in
+    ( List.map error usages, { context | usages = usages ++ context.usages } )
+
+
+declarationVisitorHelp : Node Declaration -> ModuleContext -> List DeprecatedElementUsage
+declarationVisitorHelp node context =
     case Node.value node of
         Declaration.FunctionDeclaration declaration ->
             let
-                signatureErrors : List (Rule.Error {})
+                signatureErrors : List DeprecatedElementUsage
                 signatureErrors =
                     case declaration.signature of
-                        Just signature ->
-                            reportTypes
-                                context
-                                [ (Node.value signature).typeAnnotation ]
-                                []
+                        Just (Node _ { typeAnnotation }) ->
+                            reportTypes context [ typeAnnotation ] []
 
                         Nothing ->
                             []
-
-                destructuringErrors : List (Rule.Error {})
-                destructuringErrors =
-                    reportPatterns
-                        configuration
-                        context
-                        (declaration.declaration |> Node.value |> .arguments)
-                        []
             in
-            destructuringErrors ++ signatureErrors
+            reportPatterns
+                context
+                (Node.value declaration.declaration).arguments
+                signatureErrors
 
         Declaration.CustomTypeDeclaration type_ ->
             reportTypes
@@ -642,58 +827,59 @@ declarationVisitor configuration node context =
                 (List.concatMap (\(Node _ { arguments }) -> arguments) type_.constructors)
                 []
 
-        Declaration.AliasDeclaration type_ ->
-            reportTypes
-                context
-                [ type_.typeAnnotation ]
-                []
+        Declaration.AliasDeclaration { typeAnnotation } ->
+            reportTypes context [ typeAnnotation ] []
 
-        Declaration.PortDeclaration signature ->
-            reportTypes
-                context
-                [ signature.typeAnnotation ]
-                []
+        Declaration.PortDeclaration { typeAnnotation } ->
+            reportTypes context [ typeAnnotation ] []
 
         _ ->
             []
 
 
-reportLetDeclaration : StableConfiguration -> ModuleContext -> Node Expression.LetDeclaration -> List (Rule.Error {})
-reportLetDeclaration configuration context letDeclaration =
-    case Node.value letDeclaration of
+reportLetDeclarations : ModuleContext -> List (Node Expression.LetDeclaration) -> List DeprecatedElementUsage -> List DeprecatedElementUsage
+reportLetDeclarations context letDeclarations acc =
+    case letDeclarations of
+        [] ->
+            acc
+
+        letDeclaration :: rest ->
+            reportLetDeclarations
+                context
+                rest
+                (reportLetDeclaration context letDeclaration acc)
+
+
+reportLetDeclaration : ModuleContext -> Node Expression.LetDeclaration -> List DeprecatedElementUsage -> List DeprecatedElementUsage
+reportLetDeclaration context (Node _ letDeclaration) acc =
+    case letDeclaration of
         Expression.LetFunction function ->
             let
-                signatureErrors : List (Rule.Error {})
+                signatureErrors : List DeprecatedElementUsage
                 signatureErrors =
                     case function.signature of
                         Just signature ->
                             reportTypes
                                 context
                                 [ (Node.value signature).typeAnnotation ]
-                                []
+                                acc
 
                         Nothing ->
-                            []
-
-                destructuringErrors : List (Rule.Error {})
-                destructuringErrors =
-                    reportPatterns
-                        configuration
-                        context
-                        (function.declaration |> Node.value |> .arguments)
-                        []
+                            acc
             in
-            destructuringErrors ++ signatureErrors
+            reportPatterns
+                context
+                (function.declaration |> Node.value |> .arguments)
+                signatureErrors
 
         Expression.LetDestructuring pattern _ ->
             reportPatterns
-                configuration
                 context
                 [ pattern ]
-                []
+                acc
 
 
-reportTypes : ModuleContext -> List (Node TypeAnnotation) -> List (Rule.Error {}) -> List (Rule.Error {})
+reportTypes : ModuleContext -> List (Node TypeAnnotation) -> List DeprecatedElementUsage -> List DeprecatedElementUsage
 reportTypes context nodes acc =
     case nodes of
         [] ->
@@ -702,20 +888,10 @@ reportTypes context nodes acc =
         node :: restOfNodes ->
             case Node.value node of
                 TypeAnnotation.Typed (Node range ( _, name )) args ->
-                    let
-                        newAcc : List (Rule.Error {})
-                        newAcc =
-                            case reportElementAsMaybe context range name of
-                                Just err ->
-                                    err :: acc
-
-                                Nothing ->
-                                    acc
-                    in
                     reportTypes
                         context
                         (args ++ restOfNodes)
-                        newAcc
+                        (maybeCons (reportElementAsMaybe context range name) acc)
 
                 TypeAnnotation.Tupled nodesToLookAt ->
                     reportTypes context (nodesToLookAt ++ restOfNodes) acc
@@ -743,8 +919,8 @@ reportTypes context nodes acc =
                     reportTypes context restOfNodes acc
 
 
-reportPatterns : StableConfiguration -> ModuleContext -> List (Node Pattern) -> List (Rule.Error {}) -> List (Rule.Error {})
-reportPatterns configuration context nodes acc =
+reportPatterns : ModuleContext -> List (Node Pattern) -> List DeprecatedElementUsage -> List DeprecatedElementUsage
+reportPatterns context nodes acc =
     case nodes of
         [] ->
             acc
@@ -753,78 +929,59 @@ reportPatterns configuration context nodes acc =
             case Node.value pattern of
                 Pattern.ParenthesizedPattern subPattern ->
                     reportPatterns
-                        configuration
                         context
                         (subPattern :: restOfNodes)
                         acc
 
                 Pattern.TuplePattern subPatterns ->
-                    reportPatterns configuration context (subPatterns ++ restOfNodes) acc
+                    reportPatterns context (subPatterns ++ restOfNodes) acc
 
                 Pattern.RecordPattern fields ->
-                    reportPatterns configuration
+                    reportPatterns
                         context
                         restOfNodes
-                        (List.filterMap (reportField configuration) fields ++ acc)
+                        (List.filterMap (reportField context.lookupTable context.currentModuleName) fields ++ acc)
 
                 Pattern.UnConsPattern left right ->
-                    reportPatterns configuration context (left :: right :: restOfNodes) acc
+                    reportPatterns context (left :: right :: restOfNodes) acc
 
                 Pattern.ListPattern subPatterns ->
-                    reportPatterns configuration context (subPatterns ++ restOfNodes) acc
+                    reportPatterns context (subPatterns ++ restOfNodes) acc
 
                 Pattern.VarPattern name ->
-                    let
-                        newAcc : List (Rule.Error {})
-                        newAcc =
-                            case reportParameter configuration (Node.range pattern) name of
-                                Just err ->
-                                    err :: acc
-
-                                Nothing ->
-                                    acc
-                    in
                     reportPatterns
-                        configuration
                         context
                         restOfNodes
-                        newAcc
+                        (maybeCons (reportParameter context.currentModuleName (Node.range pattern) name) acc)
 
                 Pattern.NamedPattern qualifiedNameRef subPatterns ->
                     let
-                        errors : List (Rule.Error {})
+                        errors : List DeprecatedElementUsage
                         errors =
                             reportElementAsList
                                 context
                                 (Node.range pattern)
                                 (\() -> rangeForNamedPattern pattern qualifiedNameRef)
                                 qualifiedNameRef.name
+                                acc
                     in
                     reportPatterns
-                        configuration
                         context
                         (subPatterns ++ restOfNodes)
-                        (errors ++ acc)
+                        errors
 
                 Pattern.AsPattern subPattern name ->
-                    let
-                        newAcc : List (Rule.Error {})
-                        newAcc =
-                            case reportParameter configuration (Node.range name) (Node.value name) of
-                                Just err ->
-                                    err :: acc
-
-                                Nothing ->
-                                    acc
-                    in
-                    reportPatterns configuration context (subPattern :: restOfNodes) newAcc
+                    reportPatterns
+                        context
+                        (subPattern :: restOfNodes)
+                        (maybeCons (reportParameter context.currentModuleName (Node.range name) (Node.value name)) acc)
 
                 _ ->
-                    reportPatterns configuration context restOfNodes acc
+                    reportPatterns context restOfNodes acc
 
 
 rangeForNamedPattern : Node a -> Pattern.QualifiedNameRef -> Range
-rangeForNamedPattern (Node parentRange _) { moduleName, name } =
+rangeForNamedPattern (Node { start } _) { moduleName, name } =
     let
         lengthForName : Int
         lengthForName =
@@ -834,27 +991,40 @@ rangeForNamedPattern (Node parentRange _) { moduleName, name } =
             else
                 (String.join "." moduleName ++ "." ++ name)
                     |> String.length
-
-        patternStart : Range.Location
-        patternStart =
-            parentRange.start
     in
-    { start = patternStart
-    , end = { row = patternStart.row, column = patternStart.column + lengthForName }
+    { start = start
+    , end = { row = start.row, column = start.column + lengthForName }
     }
 
 
-reportField : StableConfiguration -> Node String -> Maybe (Rule.Error {})
-reportField (StableConfiguration configuration) field =
-    if configuration.recordFieldPredicate (Node.value field) then
-        Just (error Field (Node.range field))
+reportField : ModuleNameLookupTable -> ModuleName -> Node String -> Maybe DeprecatedElementUsage
+reportField lookupTable currentModuleName field =
+    case containsDeprecated (Node.value field) of
+        Deprecated message ->
+            let
+                moduleName : ModuleName
+                moduleName =
+                    ModuleNameLookupTable.fullModuleNameFor lookupTable field
+                        |> Maybe.withDefault currentModuleName
+            in
+            Just (usageOfDeprecatedElement moduleName (Node.value field) Field (Node.range field) message)
 
-    else
-        Nothing
+        NotDeprecated () ->
+            Nothing
 
 
-expressionVisitor : StableConfiguration -> Node Expression -> ModuleContext -> List (Rule.Error {})
-expressionVisitor configuration (Node nodeRange node) context =
+expressionVisitor : Node Expression -> ModuleContext -> ( List (Rule.Error {}), ModuleContext )
+expressionVisitor node context =
+    let
+        usages : List DeprecatedElementUsage
+        usages =
+            expressionVisitorHelp node context
+    in
+    ( List.map error usages, { context | usages = usages ++ context.usages } )
+
+
+expressionVisitorHelp : Node Expression -> ModuleContext -> List DeprecatedElementUsage
+expressionVisitorHelp (Node nodeRange node) context =
     case node of
         Expression.FunctionOrValue _ name ->
             reportElementAsList
@@ -862,15 +1032,13 @@ expressionVisitor configuration (Node nodeRange node) context =
                 nodeRange
                 (always nodeRange)
                 name
+                []
 
         Expression.LetExpression letBlock ->
-            List.concatMap
-                (reportLetDeclaration configuration context)
-                letBlock.declarations
+            reportLetDeclarations context letBlock.declarations []
 
         Expression.CaseExpression { cases } ->
             reportPatterns
-                configuration
                 context
                 (List.map Tuple.first cases)
                 []
@@ -881,9 +1049,10 @@ expressionVisitor configuration (Node nodeRange node) context =
                 range
                 (always range)
                 name
+                []
 
         Expression.RecordAccess _ field ->
-            case reportField configuration field of
+            case reportField context.lookupTable context.currentModuleName field of
                 Just err ->
                     [ err ]
 
@@ -891,7 +1060,7 @@ expressionVisitor configuration (Node nodeRange node) context =
                     []
 
         Expression.RecordAccessFunction fieldName ->
-            case reportField configuration (Node nodeRange fieldName) of
+            case reportField context.lookupTable context.currentModuleName (Node nodeRange fieldName) of
                 Just err ->
                     [ err ]
 
@@ -902,57 +1071,56 @@ expressionVisitor configuration (Node nodeRange node) context =
             []
 
 
-reportElementAsList : ModuleContext -> Range -> (() -> Range) -> String -> List (Rule.Error {})
-reportElementAsList context rangeForLookupTable rangeForReport name =
-    case ModuleNameLookupTable.moduleNameAt context.lookupTable rangeForLookupTable of
+reportElementAsList : ModuleContext -> Range -> (() -> Range) -> String -> List DeprecatedElementUsage -> List DeprecatedElementUsage
+reportElementAsList context rangeForLookupTable rangeForReport name acc =
+    case ModuleNameLookupTable.fullModuleNameAt context.lookupTable rangeForLookupTable of
         Just moduleName ->
-            case Dict.get moduleName context.deprecatedModules of
-                Just DeprecatedModule ->
-                    [ error Module (rangeForReport ()) ]
-
-                Just DeprecatedDependency ->
-                    [ error Dependency (rangeForReport ()) ]
+            case Dict.get ( moduleName, name ) context.deprecatedElements of
+                Just message ->
+                    usageOfDeprecatedElement moduleName name Element (rangeForReport ()) message :: acc
 
                 Nothing ->
-                    if Set.member ( moduleName, name ) context.deprecatedElements then
-                        [ error Element (rangeForReport ()) ]
+                    case Dict.get moduleName context.deprecatedModules of
+                        Just (DeprecatedModule message) ->
+                            usageOfDeprecatedElement moduleName name Module (rangeForReport ()) message :: acc
 
-                    else
-                        []
+                        Just (DeprecatedDependency ()) ->
+                            usageOfDeprecatedElement moduleName name Dependency (rangeForReport ()) Nothing :: acc
+
+                        Nothing ->
+                            acc
 
         Nothing ->
-            []
+            acc
 
 
-reportElementAsMaybe : ModuleContext -> Range -> String -> Maybe (Rule.Error {})
+reportElementAsMaybe : ModuleContext -> Range -> String -> Maybe DeprecatedElementUsage
 reportElementAsMaybe context range name =
-    case ModuleNameLookupTable.moduleNameAt context.lookupTable range of
+    case ModuleNameLookupTable.fullModuleNameAt context.lookupTable range of
         Just moduleName ->
             case Dict.get moduleName context.deprecatedModules of
-                Just DeprecatedModule ->
-                    Just (error Module range)
+                Just (DeprecatedModule message) ->
+                    Just (usageOfDeprecatedElement moduleName name Module range message)
 
-                Just DeprecatedDependency ->
-                    Just (error Dependency range)
+                Just (DeprecatedDependency ()) ->
+                    Just (usageOfDeprecatedElement moduleName name Dependency range Nothing)
 
                 Nothing ->
-                    if Set.member ( moduleName, name ) context.deprecatedElements then
-                        Just (error Element range)
-
-                    else
-                        Nothing
+                    Dict.get ( moduleName, name ) context.deprecatedElements
+                        |> Maybe.map (\message -> usageOfDeprecatedElement moduleName name Element range message)
 
         Nothing ->
             Nothing
 
 
-reportParameter : StableConfiguration -> Range -> String -> Maybe (Rule.Error {})
-reportParameter (StableConfiguration configuration) range name =
-    if configuration.parameterPredicate name then
-        Just (error Parameter range)
+reportParameter : ModuleName -> Range -> String -> Maybe DeprecatedElementUsage
+reportParameter currentModuleName range name =
+    case containsDeprecated name of
+        Deprecated message ->
+            Just (usageOfDeprecatedElement currentModuleName name Parameter range message)
 
-    else
-        Nothing
+        NotDeprecated () ->
+            Nothing
 
 
 type Origin
@@ -963,30 +1131,49 @@ type Origin
     | Parameter
 
 
-error : Origin -> Range -> Rule.Error {}
-error origin range =
+usageOfDeprecatedElement : ModuleName -> String -> Origin -> Range -> Maybe String -> DeprecatedElementUsage
+usageOfDeprecatedElement =
+    DeprecatedElementUsage
+
+
+error : DeprecatedElementUsage -> Rule.Error {}
+error { origin, range, deprecationMessage } =
     let
+        deprecation : String
+        deprecation =
+            case deprecationMessage of
+                Just message ->
+                    "Deprecation: " ++ (message |> String.trim |> Regex.replace trimEndRegex (always "") |> String.trim)
+
+                Nothing ->
+                    "Please check its documentation to know the alternative solutions."
+
         details : List String
         details =
             case origin of
                 Element ->
                     [ "This element was marked as deprecated and should not be used anymore."
-                    , "Please check its documentation to know the alternative solutions."
+                    , deprecation
                     ]
 
                 Module ->
                     [ "The module where this element is defined was marked as deprecated and should not be used anymore."
-                    , "Please check its documentation to know the alternative solutions."
+                    , deprecation
                     ]
 
                 Dependency ->
                     [ "The dependency where this element is defined was marked as deprecated and should not be used anymore."
-                    , "Please check its documentation or your review configuration to know the alternative solutions."
+                    , case deprecationMessage of
+                        Just message ->
+                            "Deprecation: " ++ String.trimLeft message
+
+                        Nothing ->
+                            "Please check its documentation or your review configuration to know the alternative solutions."
                     ]
 
                 Field ->
                     [ "This element was marked as deprecated and should not be used anymore."
-                    , "Please check its documentation to know the alternative solutions."
+                    , deprecation
                     ]
 
                 Parameter ->
@@ -998,3 +1185,66 @@ error origin range =
         , details = details
         }
         range
+
+
+dataExtractor : ProjectContext -> Encode.Value
+dataExtractor projectContext =
+    let
+        deprecatedModules : Set String
+        deprecatedModules =
+            Dict.foldl
+                (\key _ acc ->
+                    Set.insert (String.join "." key) acc
+                )
+                Set.empty
+                projectContext.deprecatedModules
+    in
+    projectContext.usages
+        |> Dict.foldl
+            (\( moduleName, name ) count acc ->
+                Dict.update
+                    (String.join "." moduleName)
+                    (Maybe.withDefault Dict.empty >> Dict.insert name count >> Just)
+                    acc
+            )
+            Dict.empty
+        |> Dict.toList
+        |> List.map (\( moduleName, dict ) -> ( moduleName, encodeCountDict (Set.member moduleName deprecatedModules) dict ))
+        |> List.sortBy (\( _, ( _, count ) ) -> -count)
+        |> List.map (\( moduleName, ( dict, _ ) ) -> ( moduleName, dict ))
+        |> Encode.object
+
+
+encodeCountDict : Bool -> Dict String Int -> ( Encode.Value, Int )
+encodeCountDict isModuleDeprecated dict =
+    let
+        ( fields, totalCount ) =
+            Dict.foldl
+                (\name count ( accList, accCount ) ->
+                    ( ( name, count ) :: accList
+                    , accCount + count
+                    )
+                )
+                ( [], 0 )
+                dict
+    in
+    ( Encode.object
+        [ ( "total", Encode.int totalCount )
+        , ( "isModuleDeprecated", Encode.bool isModuleDeprecated )
+        , ( "usages"
+          , Encode.object
+                (fields |> List.sortBy (Tuple.second >> negate) |> List.map (Tuple.mapSecond Encode.int))
+          )
+        ]
+    , totalCount
+    )
+
+
+maybeCons : Maybe a -> List a -> List a
+maybeCons maybe list =
+    case maybe of
+        Just a ->
+            a :: list
+
+        Nothing ->
+            list
