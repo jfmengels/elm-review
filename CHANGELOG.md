@@ -3,6 +3,8 @@
 ## [Unreleased]
 
 - Fixed an issue where changes to `elm.json` (through an automatic fix or in watch mode) would get ignored, yielding incorrect results.
+- When Elm files are syntactically incorrect, there is now a single global error reported listing the files, instead of one error per file.  
+- Some performance optimizations (thanks [@Arkham](https://github.com/Arkham)!)
 
 ## [2.16.6] - 2026-02-23
  
