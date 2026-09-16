@@ -15,7 +15,10 @@ module Review.Rule exposing
     , withFinalModuleEvaluation
     , withElmJsonModuleVisitor, withReadmeModuleVisitor, withDirectDependenciesModuleVisitor, withDependenciesModuleVisitor
     , withExtraFilesModuleVisitor
-    , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitor, withModuleContext, withModuleContextUsingContextCreator, withModuleContextWithErrors, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDirectDependenciesProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withExtraFilesProjectVisitor, withContextFromImportedModules
+    , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema
+    , withModuleVisitor, withModuleContext, withModuleContextUsingContextCreator, withModuleContextWithErrors
+    , withElmJsonProjectVisitor, withReadmeProjectVisitor, withDirectDependenciesProjectVisitor, withDependenciesProjectVisitor, withExtraFilesProjectVisitor, withFinalProjectEvaluation
+    , withContextFromImportedModules, withContextFromImportedModulesIncludingIndirect
     , providesFixesForProjectRule
     , ContextCreator, initContextCreator, withModuleName, withModuleNameNode, withIsInSourceDirectories, withFilePath, withIsFileIgnored, withIsFileFixable, withModuleNameLookupTable, withModuleKey, withSourceCodeExtractor, withFullAst, withModuleDocumentation
     , Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix
@@ -235,7 +238,10 @@ Project rules can also report errors in the `elm.json` or the `README.md` files.
 If you are new to writing rules, I would recommend learning [how to build a module rule](#creating-a-module-rule)
 first, as they are in practice a simpler version of project rules.
 
-@docs ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitor, withModuleContext, withModuleContextUsingContextCreator, withModuleContextWithErrors, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDirectDependenciesProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withExtraFilesProjectVisitor, withContextFromImportedModules
+@docs ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema
+@docs withModuleVisitor, withModuleContext, withModuleContextUsingContextCreator, withModuleContextWithErrors
+@docs withElmJsonProjectVisitor, withReadmeProjectVisitor, withDirectDependenciesProjectVisitor, withDependenciesProjectVisitor, withExtraFilesProjectVisitor, withFinalProjectEvaluation
+@docs withContextFromImportedModules, withContextFromImportedModulesIncludingIndirect
 @docs providesFixesForProjectRule
 
 
@@ -1283,6 +1289,7 @@ type alias ProjectRuleSchemaData projectContext moduleContext =
 type SchemaHowToCreateModuleContext
     = SchemaStandaloneContext
     | SchemaRequireContextFromImported
+    | SchemaRequireContextFromImportedIncludingIndirect
 
 
 {-| Creates a schema for a project rule. Will require adding project visitors and calling
@@ -1835,6 +1842,9 @@ withModuleContext :
     -> ProjectRuleSchema { schemaState | canAddModuleVisitor : (), withModuleContext : Required } projectContext moduleContext
     -> ProjectRuleSchema { schemaState | hasAtLeastOneVisitor : (), withModuleContext : Forbidden } projectContext moduleContext
 withModuleContext functions (ProjectRuleSchema schema) =
+    -- TODO Breaking change: add a field to the record in order to replace the use of
+    -- `withContextFromImportedModules` and `withContextFromImportedModulesIncludingIndirect`
+    -- (same for the other `withModuleContext*` functions.
     let
         moduleContextCreator : ContextCreator projectContext moduleContext
         moduleContextCreator =
@@ -2299,7 +2309,7 @@ removeErrorPhantomTypeFromVisitor function =
 
 
 {-| Allows the rule to have access to the context of the modules imported by the
-currently visited module. You can use for instance to know what is exposed in a
+currently visited module. You can for instance use it to know what is exposed in a
 different module.
 
 When you finish analyzing a module, the `moduleContext` is turned into a `projectContext`
@@ -2327,6 +2337,18 @@ the results of other modules' analysis.
 withContextFromImportedModules : ProjectRuleSchema schemaState projectContext moduleContext -> ProjectRuleSchema schemaState projectContext moduleContext
 withContextFromImportedModules (ProjectRuleSchema schema) =
     ProjectRuleSchema { schema | howToCreateModuleContext = SchemaRequireContextFromImported }
+
+
+{-| Same as [`withContextFromImportedModules`](#withContextFromImportedModules), but includes contexts from modules that are indirectly imported.
+
+For instance, if the current module A imports B, and module B imports C, then you will get the folded context of modules B and C.
+
+This is not as efficient as `withContextFromImportedModules` so I recommend to only use it if necessary.
+
+-}
+withContextFromImportedModulesIncludingIndirect : ProjectRuleSchema schemaState projectContext moduleContext -> ProjectRuleSchema schemaState projectContext moduleContext
+withContextFromImportedModulesIncludingIndirect (ProjectRuleSchema schema) =
+    ProjectRuleSchema { schema | howToCreateModuleContext = SchemaRequireContextFromImportedIncludingIndirect }
 
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's [module definition](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.2.1/Elm-Syntax-Module) (`module SomeModuleName exposing (a, b)`) and report patterns.
@@ -5015,6 +5037,7 @@ type alias Visitor nodeType context =
 type HowToCreateModuleContextAndFolder projectContext moduleContext
     = StandaloneContext (Maybe (Folder projectContext moduleContext))
     | RequireContextFromImported (Folder projectContext moduleContext)
+    | RequireContextFromImportedIncludingIndirect (Folder projectContext moduleContext)
 
 
 type alias Folder projectContext moduleContext =
@@ -5745,6 +5768,23 @@ computeProjectContextHashes howToCreateModuleContext project cache incoming init
                 incoming
                 |> ContextHash.toComparable
 
+        RequireContextFromImportedIncludingIndirect _ ->
+            IntSet.foldl
+                (\key acc ->
+                    case
+                        ValidProject.getGraphNode key project
+                            |> Maybe.andThen (\graphModule -> Dict.get graphModule.node.label cache)
+                    of
+                        Just importedModuleCache ->
+                            ModuleCache.outputContextHash importedModuleCache :: acc
+
+                        Nothing ->
+                            acc
+                )
+                initial
+                incoming
+                |> ContextHash.toComparable
+
 
 computeProjectContext :
     HowToCreateModuleContextAndFolder projectContext moduleContext
@@ -5773,6 +5813,53 @@ computeProjectContext howToCreateModuleContext project cache incoming initial =
                 )
                 initial
                 incoming
+
+        RequireContextFromImportedIncludingIndirect folder ->
+            computeProjectContextIncludingIndirect folder.foldProjectContexts project cache (IntSet.foldl (::) [] incoming) incoming initial
+
+
+computeProjectContextIncludingIndirect :
+    (projectContext -> projectContext -> projectContext)
+    -> ValidProject
+    -> Dict String (ModuleCacheEntry projectContext)
+    -> List Int
+    -> Graph.Adjacency
+    -> projectContext
+    -> projectContext
+computeProjectContextIncludingIndirect foldProjectContexts project cache remainingNodesToVisit nodesToVisit acc =
+    case remainingNodesToVisit of
+        [] ->
+            acc
+
+        key :: rest ->
+            case ValidProject.getGraphNode key project of
+                Just graphModule ->
+                    computeProjectContextIncludingIndirect
+                        foldProjectContexts
+                        project
+                        cache
+                        (IntSet.foldl
+                            (\int x ->
+                                if IntSet.member int nodesToVisit then
+                                    x
+
+                                else
+                                    int :: x
+                            )
+                            rest
+                            graphModule.incoming
+                        )
+                        nodesToVisit
+                        (case Dict.get graphModule.node.label cache of
+                            Just importedModuleCache ->
+                                foldProjectContexts (ModuleCache.outputContext importedModuleCache) acc
+
+                            Nothing ->
+                                acc
+                        )
+
+                Nothing ->
+                    computeProjectContextIncludingIndirect foldProjectContexts project cache rest nodesToVisit acc
 
 
 computeModules :
@@ -5821,6 +5908,9 @@ getFolderFromTraversal howToCreateModuleContext =
             maybeFolder
 
         RequireContextFromImported folder ->
+            Just folder
+
+        RequireContextFromImportedIncludingIndirect folder ->
             Just folder
 
 
@@ -6752,11 +6842,14 @@ createModuleVisitorFromProjectVisitor schema raise hidden =
                         ( SchemaStandaloneContext, _ ) ->
                             StandaloneContext schema.folder
 
+                        ( _, Nothing ) ->
+                            StandaloneContext Nothing
+
                         ( SchemaRequireContextFromImported, Just folder ) ->
                             RequireContextFromImported folder
 
-                        ( SchemaRequireContextFromImported, Nothing ) ->
-                            StandaloneContext Nothing
+                        ( SchemaRequireContextFromImportedIncludingIndirect, Just folder ) ->
+                            RequireContextFromImportedIncludingIndirect folder
             in
             Just (createModuleVisitorFromProjectVisitorHelp schema raise hidden howToCreateModuleContext moduleRuleSchema)
 
