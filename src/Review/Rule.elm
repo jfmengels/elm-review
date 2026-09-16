@@ -1452,7 +1452,7 @@ mergeModuleVisitorsHelp ruleName_ initialProjectContext moduleContextCreator vis
             , moduleKey = ModuleKey "dummy"
             , moduleDocumentation = Nothing
             , moduleNameLookupTable = ModuleNameLookupTableInternal.empty []
-            , extractSourceCode = always "dummy"
+            , extractSourceCode = \() _ -> "dummy"
             , filePath = "dummy file path"
             , isInSourceDirectories = True
             }
@@ -5664,16 +5664,13 @@ computeModuleWithRuleVisitors project module_ inputRuleModuleVisitors (Requested
             , moduleNameLookupTable = moduleNameLookupTable
             , moduleDocumentation = findModuleDocumentation ast
             , extractSourceCode =
-                if requestedData.sourceCodeExtractor then
+                \() ->
                     let
                         lines : List String
                         lines =
                             String.lines (ProjectModule.source module_)
                     in
                     \range -> extractSourceCode lines range
-
-                else
-                    always ""
             , filePath = filePath
             , isInSourceDirectories = ProjectModule.isInSourceDirectories module_
             }
@@ -7698,10 +7695,10 @@ experience.
 
 -}
 withSourceCodeExtractor : ContextCreator (Range -> String) (from -> to) -> ContextCreator from to
-withSourceCodeExtractor (ContextCreator fn (RequestedData requested)) =
+withSourceCodeExtractor (ContextCreator fn requestedData) =
     ContextCreator
-        (\data isFileIgnored isFileFixable -> fn data isFileIgnored isFileFixable data.extractSourceCode)
-        (RequestedData { requested | sourceCodeExtractor = True })
+        (\data isFileIgnored isFileFixable -> fn data isFileIgnored isFileFixable (data.extractSourceCode ()))
+        requestedData
 
 
 type alias AvailableData =
@@ -7709,7 +7706,7 @@ type alias AvailableData =
     , moduleKey : ModuleKey
     , moduleDocumentation : Maybe (Node String)
     , moduleNameLookupTable : ModuleNameLookupTable
-    , extractSourceCode : Range -> String
+    , extractSourceCode : () -> Range -> String
     , filePath : FilePath
     , isInSourceDirectories : Bool
     }
