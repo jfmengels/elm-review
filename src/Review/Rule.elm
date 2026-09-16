@@ -1192,7 +1192,7 @@ fromModuleRuleSchema ((ModuleRuleSchema schema) as moduleVisitor) =
                 , moduleContextCreator = Just (initContextCreator identity)
                 , folder = Nothing
                 , providesFixes = schema.providesFixes
-                , traversalType = AllModulesInParallel
+                , howToCreateModuleContext = SchemaStandaloneContext
                 , finalEvaluationFn = Nothing
                 , dataExtractor = Nothing
                 }
@@ -1212,7 +1212,7 @@ fromModuleRuleSchema ((ModuleRuleSchema schema) as moduleVisitor) =
                 , moduleContextCreator = Just schema.moduleContextCreator
                 , folder = Nothing
                 , providesFixes = schema.providesFixes
-                , traversalType = AllModulesInParallel
+                , howToCreateModuleContext = SchemaStandaloneContext
                 , finalEvaluationFn = Nothing
                 , dataExtractor = Nothing
                 }
@@ -1270,7 +1270,7 @@ type alias ProjectRuleSchemaData projectContext moduleContext =
     , providesFixes : Bool
 
     -- TODO Jeroen Only allow to set it if there is a folder, but not several times
-    , traversalType : TraversalType
+    , howToCreateModuleContext : SchemaHowToCreateModuleContext
 
     -- TODO Jeroen Only allow to set it if there is a folder and module visitors?
     , finalEvaluationFn : Maybe (projectContext -> List (Error {}))
@@ -1280,9 +1280,9 @@ type alias ProjectRuleSchemaData projectContext moduleContext =
     }
 
 
-type TraversalType
-    = AllModulesInParallel
-    | ImportedModulesFirst
+type SchemaHowToCreateModuleContext
+    = SchemaStandaloneContext
+    | SchemaRequireContextFromImported
 
 
 {-| Creates a schema for a project rule. Will require adding project visitors and calling
@@ -1331,7 +1331,7 @@ newProjectRuleSchema name initialProjectContext =
         , moduleContextCreator = Nothing
         , folder = Nothing
         , providesFixes = False
-        , traversalType = AllModulesInParallel
+        , howToCreateModuleContext = SchemaStandaloneContext
         , finalEvaluationFn = Nothing
         , dataExtractor = Nothing
         }
@@ -2326,7 +2326,7 @@ the results of other modules' analysis.
 -}
 withContextFromImportedModules : ProjectRuleSchema schemaState projectContext moduleContext -> ProjectRuleSchema schemaState projectContext moduleContext
 withContextFromImportedModules (ProjectRuleSchema schema) =
-    ProjectRuleSchema { schema | traversalType = ImportedModulesFirst }
+    ProjectRuleSchema { schema | howToCreateModuleContext = SchemaRequireContextFromImported }
 
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's [module definition](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.2.1/Elm-Syntax-Module) (`module SomeModuleName exposing (a, b)`) and report patterns.
@@ -5012,9 +5012,9 @@ type alias Visitor nodeType context =
     Node nodeType -> context -> ( List (Error {}), context )
 
 
-type TraversalAndFolder projectContext moduleContext
-    = TraverseAllModulesInParallel (Maybe (Folder projectContext moduleContext))
-    | TraverseImportedModulesFirst (Folder projectContext moduleContext)
+type HowToCreateModuleContextAndFolder projectContext moduleContext
+    = StandaloneContext (Maybe (Folder projectContext moduleContext))
+    | RequireContextFromImported (Folder projectContext moduleContext)
 
 
 type alias Folder projectContext moduleContext =
@@ -5717,18 +5717,18 @@ findFixInComputeModuleResults ({ reviewOptions, module_, project, fixedErrors } 
 
 
 computeProjectContextHashes :
-    TraversalAndFolder projectContext moduleContext
+    HowToCreateModuleContextAndFolder projectContext moduleContext
     -> ValidProject
     -> Dict String (ModuleCacheEntry projectContext)
     -> Graph.Adjacency
     -> List (ContextHash projectContext)
     -> ComparableContextHash projectContext
-computeProjectContextHashes traversalAndFolder project cache incoming initial =
-    case traversalAndFolder of
-        TraverseAllModulesInParallel _ ->
+computeProjectContextHashes howToCreateModuleContext project cache incoming initial =
+    case howToCreateModuleContext of
+        StandaloneContext _ ->
             ContextHash.toComparable initial
 
-        TraverseImportedModulesFirst _ ->
+        RequireContextFromImported _ ->
             IntSet.foldl
                 (\key acc ->
                     case
@@ -5747,18 +5747,18 @@ computeProjectContextHashes traversalAndFolder project cache incoming initial =
 
 
 computeProjectContext :
-    TraversalAndFolder projectContext moduleContext
+    HowToCreateModuleContextAndFolder projectContext moduleContext
     -> ValidProject
     -> Dict String (ModuleCacheEntry projectContext)
     -> Graph.Adjacency
     -> projectContext
     -> projectContext
-computeProjectContext traversalAndFolder project cache incoming initial =
-    case traversalAndFolder of
-        TraverseAllModulesInParallel _ ->
+computeProjectContext howToCreateModuleContext project cache incoming initial =
+    case howToCreateModuleContext of
+        StandaloneContext _ ->
             initial
 
-        TraverseImportedModulesFirst { foldProjectContexts } ->
+        RequireContextFromImported { foldProjectContexts } ->
             IntSet.foldl
                 (\key accContext ->
                     case
@@ -5814,13 +5814,13 @@ reuseCache predicate maybeCacheEntry =
                 Nothing
 
 
-getFolderFromTraversal : TraversalAndFolder projectContext moduleContext -> Maybe (Folder projectContext moduleContext)
-getFolderFromTraversal traversalAndFolder =
-    case traversalAndFolder of
-        TraverseAllModulesInParallel maybeFolder ->
+getFolderFromTraversal : HowToCreateModuleContextAndFolder projectContext moduleContext -> Maybe (Folder projectContext moduleContext)
+getFolderFromTraversal howToCreateModuleContext =
+    case howToCreateModuleContext of
+        StandaloneContext maybeFolder ->
             maybeFolder
 
-        TraverseImportedModulesFirst folder ->
+        RequireContextFromImported folder ->
             Just folder
 
 
@@ -6746,31 +6746,31 @@ createModuleVisitorFromProjectVisitor schema raise hidden =
 
         Just moduleRuleSchema ->
             let
-                traversalAndFolder : TraversalAndFolder projectContext moduleContext
-                traversalAndFolder =
-                    case ( schema.traversalType, schema.folder ) of
-                        ( AllModulesInParallel, _ ) ->
-                            TraverseAllModulesInParallel schema.folder
+                howToCreateModuleContext : HowToCreateModuleContextAndFolder projectContext moduleContext
+                howToCreateModuleContext =
+                    case ( schema.howToCreateModuleContext, schema.folder ) of
+                        ( SchemaStandaloneContext, _ ) ->
+                            StandaloneContext schema.folder
 
-                        ( ImportedModulesFirst, Just folder ) ->
-                            TraverseImportedModulesFirst folder
+                        ( SchemaRequireContextFromImported, Just folder ) ->
+                            RequireContextFromImported folder
 
-                        ( ImportedModulesFirst, Nothing ) ->
-                            TraverseAllModulesInParallel Nothing
+                        ( SchemaRequireContextFromImported, Nothing ) ->
+                            StandaloneContext Nothing
             in
-            Just (createModuleVisitorFromProjectVisitorHelp schema raise hidden traversalAndFolder moduleRuleSchema)
+            Just (createModuleVisitorFromProjectVisitorHelp schema raise hidden howToCreateModuleContext moduleRuleSchema)
 
 
 createModuleVisitorFromProjectVisitorHelp :
     ProjectRuleSchemaData projectContext moduleContext
     -> (ProjectRuleCache projectContext -> RuleProjectVisitor)
     -> RuleProjectVisitorHidden projectContext
-    -> TraversalAndFolder projectContext moduleContext
+    -> HowToCreateModuleContextAndFolder projectContext moduleContext
     -> ( ModuleRuleSchema schemaState moduleContext, ContextCreator projectContext moduleContext )
     -> ValidProject
     -> OpaqueProjectModule
     -> Maybe (AvailableData -> RuleModuleVisitor)
-createModuleVisitorFromProjectVisitorHelp schema raise hidden traversalAndFolder ( ModuleRuleSchema moduleRuleSchema, moduleContextCreator ) =
+createModuleVisitorFromProjectVisitorHelp schema raise hidden howToCreateModuleContext ( ModuleRuleSchema moduleRuleSchema, moduleContextCreator ) =
     \project module_ ->
         let
             filePath : FilePath
@@ -6796,7 +6796,7 @@ createModuleVisitorFromProjectVisitorHelp schema raise hidden traversalAndFolder
 
             inputContextHashes : ComparableContextHash projectContext
             inputContextHashes =
-                computeProjectContextHashes traversalAndFolder project hidden.cache.moduleContexts incoming initialProjectContextHash
+                computeProjectContextHashes howToCreateModuleContext project hidden.cache.moduleContexts incoming initialProjectContextHash
 
             isFileIgnored : Bool
             isFileIgnored =
@@ -6829,7 +6829,7 @@ createModuleVisitorFromProjectVisitorHelp schema raise hidden traversalAndFolder
                 let
                     inputProjectContext : projectContext
                     inputProjectContext =
-                        computeProjectContext traversalAndFolder project hidden.cache.moduleContexts incoming initialProjectContext
+                        computeProjectContext howToCreateModuleContext project hidden.cache.moduleContexts incoming initialProjectContext
                 in
                 Just
                     (\availableData ->
@@ -6846,7 +6846,7 @@ createModuleVisitorFromProjectVisitorHelp schema raise hidden traversalAndFolder
                             toRuleProjectVisitor ( errors, resultModuleContext ) =
                                 let
                                     ( fromModuleToProjectErrors, outputProjectContext ) =
-                                        case getFolderFromTraversal traversalAndFolder of
+                                        case getFolderFromTraversal howToCreateModuleContext of
                                             Just { fromModuleToProject } ->
                                                 applyContextCreator availableData isFileIgnored isFileFixable fromModuleToProject resultModuleContext
 
