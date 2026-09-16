@@ -332,7 +332,7 @@ rule config =
             , fromModuleToProject = fromModuleToProject
             , foldProjectContexts = foldProjectContexts
             }
-        |> Rule.withContextFromImportedModules
+        |> Rule.withContextFromImportedModulesIncludingIndirect
         |> Rule.providesFixesForProjectRule
         |> Rule.fromProjectRuleSchema
 
@@ -755,31 +755,31 @@ exposed by dependencies.
 fromModuleToProject : Rule.ContextCreator ModuleContext ProjectContext
 fromModuleToProject =
     Rule.initContextCreator
-        (\moduleName ({ exposed } as context) ->
+        (\moduleName { exposed } ->
             { aliases =
                 if Dict.isEmpty exposed.aliases then
-                    Dict.remove moduleName context.aliases
+                    Dict.empty
 
                 else
-                    Dict.insert moduleName exposed.aliases context.aliases
+                    Dict.singleton moduleName exposed.aliases
             , canonicalRecords =
                 if Dict.isEmpty exposed.canonicalRecords then
-                    Dict.remove moduleName context.canonicalRecords
+                    Dict.empty
 
                 else
-                    Dict.insert moduleName exposed.canonicalRecords context.canonicalRecords
+                    Dict.singleton moduleName exposed.canonicalRecords
             , constructors =
                 if Dict.isEmpty exposed.constructors then
-                    Dict.remove moduleName context.constructors
+                    Dict.empty
 
                 else
-                    Dict.insert moduleName exposed.constructors context.constructors
+                    Dict.singleton moduleName exposed.constructors
             , functionTypes =
                 if Dict.isEmpty exposed.functionTypes then
-                    Dict.remove moduleName context.functionTypes
+                    Dict.empty
 
                 else
-                    Dict.insert moduleName exposed.functionTypes context.functionTypes
+                    Dict.singleton moduleName exposed.functionTypes
             }
         )
         |> Rule.withModuleName
@@ -1394,10 +1394,10 @@ declarationListVisitor (RuleConfig { subrecordTreatment }) context declarations 
         declarations
         |> (\r ->
                 if context.fileIsIgnored then
-                    { aliases = context.aliases
-                    , canonicalRecords = context.canonicalRecords
-                    , constructors = context.constructors
-                    , functionTypes = context.functionTypes
+                    { aliases = Dict.empty
+                    , canonicalRecords = Dict.empty
+                    , constructors = Dict.empty
+                    , functionTypes = Dict.empty
                     , exposed =
                         { aliases =
                             Dict.fromList r.exposedAliases

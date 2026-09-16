@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- Added [`Review.Rule.withContextFromImportedModulesIncludingIndirect`].
 - Fixed an issue where changes to `elm.json` (through an automatic fix or in watch mode) would get ignored, yielding incorrect results.
 - When Elm files are syntactically incorrect, there is now a single global error reported listing the files, instead of one error per file.  
 - Some performance optimizations (thanks [@Arkham](https://github.com/Arkham)!)
@@ -298,6 +299,7 @@ Help would be appreciated to fill the blanks!
 [`NoDeprecated`]: https://package.elm-lang.org/packages/jfmengels/elm-review-common/latest/NoDeprecated
 [`Review.Rule.withIsFileIgnored`]: https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule#withIsFileIgnored
 [`Review.Rule.withRuleId`]: https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule#withRuleId
+[`Review.Rule.withContextFromImportedModulesIncludingIndirect`]: https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule#withContextFromImportedModulesIncludingIndirect
 [`Review.Rule.errorFixFailure`]: https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule#errorFixFailure
 [`Review.Test.ignoredFilesImpactResults`]: https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule-Test#ignoredFilesImpactResults
 
