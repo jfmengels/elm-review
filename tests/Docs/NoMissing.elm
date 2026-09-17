@@ -31,8 +31,6 @@ elm-review --template jfmengels/elm-review-documentation/example --rules Docs.No
 
 -}
 
-import Docs.Utils.ExposedFromProject as ExposedFromProject
-import Elm.Project
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Exposing as Exposing
 import Elm.Syntax.Module as Module exposing (Module)
@@ -101,8 +99,7 @@ relevant information _can_ be found without too much effort.
 -}
 rule : { document : What, from : From } -> Rule
 rule configuration =
-    Rule.newModuleRuleSchema "Docs.NoMissing" initialContext
-        |> Rule.withElmJsonModuleVisitor elmJsonVisitor
+    Rule.newModuleRuleSchemaUsingContextCreator "Docs.NoMissing" initialContext
         |> Rule.withModuleDefinitionVisitor (moduleDefinitionVisitor configuration.from)
         |> Rule.withModuleDocumentationVisitor moduleDocumentationVisitor
         |> Rule.withDeclarationEnterVisitor (declarationVisitor configuration.document)
@@ -111,19 +108,21 @@ rule configuration =
 
 type alias Context =
     { moduleNameNode : Node String
-    , exposedModules : Set String
     , exposedElements : Exposed
     , shouldBeReported : Bool
     }
 
 
-initialContext : Context
+initialContext : Rule.ContextCreator () Context
 initialContext =
-    { moduleNameNode = Node Range.emptyRange ""
-    , exposedModules = Set.empty
-    , exposedElements = EverythingIsExposed
-    , shouldBeReported = True
-    }
+    Rule.initContextCreator
+        (\isModuleExposed () ->
+            { moduleNameNode = Node Range.emptyRange ""
+            , exposedElements = EverythingIsExposed
+            , shouldBeReported = Maybe.withDefault False isModuleExposed
+            }
+        )
+        |> Rule.withIsModuleExposed
 
 
 type Exposed
@@ -181,25 +180,6 @@ exposedModules =
 
 
 
--- ELM.JSON VISITOR
-
-
-elmJsonVisitor : Maybe Elm.Project.Project -> Context -> Context
-elmJsonVisitor maybeProject context =
-    let
-        exposedModules_ : Set String
-        exposedModules_ =
-            case maybeProject of
-                Just project ->
-                    ExposedFromProject.exposedModules project
-
-                _ ->
-                    Set.empty
-    in
-    { context | exposedModules = exposedModules_ }
-
-
-
 -- MODULE DEFINITION VISITOR
 
 
@@ -231,7 +211,7 @@ moduleDefinitionVisitor fromConfig node context =
                     True
 
                 ExposedModules ->
-                    Set.member (Node.value moduleNameNode) context.exposedModules
+                    context.shouldBeReported
 
         exposed : Exposed
         exposed =
@@ -243,10 +223,9 @@ moduleDefinitionVisitor fromConfig node context =
                     ExplicitList (List.map collectExposing list |> Set.fromList)
     in
     ( []
-    , { context
-        | moduleNameNode = moduleNameNode
-        , shouldBeReported = shouldBeReported
-        , exposedElements = exposed
+    , { moduleNameNode = moduleNameNode
+      , shouldBeReported = shouldBeReported
+      , exposedElements = exposed
       }
     )
 
