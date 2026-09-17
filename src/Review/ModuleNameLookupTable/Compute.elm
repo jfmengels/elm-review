@@ -1,4 +1,4 @@
-module Review.ModuleNameLookupTable.Compute exposing (compute)
+module Review.ModuleNameLookupTable.Compute exposing (compute, computeSimple)
 
 import Dict exposing (Dict)
 import Elm.Docs
@@ -85,6 +85,63 @@ compute moduleName module_ project =
             if cache.key.contentHash == ProjectModule.contentHash module_ && cache.key.implicitImports == implicitImports then
                 { moduleNameLookupTable = cache.lookupTable
                 , moduleDocs = Dict.get moduleName projectCache.modules |> Maybe.withDefault emptyModuleDocs
+                , project = project
+                }
+
+            else
+                computeLookupTableForModule ()
+
+        Nothing ->
+            computeLookupTableForModule ()
+
+
+computeSimple :
+    ModuleName
+    -> OpaqueProjectModule
+    -> ValidProject
+    ->
+        { moduleDocs : Elm.Docs.Module
+        , project : ValidProject
+        }
+computeSimple moduleName module_ project =
+    let
+        projectCache : ProjectCache
+        projectCache =
+            ValidProject.projectCache project
+
+        computeLookupTableForModule :
+            ()
+            ->
+                { moduleDocs : Elm.Docs.Module
+                , project : ValidProject
+                }
+        computeLookupTableForModule () =
+            computeSimpleHelp moduleName module_ project
+    in
+    case Dict.get moduleName projectCache.lookupTables of
+        Just cache ->
+            let
+                {- This will be used as the cache key in terms of the imports.
+                   Since we assume that the code will be compiling at every stage, the only thing that causes the
+                   lookup table for a given module to be recomputed, are:
+                   1) Whether the module itself has changed (because the position of elements might have changed)
+                   2) Whether the dependencies have changed, in which case we in practice nuke the cache because that's easier and it's a rare case.
+                   3) If the exposed elements of the module's imports have changed.
+
+                   This data is about 3). In practice and because of how this algorithm is computed,
+                   if we have `import A exposing (a, b, C, D(..))`, then only a change to D's constructors
+                   can cause the lookup table to be different. So we only need to store the names of the elements that were
+                   imported "implicitly", through `exposing (..)` or `exposing (D(..))`.
+                -}
+                implicitImports : Dict String (List ProjectCache.ImportedElement)
+                implicitImports =
+                    List.foldl
+                        (\node acc -> computeImplicitlyImportedElements projectCache.modules node acc)
+                        Dict.empty
+                        (ProjectModule.ast module_).imports
+            in
+            if cache.key.contentHash == ProjectModule.contentHash module_ && cache.key.implicitImports == implicitImports then
+                { moduleDocs = Dict.get moduleName projectCache.modules |> Maybe.withDefault emptyModuleDocs
                 , project = project
                 }
 
@@ -195,6 +252,97 @@ computeHelp cacheKey moduleName module_ project =
     in
     { moduleNameLookupTable = lookupTable
     , moduleDocs = moduleDocsForFile
+    , project = ValidProject.updateProjectCache newProjectCache project
+    }
+
+
+computeSimpleHelp :
+    ModuleName
+    -> OpaqueProjectModule
+    -> ValidProject
+    ->
+        { moduleDocs : Elm.Docs.Module
+        , project : ValidProject
+        }
+computeSimpleHelp moduleName module_ project =
+    let
+        projectCache : ProjectCache
+        projectCache =
+            ValidProject.projectCache project
+
+        moduleAst : Elm.Syntax.File.File
+        moduleAst =
+            ProjectModule.ast module_
+
+        elmJsonContentHash : Maybe ContentHash
+        elmJsonContentHash =
+            ValidProject.elmJsonHash project
+
+        ({ deps, baseModuleContext } as depsCache) =
+            -- TODO Only invalidate the lookup tables if the dependencies in elm.json have changed?
+            -- i.e. if only the description has changed but not the dependencies
+            let
+                computeDepsAndBaseModuleContext : () -> { deps : Dict ModuleName Elm.Docs.Module, baseModuleContext : Context }
+                computeDepsAndBaseModuleContext () =
+                    let
+                        deps_ : Dict ModuleName Elm.Docs.Module
+                        deps_ =
+                            computeDependencies project
+                    in
+                    { deps = deps_, baseModuleContext = computeBaseModule (preludeModuleDocs deps_) }
+            in
+            case projectCache.dependencies of
+                Just cache ->
+                    if elmJsonContentHash == projectCache.elmJsonContentHash then
+                        cache
+
+                    else
+                        computeDepsAndBaseModuleContext ()
+
+                Nothing ->
+                    computeDepsAndBaseModuleContext ()
+
+        dataForModuleDocs : DataForModuleDocs
+        dataForModuleDocs =
+            { getModule = ValidProject.getModuleByModuleName project
+            , baseModuleContext = baseModuleContext
+            , deps = deps
+            }
+
+        { imported, projectModules } =
+            List.foldl
+                (\node acc -> computeImportedModulesDocs dataForModuleDocs node acc)
+                { imported = baseModuleContext.modules, projectModules = projectCache.modules }
+                moduleAst.imports
+
+        moduleContext : Context
+        moduleContext =
+            { baseModuleContext | modules = imported }
+                |> collectModuleDocs moduleAst
+
+        moduleDocsForFile : Elm.Docs.Module
+        moduleDocsForFile =
+            { name = String.join "." moduleName
+            , comment = ""
+            , unions = moduleContext.exposedUnions
+            , aliases = moduleContext.exposedAliases
+            , values = moduleContext.exposedValues
+            , binops = []
+            }
+
+        modules : Dict ModuleName Elm.Docs.Module
+        modules =
+            Dict.insert moduleName moduleDocsForFile projectModules
+
+        newProjectCache : ProjectCache
+        newProjectCache =
+            { dependencies = Just depsCache
+            , elmJsonContentHash = elmJsonContentHash
+            , modules = modules
+            , lookupTables = projectCache.lookupTables
+            }
+    in
+    { moduleDocs = moduleDocsForFile
     , project = ValidProject.updateProjectCache newProjectCache project
     }
 

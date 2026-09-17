@@ -5769,9 +5769,9 @@ computeModuleNameLookupTable (RequestedData requestedData) project module_ =
 
     else if requestedData.exposed then
         let
-            computeResult : { moduleNameLookupTable : ModuleNameLookupTable, moduleDocs : Elm.Docs.Module, project : ValidProject }
+            computeResult : { moduleDocs : Elm.Docs.Module, project : ValidProject }
             computeResult =
-                Review.ModuleNameLookupTable.Compute.compute moduleName module_ project
+                Review.ModuleNameLookupTable.Compute.computeSimple moduleName module_ project
 
             exposesAll_ : Bool
             exposesAll_ =
