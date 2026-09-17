@@ -31,9 +31,8 @@ elm-review --template jfmengels/elm-review-documentation/example --rules Docs.No
 
 -}
 
+import Dict
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
-import Elm.Syntax.Exposing as Exposing
-import Elm.Syntax.Module as Module exposing (Module)
 import Elm.Syntax.Node as Node exposing (Node)
 import Review.Rule as Rule exposing (Error, Rule)
 import Set exposing (Set)
@@ -99,7 +98,6 @@ relevant information _can_ be found without too much effort.
 rule : { document : What, from : From } -> Rule
 rule configuration =
     Rule.newModuleRuleSchemaUsingContextCreator "Docs.NoMissing" (initialContext configuration.from)
-        |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
         |> Rule.withModuleDocumentationVisitor moduleDocumentationVisitor
         |> Rule.withDeclarationEnterVisitor (declarationVisitor configuration.document)
         |> Rule.fromModuleRuleSchema
@@ -107,7 +105,7 @@ rule configuration =
 
 type alias Context =
     { moduleNameNode : Node String
-    , exposedElements : Exposed
+    , exposedElements : Set String
     , shouldBeReported : Bool
     }
 
@@ -115,9 +113,9 @@ type alias Context =
 initialContext : From -> Rule.ContextCreator () Context
 initialContext fromConfig =
     Rule.initContextCreator
-        (\moduleNameNode isModuleExposed () ->
+        (\moduleNameNode isModuleExposed { exposed } () ->
             { moduleNameNode = Node.map (String.join ".") moduleNameNode
-            , exposedElements = EverythingIsExposed
+            , exposedElements = Dict.foldl (\key _ set -> Set.insert key set) Set.empty exposed
             , shouldBeReported =
                 case fromConfig of
                     AllModules ->
@@ -129,11 +127,7 @@ initialContext fromConfig =
         )
         |> Rule.withModuleNameNode
         |> Rule.withIsModuleExposed
-
-
-type Exposed
-    = EverythingIsExposed
-    | ExplicitList (Set String)
+        |> Rule.withExposed
 
 
 {-| Which elements from a module should be documented. Possible options are [`everything`](#everything) in a module or
@@ -183,46 +177,6 @@ exposedModules : From
 exposedModules =
     -- TODO Report a global error if used inside an application
     ExposedModules
-
-
-
--- MODULE DEFINITION VISITOR
-
-
-moduleDefinitionVisitor : Node Module -> Context -> ( List nothing, Context )
-moduleDefinitionVisitor node context =
-    let
-        exposed : Exposed
-        exposed =
-            case Node.value node |> Module.exposingList of
-                Exposing.All _ ->
-                    EverythingIsExposed
-
-                Exposing.Explicit list ->
-                    ExplicitList (List.map collectExposing list |> Set.fromList)
-    in
-    ( []
-    , { moduleNameNode = context.moduleNameNode
-      , shouldBeReported = context.shouldBeReported
-      , exposedElements = exposed
-      }
-    )
-
-
-collectExposing : Node Exposing.TopLevelExpose -> String
-collectExposing node =
-    case Node.value node of
-        Exposing.InfixExpose name ->
-            name
-
-        Exposing.FunctionExpose name ->
-            name
-
-        Exposing.TypeOrAliasExpose name ->
-            name
-
-        Exposing.TypeExpose exposedType ->
-            exposedType.name
 
 
 
@@ -295,12 +249,7 @@ shouldBeDocumented documentWhat context name =
             True
 
         OnlyExposed ->
-            case context.exposedElements of
-                EverythingIsExposed ->
-                    True
-
-                ExplicitList exposedElements ->
-                    Set.member name exposedElements
+            Set.member name context.exposedElements
 
 
 checkModuleDocumentation : Maybe (Node String) -> Node String -> List (Error {})
