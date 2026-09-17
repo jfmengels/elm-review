@@ -5660,7 +5660,7 @@ computeWhatsRequiredToAnalyze project module_ ruleProjectVisitors =
 
 
 computeModuleWithRuleVisitors : ValidProject -> OpaqueProjectModule -> List (AvailableData -> RuleModuleVisitor) -> RequestedData -> List RuleProjectVisitor -> ( ValidProject, List RuleProjectVisitor )
-computeModuleWithRuleVisitors initialProject module_ inputRuleModuleVisitors (RequestedData requestedData) rulesNotToRun =
+computeModuleWithRuleVisitors initialProject module_ inputRuleModuleVisitors requestedData rulesNotToRun =
     let
         { moduleNameLookupTable, exposed, project } =
             computeModuleNameLookupTable requestedData initialProject module_
@@ -5734,7 +5734,7 @@ addNamesFrom list initial =
 
 
 computeModuleNameLookupTable :
-    { a | moduleNameLookupTable : Bool, exposed : Bool }
+    RequestedData
     -> ValidProject
     -> OpaqueProjectModule
     ->
@@ -5742,7 +5742,7 @@ computeModuleNameLookupTable :
         , exposed : Exposed
         , project : ValidProject
         }
-computeModuleNameLookupTable requestedData project module_ =
+computeModuleNameLookupTable (RequestedData requestedData) project module_ =
     let
         moduleName : ModuleName
         moduleName =
