@@ -301,7 +301,7 @@ Help would be appreciated to fill the blanks!
 [`Review.Rule.withRuleId`]: https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule#withRuleId
 [`Review.Rule.withContextFromImportedModulesIncludingIndirect`]: https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule#withContextFromImportedModulesIncludingIndirect
 [`Review.Rule.errorFixFailure`]: https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule#errorFixFailure
-[`Review.Test.ignoredFilesImpactResults`]: https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule-Test#ignoredFilesImpactResults
+[`Review.Test.ignoredFilesImpactResults`]: https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Test#ignoredFilesImpactResults
 
 [Unreleased]: https://github.com/jfmengels/elm-review/compare/v2.16.6...HEAD
 [2.16.6]: https://github.com/jfmengels/elm-review/releases/tag/2.16.6
