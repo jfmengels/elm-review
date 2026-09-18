@@ -8,9 +8,7 @@ module NoUnused.CustomTypeConstructors exposing (rule)
 
 import Dict exposing (Dict)
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
-import Elm.Syntax.Exposing as Exposing
 import Elm.Syntax.Expression as Expression exposing (Expression)
-import Elm.Syntax.Module as Module exposing (Module)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern as Pattern exposing (Pattern)
 import Elm.Syntax.Range exposing (Range)
@@ -147,7 +145,6 @@ rule phantomTypes =
 moduleVisitor : Rule.ModuleRuleSchema {} ModuleContext -> Rule.ModuleRuleSchema { hasAtLeastOneVisitor : () } ModuleContext
 moduleVisitor schema =
     schema
-        |> Rule.withModuleDefinitionVisitor (\node context -> ( [], moduleDefinitionVisitor node context ))
         |> Rule.withDeclarationListVisitor (\node context -> ( [], declarationListVisitor node context ))
         |> Rule.withDeclarationEnterVisitor (\node context -> ( [], declarationVisitor node context ))
         |> Rule.withExpressionEnterVisitor (\node context -> ( [], expressionVisitor node context ))
@@ -235,17 +232,30 @@ initialProjectContext phantomTypes =
 fromProjectToModule : Rule.ContextCreator ProjectContext ModuleContext
 fromProjectToModule =
     Rule.initContextCreator
-        (\lookupTable moduleName isModuleExposed projectContext ->
+        (\lookupTable moduleName isModuleExposed { exposesAll, exposed } projectContext ->
             let
                 moduleNameAsString : ModuleNameAsString
                 moduleNameAsString =
                     String.join "." moduleName
+
+                exposedCustomTypesWithConstructors : Set String
+                exposedCustomTypesWithConstructors =
+                    Dict.foldl
+                        (\name exposesConstructors set ->
+                            if exposesConstructors then
+                                Set.insert name set
+
+                            else
+                                set
+                        )
+                        Set.empty
+                        exposed
             in
             { lookupTable = lookupTable
             , currentModuleName = moduleNameAsString
-            , exposedCustomTypesWithConstructors = Set.empty
+            , exposedCustomTypesWithConstructors = exposedCustomTypesWithConstructors
             , isExposed = Maybe.withDefault False isModuleExposed
-            , exposesEverything = False
+            , exposesEverything = exposesAll
             , declaredTypesWithConstructors = Dict.empty
             , usedFunctionsOrValues = Dict.empty
             , phantomVariables = projectContext.phantomVariables
@@ -259,6 +269,7 @@ fromProjectToModule =
         |> Rule.withModuleNameLookupTable
         |> Rule.withModuleName
         |> Rule.withIsModuleExposed
+        |> Rule.withExposed
 
 
 fromModuleToProject : Rule.ContextCreator ModuleContext ( List (Rule.Error {}), ProjectContext )
@@ -378,35 +389,6 @@ updateToInsert key value dict =
                     Just (Set.singleton value)
         )
         dict
-
-
-
--- MODULE DEFINITION VISITOR
-
-
-moduleDefinitionVisitor : Node Module -> ModuleContext -> ModuleContext
-moduleDefinitionVisitor moduleNode context =
-    case Module.exposingList (Node.value moduleNode) of
-        Exposing.All _ ->
-            { context | exposesEverything = True }
-
-        Exposing.Explicit list ->
-            let
-                exposedCustomTypesWithConstructors : Set String
-                exposedCustomTypesWithConstructors =
-                    List.foldl
-                        (\node acc ->
-                            case Node.value node of
-                                Exposing.TypeExpose { name } ->
-                                    Set.insert name acc
-
-                                _ ->
-                                    acc
-                        )
-                        context.exposedCustomTypesWithConstructors
-                        list
-            in
-            { context | exposedCustomTypesWithConstructors = exposedCustomTypesWithConstructors }
 
 
 
