@@ -170,27 +170,26 @@ moduleVisitor schema =
 
 moduleDefinitionVisitor : Node Module -> ModuleContext -> ( List nothing, ModuleContext )
 moduleDefinitionVisitor (Node _ mod) context =
-    case context.moduleType of
-        InternalModule data ->
-            ( []
-            , { lookupTable = context.lookupTable
-              , modulesFromTheProject = context.modulesFromTheProject
-              , moduleType = InternalModule { exposedTypes = data.exposedTypes, exposes = Module.exposingList mod }
-              }
-            )
+    let
+        moduleType : ModuleType
+        moduleType =
+            case context.moduleType of
+                InternalModule data ->
+                    InternalModule { exposedTypes = data.exposedTypes, exposes = Module.exposingList mod }
 
-        ExposedModule data ->
-            ( []
-            , { lookupTable = context.lookupTable
-              , modulesFromTheProject = context.modulesFromTheProject
-              , moduleType =
+                ExposedModule data ->
                     ExposedModule
                         { data
                             | exposes = Module.exposingList mod
                             , exposingListStart = exposingListStartLocation (Module.exposingList mod)
                         }
-              }
-            )
+    in
+    ( []
+    , { lookupTable = context.lookupTable
+      , modulesFromTheProject = context.modulesFromTheProject
+      , moduleType = moduleType
+      }
+    )
 
 
 exposingListStartLocation : Exposing -> Maybe Range.Location
