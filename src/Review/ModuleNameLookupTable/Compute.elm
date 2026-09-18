@@ -26,7 +26,7 @@ import Review.Project.Dependency
 import Review.Project.ProjectCache as ProjectCache exposing (ProjectCache)
 import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModule)
 import Review.Project.Valid as ValidProject exposing (ValidProject)
-import Set exposing (Set)
+import Set
 import Vendor.ListExtra as ListExtra
 
 
@@ -578,7 +578,7 @@ computeBaseModule elmCorePreludeModules =
         , importedTypes = Dict.empty
         , modules = elmCorePreludeModules
         , exposesEverything = False
-        , exposedNames = Set.empty
+        , exposedNames = Dict.empty
         , exposedUnions = []
         , exposedAliases = []
         , exposedValues = []
@@ -874,25 +874,53 @@ registerExposedValue function name innerContext =
 
 
 registerExposedCustomType : List (Node Elm.Syntax.Type.ValueConstructor) -> String -> Context -> Context
-registerExposedCustomType constructors customTypeName innerContext =
-    if innerContext.exposesEverything || Set.member customTypeName innerContext.exposedNames then
-        { innerContext
-            | exposedUnions =
-                { name = customTypeName
-                , comment = ""
-
-                -- TODO Get the args from the type. Not useful now but useful when we will provide type information
-                , args = []
-                , tags =
-                    constructors
-                        -- TODO Get the constructor args from the type. Not useful now but useful when we will provide type information
-                        |> List.map (\(Node _ { name }) -> ( Node.value name, [] ))
-                }
-                    :: innerContext.exposedUnions
-        }
+registerExposedCustomType constructors customTypeName context =
+    if context.exposesEverything then
+        registerCustomTypeWithConstructors constructors customTypeName context
 
     else
-        innerContext
+        case Dict.get customTypeName context.exposedNames of
+            Just True ->
+                registerCustomTypeWithConstructors constructors customTypeName context
+
+            Just False ->
+                registerCustomTypeWithoutConstructors customTypeName context
+
+            Nothing ->
+                context
+
+
+registerCustomTypeWithConstructors : List (Node Elm.Syntax.Type.ValueConstructor) -> String -> Context -> Context
+registerCustomTypeWithConstructors constructors customTypeName context =
+    { context
+        | exposedUnions =
+            { name = customTypeName
+            , comment = ""
+
+            -- TODO Get the args from the type. Not useful now but useful when we will provide type information
+            , args = []
+            , tags =
+                constructors
+                    -- TODO Get the constructor args from the type. Not useful now but useful when we will provide type information
+                    |> List.map (\(Node _ { name }) -> ( Node.value name, [] ))
+            }
+                :: context.exposedUnions
+    }
+
+
+registerCustomTypeWithoutConstructors : String -> Context -> Context
+registerCustomTypeWithoutConstructors customTypeName context =
+    { context
+        | exposedUnions =
+            { name = customTypeName
+            , comment = ""
+
+            -- TODO Get the args from the type. Not useful now but useful when we will provide type information
+            , args = []
+            , tags = []
+            }
+                :: context.exposedUnions
+    }
 
 
 registerExposedTypeAlias : String -> Context -> Context
@@ -923,7 +951,7 @@ registerExposedBinop function name innerContext =
 
 registerIfExposed : (Context -> Context) -> String -> Context -> Context
 registerIfExposed registerFn name innerContext =
-    if innerContext.exposesEverything || Set.member name innerContext.exposedNames then
+    if innerContext.exposesEverything || Dict.member name innerContext.exposedNames then
         registerFn innerContext
 
     else
@@ -998,24 +1026,24 @@ moduleDefinitionVisitor (Node _ node) innerContext =
             { innerContext | exposedNames = exposedElements list }
 
 
-exposedElements : List (Node Exposing.TopLevelExpose) -> Set String
+exposedElements : List (Node Exposing.TopLevelExpose) -> Dict String Bool
 exposedElements nodes =
     List.foldl
         (\(Node _ node) acc ->
             case node of
                 Exposing.FunctionExpose name ->
-                    Set.insert name acc
+                    Dict.insert name False acc
 
                 Exposing.TypeOrAliasExpose name ->
-                    Set.insert name acc
+                    Dict.insert name False acc
 
-                Exposing.TypeExpose { name } ->
-                    Set.insert name acc
+                Exposing.TypeExpose { name, open } ->
+                    Dict.insert name (open /= Nothing) acc
 
                 Exposing.InfixExpose name ->
-                    Set.insert name acc
+                    Dict.insert name False acc
         )
-        Set.empty
+        Dict.empty
         nodes
 
 
