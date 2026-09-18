@@ -4,6 +4,7 @@ module Review.RequestedData exposing (RequestedData(..), combine, combineJust, n
 type RequestedData
     = RequestedData
         { moduleNameLookupTable : Bool
+        , sourceCodeExtractor : Bool
         , ignoredFiles : Bool
         , ignoredFixes : Bool
         , files : List { files : List { pattern : String, included : Bool }, excludedDirectories : List String }
@@ -14,6 +15,7 @@ none : RequestedData
 none =
     RequestedData
         { moduleNameLookupTable = False
+        , sourceCodeExtractor = False
         , ignoredFiles = False
         , ignoredFixes = False
         , files = []
@@ -48,6 +50,7 @@ combineJust : RequestedData -> RequestedData -> RequestedData
 combineJust (RequestedData a) (RequestedData b) =
     RequestedData
         { moduleNameLookupTable = a.moduleNameLookupTable || b.moduleNameLookupTable
+        , sourceCodeExtractor = a.sourceCodeExtractor || b.sourceCodeExtractor
         , ignoredFiles = a.ignoredFiles || b.ignoredFiles
         , ignoredFixes = a.ignoredFixes || b.ignoredFixes
         , files = a.files ++ b.files
