@@ -396,7 +396,6 @@ import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModu
 import Review.Project.Valid as ValidProject exposing (ValidProject)
 import Review.RequestedData as RequestedData exposing (RequestedData(..))
 import Review.WorkList as WorkList
-import Set exposing (Set)
 import Unicode
 import Vendor.Graph as Graph
 import Vendor.IntSet as IntSet
@@ -1466,7 +1465,7 @@ mergeModuleVisitorsHelp ruleName_ initialProjectContext moduleContextCreator vis
             , moduleKey = ModuleKey "dummy"
             , moduleDocumentation = Nothing
             , isModuleExposed = Nothing
-            , exposed = { exposesAll = True, exposed = Set.empty }
+            , exposed = { exposesAll = True, exposed = Dict.empty }
             , moduleNameLookupTable = ModuleNameLookupTableInternal.empty []
             , extractSourceCode = \() _ -> "dummy"
             , filePath = "dummy file path"
@@ -5706,15 +5705,6 @@ computeModuleWithRuleVisitors initialProject module_ inputRuleModuleVisitors req
     ( project, List.append rulesNotToRun outputRuleProjectVisitors )
 
 
-collectExposed : Elm.Docs.Module -> Set String
-collectExposed docs =
-    Set.empty
-        |> addNamesFrom docs.unions
-        |> addNamesFrom docs.aliases
-        |> addNamesFrom docs.values
-        |> addNamesFrom docs.binops
-
-
 exposesAll : Elm.Syntax.File.File -> Bool
 exposesAll ast =
     case Module.exposingList (Node.value ast.moduleDefinition) of
@@ -5725,10 +5715,27 @@ exposesAll ast =
             False
 
 
-addNamesFrom : List { a | name : String } -> Set String -> Set String
+collectExposed : Elm.Docs.Module -> Dict String Bool
+collectExposed docs =
+    Dict.empty
+        |> addUnions docs.unions
+        |> addNamesFrom docs.aliases
+        |> addNamesFrom docs.values
+        |> addNamesFrom docs.binops
+
+
+addNamesFrom : List { a | name : String } -> Dict String Bool -> Dict String Bool
 addNamesFrom list initial =
     List.foldl
-        (\a set -> Set.insert a.name set)
+        (\a dict -> Dict.insert a.name False dict)
+        initial
+        list
+
+
+addUnions : List Elm.Docs.Union -> Dict String Bool -> Dict String Bool
+addUnions list initial =
+    List.foldl
+        (\union dict -> Dict.insert union.name (not (List.isEmpty union.tags)) dict)
         initial
         list
 
@@ -5794,7 +5801,7 @@ computeModuleNameLookupTable (RequestedData requestedData) project module_ =
 
 dummyExposed : Exposed
 dummyExposed =
-    { exposesAll = False, exposed = Set.empty }
+    { exposesAll = False, exposed = Dict.empty }
 
 
 findFixInComputeModuleResults :
@@ -7782,7 +7789,7 @@ then
     --> Nothing
 
 -}
-withExposed : ContextCreator { exposesAll : Bool, exposed : Set String } (from -> to) -> ContextCreator from to
+withExposed : ContextCreator { exposesAll : Bool, exposed : Dict String Bool } (from -> to) -> ContextCreator from to
 withExposed (ContextCreator fn (RequestedData requested)) =
     ContextCreator
         (\data isFileIgnored isFileFixable -> fn data isFileIgnored isFileFixable data.exposed)
@@ -7904,7 +7911,7 @@ type alias AvailableData =
 
 type alias Exposed =
     { exposesAll : Bool
-    , exposed : Set String
+    , exposed : Dict String Bool
     }
 
 
