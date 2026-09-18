@@ -240,16 +240,20 @@ fromProjectToModule =
 
                 exposedCustomTypesWithConstructors : Set String
                 exposedCustomTypesWithConstructors =
-                    Dict.foldl
-                        (\name exposesConstructors set ->
-                            if exposesConstructors then
-                                Set.insert name set
-
-                            else
-                                set
-                        )
+                    if exposesAll then
                         Set.empty
-                        exposed
+
+                    else
+                        Dict.foldl
+                            (\name exposesConstructors set ->
+                                if exposesConstructors then
+                                    Set.insert name set
+
+                                else
+                                    set
+                            )
+                            Set.empty
+                            exposed
             in
             { lookupTable = lookupTable
             , currentModuleName = moduleNameAsString
