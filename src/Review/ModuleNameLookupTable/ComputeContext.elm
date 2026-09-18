@@ -20,7 +20,7 @@ type alias Context =
     , importedTypes : Dict String ModuleName
     , modules : Dict ModuleName Elm.Docs.Module
     , exposesEverything : Bool
-    , exposedNames : Set String
+    , exposedNames : Dict String Bool
     , exposedUnions : List Elm.Docs.Union
     , exposedAliases : List Elm.Docs.Alias
     , exposedValues : List Elm.Docs.Value
