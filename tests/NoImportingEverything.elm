@@ -12,7 +12,6 @@ import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Exposing as Exposing
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Import exposing (Import)
-import Elm.Syntax.Module as Module exposing (Module)
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern as Pattern exposing (Pattern, QualifiedNameRef)
@@ -115,15 +114,35 @@ initialContext =
 fromProjectToModule : Rule.ContextCreator ProjectContext ModuleContext
 fromProjectToModule =
     Rule.initContextCreator
-        (\lookupTable constructorToType ->
+        (\lookupTable { exposesAll, exposed } constructorToType ->
+            let
+                exposedTypes : ExposedTypes
+                exposedTypes =
+                    if exposesAll then
+                        ExposesAll
+
+                    else
+                        Dict.foldl
+                            (\key exposesConstructors set ->
+                                if exposesConstructors then
+                                    Set.insert key set
+
+                                else
+                                    set
+                            )
+                            Set.empty
+                            exposed
+                            |> ExposesConstructorsOf
+            in
             { lookupTable = lookupTable
             , importsExposingAll = Dict.empty
-            , exposedTypes = ExposesAll
+            , exposedTypes = exposedTypes
             , constructorToType = constructorToType
             , localConstructorToType = Dict.empty
             }
         )
         |> Rule.withModuleNameLookupTable
+        |> Rule.withExposed
 
 
 fromModuleToProject : Rule.ContextCreator ModuleContext ProjectContext
@@ -182,36 +201,10 @@ moduleVisitor :
     -> Rule.ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } ModuleContext
 moduleVisitor exceptions schema =
     schema
-        |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
         |> Rule.withImportVisitor (importVisitor <| exceptionsToSet exceptions)
         |> Rule.withDeclarationEnterVisitor declarationVisitor
         |> Rule.withExpressionEnterVisitor (\node context -> ( [], expressionVisitor node context ))
         |> Rule.withFinalModuleEvaluation finalEvaluation
-
-
-moduleDefinitionVisitor : Node Module -> ModuleContext -> ( List empty, ModuleContext )
-moduleDefinitionVisitor (Node _ module_) context =
-    case Module.exposingList module_ of
-        Exposing.All _ ->
-            ( [], { context | exposedTypes = ExposesAll } )
-
-        Exposing.Explicit list ->
-            let
-                constructors : Set String
-                constructors =
-                    List.foldl
-                        (\(Node _ item) acc ->
-                            case item of
-                                Exposing.TypeExpose { name } ->
-                                    Set.insert name acc
-
-                                _ ->
-                                    acc
-                        )
-                        Set.empty
-                        list
-            in
-            ( [], { context | exposedTypes = ExposesConstructorsOf constructors } )
 
 
 exceptionsToSet : List String -> Set ModuleName
