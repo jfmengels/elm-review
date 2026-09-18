@@ -3167,7 +3167,7 @@ type annotation.
                 Nothing
 
     declarationVisitor : Node Declaration -> ExposedFunctions -> ( List (Rule.Error {}), ExposedFunctions )
-    declarationVisitor node direction context =
+    declarationVisitor node context =
         case Node.value node of
             Declaration.FunctionDeclaration { documentation, declaration } ->
                 let
