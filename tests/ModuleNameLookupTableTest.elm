@@ -26,7 +26,7 @@ all : Test
 all =
     describe "ModuleNameLookupTable"
         [ moduleNameAtTest
-        , fullModuleNameAtest
+        , fullModuleNameAtTest
         , dependenciesTest
         ]
 
@@ -382,8 +382,8 @@ fn =
         ]
 
 
-fullModuleNameAtest : Test
-fullModuleNameAtest =
+fullModuleNameAtTest : Test
+fullModuleNameAtTest =
     describe "ModuleNameLookupTable.fullModuleNameAt"
         [ test "should return the module that defined the value" <|
             \() ->
