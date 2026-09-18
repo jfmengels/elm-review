@@ -9,9 +9,7 @@ module NoUnused.CustomTypeConstructorArgs exposing (rule)
 import Array exposing (Array)
 import Dict exposing (Dict)
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
-import Elm.Syntax.Exposing as Exposing exposing (Exposing)
 import Elm.Syntax.Expression as Expression exposing (Expression)
-import Elm.Syntax.Module as Module exposing (Module)
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern as Pattern exposing (Pattern)
@@ -120,7 +118,6 @@ type alias ModuleConstructors =
 
 type alias ModuleContext =
     { lookupTable : ModuleNameLookupTable
-    , exposed : Exposing
     , dependencyModules : Set ModuleName
     , customTypeArgs : List ( TypeName, Dict ConstructorName { nameRange : Range, args : List Range } )
     , unusedArgumentsInPatterns :
@@ -159,7 +156,6 @@ type alias ConstructorName =
 moduleVisitor : Rule.ModuleRuleSchema {} ModuleContext -> Rule.ModuleRuleSchema { hasAtLeastOneVisitor : () } ModuleContext
 moduleVisitor schema =
     schema
-        |> Rule.withModuleDefinitionVisitor (\node context -> ( [], moduleDefinitionVisitor node context ))
         |> Rule.withDeclarationEnterVisitor (\node context -> ( [], declarationVisitor node context ))
         |> Rule.withExpressionEnterVisitor (\node context -> ( [], expressionVisitor node context ))
 
@@ -197,7 +193,6 @@ fromProjectToModule =
         (\lookupTable projectContext ->
             { lookupTable = lookupTable
             , dependencyModules = projectContext.dependencyModules
-            , exposed = Exposing.Explicit []
             , customTypeArgs = []
             , unusedArgumentsInPatterns = Dict.empty
             , constructorsNotToReport = Set.empty
@@ -211,13 +206,13 @@ fromProjectToModule =
 fromModuleToProject : Rule.ContextCreator ModuleContext ProjectContext
 fromModuleToProject =
     Rule.initContextCreator
-        (\moduleKey moduleName isModuleExposed moduleContext ->
+        (\moduleKey moduleName isModuleExposed { exposesAll, exposed } moduleContext ->
             { dependencyModules = Set.empty
             , constructorsPerModule =
                 Dict.singleton
                     moduleName
                     { moduleKey = moduleKey
-                    , constructors = getNonPublicConstructors (Maybe.withDefault False isModuleExposed) moduleContext
+                    , constructors = getNonPublicConstructors (Maybe.withDefault False isModuleExposed) exposesAll exposed moduleContext
                     }
             , unusedArgumentsInPatterns = Dict.map (\_ args -> Maybe.map (\args_ -> [ { moduleKey = moduleKey, args = args_ } ]) args) moduleContext.unusedArgumentsInPatterns
             , constructorsNotToReport = moduleContext.constructorsNotToReport
@@ -227,60 +222,49 @@ fromModuleToProject =
         |> Rule.withModuleKey
         |> Rule.withModuleName
         |> Rule.withIsModuleExposed
+        |> Rule.withExposed
 
 
 {-| Get all custom types from the module whose constructors are not part of the public API of the package.
 If the module is private or the project is an application, then all open custom types are collected.
 -}
-getNonPublicConstructors : Bool -> ModuleContext -> Dict ConstructorName { nameRange : Range, args : List Range }
-getNonPublicConstructors isModuleExposed moduleContext =
+getNonPublicConstructors : Bool -> Bool -> Dict TypeNameS Bool -> ModuleContext -> Dict ConstructorName { nameRange : Range, args : List Range }
+getNonPublicConstructors isModuleExposed exposesAll exposed moduleContext =
     if isModuleExposed then
-        case moduleContext.exposed of
-            Exposing.All _ ->
+        if exposesAll then
+            Dict.empty
+
+        else
+            let
+                exposedCustomTypes : Set TypeNameS
+                exposedCustomTypes =
+                    Dict.foldl
+                        (\typeName isOpen set ->
+                            if isOpen then
+                                Set.insert typeName set
+
+                            else
+                                set
+                        )
+                        Set.empty
+                        exposed
+            in
+            List.foldl
+                (\( TypeName typeName, args ) acc ->
+                    if Set.member typeName exposedCustomTypes then
+                        acc
+
+                    else
+                        Dict.union args acc
+                )
                 Dict.empty
-
-            Exposing.Explicit exposed ->
-                let
-                    exposedCustomTypes : Set TypeNameS
-                    exposedCustomTypes =
-                        collectExposedTypes exposed
-                in
-                List.foldl
-                    (\( TypeName typeName, args ) acc ->
-                        if Set.member typeName exposedCustomTypes then
-                            acc
-
-                        else
-                            Dict.union args acc
-                    )
-                    Dict.empty
-                    moduleContext.customTypeArgs
+                moduleContext.customTypeArgs
 
     else
         List.foldl
             (\( _, args ) acc -> Dict.union args acc)
             Dict.empty
             moduleContext.customTypeArgs
-
-
-collectExposedTypes : List (Node Exposing.TopLevelExpose) -> Set String
-collectExposedTypes exposed =
-    List.foldl
-        (\(Node _ exp) set ->
-            case exp of
-                Exposing.TypeExpose { name, open } ->
-                    case open of
-                        Just _ ->
-                            Set.insert name set
-
-                        Nothing ->
-                            set
-
-                _ ->
-                    set
-        )
-        Set.empty
-        exposed
 
 
 foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext
@@ -326,15 +310,6 @@ mergeFunctionCallsWithArguments new previous =
         )
         previous
         new
-
-
-
--- MODULE DEFINITION VISITOR
-
-
-moduleDefinitionVisitor : Node Module -> ModuleContext -> ModuleContext
-moduleDefinitionVisitor (Node _ node) moduleContext =
-    { moduleContext | exposed = Module.exposingList node }
 
 
 isNever : ModuleNameLookupTable -> Node TypeAnnotation -> Bool
