@@ -808,7 +808,7 @@ registerDeclaration (Node declarationRange declaration) innerContext =
                 )
                 { innerContext | localTypes = Set.insert name innerContext.localTypes }
                 customType.constructors
-                |> registerIfExposed (\ctx -> registerExposedCustomType customType.constructors name ctx) name
+                |> registerExposedCustomType customType.constructors name
 
         Declaration.PortDeclaration signature ->
             let
@@ -875,20 +875,24 @@ registerExposedValue function name innerContext =
 
 registerExposedCustomType : List (Node Elm.Syntax.Type.ValueConstructor) -> String -> Context -> Context
 registerExposedCustomType constructors customTypeName innerContext =
-    { innerContext
-        | exposedUnions =
-            { name = customTypeName
-            , comment = ""
+    if innerContext.exposesEverything || Set.member customTypeName innerContext.exposedNames then
+        { innerContext
+            | exposedUnions =
+                { name = customTypeName
+                , comment = ""
 
-            -- TODO Get the args from the type. Not useful now but useful when we will provide type information
-            , args = []
-            , tags =
-                constructors
-                    -- TODO Get the constructor args from the type. Not useful now but useful when we will provide type information
-                    |> List.map (\(Node _ { name }) -> ( Node.value name, [] ))
-            }
-                :: innerContext.exposedUnions
-    }
+                -- TODO Get the args from the type. Not useful now but useful when we will provide type information
+                , args = []
+                , tags =
+                    constructors
+                        -- TODO Get the constructor args from the type. Not useful now but useful when we will provide type information
+                        |> List.map (\(Node _ { name }) -> ( Node.value name, [] ))
+                }
+                    :: innerContext.exposedUnions
+        }
+
+    else
+        innerContext
 
 
 registerExposedTypeAlias : String -> Context -> Context
