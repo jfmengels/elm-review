@@ -8,9 +8,7 @@ module NoUnused.CustomTypeConstructorArgs exposing (rule)
 
 import Dict exposing (Dict)
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
-import Elm.Syntax.Exposing as Exposing exposing (Exposing)
 import Elm.Syntax.Expression as Expression exposing (Expression)
-import Elm.Syntax.Module as Module exposing (Module)
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern as Pattern exposing (Pattern)
@@ -102,7 +100,6 @@ type alias ProjectContext =
 
 type alias ModuleContext =
     { lookupTable : ModuleNameLookupTable
-    , exposed : Exposing
     , customTypeArgs : List ( String, Dict String (List Range) )
     , usedArguments : Dict ( ModuleName, String ) (Set Int)
     , customTypesNotToReport : Set ( ModuleName, String )
@@ -112,7 +109,6 @@ type alias ModuleContext =
 moduleVisitor : Rule.ModuleRuleSchema {} ModuleContext -> Rule.ModuleRuleSchema { hasAtLeastOneVisitor : () } ModuleContext
 moduleVisitor schema =
     schema
-        |> Rule.withModuleDefinitionVisitor (\node context -> ( [], moduleDefinitionVisitor node context ))
         |> Rule.withDeclarationEnterVisitor (\node context -> ( [], declarationVisitor node context ))
         |> Rule.withExpressionEnterVisitor (\node context -> ( [], expressionVisitor node context ))
 
@@ -130,7 +126,6 @@ fromProjectToModule =
     Rule.initContextCreator
         (\lookupTable _ ->
             { lookupTable = lookupTable
-            , exposed = Exposing.Explicit []
             , customTypeArgs = []
             , usedArguments = Dict.empty
             , customTypesNotToReport = Set.empty
@@ -142,12 +137,12 @@ fromProjectToModule =
 fromModuleToProject : Rule.ContextCreator ModuleContext ProjectContext
 fromModuleToProject =
     Rule.initContextCreator
-        (\moduleKey moduleName isModuleExposed moduleContext ->
+        (\moduleKey moduleName isModuleExposed { exposesAll, exposed } moduleContext ->
             { customTypeArgs =
                 Dict.singleton
                     moduleName
                     { moduleKey = moduleKey
-                    , args = getNonExposedCustomTypes (Maybe.withDefault False isModuleExposed) moduleContext
+                    , args = getNonExposedCustomTypes (Maybe.withDefault False isModuleExposed) exposesAll exposed moduleContext
                     }
             , usedArguments = replaceLocalModuleNameForDict moduleName moduleContext.usedArguments
             , customTypesNotToReport = replaceLocalModuleNameForSet moduleName moduleContext.customTypesNotToReport
@@ -156,6 +151,7 @@ fromModuleToProject =
         |> Rule.withModuleKey
         |> Rule.withModuleName
         |> Rule.withIsModuleExposed
+        |> Rule.withExposed
 
 
 replaceLocalModuleNameForSet : ModuleName -> Set ( ModuleName, comparable ) -> Set ( ModuleName, comparable )
@@ -192,44 +188,24 @@ replaceLocalModuleNameForDict moduleName dict =
         dict
 
 
-getNonExposedCustomTypes : Bool -> ModuleContext -> Dict String (List Range)
-getNonExposedCustomTypes isModuleExposed moduleContext =
+getNonExposedCustomTypes : Bool -> Bool -> Dict String Bool -> ModuleContext -> Dict String (List Range)
+getNonExposedCustomTypes isModuleExposed exposesAll exposed moduleContext =
     if isModuleExposed then
-        case moduleContext.exposed of
-            Exposing.All _ ->
-                Dict.empty
+        if exposesAll then
+            Dict.empty
 
-            Exposing.Explicit list ->
-                let
-                    exposedCustomTypes : Set String
-                    exposedCustomTypes =
-                        List.foldl
-                            (\exposed acc ->
-                                case Node.value exposed of
-                                    Exposing.TypeExpose { name, open } ->
-                                        case open of
-                                            Just _ ->
-                                                Set.insert name acc
-
-                                            Nothing ->
-                                                acc
-
-                                    _ ->
-                                        acc
-                            )
-                            Set.empty
-                            list
-                in
-                List.foldl
-                    (\( typeName, args ) acc ->
-                        if Set.member typeName exposedCustomTypes then
+        else
+            List.foldl
+                (\( typeName, args ) acc ->
+                    case Dict.get typeName exposed of
+                        Just True ->
                             acc
 
-                        else
+                        _ ->
                             Dict.union args acc
-                    )
-                    Dict.empty
-                    moduleContext.customTypeArgs
+                )
+                Dict.empty
+                moduleContext.customTypeArgs
 
     else
         List.foldl
@@ -258,15 +234,6 @@ foldProjectContexts newContext previousContext =
             newContext.usedArguments
     , customTypesNotToReport = Set.union newContext.customTypesNotToReport previousContext.customTypesNotToReport
     }
-
-
-
--- MODULE DEFINITION VISITOR
-
-
-moduleDefinitionVisitor : Node Module -> ModuleContext -> ModuleContext
-moduleDefinitionVisitor node moduleContext =
-    { moduleContext | exposed = Module.exposingList (Node.value node) }
 
 
 isNotNever : ModuleNameLookupTable -> Node TypeAnnotation -> Bool
