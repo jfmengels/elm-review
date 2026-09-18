@@ -14,8 +14,8 @@
         "Review.Fix.FixProblem",
         "Review.Test",
         "Review.Test.Dependencies",
-        "Review.TypeInference.Type",
         "Review.Options",
+        "Elm.TypeInference.Type",
         "TypeLookupTable"
     ],
     "elm-version": "0.19.0 <= v < 0.20.0",
