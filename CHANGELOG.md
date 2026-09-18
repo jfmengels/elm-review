@@ -292,10 +292,6 @@ This release contains HUGE performance updates. `elm-review` should now run quit
 - Adds [`Review.Rule.filterErrorsForFiles`](https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule#filterErrorsForFiles) ([#115](https://github.com/jfmengels/elm-review/pull/115)) (thanks [@jiegillet](https://github.com/jiegillet)!)
 
 
-## Missing changelog
-
-Help would be appreciated to fill the blanks!
-
 [`NoDeprecated`]: https://package.elm-lang.org/packages/jfmengels/elm-review-common/latest/NoDeprecated
 [`Review.Rule.withIsFileIgnored`]: https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule#withIsFileIgnored
 [`Review.Rule.withRuleId`]: https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule#withRuleId
