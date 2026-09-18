@@ -775,7 +775,7 @@ registerDeclaration (Node declarationRange declaration) innerContext =
             in
             innerContext
                 |> addToScope name
-                |> registerIfExposed (\name_ ctx -> registerExposedValue function name_ ctx) name
+                |> registerIfExposed (\ctx -> registerExposedValue function name ctx) name
 
         Declaration.AliasDeclaration alias ->
             let
@@ -794,16 +794,21 @@ registerDeclaration (Node declarationRange declaration) innerContext =
             in
             { innerContext | localTypes = Set.insert name innerContext.localTypes }
                 |> registerAlias
-                |> registerIfExposed registerExposedTypeAlias name
+                |> registerIfExposed (\ctx -> registerExposedTypeAlias name ctx) name
 
-        Declaration.CustomTypeDeclaration { name, constructors } ->
+        Declaration.CustomTypeDeclaration customType ->
+            let
+                name : String
+                name =
+                    Node.value customType.name
+            in
             List.foldl
                 (\(Node _ constructor) innerContext_ ->
                     addToScope (Node.value constructor.name) innerContext_
                 )
-                { innerContext | localTypes = Set.insert (Node.value name) innerContext.localTypes }
-                constructors
-                |> registerIfExposed (\name_ ctx -> registerExposedCustomType constructors name_ ctx) (Node.value name)
+                { innerContext | localTypes = Set.insert name innerContext.localTypes }
+                customType.constructors
+                |> registerIfExposed (\ctx -> registerExposedCustomType customType.constructors name ctx) name
 
         Declaration.PortDeclaration signature ->
             let
@@ -814,8 +819,8 @@ registerDeclaration (Node declarationRange declaration) innerContext =
             innerContext
                 |> addToScope name
                 |> registerIfExposed
-                    (\name_ ctx ->
-                        registerExposedValue { documentation = Nothing, signature = Just (Node declarationRange signature) } name_ ctx
+                    (\ctx ->
+                        registerExposedValue { documentation = Nothing, signature = Just (Node declarationRange signature) } name ctx
                     )
                     name
 
@@ -828,8 +833,8 @@ registerDeclaration (Node declarationRange declaration) innerContext =
             innerContext
                 |> addToScope name
                 |> registerIfExposed
-                    (\name_ ctx ->
-                        registerExposedBinop { documentation = Nothing, signature = Nothing } name_ ctx
+                    (\ctx ->
+                        registerExposedBinop { documentation = Nothing, signature = Nothing } name ctx
                     )
                     name
 
@@ -912,10 +917,10 @@ registerExposedBinop function name innerContext =
     }
 
 
-registerIfExposed : (String -> Context -> Context) -> String -> Context -> Context
+registerIfExposed : (Context -> Context) -> String -> Context -> Context
 registerIfExposed registerFn name innerContext =
     if innerContext.exposesEverything || Set.member name innerContext.exposedNames then
-        registerFn name innerContext
+        registerFn innerContext
 
     else
         innerContext
