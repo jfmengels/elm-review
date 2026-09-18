@@ -766,30 +766,35 @@ registerDeclaration (Node declarationRange declaration) innerContext =
     case declaration of
         Declaration.FunctionDeclaration function ->
             let
-                nameNode : Node String
-                nameNode =
+                name : String
+                name =
                     function.declaration
                         |> Node.value
                         |> .name
+                        |> Node.value
             in
             innerContext
-                |> addToScope (Node.value nameNode)
-                |> registerIfExposed (\name ctx -> registerExposedValue function name ctx) nameNode
+                |> addToScope name
+                |> registerIfExposed (\name_ ctx -> registerExposedValue function name_ ctx) name
 
         Declaration.AliasDeclaration alias ->
             let
+                name : String
+                name =
+                    Node.value alias.name
+
                 registerAlias : Context -> Context
                 registerAlias ctx =
                     case Node.value alias.typeAnnotation of
                         TypeAnnotation.Record _ ->
-                            addToScope (Node.value alias.name) ctx
+                            addToScope name ctx
 
                         _ ->
                             ctx
             in
-            { innerContext | localTypes = Set.insert (Node.value alias.name) innerContext.localTypes }
+            { innerContext | localTypes = Set.insert name innerContext.localTypes }
                 |> registerAlias
-                |> registerIfExposed registerExposedTypeAlias alias.name
+                |> registerIfExposed registerExposedTypeAlias name
 
         Declaration.CustomTypeDeclaration { name, constructors } ->
             List.foldl
@@ -798,25 +803,35 @@ registerDeclaration (Node declarationRange declaration) innerContext =
                 )
                 { innerContext | localTypes = Set.insert (Node.value name) innerContext.localTypes }
                 constructors
-                |> registerIfExposed (\customTypeName ctx -> registerExposedCustomType constructors customTypeName ctx) name
+                |> registerIfExposed (\name_ ctx -> registerExposedCustomType constructors name_ ctx) (Node.value name)
 
         Declaration.PortDeclaration signature ->
+            let
+                name : String
+                name =
+                    Node.value signature.name
+            in
             innerContext
-                |> addToScope (Node.value signature.name)
+                |> addToScope name
                 |> registerIfExposed
-                    (\name ctx ->
-                        registerExposedValue { documentation = Nothing, signature = Just (Node declarationRange signature) } name ctx
+                    (\name_ ctx ->
+                        registerExposedValue { documentation = Nothing, signature = Just (Node declarationRange signature) } name_ ctx
                     )
-                    signature.name
+                    name
 
         Declaration.InfixDeclaration infix_ ->
+            let
+                name : String
+                name =
+                    Node.value infix_.operator
+            in
             innerContext
-                |> addToScope (Node.value infix_.operator)
+                |> addToScope name
                 |> registerIfExposed
-                    (\name ctx ->
-                        registerExposedBinop { documentation = Nothing, signature = Nothing } name ctx
+                    (\name_ ctx ->
+                        registerExposedBinop { documentation = Nothing, signature = Nothing } name_ ctx
                     )
-                    infix_.operator
+                    name
 
         Declaration.Destructuring _ _ ->
             -- Not possible in 0.19 code
@@ -897,8 +912,8 @@ registerExposedBinop function name innerContext =
     }
 
 
-registerIfExposed : (String -> Context -> Context) -> Node String -> Context -> Context
-registerIfExposed registerFn (Node _ name) innerContext =
+registerIfExposed : (String -> Context -> Context) -> String -> Context -> Context
+registerIfExposed registerFn name innerContext =
     if innerContext.exposesEverything || Set.member name innerContext.exposedNames then
         registerFn name innerContext
 
