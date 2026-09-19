@@ -677,8 +677,13 @@ reviewV4 :
 reviewV4 reviewOptions rules project =
     case getValidProjectAndRules project rules of
         Ok ( validProject, ruleProjectVisitors ) ->
-            runRules reviewOptions ruleProjectVisitors validProject
-                |> ReviewV4_Success
+            if List.any projectVisitorRequestsTypes ruleProjectVisitors then
+                runRules reviewOptions ruleProjectVisitors validProject
+                    |> ReviewV4_Success
+
+            else
+                runRules reviewOptions ruleProjectVisitors validProject
+                    |> ReviewV4_Success
 
         Err errors ->
             ReviewV4_Success
@@ -688,6 +693,11 @@ reviewV4 reviewOptions rules project =
                 , extracts = Dict.empty
                 , fixedErrors = Dict.empty
                 }
+
+
+projectVisitorRequestsTypes : RuleProjectVisitor -> Bool
+projectVisitorRequestsTypes (RuleProjectVisitor ruleProjectVisitor) =
+    RequestedData.types ruleProjectVisitor.requestedData
 
 
 getValidProjectAndRules : Project -> List Rule -> Result (List ReviewError) ( ValidProject, List RuleProjectVisitor )

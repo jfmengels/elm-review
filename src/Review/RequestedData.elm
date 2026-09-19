@@ -1,6 +1,7 @@
 module Review.RequestedData exposing
     ( RequestedData(..)
     , none, withFiles
+    , types
     , combine, combineJust
     )
 
@@ -16,6 +17,7 @@ module Review.RequestedData exposing
 
 ## Inspect
 
+@docs types
 @docs combine, combineJust
 
 -}
@@ -51,6 +53,11 @@ withFiles files ((RequestedData requested) as untouched) =
 
     else
         RequestedData { requested | files = files }
+
+
+types : RequestedData -> Bool
+types (RequestedData requestedData) =
+    requestedData.types
 
 
 combine : Maybe RequestedData -> Maybe RequestedData -> RequestedData
