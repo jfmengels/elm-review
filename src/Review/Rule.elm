@@ -30,7 +30,7 @@ module Review.Rule exposing
     , ignoreErrorsFor, ignoreErrorsForDirectories, ignoreErrorsForFiles, filterErrorsForFiles
     , ignoreFixesFor
     , withDataExtractor, preventExtract
-    , reviewV3, reviewV2, review, ProjectData, ruleName, ruleProvidesFixes, ruleKnowsAboutIgnoredFiles, ruleRequestedFiles, withRuleId, getConfigurationError
+    , ReviewV4Output, reviewV4, reviewV3, reviewV2, review, ProjectData, ruleName, ruleProvidesFixes, ruleKnowsAboutIgnoredFiles, ruleRequestedFiles, withRuleId, getConfigurationError
     , ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFilePath, errorTarget, errorFixesV2, errorFixProblem
     , Required, Forbidden
     , errorFixes, errorFixFailure
@@ -315,7 +315,7 @@ find the tools to extract data below.
 
 # Running rules
 
-@docs reviewV3, reviewV2, review, ProjectData, ruleName, ruleProvidesFixes, ruleKnowsAboutIgnoredFiles, ruleRequestedFiles, withRuleId, getConfigurationError
+@docs ReviewV4Output, reviewV4, reviewV3, reviewV2, review, ProjectData, ruleName, ruleProvidesFixes, ruleKnowsAboutIgnoredFiles, ruleRequestedFiles, withRuleId, getConfigurationError
 
 @docs ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFilePath, errorTarget, errorFixesV2, errorFixProblem
 
@@ -660,6 +660,37 @@ reviewV3 reviewOptions rules project =
             , extracts = Dict.empty
             , fixedErrors = Dict.empty
             }
+
+
+type ReviewV4Output
+    = ReviewV4_Success
+        { errors : List ReviewError
+        , rules : List Rule
+        , project : Project
+        , extracts : Dict String Encode.Value
+        , fixedErrors : Dict String (List ReviewError)
+        }
+
+
+reviewV4 :
+    ReviewOptions
+    -> List Rule
+    -> Project
+    -> ReviewV4Output
+reviewV4 reviewOptions rules project =
+    case getValidProjectAndRules project rules of
+        Ok ( validProject, ruleProjectVisitors ) ->
+            runRules reviewOptions ruleProjectVisitors validProject
+                |> ReviewV4_Success
+
+        Err errors ->
+            ReviewV4_Success
+                { errors = errors
+                , rules = rules
+                , project = project
+                , extracts = Dict.empty
+                , fixedErrors = Dict.empty
+                }
 
 
 getValidProjectAndRules : Project -> List Rule -> Result (List ReviewError) ( ValidProject, List RuleProjectVisitor )
