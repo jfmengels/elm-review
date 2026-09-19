@@ -5737,6 +5737,10 @@ computeModuleWithRuleVisitors project0 module_ inputRuleModuleVisitors (Requeste
                     Just dependencyEnv_ ->
                         case Review.Types.Compute.computeModule dependencyEnv_ interfaces module_ of
                             Ok ( table, updatesInterfaces ) ->
+                                let
+                                    _ =
+                                        Debug.log "Computing" True
+                                in
                                 ( table
                                 , -- TODOStore interface back into project
                                   project1
@@ -5748,9 +5752,17 @@ computeModuleWithRuleVisitors project0 module_ inputRuleModuleVisitors (Requeste
                                 Debug.todo ("ERROR: " ++ Debug.toString err)
 
                     Nothing ->
+                        let
+                            _ =
+                                Debug.log "Computing" ( False, 0 )
+                        in
                         ( TypeLookupTable.empty, project1 )
 
             else
+                let
+                    _ =
+                        Debug.log "Computing" ( False, 1 )
+                in
                 ( TypeLookupTable.empty, project1 )
 
         ast : File
