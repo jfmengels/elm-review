@@ -678,8 +678,16 @@ reviewV4 reviewOptions rules project =
     case getValidProjectAndRules project rules of
         Ok ( validProject, ruleProjectVisitors ) ->
             if List.any ruleRequestsTypeInference ruleProjectVisitors then
-                runRules reviewOptions ruleProjectVisitors validProject
-                    |> ReviewV4_Success
+                -- TODO Remove interfaces from typeData? And if so, rename.
+                case ValidProject.typeInferenceProject validProject of
+                    Just _ ->
+                        -- TODO Recompute when elm.json is necessary
+                        runRules reviewOptions ruleProjectVisitors validProject
+                            |> ReviewV4_Success
+
+                    Nothing ->
+                        runRules reviewOptions ruleProjectVisitors validProject
+                            |> ReviewV4_Success
 
             else
                 runRules reviewOptions ruleProjectVisitors validProject
@@ -5685,10 +5693,10 @@ computeModuleWithRuleVisitors project0 module_ inputRuleModuleVisitors (Requeste
                                 TypeInference.inferModule (ProjectModule.moduleName module_) typeInferenceProject
                         in
                         -- TODO Store interface back into project
+                        -- TODO Store/handle error
                         ( Result.withDefault TypeLookupTable.empty table_, project1 )
 
                     Nothing ->
-                        -- TODO Store/handle error
                         ( TypeLookupTable.empty, project1 )
 
             else
