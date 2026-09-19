@@ -12,6 +12,7 @@ import NoUnused.Variables
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Options
 import Review.Project as Project exposing (Project)
+import Review.Project.Internal
 import Review.Project.Valid as Valid
 import Review.Rule as Rule exposing (Rule)
 import Review.Test.Dependencies
@@ -58,7 +59,7 @@ a = value
                 let
                     clearModuleDocsCache : Project -> Project
                     clearModuleDocsCache project_ =
-                        case Valid.parse project_ of
+                        case Valid.parse False project_ of
                             Err error ->
                                 Debug.todo ("Project could not be parsed: " ++ Debug.toString error)
 

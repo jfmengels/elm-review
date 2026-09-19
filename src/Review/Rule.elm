@@ -518,7 +518,7 @@ to compare them or the model that holds them.
 -}
 review : List Rule -> Project -> ( List ReviewError, List Rule )
 review rules project =
-    case ValidProject.parse project of
+    case ValidProject.parse (List.any ruleRequestsTypes rules) project of
         Err (InvalidProjectError.SomeModulesFailedToParse pathsThatFailedToParse) ->
             ( [ parsingError pathsThatFailedToParse ], rules )
 
@@ -799,6 +799,11 @@ reviewV4 reviewOptions rules project =
                 }
 
 
+ruleRequestsTypes : Rule -> Bool
+ruleRequestsTypes (Rule rule) =
+    RequestedData.types rule.requestedData
+
+
 type ValidProjectAndRulesResult
     = ValidProjectAndRulesSuccess ( ValidProject, List RuleProjectVisitor )
     | ValidProjectAndRulesError (List ReviewError)
@@ -809,7 +814,7 @@ getValidProjectAndRules : Project -> List Rule -> ValidProjectAndRulesResult
 getValidProjectAndRules project rules =
     case checkForConfigurationErrors rules [] of
         Ok ruleProjectVisitors ->
-            case getValidProject project of
+            case getValidProject (List.any ruleRequestsTypes rules) project of
                 GotValidProject validProject ->
                     ValidProjectAndRulesSuccess ( validProject, List.map (\f -> f validProject) ruleProjectVisitors )
 
@@ -877,9 +882,9 @@ type GetValidProjectResult
     | GotValidProjectNeedPackageSources (Dict PackageName (List String))
 
 
-getValidProject : Project -> GetValidProjectResult
-getValidProject project =
-    case ValidProject.parse project of
+getValidProject : Bool -> Project -> GetValidProjectResult
+getValidProject requestsTypeInformation project =
+    case ValidProject.parse requestsTypeInformation project of
         Err (InvalidProjectError.SomeModulesFailedToParse pathsThatFailedToParse) ->
             GotValidProjectError [ parsingError pathsThatFailedToParse ]
 
