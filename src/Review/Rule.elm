@@ -680,8 +680,13 @@ reviewV4 :
 reviewV4 reviewOptions rules project =
     case getValidProjectAndRules project rules of
         Ok ( validProject, ruleProjectVisitors ) ->
-            runRules reviewOptions ruleProjectVisitors validProject
-                |> ReviewV4_Success
+            if List.any ruleRequestsTypeInference ruleProjectVisitors then
+                runRules reviewOptions ruleProjectVisitors validProject
+                    |> ReviewV4_Success
+
+            else
+                runRules reviewOptions ruleProjectVisitors validProject
+                    |> ReviewV4_Success
 
         Err errors ->
             ReviewV4_Success
@@ -691,6 +696,15 @@ reviewV4 reviewOptions rules project =
                 , extracts = Dict.empty
                 , fixedErrors = Dict.empty
                 }
+
+
+ruleRequestsTypeInference : RuleProjectVisitor -> Bool
+ruleRequestsTypeInference (RuleProjectVisitor ruleProjectVisitor) =
+    let
+        (RequestedData requestedData) =
+            ruleProjectVisitor.requestedData
+    in
+    requestedData.typeLookupTable
 
 
 getValidProjectAndRules : Project -> List Rule -> Result (List ReviewError) ( ValidProject, List RuleProjectVisitor )
