@@ -53,6 +53,11 @@ neededPackages deps sources =
                     Nothing
 
                 else if List.any (\ref -> not (Set.member ref docsModules)) (docsModuleRefs pkg.modules) then
+                    let
+                        _ =
+                            List.filter (\ref -> not (Set.member ref docsModules)) (docsModuleRefs pkg.modules)
+                                |> Debug.log "Unknown refs"
+                    in
                     Just package
 
                 else
