@@ -80,7 +80,7 @@ type alias ValidProjectData =
     , edgeChanges : Dict ModuleId (List Internal.EdgeChange)
     , moduleIds : ModuleIds
     , workList : WorkList
-    , typeInferenceProject : Maybe TypeInference.Project
+    , typeInferenceProject : TypeInference.Project
     }
 
 
@@ -116,8 +116,8 @@ computeModulesByModuleName modules =
         modules
 
 
-parse : Project -> Result InvalidProjectError ValidProject
-parse ((Project p) as project) =
+parse : Bool -> Project -> Result InvalidProjectError ValidProject
+parse requestsTypeInformation ((Project p) as project) =
     if not (Dict.isEmpty p.modulesThatFailedToParse) then
         Err (InvalidProjectError.SomeModulesFailedToParse (Dict.keys p.modulesThatFailedToParse))
 
@@ -159,21 +159,25 @@ parse ((Project p) as project) =
                             |> Err
 
                     Ok ( moduleGraph, sortedModules ) ->
-                        -- TODO Avoid computing type information if not requested
-                        case
-                            Review.Types.Compute.computeDeps
-                                p.dependencies
-                                (Dict.keys p.directDependencies)
-                                p.dependencyFiles
-                                (Maybe.andThen (\( elmJson_, _ ) -> packageName elmJson_.project) p.elmJson)
-                                (Dict.foldl (\_ m dict -> Dict.insert (ProjectModule.moduleName m) (ProjectModule.ast m) dict) Dict.empty p.modulesByPath)
-                        of
-                            Ok typeInferenceProject_ ->
-                                fromProjectAndGraph moduleGraph sortedModules typeInferenceProject_ project
-                                    |> Ok
+                        if requestsTypeInformation then
+                            case
+                                Review.Types.Compute.computeDeps
+                                    p.dependencies
+                                    (Dict.keys p.directDependencies)
+                                    p.dependencyFiles
+                                    (Maybe.andThen (\( elmJson_, _ ) -> packageName elmJson_.project) p.elmJson)
+                                    (Dict.foldl (\_ m dict -> Dict.insert (ProjectModule.moduleName m) (ProjectModule.ast m) dict) Dict.empty p.modulesByPath)
+                            of
+                                Ok typeInferenceProject_ ->
+                                    fromProjectAndGraph moduleGraph sortedModules (Just typeInferenceProject_) project
+                                        |> Ok
 
-                            Err neededPackageSources ->
-                                Err (InvalidProjectError.NeedPackageSources neededPackageSources)
+                                Err neededPackageSources ->
+                                    Err (InvalidProjectError.NeedPackageSources neededPackageSources)
+
+                        else
+                            fromProjectAndGraph moduleGraph sortedModules Nothing project
+                                |> Ok
 
 
 packageName : Elm.Project.Project -> Maybe String
@@ -186,7 +190,7 @@ packageName elmJson_ =
             Nothing
 
 
-fromProjectAndGraph : Graph FilePath -> List (Graph.NodeContext FilePath) -> TypeInference.Project -> Project -> ValidProject
+fromProjectAndGraph : Graph FilePath -> List (Graph.NodeContext FilePath) -> Maybe TypeInference.Project -> Project -> ValidProject
 fromProjectAndGraph moduleGraph sortedModules typeInferenceProject_ (Project project) =
     let
         extraFilesContentHash : ContentHash
@@ -217,7 +221,7 @@ fromProjectAndGraph moduleGraph sortedModules typeInferenceProject_ (Project pro
         , edgeChanges = Dict.empty
         , moduleIds = project.moduleIds
         , workList = WorkList.recomputeModules moduleGraph sortedModules project.workList
-        , typeInferenceProject = Just typeInferenceProject_
+        , typeInferenceProject = Maybe.withDefault TypeInference.empty typeInferenceProject_
         }
 
 
@@ -401,7 +405,7 @@ updateProjectCache projectCache_ (ValidProject project) =
     ValidProject { project | projectCache = projectCache_ }
 
 
-typeInferenceProject : ValidProject -> Maybe TypeInference.Project
+typeInferenceProject : ValidProject -> TypeInference.Project
 typeInferenceProject (ValidProject validProject) =
     validProject.typeInferenceProject
 

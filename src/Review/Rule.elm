@@ -36,7 +36,7 @@ module Review.Rule exposing
     , ignoreErrorsFor, ignoreErrorsForDirectories, ignoreErrorsForFiles, filterErrorsForFiles
     , ignoreFixesFor
     , withDataExtractor, preventExtract
-    , ReviewV4Output(..), reviewV4, reviewV3, reviewV2, review, ProjectData, ruleName, ruleProvidesFixes, ruleKnowsAboutIgnoredFiles, ruleRequestedFiles, withRuleId, getConfigurationError
+    , ReviewV4Output(..), reviewV4, reviewV3, reviewV2, review, ProjectData, ruleName, ruleProvidesFixes, ruleKnowsAboutIgnoredFiles, ruleRequestedFiles, ruleRequestedTypes, withRuleId, getConfigurationError
     , ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFilePath, errorTarget, errorFixesV2, errorFixProblem
     , Required, Forbidden
     , errorFixes, errorFixFailure
@@ -327,7 +327,7 @@ find the tools to extract data below.
 
 # Running rules
 
-@docs ReviewV4Output, reviewV4, reviewV3, reviewV2, review, ProjectData, ruleName, ruleProvidesFixes, ruleKnowsAboutIgnoredFiles, ruleRequestedFiles, withRuleId, getConfigurationError
+@docs ReviewV4Output, reviewV4, reviewV3, reviewV2, review, ProjectData, ruleName, ruleProvidesFixes, ruleKnowsAboutIgnoredFiles, ruleRequestedFiles, ruleRequestedTypes, withRuleId, getConfigurationError
 
 @docs ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFilePath, errorTarget, errorFixesV2, errorFixProblem
 
@@ -518,7 +518,7 @@ to compare them or the model that holds them.
 -}
 review : List Rule -> Project -> ( List ReviewError, List Rule )
 review rules project =
-    case ValidProject.parse project of
+    case ValidProject.parse False project of
         Err (InvalidProjectError.SomeModulesFailedToParse pathsThatFailedToParse) ->
             ( [ parsingError pathsThatFailedToParse ], rules )
 
@@ -740,6 +740,16 @@ reviewV4 reviewOptions rules project =
                 }
 
 
+projectVisitorRequestsTypes : RuleProjectVisitor -> Bool
+projectVisitorRequestsTypes (RuleProjectVisitor ruleProjectVisitor) =
+    RequestedData.types ruleProjectVisitor.requestedData
+
+
+ruleRequestsTypes : Rule -> Bool
+ruleRequestsTypes (Rule rule) =
+    RequestedData.types rule.requestedData
+
+
 type ValidProjectAndRulesResult
     = ValidProjectAndRulesSuccess ( ValidProject, List RuleProjectVisitor )
     | ValidProjectAndRulesError (List ReviewError)
@@ -750,7 +760,7 @@ getValidProjectAndRules : Project -> List Rule -> ValidProjectAndRulesResult
 getValidProjectAndRules project rules =
     case checkForConfigurationErrors rules [] of
         Ok ruleProjectVisitors ->
-            case getValidProject project of
+            case getValidProject (List.any ruleRequestsTypes rules) project of
                 GotValidProject validProject ->
                     ValidProjectAndRulesSuccess ( validProject, List.map (\f -> f validProject) ruleProjectVisitors )
 
@@ -818,9 +828,9 @@ type GetValidProjectResult
     | GotValidProjectNeedPackageSources (Dict PackageName (List String))
 
 
-getValidProject : Project -> GetValidProjectResult
-getValidProject project =
-    case ValidProject.parse project of
+getValidProject : Bool -> Project -> GetValidProjectResult
+getValidProject requestsTypeInformation project =
+    case ValidProject.parse requestsTypeInformation project of
         Err (InvalidProjectError.SomeModulesFailedToParse pathsThatFailedToParse) ->
             GotValidProjectError [ parsingError pathsThatFailedToParse ]
 
@@ -1055,6 +1065,16 @@ ruleRequestedFiles (Rule rule) =
             rule.requestedData
     in
     requestedData.files
+
+
+{-| Check if the rule requests types.
+
+You should not have to use this when writing a rule.
+
+-}
+ruleRequestedTypes : Rule -> Bool
+ruleRequestedTypes (Rule rule) =
+    RequestedData.types rule.requestedData
 
 
 {-| Assign an id to a rule. This id should be unique.
@@ -1610,25 +1630,6 @@ mergeModuleVisitorsHelp ruleName_ initialProjectContext moduleContextCreator vis
         |> removeExtensibleRecordFromModuleRuleSchema
     , moduleContextCreator
     )
-
-
-emptyTypeInferenceProject : () -> TypeInference.Project
-emptyTypeInferenceProject () =
-    case
-        TypeInference.init
-            { directDependencies = []
-            , allDependencies = []
-            , sourcesToResolveAmbiguity = Dict.empty
-            , projectPackageName = Nothing
-            , projectFiles = Dict.empty
-            }
-    of
-        Ok p ->
-            p
-
-        Err _ ->
-            -- TODO Do this cleaner
-            emptyTypeInferenceProject ()
 
 
 {-| Add a visitor to the [`ProjectRuleSchema`](#ProjectRuleSchema) which will
@@ -5771,12 +5772,7 @@ computeModuleWithRuleVisitors initialProject module_ inputRuleModuleVisitors (Re
 
         typeInferenceProject : TypeInference.Project
         typeInferenceProject =
-            case ValidProject.typeInferenceProject project of
-                Just p ->
-                    p
-
-                Nothing ->
-                    emptyTypeInferenceProject ()
+            ValidProject.typeInferenceProject project
 
         availableData : AvailableData
         availableData =

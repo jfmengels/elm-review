@@ -183,6 +183,7 @@ type alias SuccessfulRunData =
     , extract : ExtractResult
     , allErrors : List ReviewError
     , project : ProjectInternals
+    , requestsTypes : Bool
     }
 
 
@@ -506,6 +507,7 @@ runOnModulesWithProjectDataHelp project rule sources =
                                     , extract = extract
                                     , allErrors = errors
                                     , project = unwrappedProject
+                                    , requestsTypes = Rule.ruleRequestedTypes rule
                                     }
                                     (AttemptReRun rule projectWithModules)
 
@@ -856,7 +858,7 @@ expectGlobalAndLocalErrors { global, local } reviewResult =
         FailedRun errorMessage ->
             Expect.fail errorMessage
 
-        SuccessfulRun { foundGlobalErrors, runResults, extract, allErrors, project } reRun ->
+        SuccessfulRun { foundGlobalErrors, runResults, extract, allErrors, project, requestsTypes } reRun ->
             Expect.all
                 [ \() ->
                     if List.isEmpty global then
@@ -864,6 +866,7 @@ expectGlobalAndLocalErrors { global, local } reviewResult =
 
                     else
                         checkAllGlobalErrorsMatch
+                            requestsTypes
                             project
                             (List.length global)
                             { expected = List.map (\{ message, details } -> { message = message, details = details, fixes = Dict.empty }) global
@@ -876,7 +879,7 @@ expectGlobalAndLocalErrors { global, local } reviewResult =
                     else
                         case runResults of
                             runResult :: [] ->
-                                checkAllErrorsMatch project runResult local
+                                checkAllErrorsMatch requestsTypes project runResult local
 
                             _ ->
                                 Expect.fail FailureMessage.needToUsedExpectErrorsForModules
@@ -1040,8 +1043,8 @@ maybeCons mapper maybe list =
             list
 
 
-checkErrorsForModules : ProjectInternals -> List ( String, List ExpectedError ) -> List SuccessfulRunResult -> Expectation
-checkErrorsForModules project expectedErrorsList runResults =
+checkErrorsForModules : Bool -> ProjectInternals -> List ( String, List ExpectedError ) -> List SuccessfulRunResult -> Expectation
+checkErrorsForModules requestsTypes project expectedErrorsList runResults =
     let
         unknownModules : List String
         unknownModules =
@@ -1057,12 +1060,12 @@ checkErrorsForModules project expectedErrorsList runResults =
 
         [] ->
             Expect.all
-                (checkErrorsForModuleFiles project expectedErrorsList runResults)
+                (checkErrorsForModuleFiles requestsTypes project expectedErrorsList runResults)
                 ()
 
 
-checkErrorsForModuleFiles : ProjectInternals -> List ( String, List ExpectedError ) -> List SuccessfulRunResult -> List (() -> Expectation)
-checkErrorsForModuleFiles project expectedErrorsList runResults =
+checkErrorsForModuleFiles : Bool -> ProjectInternals -> List ( String, List ExpectedError ) -> List SuccessfulRunResult -> List (() -> Expectation)
+checkErrorsForModuleFiles requestsTypes project expectedErrorsList runResults =
     List.map
         (\runResult () ->
             let
@@ -1077,7 +1080,7 @@ checkErrorsForModuleFiles project expectedErrorsList runResults =
                 checkNoErrorForModuleRunResult runResult
 
             else
-                checkAllErrorsMatch project runResult expectedErrors
+                checkAllErrorsMatch requestsTypes project runResult expectedErrors
         )
         runResults
 
@@ -1706,8 +1709,8 @@ matchingConfidenceLevel codeInspector expectedErrorDetails reviewError =
                     3
 
 
-checkAllErrorsMatch : ProjectInternals -> SuccessfulRunResult -> List ExpectedError -> Expectation
-checkAllErrorsMatch project runResult unorderedExpectedErrors =
+checkAllErrorsMatch : Bool -> ProjectInternals -> SuccessfulRunResult -> List ExpectedError -> Expectation
+checkAllErrorsMatch requestsTypes project runResult unorderedExpectedErrors =
     let
         ( expectedErrors, reviewErrors ) =
             reorderErrors
@@ -1719,12 +1722,12 @@ checkAllErrorsMatch project runResult unorderedExpectedErrors =
                 }
     in
     Expect.all
-        (List.reverse (checkErrorsMatch project runResult expectedErrors (List.length expectedErrors) reviewErrors))
+        (List.reverse (checkErrorsMatch requestsTypes project runResult expectedErrors (List.length expectedErrors) reviewErrors))
         ()
 
 
-checkGlobalErrorsMatch : ProjectInternals -> Int -> { expected : List GlobalError, actual : List ReviewError, needSecondPass : List GlobalError } -> Expectation
-checkGlobalErrorsMatch project originalNumberOfExpectedErrors params =
+checkGlobalErrorsMatch : Bool -> ProjectInternals -> Int -> { expected : List GlobalError, actual : List ReviewError, needSecondPass : List GlobalError } -> Expectation
+checkGlobalErrorsMatch requestsTypes project originalNumberOfExpectedErrors params =
     case params.expected of
         head :: rest ->
             case findAndRemove (\error_ -> Rule.errorMessage error_ == head.message && Rule.errorDetails error_ == head.details) params.actual of
@@ -1744,15 +1747,15 @@ checkGlobalErrorsMatch project originalNumberOfExpectedErrors params =
                                     |> Expect.fail
 
                             Ok fixes_ ->
-                                case checkAllFixesMatch project target matchedError head.fixes (Maybe.withDefault [] fixes_) of
+                                case checkAllFixesMatch requestsTypes project target matchedError head.fixes (Maybe.withDefault [] fixes_) of
                                     Err failure ->
                                         Expect.fail failure
 
                                     Ok () ->
-                                        checkGlobalErrorsMatch project originalNumberOfExpectedErrors { expected = rest, actual = newActual, needSecondPass = params.needSecondPass }
+                                        checkGlobalErrorsMatch requestsTypes project originalNumberOfExpectedErrors { expected = rest, actual = newActual, needSecondPass = params.needSecondPass }
 
                 Nothing ->
-                    checkGlobalErrorsMatch project originalNumberOfExpectedErrors { expected = rest, actual = params.actual, needSecondPass = head :: params.needSecondPass }
+                    checkGlobalErrorsMatch requestsTypes project originalNumberOfExpectedErrors { expected = rest, actual = params.actual, needSecondPass = head :: params.needSecondPass }
 
         [] ->
             case params.actual of
@@ -1812,20 +1815,20 @@ failBecauseExpectedErrorCouldNotBeFound expectedError ( firstActual, restOfActua
                 |> Expect.fail
 
 
-checkAllGlobalErrorsMatch : ProjectInternals -> Int -> { expected : List GlobalError, actual : List ReviewError } -> Expectation
-checkAllGlobalErrorsMatch project originalNumberOfExpectedErrors params =
-    checkGlobalErrorsMatch project originalNumberOfExpectedErrors { expected = params.expected, actual = params.actual, needSecondPass = [] }
+checkAllGlobalErrorsMatch : Bool -> ProjectInternals -> Int -> { expected : List GlobalError, actual : List ReviewError } -> Expectation
+checkAllGlobalErrorsMatch requestsTypes project originalNumberOfExpectedErrors params =
+    checkGlobalErrorsMatch requestsTypes project originalNumberOfExpectedErrors { expected = params.expected, actual = params.actual, needSecondPass = [] }
 
 
-checkErrorsMatch : ProjectInternals -> SuccessfulRunResult -> List ExpectedError -> Int -> List ReviewError -> List (() -> Expectation)
-checkErrorsMatch project runResult expectedErrors expectedNumberOfErrors errors =
+checkErrorsMatch : Bool -> ProjectInternals -> SuccessfulRunResult -> List ExpectedError -> Int -> List ReviewError -> List (() -> Expectation)
+checkErrorsMatch requestsTypes project runResult expectedErrors expectedNumberOfErrors errors =
     case ( expectedErrors, errors ) of
         ( [], [] ) ->
             [ always Expect.pass ]
 
         ( expected :: restOfExpectedErrors, error_ :: restOfErrors ) ->
-            checkErrorMatch project runResult expected error_
-                :: checkErrorsMatch project runResult restOfExpectedErrors expectedNumberOfErrors restOfErrors
+            checkErrorMatch requestsTypes project runResult expected error_
+                :: checkErrorsMatch requestsTypes project runResult restOfExpectedErrors expectedNumberOfErrors restOfErrors
 
         ( _ :: _, [] ) ->
             [ \() ->
@@ -1842,8 +1845,8 @@ checkErrorsMatch project runResult expectedErrors expectedNumberOfErrors errors 
             ]
 
 
-checkErrorMatch : ProjectInternals -> SuccessfulRunResult -> ExpectedError -> ReviewError -> (() -> Expectation)
-checkErrorMatch project runResult (ExpectedError expectedError) error_ =
+checkErrorMatch : Bool -> ProjectInternals -> SuccessfulRunResult -> ExpectedError -> ReviewError -> (() -> Expectation)
+checkErrorMatch requestsTypes project runResult (ExpectedError expectedError) error_ =
     let
         target : FailureMessage.Target
         target =
@@ -1877,7 +1880,7 @@ checkErrorMatch project runResult (ExpectedError expectedError) error_ =
 
         -- Error fixes
         , \() -> checkFixesHaveNoProblem target error_
-        , \() -> checkFixesAreCorrect project target runResult.moduleName error_ expectedError
+        , \() -> checkFixesAreCorrect requestsTypes project target runResult.moduleName error_ expectedError
         ]
 
 
@@ -1941,8 +1944,8 @@ checkFixesHaveNoProblem target ((ReviewError err) as error_) =
             Expect.pass
 
 
-checkFixesAreCorrect : ProjectInternals -> FailureMessage.Target -> String -> ReviewError -> ExpectedErrorDetails -> Expectation
-checkFixesAreCorrect project target moduleName ((ReviewError err) as error_) expectedError =
+checkFixesAreCorrect : Bool -> ProjectInternals -> FailureMessage.Target -> String -> ReviewError -> ExpectedErrorDetails -> Expectation
+checkFixesAreCorrect requestsTypes project target moduleName ((ReviewError err) as error_) expectedError =
     case err.fixes of
         Err fixProblem ->
             FailureMessage.fixProblem target fixProblem error_
@@ -1979,6 +1982,7 @@ checkFixesAreCorrect project target moduleName ((ReviewError err) as error_) exp
 
                 ComesFromWhenFixed fixedSource ->
                     checkAllFixesMatch
+                        requestsTypes
                         project
                         (FailureMessage.Module moduleName)
                         error_
@@ -1988,6 +1992,7 @@ checkFixesAreCorrect project target moduleName ((ReviewError err) as error_) exp
 
                 ComesFromShouldFixFiles expectedFixes ->
                     checkAllFixesMatch
+                        requestsTypes
                         project
                         (FailureMessage.Module moduleName)
                         error_
@@ -2006,14 +2011,14 @@ resultToFailure result =
             Expect.fail failure
 
 
-checkAllFixesMatch : ProjectInternals -> FailureMessage.Target -> ReviewError -> Dict String ExpectedFix -> List ( FileTarget, ErrorFixes.FixKind ) -> Result String ()
-checkAllFixesMatch project target error_ expectedFixed fixes =
+checkAllFixesMatch : Bool -> ProjectInternals -> FailureMessage.Target -> ReviewError -> Dict String ExpectedFix -> List ( FileTarget, ErrorFixes.FixKind ) -> Result String ()
+checkAllFixesMatch requestsTypes project target error_ expectedFixed fixes =
     case checkFixesMatch project target error_ expectedFixed fixes of
         Err failure ->
             Err failure
 
         Ok newProject ->
-            case ValidProject.parse (Review.Project.Internal.Project newProject) of
+            case ValidProject.parse requestsTypes (Review.Project.Internal.Project newProject) of
                 Err (InvalidProjectError.ImportCycleError files) ->
                     FailureMessage.fixProblem target (FixProblem.CreatesImportCycle files) error_
                         |> Err
@@ -2466,7 +2471,7 @@ expect expectations reviewResult =
         FailedRun errorMessage ->
             Expect.fail errorMessage
 
-        SuccessfulRun { foundGlobalErrors, runResults, extract, allErrors, project } reRun ->
+        SuccessfulRun { foundGlobalErrors, runResults, extract, allErrors, project, requestsTypes } reRun ->
             let
                 expected : CompiledExpectations
                 expected =
@@ -2478,8 +2483,8 @@ expect expectations reviewResult =
                         checkNoGlobalErrors foundGlobalErrors
 
                     else
-                        checkAllGlobalErrorsMatch project (List.length expected.globals) { expected = expected.globals, actual = foundGlobalErrors }
-                , \() -> checkErrorsForModules project expected.modules runResults
+                        checkAllGlobalErrorsMatch requestsTypes project (List.length expected.globals) { expected = expected.globals, actual = foundGlobalErrors }
+                , \() -> checkErrorsForModules requestsTypes project expected.modules runResults
                 , \() ->
                     case expected.dataExtract of
                         NoDataExtractExpected ->
