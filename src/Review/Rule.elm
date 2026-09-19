@@ -5742,9 +5742,10 @@ computeModuleWithRuleVisitors project0 module_ inputRuleModuleVisitors (Requeste
                                   project1
                                 )
 
-                            Err _ ->
+                            Err err ->
                                 -- TODO Store/handle error
-                                ( TypeLookupTable.empty, project1 )
+                                -- ( TypeLookupTable.empty, project1 )
+                                Debug.todo ("ERROR: " ++ Debug.toString err)
 
                     Nothing ->
                         ( TypeLookupTable.empty, project1 )
