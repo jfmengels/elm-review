@@ -30,7 +30,7 @@ module Review.Rule exposing
     , ignoreErrorsFor, ignoreErrorsForDirectories, ignoreErrorsForFiles, filterErrorsForFiles
     , ignoreFixesFor
     , withDataExtractor, preventExtract
-    , ReviewV4Output, reviewV4, reviewV3, reviewV2, review, ProjectData, ruleName, ruleProvidesFixes, ruleKnowsAboutIgnoredFiles, ruleRequestedFiles, withRuleId, getConfigurationError
+    , ReviewV4Output(..), reviewV4, reviewV3, reviewV2, review, ProjectData, ruleName, ruleProvidesFixes, ruleKnowsAboutIgnoredFiles, ruleRequestedFiles, withRuleId, getConfigurationError
     , ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFilePath, errorTarget, errorFixesV2, errorFixProblem
     , Required, Forbidden
     , errorFixes, errorFixFailure
