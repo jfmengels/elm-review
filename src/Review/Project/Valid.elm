@@ -74,7 +74,7 @@ type alias ValidProjectData =
     , edgeChanges : Dict ModuleId (List Internal.EdgeChange)
     , moduleIds : ModuleIds
     , workList : WorkList
-    , dependencyEnv : TypeInference.DependencyEnv
+    , dependencyEnv : Maybe TypeInference.DependencyEnv
     , interfaces : Dict ModuleName TypeInference.ModuleInterface
     }
 
@@ -153,20 +153,11 @@ parse ((Project p) as project) =
                             |> Err
 
                     Ok ( moduleGraph, sortedModules ) ->
-                        case Review.Types.Compute.computeDeps p.dependencies (Dict.keys p.directDependencies) of
-                            TypeInference.Ready dependencyEnv ->
-                                Ok (fromProjectAndGraph moduleGraph sortedModules dependencyEnv project)
-
-                            TypeInference.NeedSources sources ->
-                                Debug.todo ("Sources: " ++ Debug.toString sources)
-
-                            TypeInference.Failed _ ->
-                                -- TODO
-                                Err InvalidProjectError.NoModulesError
+                        Ok (fromProjectAndGraph moduleGraph sortedModules project)
 
 
-fromProjectAndGraph : Graph FilePath -> List (Graph.NodeContext FilePath) -> TypeInference.DependencyEnv -> Project -> ValidProject
-fromProjectAndGraph moduleGraph sortedModules dependencyEnv (Project project) =
+fromProjectAndGraph : Graph FilePath -> List (Graph.NodeContext FilePath) -> Project -> ValidProject
+fromProjectAndGraph moduleGraph sortedModules (Project project) =
     let
         extraFilesContentHash : ContentHash
         extraFilesContentHash =
@@ -194,7 +185,7 @@ fromProjectAndGraph moduleGraph sortedModules dependencyEnv (Project project) =
         , edgeChanges = Dict.empty
         , moduleIds = project.moduleIds
         , workList = WorkList.recomputeModules moduleGraph sortedModules project.workList
-        , dependencyEnv = dependencyEnv
+        , dependencyEnv = Nothing
         , interfaces = Dict.empty
         }
 
@@ -341,10 +332,15 @@ updateProjectCache projectCache_ (ValidProject project) =
 
 
 typeData : ValidProject -> { dependencyEnv : TypeInference.DependencyEnv, interfaces : Dict ModuleName TypeInference.ModuleInterface }
-typeData (ValidProject validProject) =
-    { dependencyEnv = validProject.dependencyEnv
-    , interfaces = validProject.interfaces
+typeData (ValidProject project) =
+    { dependencyEnv = project.dependencyEnv
+    , interfaces = project.interfaces
     }
+
+
+setDependencyEnv : TypeInference.DependencyEnv -> ValidProject -> ValidProject
+setDependencyEnv dependencyEnv (ValidProject project) =
+    ValidProject { project | dependencyEnv = Just dependencyEnv }
 
 
 workList : ValidProject -> WorkList
