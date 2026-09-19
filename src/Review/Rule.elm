@@ -681,8 +681,35 @@ reviewV4 reviewOptions rules project =
     case getValidProjectAndRules project rules of
         Ok ( validProject, ruleProjectVisitors ) ->
             if List.any ruleRequestsTypeInference ruleProjectVisitors then
-                runRules reviewOptions ruleProjectVisitors validProject
-                    |> ReviewV4_Success
+                -- TODO Remove interfaces from typeData? And if so, rename.
+                case (ValidProject.typeData validProject).dependencyEnv of
+                    Just _ ->
+                        -- TODO Recompute when elm.json is necessary
+                        runRules reviewOptions ruleProjectVisitors validProject
+                            |> ReviewV4_Success
+
+                    Nothing ->
+                        case
+                            Review.Types.Compute.computeDeps
+                                (ValidProject.dependencies validProject)
+                                (Dict.keys (ValidProject.directDependencies validProject))
+                        of
+                            TypeInference.Ready dependencyEnv ->
+                                runRules reviewOptions ruleProjectVisitors (ValidProject.setDependencyEnv dependencyEnv validProject)
+                                    |> ReviewV4_Success
+
+                            TypeInference.NeedSources sources ->
+                                Debug.todo ("Sources: " ++ Debug.toString sources)
+
+                            TypeInference.Failed _ ->
+                                ReviewV4_Success
+                                    { -- TODO Return an error
+                                      errors = []
+                                    , rules = rules
+                                    , project = project
+                                    , extracts = Dict.empty
+                                    , fixedErrors = Dict.empty
+                                    }
 
             else
                 runRules reviewOptions ruleProjectVisitors validProject
@@ -5705,15 +5732,20 @@ computeModuleWithRuleVisitors project0 module_ inputRuleModuleVisitors (Requeste
 
         ( typeLookupTable, project2 ) =
             if requestedData.typeLookupTable then
-                case Review.Types.Compute.computeModule dependencyEnv interfaces module_ of
-                    Ok ( table, updatesInterfaces ) ->
-                        ( table
-                        , -- TODOStore interface back into project
-                          project1
-                        )
+                case dependencyEnv of
+                    Just dependencyEnv_ ->
+                        case Review.Types.Compute.computeModule dependencyEnv_ interfaces module_ of
+                            Ok ( table, updatesInterfaces ) ->
+                                ( table
+                                , -- TODOStore interface back into project
+                                  project1
+                                )
 
-                    Err _ ->
-                        -- TODO Store/handle error
+                            Err _ ->
+                                -- TODO Store/handle error
+                                ( TypeLookupTable.empty, project1 )
+
+                    Nothing ->
                         ( TypeLookupTable.empty, project1 )
 
             else

@@ -26,6 +26,7 @@ module Review.Project.Valid exposing
     , readmeHash
     , removeExtraFile
     , removeModule
+    , setDependencyEnv
     , toRegularProject
     , typeData
     , updateProjectCache
@@ -331,7 +332,7 @@ updateProjectCache projectCache_ (ValidProject project) =
     ValidProject { project | projectCache = projectCache_ }
 
 
-typeData : ValidProject -> { dependencyEnv : TypeInference.DependencyEnv, interfaces : Dict ModuleName TypeInference.ModuleInterface }
+typeData : ValidProject -> { dependencyEnv : Maybe TypeInference.DependencyEnv, interfaces : Dict ModuleName TypeInference.ModuleInterface }
 typeData (ValidProject project) =
     { dependencyEnv = project.dependencyEnv
     , interfaces = project.interfaces
