@@ -684,6 +684,10 @@ reviewV4 reviewOptions rules project =
                 -- TODO Remove interfaces from typeData? And if so, rename.
                 case (ValidProject.typeData validProject).dependencyEnv of
                     Just _ ->
+                        let
+                            _ =
+                                Debug.log "Has DEPS" True
+                        in
                         -- TODO Recompute when elm.json is necessary
                         runRules reviewOptions ruleProjectVisitors validProject
                             |> ReviewV4_Success
@@ -695,6 +699,10 @@ reviewV4 reviewOptions rules project =
                                 (Dict.keys (ValidProject.directDependencies validProject))
                         of
                             TypeInference.Ready dependencyEnv ->
+                                let
+                                    _ =
+                                        Debug.log "Has DEPS" False
+                                in
                                 runRules reviewOptions ruleProjectVisitors (ValidProject.setDependencyEnv dependencyEnv validProject)
                                     |> ReviewV4_Success
 
@@ -713,6 +721,10 @@ reviewV4 reviewOptions rules project =
                                 Debug.todo ("Failed: " ++ Debug.toString error)
 
             else
+                let
+                    _ =
+                        Debug.log "NONE REQUESTS" True
+                in
                 runRules reviewOptions ruleProjectVisitors validProject
                     |> ReviewV4_Success
 
