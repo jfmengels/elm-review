@@ -36,4 +36,4 @@ Only exact ranges given by `Node.range` of AST nodes inside the input
 -}
 get : Range -> TypeLookupTable -> Maybe Type
 get range (Internal.TLT tlt) =
-    Dict.get (RangeLike.fromRange range) tlt
+    Dict.get (RangeLike.fromRange (Debug.log "range" range)) (Debug.log "TLT" tlt)
