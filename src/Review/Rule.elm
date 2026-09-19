@@ -5667,12 +5667,17 @@ computeModuleWithRuleVisitors project0 module_ inputRuleModuleVisitors (Requeste
                 case ValidProject.typeInferenceProject project1 of
                     Just typeInferenceProject ->
                         let
-                            ( table_, newTypeInferenceProject ) =
+                            ( tableResult, newTypeInferenceProject ) =
                                 TypeInference.inferModule (ProjectModule.moduleName module_) typeInferenceProject
                         in
-                        -- TODO Store interface back into project
-                        -- TODO Store/handle error
-                        ( Result.withDefault TypeLookupTable.empty table_, project1 )
+                        case tableResult of
+                            Ok table_ ->
+                                -- TODO Store newTypeInferenceProject back into project
+                                ( table_, project1 )
+
+                            Err err ->
+                                -- TODO Store/handle error
+                                Debug.todo ("ERROR: " ++ Debug.toString err)
 
                     Nothing ->
                         ( TypeLookupTable.empty, project1 )
