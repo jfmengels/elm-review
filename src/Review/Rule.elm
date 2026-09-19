@@ -702,14 +702,15 @@ reviewV4 reviewOptions rules project =
                                 Debug.todo ("Sources: " ++ Debug.toString sources)
 
                             TypeInference.Failed _ ->
-                                ReviewV4_Success
-                                    { -- TODO Return an error
-                                      errors = []
-                                    , rules = rules
-                                    , project = project
-                                    , extracts = Dict.empty
-                                    , fixedErrors = Dict.empty
-                                    }
+                                --ReviewV4_Success
+                                --    { -- TODO Return an error
+                                --      errors = []
+                                --    , rules = rules
+                                --    , project = project
+                                --    , extracts = Dict.empty
+                                --    , fixedErrors = Dict.empty
+                                --    }
+                                Debug.todo ("Failed: " ++ Debug.toString error)
 
             else
                 runRules reviewOptions ruleProjectVisitors validProject
