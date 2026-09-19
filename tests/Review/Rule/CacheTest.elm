@@ -56,7 +56,7 @@ a = value
                 let
                     clearModuleDocsCache : Project -> Project
                     clearModuleDocsCache project_ =
-                        case Valid.parse project_ of
+                        case Valid.parse False project_ of
                             Err error ->
                                 Debug.todo ("Project could not be parsed: " ++ Debug.toString error)
 

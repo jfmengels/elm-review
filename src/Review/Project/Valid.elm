@@ -116,8 +116,8 @@ computeModulesByModuleName modules =
         modules
 
 
-parse : Project -> Result InvalidProjectError ValidProject
-parse ((Project p) as project) =
+parse : Bool -> Project -> Result InvalidProjectError ValidProject
+parse requestsTypeInformation ((Project p) as project) =
     if not (Dict.isEmpty p.modulesThatFailedToParse) then
         Err (InvalidProjectError.SomeModulesFailedToParse (Dict.keys p.modulesThatFailedToParse))
 
@@ -159,21 +159,25 @@ parse ((Project p) as project) =
                             |> Err
 
                     Ok ( moduleGraph, sortedModules ) ->
-                        -- TODO Avoid computing type information if not requested
-                        case
-                            computeTypeInferenceProject
-                                p.dependencies
-                                (Dict.keys p.directDependencies)
-                                p.dependencyFiles
-                                (Maybe.andThen (\( elmJson_, _ ) -> packageName elmJson_.project) p.elmJson)
-                                (Dict.foldl (\_ m list -> ProjectModule.ast m :: list) [] p.modulesByPath)
-                        of
-                            Ok typeInferenceProject_ ->
-                                fromProjectAndGraph moduleGraph sortedModules typeInferenceProject_ project
-                                    |> Ok
+                        if requestsTypeInformation then
+                            case
+                                computeTypeInferenceProject
+                                    p.dependencies
+                                    (Dict.keys p.directDependencies)
+                                    p.dependencyFiles
+                                    (Maybe.andThen (\( elmJson_, _ ) -> packageName elmJson_.project) p.elmJson)
+                                    (Dict.foldl (\_ m list -> ProjectModule.ast m :: list) [] p.modulesByPath)
+                            of
+                                Ok typeInferenceProject_ ->
+                                    fromProjectAndGraph moduleGraph sortedModules (Just typeInferenceProject_) project
+                                        |> Ok
 
-                            Err invalidProjectError ->
-                                Err invalidProjectError
+                                Err invalidProjectError ->
+                                    Err invalidProjectError
+
+                        else
+                            fromProjectAndGraph moduleGraph sortedModules Nothing project
+                                |> Ok
 
 
 computeTypeInferenceProject :
@@ -242,7 +246,7 @@ packageName elmJson_ =
             Nothing
 
 
-fromProjectAndGraph : Graph FilePath -> List (Graph.NodeContext FilePath) -> TypeInference.Project -> Project -> ValidProject
+fromProjectAndGraph : Graph FilePath -> List (Graph.NodeContext FilePath) -> Maybe TypeInference.Project -> Project -> ValidProject
 fromProjectAndGraph moduleGraph sortedModules typeInferenceProject_ (Project project) =
     let
         extraFilesContentHash : ContentHash
@@ -273,7 +277,7 @@ fromProjectAndGraph moduleGraph sortedModules typeInferenceProject_ (Project pro
         , edgeChanges = Dict.empty
         , moduleIds = project.moduleIds
         , workList = WorkList.recomputeModules moduleGraph sortedModules project.workList
-        , typeInferenceProject = typeInferenceProject_
+        , typeInferenceProject = Maybe.withDefault TypeInference.empty typeInferenceProject_
         }
 
 
