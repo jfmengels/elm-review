@@ -642,15 +642,6 @@ ordToName n =
         radix =
             26
 
-        {- The functions below are stolen from fredcy/elm-parseint and tweaked
-           to work similar to:
-
-           https://en.wikipedia.org/wiki/Bijective_numeration#The_bijective_base-26_system
-        -}
-        charFromInt : Int -> Char
-        charFromInt i =
-            Char.fromCode <| i + Char.toCode 'a'
-
         go : Int -> String
         go i =
             if i < radix then
@@ -660,6 +651,17 @@ ordToName n =
                 go ((i // radix) - 1) ++ (String.fromChar <| charFromInt (modBy radix i))
     in
     go n
+
+
+{-| The functions below are stolen from fredcy/elm-parseint and tweaked
+to work similar to:
+
+<https://en.wikipedia.org/wiki/Bijective_numeration#The_bijective_base-26_system>
+
+-}
+charFromInt : Int -> Char
+charFromInt i =
+    Char.fromCode <| i + Char.toCode 'a'
 
 
 fromTypeAnnotation : TypeResolver -> TypeAnnotation -> Result FromTypeAnnotationError MonoType
