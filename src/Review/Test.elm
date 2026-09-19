@@ -463,51 +463,51 @@ runOnModulesWithProjectDataHelp project rule sources =
                         FailedRun <| FailureMessage.duplicateModuleName moduleName
 
                     Nothing ->
-                        let
-                            { errors, extracts } =
-                                Rule.reviewV3
-                                    (ReviewOptions.defaults
-                                        |> ReviewOptions.withDataExtraction True
-                                        |> ReviewOptions.withFileRemovalFixes True
-                                    )
-                                    [ rule ]
-                                    projectWithModules
-                        in
-                        case ListExtra.find (\err -> Rule.errorTarget err == Target.Global) errors of
-                            Just globalError_ ->
-                                FailedRun <| FailureMessage.globalErrorInTest globalError_
+                        case
+                            Rule.reviewV4
+                                (ReviewOptions.defaults
+                                    |> ReviewOptions.withDataExtraction True
+                                    |> ReviewOptions.withFileRemovalFixes True
+                                )
+                                [ rule ]
+                                projectWithModules
+                        of
+                            Rule.ReviewV4_Success { errors, extracts } ->
+                                case ListExtra.find (\err -> Rule.errorTarget err == Target.Global) errors of
+                                    Just globalError_ ->
+                                        FailedRun <| FailureMessage.globalErrorInTest globalError_
 
-                            Nothing ->
-                                let
-                                    extract : ExtractResult
-                                    extract =
-                                        Dict.get (Rule.ruleName rule) extracts
+                                    Nothing ->
+                                        let
+                                            extract : ExtractResult
+                                            extract =
+                                                Dict.get (Rule.ruleName rule) extracts
 
-                                    fileErrors : List SuccessfulRunResult
-                                    fileErrors =
-                                        List.concat
-                                            [ List.map (\module_ -> moduleToRunResult errors module_) modules
-                                            , elmJsonRunResult errors projectWithModules
-                                            , readmeRunResult errors projectWithModules
-                                            , extraFileRunResult errors projectWithModules
-                                            ]
+                                            fileErrors : List SuccessfulRunResult
+                                            fileErrors =
+                                                List.concat
+                                                    [ List.map (\module_ -> moduleToRunResult errors module_) modules
+                                                    , elmJsonRunResult errors projectWithModules
+                                                    , readmeRunResult errors projectWithModules
+                                                    , extraFileRunResult errors projectWithModules
+                                                    ]
 
-                                    foundGlobalErrors : List ReviewError
-                                    foundGlobalErrors =
-                                        errors
-                                            |> List.filter (\error_ -> Rule.errorTarget error_ == Target.UserGlobal)
+                                            foundGlobalErrors : List ReviewError
+                                            foundGlobalErrors =
+                                                errors
+                                                    |> List.filter (\error_ -> Rule.errorTarget error_ == Target.UserGlobal)
 
-                                    (Review.Project.Internal.Project unwrappedProject) =
-                                        projectWithModules
-                                in
-                                SuccessfulRun
-                                    { foundGlobalErrors = foundGlobalErrors
-                                    , runResults = fileErrors
-                                    , extract = extract
-                                    , allErrors = errors
-                                    , project = unwrappedProject
-                                    }
-                                    (AttemptReRun rule projectWithModules)
+                                            (Review.Project.Internal.Project unwrappedProject) =
+                                                projectWithModules
+                                        in
+                                        SuccessfulRun
+                                            { foundGlobalErrors = foundGlobalErrors
+                                            , runResults = fileErrors
+                                            , extract = extract
+                                            , allErrors = errors
+                                            , project = unwrappedProject
+                                            }
+                                            (AttemptReRun rule projectWithModules)
 
 
 hasOneElement : List a -> Bool
