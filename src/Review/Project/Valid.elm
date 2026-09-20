@@ -20,6 +20,7 @@ module Review.Project.Valid exposing
     , getModuleByModuleName
     , getModuleByPath
     , isModuleExposed
+    , modulesByModuleName
     , parse
     , projectCache
     , readme
@@ -335,6 +336,11 @@ directDependencies (ValidProject project) =
 getGraphNode : ModuleId -> ValidProject -> Maybe (Graph.NodeContext FilePath)
 getGraphNode moduleId (ValidProject project) =
     Graph.get moduleId project.moduleGraph
+
+
+modulesByModuleName : ValidProject -> Dict ModuleName OpaqueProjectModule
+modulesByModuleName (ValidProject project) =
+    project.modulesByModuleName
 
 
 getModuleByPath : FilePath -> ValidProject -> Maybe OpaqueProjectModule
