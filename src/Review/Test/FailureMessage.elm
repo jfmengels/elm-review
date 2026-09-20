@@ -11,6 +11,8 @@ module Review.Test.FailureMessage exposing
     , unexpectedExtract, missingExtract, invalidJsonForExpectedDataExtract, extractMismatch, specifiedMultipleExtracts
     , resultsAreDifferentWhenFilesAreIgnored
     , fixForUnknownFile
+    , missingInformationForTypeInference
+    , unexpectedMoreDataNeededWhenFilesAreIgnored
     )
 
 {-| Failure messages for the `Review.Test` module.
@@ -30,12 +32,15 @@ module Review.Test.FailureMessage exposing
 @docs unexpectedExtract, missingExtract, invalidJsonForExpectedDataExtract, extractMismatch, specifiedMultipleExtracts
 @docs resultsAreDifferentWhenFilesAreIgnored
 @docs fixForUnknownFile
+@docs missingInformationForTypeInference
 
 -}
 
 import Ansi
+import Dict exposing (Dict)
 import Elm.Parser as Parser
 import Elm.Syntax.Range exposing (Location, Range)
+import Elm.TypeInference.Type
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Parser
@@ -990,6 +995,20 @@ When I ignore these files:
 then """ ++ String.trim difference)
 
 
+unexpectedMoreDataNeededWhenFilesAreIgnored : String
+unexpectedMoreDataNeededWhenFilesAreIgnored =
+    failureMessage "MORE INFORMATION REQUIRED WHEN IGNORING FILES"
+        """This rule is using `Review.Rule.withIsFileIgnored`, which gives it the
+information of which files are ignored. `elm-review` adds some Expectations to
+ensure the same results are obtained even when files are ignored.
+
+When doing so, a request to get more information from dependencies occurred.
+
+This situation should in theory not happen, but here you are reading this.
+Could you kindly open an issue at https://github.com/jfmengels/elm-review
+and explain how you got to see this error? Thank you!"""
+
+
 fixForUnknownFile : String -> String
 fixForUnknownFile filePath =
     failureMessage "FOUND FIX FOR UNKNOWN FILE"
@@ -1032,6 +1051,26 @@ hasFixes error =
 
         Just _ ->
             "true"
+
+
+missingInformationForTypeInference : Dict Elm.TypeInference.Type.PackageName (List String) -> String
+missingInformationForTypeInference sources =
+    failureMessage "MISSING INFORMATION FOR TYPE INFERENCE"
+        ("""The dependencies you provided creates some ambiguity that makes it difficult to infer types correctly.
+
+Please use `Review.Project.addDependencyFiles` to resolve this.
+These are the files that are required to proceed further:
+
+"""
+            ++ (sources
+                    |> Dict.toList
+                    |> List.map
+                        (\( pkgName, paths ) ->
+                            String.join "\n  " (("Package " ++ pkgName) :: paths)
+                        )
+                    |> String.join "\n\n"
+               )
+        )
 
 
 
