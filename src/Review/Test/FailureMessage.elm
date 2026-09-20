@@ -11,6 +11,7 @@ module Review.Test.FailureMessage exposing
     , unexpectedExtract, missingExtract, invalidJsonForExpectedDataExtract, extractMismatch, specifiedMultipleExtracts
     , resultsAreDifferentWhenFilesAreIgnored
     , fixForUnknownFile
+    , missingInformationForTypeInference
     )
 
 {-| Failure messages for the `Review.Test` module.
@@ -30,12 +31,15 @@ module Review.Test.FailureMessage exposing
 @docs unexpectedExtract, missingExtract, invalidJsonForExpectedDataExtract, extractMismatch, specifiedMultipleExtracts
 @docs resultsAreDifferentWhenFilesAreIgnored
 @docs fixForUnknownFile
+@docs missingInformationForTypeInference
 
 -}
 
 import Ansi
+import Dict exposing (Dict)
 import Elm.Parser as Parser
 import Elm.Syntax.Range exposing (Location, Range)
+import Elm.TypeInference.Type
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Parser
@@ -1032,6 +1036,26 @@ hasFixes error =
 
         Just _ ->
             "true"
+
+
+missingInformationForTypeInference : Dict Elm.TypeInference.Type.PackageName (List String) -> String
+missingInformationForTypeInference sources =
+    failureMessage "MISSING INFORMATION FOR TYPE INFERENCE"
+        ("""The dependencies you provided creates some ambiguity that makes it difficult to infer types correctly.
+
+Please use `Review.Project.addDependencyFiles` to resolve this.
+These are the files that are required to proceed further:
+
+"""
+            ++ (sources
+                    |> Dict.toList
+                    |> List.map
+                        (\( pkgName, paths ) ->
+                            String.join "\n  " (("Package " ++ pkgName) :: paths)
+                        )
+                    |> String.join "\n\n"
+               )
+        )
 
 
 

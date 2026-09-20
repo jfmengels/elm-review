@@ -24,7 +24,7 @@ module Review.Rule exposing
     , withModuleName, withModuleNameNode
     , withIsInSourceDirectories, withFilePath
     , withIsFileIgnored, withIsFileFixable
-    , withModuleNameLookupTable, withModuleKey
+    , withModuleNameLookupTable, withTypes, withModuleKey
     , withFullAst, withModuleDocumentation, withIsModuleExposed, withExposed
     , withSourceCodeExtractor
     , Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix
@@ -257,7 +257,7 @@ first, as they are in practice a simpler version of project rules.
 @docs withModuleName, withModuleNameNode
 @docs withIsInSourceDirectories, withFilePath
 @docs withIsFileIgnored, withIsFileFixable
-@docs withModuleNameLookupTable, withModuleKey
+@docs withModuleNameLookupTable, withTypes, withModuleKey
 @docs withFullAst, withModuleDocumentation, withIsModuleExposed, withExposed
 @docs withSourceCodeExtractor
 
@@ -360,6 +360,9 @@ import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern exposing (Pattern)
 import Elm.Syntax.Range as Range exposing (Range)
+import Elm.TypeInference as TypeInference
+import Elm.TypeInference.InferError exposing (InferError)
+import Elm.TypeInference.Type exposing (PackageName)
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Review.Cache.ContentHash exposing (ContentHash)
@@ -536,6 +539,12 @@ review rules project =
             , rules
             )
 
+        Err (InvalidProjectError.NeedPackageSources _) ->
+            ( [ unsupportedTypeInferenceError "review" ], rules )
+
+        Err (InvalidProjectError.TypeInferenceError _) ->
+            ( [ typeInferenceError "review" ], rules )
+
         Ok validProject ->
             case checkForConfigurationErrors validProject rules [] of
                 Err configurationErrors ->
@@ -593,10 +602,16 @@ to compare them or the model that holds them.
 reviewV2 : List Rule -> Maybe ProjectData -> Project -> { errors : List ReviewError, rules : List Rule, projectData : Maybe ProjectData }
 reviewV2 rules maybeProjectData project =
     case getValidProjectAndRules project rules of
-        Ok ( validProject, ruleProjectVisitors ) ->
+        ValidProjectAndRulesSuccess ( validProject, ruleProjectVisitors ) ->
             runReviewForV2 ReviewOptions.defaults validProject ruleProjectVisitors
 
-        Err errors ->
+        ValidProjectAndRulesNeedPackageSources _ ->
+            { errors = [ unsupportedTypeInferenceError "reviewV2" ]
+            , rules = rules
+            , projectData = maybeProjectData
+            }
+
+        ValidProjectAndRulesError errors ->
             { errors = errors
             , rules = rules
             , projectData = maybeProjectData
@@ -658,16 +673,37 @@ reviewV3 :
         }
 reviewV3 reviewOptions rules project =
     case getValidProjectAndRules project rules of
-        Ok ( validProject, ruleProjectVisitors ) ->
+        ValidProjectAndRulesSuccess ( validProject, ruleProjectVisitors ) ->
             runRules reviewOptions ruleProjectVisitors validProject
 
-        Err errors ->
+        ValidProjectAndRulesNeedPackageSources _ ->
+            { errors = [ unsupportedTypeInferenceError "reviewV3" ]
+            , rules = rules
+            , project = project
+            , extracts = Dict.empty
+            , fixedErrors = Dict.empty
+            }
+
+        ValidProjectAndRulesError errors ->
             { errors = errors
             , rules = rules
             , project = project
             , extracts = Dict.empty
             , fixedErrors = Dict.empty
             }
+
+
+unsupportedTypeInferenceError : String -> ReviewError
+unsupportedTypeInferenceError entrypointFunction =
+    elmReviewGlobalError
+        { ruleName = "Outdated version of elm-review"
+        , message = "This version of the elm-review runner doesn't support type information"
+        , details =
+            [ "Some of your rules require type information, which requires a different entrypoint to be used (`Review.Rule.reviewV4` instead of `Review.Rule." ++ entrypointFunction ++ "`)."
+            , "Please update your version of the runner to one that requires `jfmengels/elm-review` v2.17.0 or newer."
+            ]
+        }
+        |> errorToReviewError
 
 
 {-| REPLACEME
@@ -680,6 +716,7 @@ type ReviewV4Output
         , extracts : Dict String Encode.Value
         , fixedErrors : Dict String (List ReviewError)
         }
+    | ReviewV4_NeedPackageSources (Dict PackageName (List String))
 
 
 {-| REPLACEME
@@ -692,11 +729,14 @@ reviewV4 :
     -> ReviewV4Output
 reviewV4 reviewOptions rules project =
     case getValidProjectAndRules project rules of
-        Ok ( validProject, ruleProjectVisitors ) ->
+        ValidProjectAndRulesSuccess ( validProject, ruleProjectVisitors ) ->
             runRules reviewOptions ruleProjectVisitors validProject
                 |> ReviewV4_Success
 
-        Err errors ->
+        ValidProjectAndRulesNeedPackageSources packageSources ->
+            ReviewV4_NeedPackageSources packageSources
+
+        ValidProjectAndRulesError errors ->
             ReviewV4_Success
                 { errors = errors
                 , rules = rules
@@ -706,14 +746,28 @@ reviewV4 reviewOptions rules project =
                 }
 
 
-getValidProjectAndRules : Project -> List Rule -> Result (List ReviewError) ( ValidProject, List RuleProjectVisitor )
+type ValidProjectAndRulesResult
+    = ValidProjectAndRulesSuccess ( ValidProject, List RuleProjectVisitor )
+    | ValidProjectAndRulesError (List ReviewError)
+    | ValidProjectAndRulesNeedPackageSources (Dict PackageName (List String))
+
+
+getValidProjectAndRules : Project -> List Rule -> ValidProjectAndRulesResult
 getValidProjectAndRules project rules =
-    getModulesSortedByImport project
-        |> Result.andThen
-            (\validProject ->
-                checkForConfigurationErrors validProject rules []
-                    |> Result.map (Tuple.pair validProject)
-            )
+    case getModulesSortedByImport project of
+        GetModulesSortedByImportSuccess validProject ->
+            case checkForConfigurationErrors validProject rules [] of
+                Ok ruleProjectVisitors ->
+                    ValidProjectAndRulesSuccess ( validProject, ruleProjectVisitors )
+
+                Err errors ->
+                    ValidProjectAndRulesError errors
+
+        GetModulesSortedByImportNeedPackageSources packageSources ->
+            ValidProjectAndRulesNeedPackageSources packageSources
+
+        GetModulesSortedByImportError errors ->
+            ValidProjectAndRulesError errors
 
 
 checkForConfigurationErrors : ValidProject -> List Rule -> List RuleProjectVisitor -> Result (List ReviewError) (List RuleProjectVisitor)
@@ -767,20 +821,26 @@ collectConfigurationErrors rules =
         rules
 
 
-getModulesSortedByImport : Project -> Result (List ReviewError) ValidProject
+type GetModulesSortedByImportResult
+    = GetModulesSortedByImportSuccess ValidProject
+    | GetModulesSortedByImportError (List ReviewError)
+    | GetModulesSortedByImportNeedPackageSources (Dict PackageName (List String))
+
+
+getModulesSortedByImport : Project -> GetModulesSortedByImportResult
 getModulesSortedByImport project =
     case ValidProject.parse project of
         Err (InvalidProjectError.SomeModulesFailedToParse pathsThatFailedToParse) ->
-            Err [ parsingError pathsThatFailedToParse ]
+            GetModulesSortedByImportError [ parsingError pathsThatFailedToParse ]
 
         Err (InvalidProjectError.DuplicateModuleNames duplicate) ->
-            Err [ duplicateModulesGlobalError duplicate ]
+            GetModulesSortedByImportError [ duplicateModulesGlobalError duplicate ]
 
         Err (InvalidProjectError.ImportCycleError cycle) ->
-            Err [ importCycleError cycle ]
+            GetModulesSortedByImportError [ importCycleError cycle ]
 
         Err InvalidProjectError.NoModulesError ->
-            Err
+            GetModulesSortedByImportError
                 [ elmReviewGlobalError
                     { ruleName = "Incorrect project"
                     , message = "This project does not contain any Elm modules"
@@ -789,8 +849,14 @@ getModulesSortedByImport project =
                     |> errorToReviewError
                 ]
 
-        Ok result ->
-            Ok result
+        Err (InvalidProjectError.NeedPackageSources packageSources) ->
+            GetModulesSortedByImportNeedPackageSources packageSources
+
+        Err (InvalidProjectError.TypeInferenceError err) ->
+            GetModulesSortedByImportError [ typeInferenceError err ]
+
+        Ok validProject ->
+            GetModulesSortedByImportSuccess validProject
 
 
 importCycleError : List String -> ReviewError
@@ -843,6 +909,16 @@ duplicateModulesGlobalError duplicate =
             , "Here are the paths to some of the files that share a module name:" ++ paths
             , "It is possible that you requested me to look at several projects, and that modules from each project share the same name. I don't recommend reviewing several projects at the same time, as I can only handle one `elm.json`. I instead suggest running `elm-review` twice, once for each project."
             ]
+        }
+        |> errorToReviewError
+
+
+typeInferenceError : String -> ReviewError
+typeInferenceError details =
+    elmReviewGlobalError
+        { ruleName = "Incorrect project"
+        , message = "Found problems during type inference"
+        , details = [ details ]
         }
         |> errorToReviewError
 
@@ -1503,6 +1579,7 @@ mergeModuleVisitorsHelp ruleName_ initialProjectContext moduleContextCreator vis
             , isModuleExposed = Nothing
             , exposed = { exposesAll = True, exposed = Dict.empty }
             , moduleNameLookupTable = ModuleNameLookupTableInternal.empty []
+            , getType = \_ -> Ok Elm.TypeInference.Type.Unit
             , extractSourceCode = always "dummy"
             , filePath = "dummy file path"
             , isInSourceDirectories = True
@@ -5686,10 +5763,19 @@ computeModuleWithRuleVisitors initialProject module_ inputRuleModuleVisitors (Re
         moduleNameNode_ =
             moduleNameNode ast.moduleDefinition
 
+        moduleName : ModuleName
+        moduleName =
+            ProjectModule.moduleName module_
+
+        typeInferenceProject : TypeInference.Project
+        typeInferenceProject =
+            ValidProject.typeInferenceProject project
+
         availableData : AvailableData
         availableData =
             { ast = ast
             , moduleNameLookupTable = moduleNameLookupTable
+            , getType = \range -> TypeInference.getType moduleName range typeInferenceProject |> Tuple.first
             , moduleDocumentation = findModuleDocumentation ast
             , isModuleExposed = ValidProject.isModuleExposed initialProject (Node.value moduleNameNode_)
             , exposed = exposed
@@ -5714,7 +5800,9 @@ computeModuleWithRuleVisitors initialProject module_ inputRuleModuleVisitors (Re
                 |> visitModuleForProjectRule availableData
                 |> List.map (\(RuleModuleVisitor ruleModuleVisitor) -> ruleModuleVisitor.toProjectVisitor ())
     in
-    ( project, List.append rulesNotToRun outputRuleProjectVisitors )
+    ( project
+    , List.append rulesNotToRun outputRuleProjectVisitors
+    )
 
 
 exposesAll : Elm.Syntax.File.File -> Bool
@@ -7666,6 +7754,26 @@ withModuleNameLookupTable (ContextCreator fn (RequestedData requested)) =
         (RequestedData { requested | moduleNameLookupTable = True })
 
 
+{-| REPLACEME
+
+TODO Make sure TypeLookupTable is exposed
+TODO Make sure dependencyEnv and interfaces are updated when
+
+  - elm.json changes
+  - files change
+
+-}
+withTypes :
+    ContextCreator
+        (Range -> Result InferError Elm.TypeInference.Type.Type)
+        (from -> to)
+    -> ContextCreator from to
+withTypes (ContextCreator fn (RequestedData requested)) =
+    ContextCreator
+        (\data isFileIgnored isFileFixable -> fn data isFileIgnored isFileFixable data.getType)
+        (RequestedData { requested | types = True })
+
+
 {-| Request the full [AST](https://en.wikipedia.org/wiki/Abstract_syntax_tree) for the current module.
 
 This can be useful if you wish to avoid initializing the module context with dummy data future node visits can replace them.
@@ -7913,6 +8021,7 @@ type alias AvailableData =
     , isModuleExposed : Maybe Bool
     , exposed : Exposed
     , moduleNameLookupTable : ModuleNameLookupTable
+    , getType : Range -> Result InferError Elm.TypeInference.Type.Type
     , extractSourceCode : Range -> String
     , filePath : FilePath
     , isInSourceDirectories : Bool
