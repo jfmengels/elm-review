@@ -24,6 +24,7 @@ module Review.RequestedData exposing
 type RequestedData
     = RequestedData
         { moduleNameLookupTable : Bool
+        , types : Bool
         , sourceCodeExtractor : Bool
         , ignoredFiles : Bool
         , ignoredFixes : Bool
@@ -35,6 +36,7 @@ none : RequestedData
 none =
     RequestedData
         { moduleNameLookupTable = False
+        , types = False
         , sourceCodeExtractor = False
         , ignoredFiles = False
         , ignoredFixes = False
@@ -70,6 +72,7 @@ combineJust : RequestedData -> RequestedData -> RequestedData
 combineJust (RequestedData a) (RequestedData b) =
     RequestedData
         { moduleNameLookupTable = a.moduleNameLookupTable || b.moduleNameLookupTable
+        , types = a.types || b.types
         , sourceCodeExtractor = a.sourceCodeExtractor || b.sourceCodeExtractor
         , ignoredFiles = a.ignoredFiles || b.ignoredFiles
         , ignoredFixes = a.ignoredFixes || b.ignoredFixes
