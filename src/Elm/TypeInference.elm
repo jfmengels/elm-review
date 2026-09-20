@@ -630,15 +630,17 @@ dependencyEnv { directDependencies, allDependencies, sourcesToResolveAmbiguity }
 
         baseEnv : Result Error DependencyEnv
         baseEnv =
-            (State.do (Dependencies.register moduleMapping1 deps) <| \( depAliases, moduleMapping2 ) ->
-            State.do State.getGlobalEnv <| \globalEnv ->
-            State.pure <|
-                DependencyEnv
-                    { globalEnv = globalEnv
-                    , typeAliases = depAliases
-                    , index = depIndex
-                    , moduleMapping = moduleMapping2
-                    }
+            (State.do (Dependencies.register moduleMapping1 deps) <|
+                \( depAliases, moduleMapping2 ) ->
+                    State.do State.getGlobalEnv <|
+                        \globalEnv ->
+                            State.pure <|
+                                DependencyEnv
+                                    { globalEnv = globalEnv
+                                    , typeAliases = depAliases
+                                    , index = depIndex
+                                    , moduleMapping = moduleMapping2
+                                    }
             )
                 |> State.run State.empty
                 |> Tuple.first
@@ -857,17 +859,22 @@ inferModule_ currentPackage depEnv moduleMapping importedInterfaces thisIndex fi
         ctx =
             moduleCtx currentPackage depEnv moduleMapping importedInterfaces thisIndex
     in
-    (State.do (gatherTypeAliases ctx file) <| \outgoingAliases ->
-    let
-        typeAliases : Dict GlobalKey TypeAlias
-        typeAliases =
-            Dict.union outgoingAliases ctx.depTypeAliases
-    in
-    State.do (registerConstructorsAndPorts ctx file) <| \() ->
-    State.do (registerEffectMagic ctx) <| \() ->
-    State.do (solveModule ctx typeAliases file) <| \() ->
-    State.do (moduleResult ctx file outgoingAliases) <| \result ->
-    State.pure result
+    (State.do (gatherTypeAliases ctx file) <|
+        \outgoingAliases ->
+            let
+                typeAliases : Dict GlobalKey TypeAlias
+                typeAliases =
+                    Dict.union outgoingAliases ctx.depTypeAliases
+            in
+            State.do (registerConstructorsAndPorts ctx file) <|
+                \() ->
+                    State.do (registerEffectMagic ctx) <|
+                        \() ->
+                            State.do (solveModule ctx typeAliases file) <|
+                                \() ->
+                                    State.do (moduleResult ctx file outgoingAliases) <|
+                                        \result ->
+                                            State.pure result
     )
         |> State.run (State.init ctx.globalEnv)
         |> Tuple.first
@@ -883,69 +890,72 @@ moduleResult :
             , interface : ModuleInterface
             }
 moduleResult ctx file outgoingAliases =
-    State.do State.getNodeIds <| \nodeIds ->
-    State.do State.getSubst <| \substitutionMap ->
-    State.do State.getGlobalEnv <| \globalEnv ->
-    let
-        exposedValues : Dict VarName TypeI.Type
-        exposedValues =
-            ctx.thisIndex.exposedValues
-                |> Set.foldl
-                    (\name acc ->
-                        case Dict.get ( ctx.thisIndex.moduleId, "", name ) globalEnv of
-                            Just scheme ->
-                                Dict.insert name scheme acc
+    State.do State.getNodeIds <|
+        \nodeIds ->
+            State.do State.getSubst <|
+                \substitutionMap ->
+                    State.do State.getGlobalEnv <|
+                        \globalEnv ->
+                            let
+                                exposedValues : Dict VarName TypeI.Type
+                                exposedValues =
+                                    ctx.thisIndex.exposedValues
+                                        |> Set.foldl
+                                            (\name acc ->
+                                                case Dict.get ( ctx.thisIndex.moduleId, "", name ) globalEnv of
+                                                    Just scheme ->
+                                                        Dict.insert name scheme acc
 
-                            Nothing ->
-                                acc
-                    )
-                    Dict.empty
-
-        annotationFor : Dict TypeI.Id TypeI.MonoType
-        annotationFor =
-            file.declarations
-                |> List.foldl
-                    (\(Node declRange decl) acc ->
-                        case decl of
-                            Declaration.FunctionDeclaration fn ->
-                                case fn.signature of
-                                    Nothing ->
-                                        acc
-
-                                    Just (Node _ sigNode) ->
-                                        case Dict.get (RangeLike.fromRange declRange) nodeIds of
-                                            Nothing ->
-                                                acc
-
-                                            Just declId ->
-                                                case TypeI.fromTypeAnnotation ctx.resolver (Node.value sigNode.typeAnnotation) of
-                                                    Err _ ->
+                                                    Nothing ->
                                                         acc
+                                            )
+                                            Dict.empty
 
-                                                    Ok annoMono ->
-                                                        Dict.insert declId annoMono acc
+                                annotationFor : Dict TypeI.Id TypeI.MonoType
+                                annotationFor =
+                                    file.declarations
+                                        |> List.foldl
+                                            (\(Node declRange decl) acc ->
+                                                case decl of
+                                                    Declaration.FunctionDeclaration fn ->
+                                                        case fn.signature of
+                                                            Nothing ->
+                                                                acc
 
-                            _ ->
-                                acc
-                    )
-                    Dict.empty
-    in
-    State.pure
-        { table =
-            TypeLookupTable.Internal.TLT
-                { nodeIds = nodeIds
-                , subst = SubstitutionMap.forLookup substitutionMap
-                , moduleMapping = ctx.moduleMapping
-                , cache = Array.empty
-                , pool = Dict.empty
-                , annotationFor = annotationFor
-                }
-        , interface =
-            { moduleIndex = ctx.thisIndex
-            , values = exposedValues
-            , typeAliases = outgoingAliases
-            }
-        }
+                                                            Just (Node _ sigNode) ->
+                                                                case Dict.get (RangeLike.fromRange declRange) nodeIds of
+                                                                    Nothing ->
+                                                                        acc
+
+                                                                    Just declId ->
+                                                                        case TypeI.fromTypeAnnotation ctx.resolver (Node.value sigNode.typeAnnotation) of
+                                                                            Err _ ->
+                                                                                acc
+
+                                                                            Ok annoMono ->
+                                                                                Dict.insert declId annoMono acc
+
+                                                    _ ->
+                                                        acc
+                                            )
+                                            Dict.empty
+                            in
+                            State.pure
+                                { table =
+                                    TypeLookupTable.Internal.TLT
+                                        { nodeIds = nodeIds
+                                        , subst = SubstitutionMap.forLookup substitutionMap
+                                        , moduleMapping = ctx.moduleMapping
+                                        , cache = Array.empty
+                                        , pool = Dict.empty
+                                        , annotationFor = annotationFor
+                                        }
+                                , interface =
+                                    { moduleIndex = ctx.thisIndex
+                                    , values = exposedValues
+                                    , typeAliases = outgoingAliases
+                                    }
+                                }
 
 
 
@@ -1118,15 +1128,17 @@ gatherTypeAliases ctx file =
                                     _ ->
                                         State.pureUnit
                         in
-                        State.do type_ <| \type__ ->
-                        State.do (registerConstructor type__) <| \() ->
-                        State.pure <|
-                            Dict.insert
-                                ( moduleId, "", Node.value typeAlias.name )
-                                { args = List.map (\(Node.Node _ generic) -> TypeVar.parse generic) typeAlias.generics
-                                , type_ = type__
-                                }
-                                accAcrossDeclarations
+                        State.do type_ <|
+                            \type__ ->
+                                State.do (registerConstructor type__) <|
+                                    \() ->
+                                        State.pure <|
+                                            Dict.insert
+                                                ( moduleId, "", Node.value typeAlias.name )
+                                                { args = List.map (\(Node.Node _ generic) -> TypeVar.parse generic) typeAlias.generics
+                                                , type_ = type__
+                                                }
+                                                accAcrossDeclarations
 
                     _ ->
                         State.pure accAcrossDeclarations
@@ -1244,8 +1256,9 @@ The Elm compiler magically provides:
 registerEffectMagic : ModuleCtx -> StateM ()
 registerEffectMagic ctx =
     if ctx.allowKernel then
-        State.do (registerEffectCommand ctx) <| \() ->
-        registerEffectSubscription ctx
+        State.do (registerEffectCommand ctx) <|
+            \() ->
+                registerEffectSubscription ctx
 
     else
         State.pureUnit

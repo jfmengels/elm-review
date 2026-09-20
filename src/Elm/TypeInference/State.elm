@@ -351,8 +351,9 @@ withDeeperLetRank action =
 -}
 setIdToCurrentLetRank : Id -> StateM ()
 setIdToCurrentLetRank id =
-    do get <| \state ->
-    modifySubst (\subst -> subst |> SubstitutionMap.setIdLetRank id state.letRank)
+    do get <|
+        \state ->
+            modifySubst (\subst -> subst |> SubstitutionMap.setIdLetRank id state.letRank)
 
 
 
@@ -369,9 +370,11 @@ getNodeIds =
 -}
 idForNode : Node a -> StateM Id
 idForNode node =
-    do getNextIdAndTick <| \theId ->
-    do (aliasNodeId (Node.range node) theId) <| \() ->
-    pure theId
+    do getNextIdAndTick <|
+        \theId ->
+            do (aliasNodeId (Node.range node) theId) <|
+                \() ->
+                    pure theId
 
 
 {-| Make another range point to an already assigned ID.
@@ -606,42 +609,43 @@ instantiate (Forall boundVars monoType) =
             pure monoType
 
         _ ->
-            do (traverse (\var -> map (\id -> ( var, id )) getNextIdAndTick) boundVars) <| \varIds ->
-            let
-                ( renamingGen, renamingNamed ) =
-                    varIds
-                        |> List.foldl
-                            (\( ( style, super ), freshId ) ( genAcc, namedAcc ) ->
+            do (traverse (\var -> map (\id -> ( var, id )) getNextIdAndTick) boundVars) <|
+                \varIds ->
+                    let
+                        ( renamingGen, renamingNamed ) =
+                            varIds
+                                |> List.foldl
+                                    (\( ( style, super ), freshId ) ( genAcc, namedAcc ) ->
+                                        case style of
+                                            Generated theId ->
+                                                ( Dict.insert (VarSet.genKeyFrom theId super)
+                                                    ( TypeVar.Generated freshId, super )
+                                                    genAcc
+                                                , namedAcc
+                                                )
+
+                                            Named name ->
+                                                ( genAcc
+                                                , Dict.insert (VarSet.namedKeyFrom name super)
+                                                    ( TypeVar.Generated freshId, super )
+                                                    namedAcc
+                                                )
+                                    )
+                                    ( Dict.empty, Dict.empty )
+                    in
+                    monoType
+                        |> TypeI.mapVarsMono
+                            (\(( style, super ) as var) ->
                                 case style of
                                     Generated theId ->
-                                        ( Dict.insert (VarSet.genKeyFrom theId super)
-                                            ( TypeVar.Generated freshId, super )
-                                            genAcc
-                                        , namedAcc
-                                        )
+                                        Dict.get (VarSet.genKeyFrom theId super) renamingGen
+                                            |> Maybe.withDefault var
 
                                     Named name ->
-                                        ( genAcc
-                                        , Dict.insert (VarSet.namedKeyFrom name super)
-                                            ( TypeVar.Generated freshId, super )
-                                            namedAcc
-                                        )
+                                        Dict.get (VarSet.namedKeyFrom name super) renamingNamed
+                                            |> Maybe.withDefault var
                             )
-                            ( Dict.empty, Dict.empty )
-            in
-            monoType
-                |> TypeI.mapVarsMono
-                    (\(( style, super ) as var) ->
-                        case style of
-                            Generated theId ->
-                                Dict.get (VarSet.genKeyFrom theId super) renamingGen
-                                    |> Maybe.withDefault var
-
-                            Named name ->
-                                Dict.get (VarSet.namedKeyFrom name super) renamingNamed
-                                    |> Maybe.withDefault var
-                    )
-                |> pure
+                        |> pure
 
 
 generalize : MonoType -> StateM Type
