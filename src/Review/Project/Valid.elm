@@ -27,7 +27,7 @@ module Review.Project.Valid exposing
     , removeExtraFile
     , removeModule
     , toRegularProject
-    , typeData
+    , typeInferenceProject
     , updateProjectCache
     , updateWorkList
     , workList
@@ -74,8 +74,7 @@ type alias ValidProjectData =
     , edgeChanges : Dict ModuleId (List Internal.EdgeChange)
     , moduleIds : ModuleIds
     , workList : WorkList
-    , dependencyEnv : TypeInference.DependencyEnv
-    , interfaces : Dict ModuleName TypeInference.ModuleInterface
+    , typeInferenceProject : Maybe TypeInference.Project
     }
 
 
@@ -153,11 +152,13 @@ parse ((Project p) as project) =
                             |> Err
 
                     Ok ( moduleGraph, sortedModules ) ->
+                        -- TODO Avoid computing type information if not requested
                         case Review.Types.Compute.computeDeps p.dependencies (Dict.keys p.directDependencies) of
                             TypeInference.Ready dependencyEnv ->
-                                Ok (fromProjectAndGraph moduleGraph sortedModules dependencyEnv project)
+                                fromProjectAndGraph moduleGraph sortedModules dependencyEnv project
+                                    |> Ok
 
-                            TypeInference.NeedSources sources ->
+                            TypeInference.NeedPackageSources sources ->
                                 Debug.todo ("Sources: " ++ Debug.toString sources)
 
                             TypeInference.Failed _ ->
@@ -176,10 +177,13 @@ fromProjectAndGraph moduleGraph sortedModules dependencyEnv (Project project) =
 
                 Nothing ->
                     ContentHash.combine project.extraFilesContentHashes
+
+        modulesByModuleName_ =
+            computeModulesByModuleName project.modulesByPath
     in
     ValidProject
         { modulesByPath = project.modulesByPath
-        , modulesByModuleName = computeModulesByModuleName project.modulesByPath
+        , modulesByModuleName = modulesByModuleName_
         , elmJson = project.elmJson
         , readme = project.readme
         , extraFiles = project.extraFiles
@@ -194,8 +198,7 @@ fromProjectAndGraph moduleGraph sortedModules dependencyEnv (Project project) =
         , edgeChanges = Dict.empty
         , moduleIds = project.moduleIds
         , workList = WorkList.recomputeModules moduleGraph sortedModules project.workList
-        , dependencyEnv = dependencyEnv
-        , interfaces = Dict.empty
+        , typeInferenceProject = TypeInference.project Nothing dependencyEnv (Dict.map (\_ m -> ProjectModule.ast m) modulesByModuleName_) |> Result.toMaybe
         }
 
 
@@ -340,11 +343,9 @@ updateProjectCache projectCache_ (ValidProject project) =
     ValidProject { project | projectCache = projectCache_ }
 
 
-typeData : ValidProject -> { dependencyEnv : TypeInference.DependencyEnv, interfaces : Dict ModuleName TypeInference.ModuleInterface }
-typeData (ValidProject validProject) =
-    { dependencyEnv = validProject.dependencyEnv
-    , interfaces = validProject.interfaces
-    }
+typeInferenceProject : ValidProject -> Maybe TypeInference.Project
+typeInferenceProject (ValidProject validProject) =
+    validProject.typeInferenceProject
 
 
 workList : ValidProject -> WorkList

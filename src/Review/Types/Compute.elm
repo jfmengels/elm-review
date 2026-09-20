@@ -1,4 +1,4 @@
-module Review.Types.Compute exposing (compute, computeDeps, computeModule)
+module Review.Types.Compute exposing (computeDeps)
 
 import Dict exposing (Dict)
 import Elm.Package
@@ -15,62 +15,90 @@ import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModu
 import TypeLookupTable exposing (TypeLookupTable)
 
 
-compute :
-    Dict PackageName Dependency.Dependency
-    -> List PackageName
-    -> Dict ModuleName File
-    -> { tables : Dict ModuleName TypeLookupTable, errors : Dict ModuleName Error }
-compute dependencies directDependencies modules =
-    case computeDeps dependencies directDependencies of
-        TypeInference.Ready dependencyEnv ->
-            TypeInference.inferProject dependencyEnv modules
-
-        TypeInference.NeedSources record ->
-            Debug.todo ("NeedSources " ++ Debug.toString record)
-
-        TypeInference.Failed error ->
-            Debug.todo ("Failed " ++ Debug.toString error)
-
-
 type Acc
     = Acc (Dict FullModuleName ModuleInterface)
 
 
-computeModule :
-    DependencyEnv
-    -> Dict ModuleName ModuleInterface
-    -> OpaqueProjectModule
-    -> Result Error ( TypeLookupTable, Dict ModuleName ModuleInterface )
-computeModule dependencyEnv interfaces mod =
-    let
-        file : Elm.Syntax.File.File
-        file =
-            ProjectModule.ast mod
 
-        index : ModuleIndex.ModuleIndex
-        index =
-            ModuleIndex.fromFile file
-
-        -- Copied from TypeInference.inferOne
-        imported : Dict FullModuleName TypeInference.ModuleInterface
-        imported =
-            index.imports
-                |> List.foldl
-                    (\import_ inner ->
-                        case Dict.get (FullModuleName.toModuleName import_.moduleName) interfaces of
-                            Just interface ->
-                                Dict.insert import_.moduleName interface inner
-
-                            Nothing ->
-                                inner
-                    )
-                    Dict.empty
-    in
-    TypeInference.inferModule_ dependencyEnv imported file
-        |> Result.map
-            (\{ table, interface } ->
-                ( table, Dict.insert (FullModuleName.toModuleName index.moduleName) interface interfaces )
-            )
+--computeModule :
+--    DependencyEnv
+--    -> Dict ModuleName ModuleInterface
+--    -> OpaqueProjectModule
+--    -> Result Error ( TypeLookupTable, Dict ModuleName ModuleInterface )
+--computeModule dependencyEnv interfaces mod =
+--    let
+--        file : Elm.Syntax.File.File
+--        file =
+--            ProjectModule.ast mod
+--
+--        index : ModuleIndex.ModuleIndex
+--        index =
+--            ModuleIndex.fromFile file
+--
+--        -- Copied from TypeInference.inferOne
+--        imported : Dict FullModuleName TypeInference.ModuleInterface
+--        imported =
+--            index.imports
+--                |> List.foldl
+--                    (\import_ inner ->
+--                        case Dict.get (FullModuleName.toModuleName import_.moduleName) interfaces of
+--                            Just interface ->
+--                                Dict.insert import_.moduleName interface inner
+--
+--                            Nothing ->
+--                                inner
+--                    )
+--                    Dict.empty
+--    in
+--    TypeInference.inferModule_ dependencyEnv imported file
+--        |> Result.map
+--            (\{ table, interface } ->
+--                ( table, Dict.insert (FullModuleName.toModuleName index.moduleName) interface interfaces )
+--            )
+--computeModule :
+--    DependencyEnv
+--    -> Dict ModuleName ModuleInterface
+--    -> OpaqueProjectModule
+--    -> Result Error ( TypeLookupTable, Dict ModuleName ModuleInterface )
+--computeModule dependencyEnv interfaces mod =
+--    case TypeInference.project Nothing dependencyEnv [] of
+--        Err err ->
+--            { tables = Dict.empty
+--            , errors = Dict.singleton [] err
+--            }
+--
+--        Ok project ->
+--            TypeInference.inferModule mod project
+--                |> Tuple.first
+--            let
+--                file : Elm.Syntax.File.File
+--                file =
+--                    ProjectModule.ast mod
+--
+--                index : ModuleIndex.ModuleIndex
+--                index =
+--                    ModuleIndex.fromFile file
+--
+--                -- Copied from TypeInference.inferOne
+--                imported : Dict FullModuleName TypeInference.ModuleInterface
+--                imported =
+--                    index.imports
+--                        |> List.foldl
+--                            (\import_ inner ->
+--                                case Dict.get (FullModuleName.toModuleName import_.moduleName) interfaces of
+--                                    Just interface ->
+--                                        Dict.insert import_.moduleName interface inner
+--
+--                                    Nothing ->
+--                                        inner
+--                            )
+--                            Dict.empty
+--            in
+--            TypeInference.inferModule_ dependencyEnv imported file
+--                |> Result.map
+--                    (\{ table, interface } ->
+--                        ( table, Dict.insert (FullModuleName.toModuleName index.moduleName) interface interfaces )
+--                    )
 
 
 computeDeps : Dict PackageName Dependency.Dependency -> List PackageName -> DependencyEnvOutcome

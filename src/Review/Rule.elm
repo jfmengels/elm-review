@@ -348,7 +348,6 @@ import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern exposing (Pattern)
 import Elm.Syntax.Range as Range exposing (Range)
 import Elm.TypeInference as TypeInference
-import Elm.TypeInference.Error
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Review.Cache.ContentHash exposing (ContentHash)
@@ -384,10 +383,8 @@ import Review.Project.ModuleIds exposing (ModuleId)
 import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModule)
 import Review.Project.Valid as ValidProject exposing (ValidProject)
 import Review.RequestedData as RequestedData exposing (RequestedData(..))
-import Review.Types.Compute
 import Review.WorkList as WorkList
 import TypeLookupTable exposing (TypeLookupTable)
-import TypeLookupTable.Internal
 import Unicode
 import Vendor.Graph as Graph
 import Vendor.IntSet as IntSet
@@ -5634,19 +5631,18 @@ computeModuleWithRuleVisitors project0 module_ inputRuleModuleVisitors (Requeste
         ( moduleNameLookupTable, project1 ) =
             computeModuleNameLookupTable requestedData project0 module_
 
-        { dependencyEnv, interfaces } =
-            ValidProject.typeData project1
-
         ( typeLookupTable, project2 ) =
             if requestedData.typeLookupTable then
-                case Review.Types.Compute.computeModule dependencyEnv interfaces module_ of
-                    Ok ( table, updatesInterfaces ) ->
-                        ( table
-                        , -- TODOStore interface back into project
-                          project1
-                        )
+                case ValidProject.typeInferenceProject project1 of
+                    Just typeInferenceProject ->
+                        let
+                            ( table_, newTypeInferenceProject ) =
+                                TypeInference.inferModule (ProjectModule.moduleName module_) typeInferenceProject
+                        in
+                        -- TODO Store interface back into project
+                        ( Result.withDefault TypeLookupTable.empty table_, project1 )
 
-                    Err _ ->
+                    Nothing ->
                         -- TODO Store/handle error
                         ( TypeLookupTable.empty, project1 )
 
