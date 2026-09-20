@@ -312,8 +312,9 @@ withDeeperLetRank action =
 -}
 setIdToCurrentLetRank : Id -> StateM ()
 setIdToCurrentLetRank id =
-    do get <| \state ->
-    modifySubst (SubstitutionMap.setIdLetRank id state.letRank)
+    do get <|
+        \state ->
+            modifySubst (SubstitutionMap.setIdLetRank id state.letRank)
 
 
 
@@ -330,9 +331,11 @@ getNodeIds =
 -}
 idForNode : Node a -> StateM Id
 idForNode node =
-    do getNextIdAndTick <| \theId ->
-    do (aliasNodeId (Node.range node) theId) <| \() ->
-    pure theId
+    do getNextIdAndTick <|
+        \theId ->
+            do (aliasNodeId (Node.range node) theId) <|
+                \() ->
+                    pure theId
 
 
 {-| Make another range point to an already assigned ID.
@@ -484,22 +487,24 @@ all typevars that we can.
 -}
 lookupEnv : FullModuleName -> VarName -> StateM MonoType
 lookupEnv thisModule var =
-    do getLexicalEnv <| \env ->
-    case Dict.get var env of
-        Nothing ->
-            error
-                { moduleName = FullModuleName.toModuleName thisModule
-                , declarationNames = []
-                , details =
-                    VarNotFound
-                        { usedIn = FullModuleName.toModuleName thisModule
-                        , varName = var
+    do getLexicalEnv <|
+        \env ->
+            case Dict.get var env of
+                Nothing ->
+                    error
+                        { moduleName = FullModuleName.toModuleName thisModule
+                        , declarationNames = []
+                        , details =
+                            VarNotFound
+                                { usedIn = FullModuleName.toModuleName thisModule
+                                , varName = var
+                                }
                         }
-                }
 
-        Just type_ ->
-            do (substitute type_) <| \substituted ->
-            instantiate substituted
+                Just type_ ->
+                    do (substitute type_) <|
+                        \substituted ->
+                            instantiate substituted
 
 
 
@@ -530,26 +535,27 @@ addGlobalBinding key type_ =
 -}
 lookupGlobalEnv : ModuleIds.Mapping -> PackageName -> ModuleId -> VarName -> StateM MonoType
 lookupGlobalEnv moduleMapping package moduleId var =
-    do getGlobalEnv <| \env ->
-    case Dict.get ( moduleId, package, var ) env of
-        Nothing ->
-            let
-                moduleName : List String
-                moduleName =
-                    moduleIdToModuleName moduleMapping moduleId
-            in
-            error
-                { moduleName = moduleName
-                , declarationNames = []
-                , details =
-                    VarNotFound
-                        { usedIn = moduleName
-                        , varName = var
+    do getGlobalEnv <|
+        \env ->
+            case Dict.get ( moduleId, package, var ) env of
+                Nothing ->
+                    let
+                        moduleName : List String
+                        moduleName =
+                            moduleIdToModuleName moduleMapping moduleId
+                    in
+                    error
+                        { moduleName = moduleName
+                        , declarationNames = []
+                        , details =
+                            VarNotFound
+                                { usedIn = moduleName
+                                , varName = var
+                                }
                         }
-                }
 
-        Just type_ ->
-            instantiate type_
+                Just type_ ->
+                    instantiate type_
 
 
 moduleIdToModuleName : ModuleIds.Mapping -> ModuleId -> List String
@@ -570,57 +576,60 @@ instantiate (Forall boundVars monoType) =
             pure monoType
 
         _ ->
-            do (traverse (always getNextIdAndTick) boundVars) <| \varIds ->
-            let
-                ( renamingGen, renamingNamed ) =
-                    List.map2 Tuple.pair boundVars varIds
-                        |> List.foldl
-                            (\( ( style, super ), freshId ) ( genAcc, namedAcc ) ->
+            do (traverse (always getNextIdAndTick) boundVars) <|
+                \varIds ->
+                    let
+                        ( renamingGen, renamingNamed ) =
+                            List.map2 Tuple.pair boundVars varIds
+                                |> List.foldl
+                                    (\( ( style, super ), freshId ) ( genAcc, namedAcc ) ->
+                                        case style of
+                                            Generated theId ->
+                                                ( Dict.insert (VarSet.genKeyFrom theId super)
+                                                    ( TypeVar.Generated freshId, super )
+                                                    genAcc
+                                                , namedAcc
+                                                )
+
+                                            Named name ->
+                                                ( genAcc
+                                                , Dict.insert (VarSet.namedKeyFrom name super)
+                                                    ( TypeVar.Generated freshId, super )
+                                                    namedAcc
+                                                )
+                                    )
+                                    ( Dict.empty, Dict.empty )
+                    in
+                    monoType
+                        |> TypeI.mapVarsMono
+                            (\(( style, super ) as var) ->
                                 case style of
                                     Generated theId ->
-                                        ( Dict.insert (VarSet.genKeyFrom theId super)
-                                            ( TypeVar.Generated freshId, super )
-                                            genAcc
-                                        , namedAcc
-                                        )
+                                        Dict.get (VarSet.genKeyFrom theId super) renamingGen
+                                            |> Maybe.withDefault var
 
                                     Named name ->
-                                        ( genAcc
-                                        , Dict.insert (VarSet.namedKeyFrom name super)
-                                            ( TypeVar.Generated freshId, super )
-                                            namedAcc
-                                        )
+                                        Dict.get (VarSet.namedKeyFrom name super) renamingNamed
+                                            |> Maybe.withDefault var
                             )
-                            ( Dict.empty, Dict.empty )
-            in
-            monoType
-                |> TypeI.mapVarsMono
-                    (\(( style, super ) as var) ->
-                        case style of
-                            Generated theId ->
-                                Dict.get (VarSet.genKeyFrom theId super) renamingGen
-                                    |> Maybe.withDefault var
-
-                            Named name ->
-                                Dict.get (VarSet.namedKeyFrom name super) renamingNamed
-                                    |> Maybe.withDefault var
-                    )
-                |> pure
+                        |> pure
 
 
 generalize : MonoType -> StateM Type
 generalize monoType =
-    do (substituteMono monoType) <| \substitutedMono ->
-    do get <| \state ->
-    let
-        boundIds : List TypeVar
-        boundIds =
-            TypeI.monoTypeVars substitutedMono
-                |> VarSet.toList
-                |> List.filter
-                    (\var -> SubstitutionMap.letRankOf var state.subst > state.letRank)
-    in
-    pure (Forall boundIds substitutedMono)
+    do (substituteMono monoType) <|
+        \substitutedMono ->
+            do get <|
+                \state ->
+                    let
+                        boundIds : List TypeVar
+                        boundIds =
+                            TypeI.monoTypeVars substitutedMono
+                                |> VarSet.toList
+                                |> List.filter
+                                    (\var -> SubstitutionMap.letRankOf var state.subst > state.letRank)
+                    in
+                    pure (Forall boundIds substitutedMono)
 
 
 {-| Generalize a lexical binding in place (for `let` destructurings).
@@ -630,11 +639,13 @@ Each name gets its own scheme - they are independent.
 -}
 generalizeBinding : VarName -> StateM ()
 generalizeBinding var =
-    do get <| \state ->
-    case Dict.get var state.lexicalEnv of
-        Nothing ->
-            pure ()
+    do get <|
+        \state ->
+            case Dict.get var state.lexicalEnv of
+                Nothing ->
+                    pure ()
 
-        Just (Forall _ mono) ->
-            do (generalize mono) <| \scheme ->
-            addBinding var scheme
+                Just (Forall _ mono) ->
+                    do (generalize mono) <|
+                        \scheme ->
+                            addBinding var scheme
