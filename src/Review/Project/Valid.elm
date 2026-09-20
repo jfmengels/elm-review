@@ -28,6 +28,7 @@ module Review.Project.Valid exposing
     , removeExtraFile
     , removeModule
     , toRegularProject
+    , typeInferenceProject
     , updateProjectCache
     , updateWorkList
     , workList
@@ -35,9 +36,11 @@ module Review.Project.Valid exposing
 
 import Dict exposing (Dict)
 import Elm.Module
+import Elm.Package
 import Elm.Project
 import Elm.Syntax.File
 import Elm.Syntax.ModuleName exposing (ModuleName)
+import Elm.TypeInference as TypeInference
 import Review.Cache.ContentHash as ContentHash exposing (ContentHash)
 import Review.FilePath exposing (FilePath)
 import Review.Fix.FixProblem as FixProblem exposing (FixProblem)
@@ -48,6 +51,7 @@ import Review.Project.InvalidProjectError as InvalidProjectError exposing (Inval
 import Review.Project.ModuleIds as ModuleIds exposing (ModuleId, ModuleIds)
 import Review.Project.ProjectCache exposing (ProjectCache)
 import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModule)
+import Review.Types.Compute
 import Review.WorkList as WorkList exposing (WorkList)
 import Set exposing (Set)
 import Vendor.Graph as Graph exposing (Graph)
@@ -75,6 +79,7 @@ type alias ValidProjectData =
     , edgeChanges : Dict ModuleId (List Internal.EdgeChange)
     , moduleIds : ModuleIds
     , workList : WorkList
+    , typeInferenceProject : Maybe TypeInference.Project
     }
 
 
@@ -152,11 +157,34 @@ parse ((Project p) as project) =
                             |> Err
 
                     Ok ( moduleGraph, sortedModules ) ->
-                        Ok (fromProjectAndGraph moduleGraph sortedModules project)
+                        -- TODO Avoid computing type information if not requested
+                        case
+                            Review.Types.Compute.computeDeps
+                                p.dependencies
+                                (Dict.keys p.directDependencies)
+                                (Maybe.andThen (\( elmJson_, _ ) -> packageName elmJson_.project) p.elmJson)
+                                (Dict.foldl (\_ m dict -> Dict.insert (ProjectModule.moduleName m) (ProjectModule.ast m) dict) Dict.empty p.modulesByPath)
+                        of
+                            Ok typeInferenceProject_ ->
+                                fromProjectAndGraph moduleGraph sortedModules typeInferenceProject_ project
+                                    |> Ok
+
+                            Err neededPackageSources ->
+                                Err (InvalidProjectError.NeedPackageSources neededPackageSources)
 
 
-fromProjectAndGraph : Graph FilePath -> List (Graph.NodeContext FilePath) -> Project -> ValidProject
-fromProjectAndGraph moduleGraph sortedModules (Project project) =
+packageName : Elm.Project.Project -> Maybe String
+packageName elmJson_ =
+    case elmJson_ of
+        Elm.Project.Package { name } ->
+            Just (Elm.Package.toString name)
+
+        Elm.Project.Application _ ->
+            Nothing
+
+
+fromProjectAndGraph : Graph FilePath -> List (Graph.NodeContext FilePath) -> TypeInference.Project -> Project -> ValidProject
+fromProjectAndGraph moduleGraph sortedModules typeInferenceProject_ (Project project) =
     let
         extraFilesContentHash : ContentHash
         extraFilesContentHash =
@@ -185,6 +213,7 @@ fromProjectAndGraph moduleGraph sortedModules (Project project) =
         , edgeChanges = Dict.empty
         , moduleIds = project.moduleIds
         , workList = WorkList.recomputeModules moduleGraph sortedModules project.workList
+        , typeInferenceProject = Just typeInferenceProject_
         }
 
 
@@ -363,6 +392,16 @@ projectCache (ValidProject project) =
     project.projectCache
 
 
+updateProjectCache : ProjectCache -> ValidProject -> ValidProject
+updateProjectCache projectCache_ (ValidProject project) =
+    ValidProject { project | projectCache = projectCache_ }
+
+
+typeInferenceProject : ValidProject -> Maybe TypeInference.Project
+typeInferenceProject (ValidProject validProject) =
+    validProject.typeInferenceProject
+
+
 workList : ValidProject -> WorkList
 workList (ValidProject project) =
     project.workList
@@ -371,11 +410,6 @@ workList (ValidProject project) =
 updateWorkList : (WorkList -> WorkList) -> ValidProject -> ValidProject
 updateWorkList fn (ValidProject project) =
     ValidProject { project | workList = fn project.workList }
-
-
-updateProjectCache : ProjectCache -> ValidProject -> ValidProject
-updateProjectCache projectCache_ (ValidProject project) =
-    ValidProject { project | projectCache = projectCache_ }
 
 
 clearElmDocsModuleFromProjectCacheTEST : ValidProject -> ValidProject
