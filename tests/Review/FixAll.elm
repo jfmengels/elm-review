@@ -410,9 +410,12 @@ runWithOptions :
     -> (Review.Options.ReviewOptions -> Review.Options.ReviewOptions)
     -> { errors : List Rule.ReviewError, fixedErrors : Dict String (List Rule.ReviewError), rules : List Rule.Rule, project : Project, extracts : Dict String Encode.Value }
 runWithOptions rule project buildOptions =
-    Rule.reviewV3 (buildOptions Review.Options.defaults)
-        [ rule ]
-        project
+    case Rule.reviewV4 (buildOptions Review.Options.defaults) [ rule ] project of
+        Rule.ReviewV4_Success reviewResult ->
+            reviewResult
+
+        Rule.ReviewV4_NeedPackageSources neededSources ->
+            Debug.todo ("Need package sources: " ++ Debug.toString neededSources)
 
 
 
