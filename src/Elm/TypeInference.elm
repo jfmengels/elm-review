@@ -2,6 +2,7 @@ module Elm.TypeInference exposing
     ( dependencyEnv, DependencyEnvOutcome(..), DependencyEnv, Dependency
     , project, Project
     , inferModule, inferModules
+    , ModuleInterface, ProjectAcc, inferModule_, inferOne
     )
 
 {-| Type inference for
