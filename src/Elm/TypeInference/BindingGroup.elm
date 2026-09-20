@@ -32,48 +32,53 @@ solveGroup cfg members =
             (State.do
                 (State.traverseUnit
                     (\member ->
-                        State.do (State.setIdToCurrentLetRank member.id) <| \() ->
-                        case member.annotation of
-                            Just scheme ->
-                                -- Trust the annotation
-                                member.install scheme
+                        State.do (State.setIdToCurrentLetRank member.id) <|
+                            \() ->
+                                case member.annotation of
+                                    Just scheme ->
+                                        -- Trust the annotation
+                                        member.install scheme
 
-                            Nothing ->
-                                member.install (TypeI.mono (TypeI.id_ member.id))
+                                    Nothing ->
+                                        member.install (TypeI.mono (TypeI.id_ member.id))
                     )
                     members
                 )
-             <| \() ->
-             State.do
-                 (State.foldl
-                     (\member accAcrossMembers ->
-                         State.map
-                             (\memberEqs ->
-                                 List.foldr
-                                     (\memberEq acc ->
-                                         TypeEquation.dropLabel memberEq :: acc
-                                     )
-                                     accAcrossMembers
-                                     memberEqs
-                             )
-                             member.equations
-                     )
-                     []
-                     members
-                 )
-             <| \eqLists ->
-             Unify.unifyMany cfg eqLists
+             <|
+                \() ->
+                    State.do
+                        (State.foldl
+                            (\member accAcrossMembers ->
+                                State.map
+                                    (\memberEqs ->
+                                        List.foldr
+                                            (\memberEq acc ->
+                                                TypeEquation.dropLabel memberEq :: acc
+                                            )
+                                            accAcrossMembers
+                                            memberEqs
+                                    )
+                                    member.equations
+                            )
+                            []
+                            members
+                        )
+                    <|
+                        \eqLists ->
+                            Unify.unifyMany cfg eqLists
             )
         )
-    <| \() ->
-    State.traverseUnit
-        (\member ->
-            case member.annotation of
-                Just _ ->
-                    State.pureUnit
+    <|
+        \() ->
+            State.traverseUnit
+                (\member ->
+                    case member.annotation of
+                        Just _ ->
+                            State.pureUnit
 
-                Nothing ->
-                    State.do (State.generalize (TypeI.id_ member.id)) <| \scheme ->
-                    member.install scheme
-        )
-        members
+                        Nothing ->
+                            State.do (State.generalize (TypeI.id_ member.id)) <|
+                                \scheme ->
+                                    member.install scheme
+                )
+                members

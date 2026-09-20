@@ -259,4 +259,3 @@ parenIfHasSpace str =
 rangeToString : Range -> String
 rangeToString { start } =
     String.fromInt start.row ++ ":" ++ String.fromInt start.column
-

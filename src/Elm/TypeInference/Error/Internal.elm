@@ -1,4 +1,7 @@
-module Elm.TypeInference.Error.Internal exposing (FromTypeAnnotationError(..), ResolverAmbiguity, list, record)
+module Elm.TypeInference.Error.Internal exposing
+    ( FromTypeAnnotationError(..), ResolverAmbiguity
+    , list, record
+    )
 
 {-| Shared error types for type-annotation resolution.
 

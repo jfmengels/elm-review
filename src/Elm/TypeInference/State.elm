@@ -325,8 +325,9 @@ withDeeperLetRank action =
 -}
 setIdToCurrentLetRank : Id -> StateM ()
 setIdToCurrentLetRank id =
-    do get <| \state ->
-    modifySubst (\subst -> subst |> SubstitutionMap.setIdLetRank id state.letRank)
+    do get <|
+        \state ->
+            modifySubst (\subst -> subst |> SubstitutionMap.setIdLetRank id state.letRank)
 
 
 
@@ -348,9 +349,11 @@ getNodeIds =
 -}
 idForNode : Node a -> StateM Id
 idForNode node =
-    do getNextIdAndTick <| \theId ->
-    do (aliasNodeId (Node.range node) theId) <| \() ->
-    pure theId
+    do getNextIdAndTick <|
+        \theId ->
+            do (aliasNodeId (Node.range node) theId) <|
+                \() ->
+                    pure theId
 
 
 {-| Make another range point to an already assigned ID.
