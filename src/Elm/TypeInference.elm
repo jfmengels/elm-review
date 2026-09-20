@@ -3,6 +3,7 @@ module Elm.TypeInference exposing
     , project, Project
     , inferModule, inferModules
     , addFile, removeFile
+    , ModuleInterface, ProjectAcc, inferModule_, inferOne
     )
 
 {-| Type inference for
