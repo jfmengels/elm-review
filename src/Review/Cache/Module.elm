@@ -47,20 +47,15 @@ create =
 
 match : ContentHash -> ComparableContextHash context -> Entry error context -> { isFileIgnored : Bool, isFileFixable : Bool, requestedData : RequestedData } -> Bool
 match contentHash inputContexts (Entry entry) { isFileIgnored, isFileFixable, requestedData } =
-    (contentHash == entry.contentHash)
+    let
+        (RequestedData r) =
+            requestedData
+    in
+    not r.types
+        && (contentHash == entry.contentHash)
         && (inputContexts == entry.inputContextHashes)
-        && (isFileIgnored == entry.isFileIgnored || not (ruleCaresAboutIgnoredFiles requestedData))
-        && (isFileFixable == entry.isFileFixable || not (ruleCaresAboutFixableFiles requestedData))
-
-
-ruleCaresAboutIgnoredFiles : RequestedData -> Bool
-ruleCaresAboutIgnoredFiles (RequestedData { ignoredFiles }) =
-    ignoredFiles
-
-
-ruleCaresAboutFixableFiles : RequestedData -> Bool
-ruleCaresAboutFixableFiles (RequestedData { ignoredFixes }) =
-    ignoredFixes
+        && (isFileIgnored == entry.isFileIgnored || not r.ignoredFiles)
+        && (isFileFixable == entry.isFileFixable || not r.ignoredFixes)
 
 
 errors : Entry error context -> List error
