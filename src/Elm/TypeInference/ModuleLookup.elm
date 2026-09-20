@@ -15,9 +15,9 @@ import Elm.Syntax.FullModuleName as FullModuleName exposing (FullModuleName)
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Type
 import Elm.TypeInference.Dependencies exposing (Dependencies)
-import Elm.TypeInference.InferError exposing (InferErrorDetails(..))
 import Elm.TypeInference.Error.Internal exposing (ResolverAmbiguity)
 import Elm.TypeInference.ImplicitImports as ImplicitImports
+import Elm.TypeInference.InferError exposing (InferErrorDetails(..))
 import Elm.TypeInference.ModuleIds as ModuleIds exposing (ModuleId)
 import Elm.TypeInference.ModuleIndex as ModuleIndex exposing (ImportIndex, ModuleIndex)
 import Elm.TypeInference.State as State exposing (StateM)

@@ -4,8 +4,8 @@ module Elm.TypeInference.TypeVar exposing
     , SuperType(..)
     , TypeVar
     , TypeVarStyle(..)
-    , genKeyFrom
     , deduplicate
+    , genKeyFrom
     , namedKeyFrom
     , parse
     , superTypeTag

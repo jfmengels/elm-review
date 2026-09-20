@@ -1150,18 +1150,23 @@ inferModule_ currentPackage depEnv moduleMapping values aliases importedInterfac
                 importedInterfaces
                 thisIndex
     in
-    (State.do (gatherTypeAliases ctx file) <| \outgoingAliases ->
-    let
-        -- `outgoingAliases` are only this module's own (small)
-        typeAliases : Dict GlobalKey TypeAlias
-        typeAliases =
-            Dict.union outgoingAliases ctx.aliases
-    in
-    State.do (registerConstructorsAndPorts ctx file) <| \() ->
-    State.do (registerEffectMagic ctx) <| \() ->
-    State.do (solveModule ctx typeAliases file) <| \() ->
-    State.do (moduleResult ctx outgoingAliases) <| \result ->
-    State.pure result
+    (State.do (gatherTypeAliases ctx file) <|
+        \outgoingAliases ->
+            let
+                -- `outgoingAliases` are only this module's own (small)
+                typeAliases : Dict GlobalKey TypeAlias
+                typeAliases =
+                    Dict.union outgoingAliases ctx.aliases
+            in
+            State.do (registerConstructorsAndPorts ctx file) <|
+                \() ->
+                    State.do (registerEffectMagic ctx) <|
+                        \() ->
+                            State.do (solveModule ctx typeAliases file) <|
+                                \() ->
+                                    State.do (moduleResult ctx outgoingAliases) <|
+                                        \result ->
+                                            State.pure result
     )
         |> State.run (State.init ctx.values)
         |> Tuple.first
@@ -1176,45 +1181,49 @@ moduleResult :
             , interface : ModuleInterface
             }
 moduleResult ctx outgoingAliases =
-    State.do State.createdIdCount <| \nextId ->
-    State.do State.getNodeIds <| \nodeIds ->
-    State.do State.getSubst <| \substitutionMap ->
-    State.do State.getGlobalEnv <| \globalEnv ->
-    let
-        exposedValues : Dict VarName TypeI.Type
-        exposedValues =
-            ctx.thisIndex.exposedValues
-                |> Set.foldl
-                    (\name acc ->
-                        case Dict.get ( ctx.thisIndex.moduleId, "", name ) globalEnv of
-                            Just scheme ->
-                                Dict.insert name
-                                    (scheme
-                                        |> TypeI.applyNameHints (hintFor substitutionMap)
-                                        |> TypeI.normalize
-                                    )
-                                    acc
+    State.do State.createdIdCount <|
+        \nextId ->
+            State.do State.getNodeIds <|
+                \nodeIds ->
+                    State.do State.getSubst <|
+                        \substitutionMap ->
+                            State.do State.getGlobalEnv <|
+                                \globalEnv ->
+                                    let
+                                        exposedValues : Dict VarName TypeI.Type
+                                        exposedValues =
+                                            ctx.thisIndex.exposedValues
+                                                |> Set.foldl
+                                                    (\name acc ->
+                                                        case Dict.get ( ctx.thisIndex.moduleId, "", name ) globalEnv of
+                                                            Just scheme ->
+                                                                Dict.insert name
+                                                                    (scheme
+                                                                        |> TypeI.applyNameHints (hintFor substitutionMap)
+                                                                        |> TypeI.normalize
+                                                                    )
+                                                                    acc
 
-                            Nothing ->
-                                acc
-                    )
-                    Dict.empty
-    in
-    State.pure
-        { table =
-            { nodeIds = nodeIds
-            , subst = SubstitutionMap.forLookup substitutionMap
-            , moduleMapping = ctx.moduleMapping
-            , -- We preallocate so `getAllTypes` never needs to grow the array.
-              cache = Array.repeat nextId Nothing
-            , pool = Dict.empty
-            }
-        , interface =
-            { moduleIndex = ctx.thisIndex
-            , exposedValues = exposedValues
-            , ownTypeAliases = outgoingAliases
-            }
-        }
+                                                            Nothing ->
+                                                                acc
+                                                    )
+                                                    Dict.empty
+                                    in
+                                    State.pure
+                                        { table =
+                                            { nodeIds = nodeIds
+                                            , subst = SubstitutionMap.forLookup substitutionMap
+                                            , moduleMapping = ctx.moduleMapping
+                                            , -- We preallocate so `getAllTypes` never needs to grow the array.
+                                              cache = Array.repeat nextId Nothing
+                                            , pool = Dict.empty
+                                            }
+                                        , interface =
+                                            { moduleIndex = ctx.thisIndex
+                                            , exposedValues = exposedValues
+                                            , ownTypeAliases = outgoingAliases
+                                            }
+                                        }
 
 
 solveModule :
@@ -1434,15 +1443,17 @@ gatherTypeAliases ctx file =
                                     _ ->
                                         State.pureUnit
                         in
-                        State.do type_ <| \type__ ->
-                        State.do (registerConstructor type__) <| \() ->
-                        State.pure <|
-                            Dict.insert
-                                ( moduleId, "", Node.value typeAlias.name )
-                                { args = List.map (\(Node.Node _ generic) -> TypeVar.parse generic) typeAlias.generics
-                                , type_ = type__
-                                }
-                                accAcrossDeclarations
+                        State.do type_ <|
+                            \type__ ->
+                                State.do (registerConstructor type__) <|
+                                    \() ->
+                                        State.pure <|
+                                            Dict.insert
+                                                ( moduleId, "", Node.value typeAlias.name )
+                                                { args = List.map (\(Node.Node _ generic) -> TypeVar.parse generic) typeAlias.generics
+                                                , type_ = type__
+                                                }
+                                                accAcrossDeclarations
 
                     _ ->
                         State.pure accAcrossDeclarations
@@ -1568,8 +1579,9 @@ The Elm compiler magically provides:
 registerEffectMagic : ModuleCtx -> StateM ()
 registerEffectMagic ctx =
     if ctx.allowKernel then
-        State.do (registerEffectCommand ctx) <| \() ->
-        registerEffectSubscription ctx
+        State.do (registerEffectCommand ctx) <|
+            \() ->
+                registerEffectSubscription ctx
 
     else
         State.pureUnit

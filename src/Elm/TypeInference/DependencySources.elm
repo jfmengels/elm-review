@@ -15,10 +15,10 @@ import Elm.Syntax.Node as Node
 import Elm.Type
 import Elm.TypeInference.Dependencies exposing (Dependencies)
 import Elm.TypeInference.Error.Internal exposing (FromTypeAnnotationError(..))
-import Elm.TypeInference.ProjectError exposing (ProjectError, ProjectErrorDetails(..))
 import Elm.TypeInference.ModuleIds as ModuleIds
 import Elm.TypeInference.ModuleIndex as ModuleIndex
 import Elm.TypeInference.ModuleLookup as ModuleLookup
+import Elm.TypeInference.ProjectError exposing (ProjectError, ProjectErrorDetails(..))
 import Elm.TypeInference.State exposing (GlobalKey)
 import Elm.TypeInference.Type exposing (PackageName)
 import Elm.TypeInference.Type.Internal as TypeI

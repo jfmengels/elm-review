@@ -26,9 +26,9 @@ import Dict exposing (Dict)
 import Dict.Extra
 import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
-import Elm.TypeInference.InferError exposing (InferErrorDetails(..))
 import Elm.TypeInference.Error.Internal exposing (FromTypeAnnotationError(..), ResolverAmbiguity)
 import Elm.TypeInference.ImplicitImports as ImplicitImports
+import Elm.TypeInference.InferError exposing (InferErrorDetails(..))
 import Elm.TypeInference.ModuleIds as ModuleIds exposing (ModuleId)
 import Elm.TypeInference.Type as Public exposing (PackageName, Type, VarName)
 import Elm.TypeInference.TypeVar as TypeVar
