@@ -509,6 +509,10 @@ runOnModulesWithProjectDataHelp project rule sources =
                                             }
                                             (AttemptReRun rule projectWithModules)
 
+                            Rule.ReviewV4_NeedPackageSources dict ->
+                                FailureMessage.missingInformationForTypeInference dict
+                                    |> FailedRun
+
 
 hasOneElement : List a -> Bool
 hasOneElement list =
@@ -950,20 +954,25 @@ doCheckResultsAreTheSameWhenIgnoringFiles allErrors rule project =
 
 checkResultsAreTheSameWhenIgnoringFilesHelp : Rule -> Project -> List ReviewError -> List String -> Expectation
 checkResultsAreTheSameWhenIgnoringFilesHelp rule project allErrors filesToIgnore =
-    let
-        ( missing, unexpected ) =
-            Rule.reviewV3
-                (ReviewOptions.withDataExtraction False ReviewOptions.defaults)
-                [ Rule.ignoreErrorsForFiles filesToIgnore rule ]
-                project
-                |> .errors
-                |> removeInCommon (removeErrorsForIgnoredFiles filesToIgnore allErrors) []
-    in
-    if List.isEmpty missing && List.isEmpty unexpected then
-        Expect.pass
+    case
+        Rule.reviewV4
+            (ReviewOptions.withDataExtraction False ReviewOptions.defaults)
+            [ Rule.ignoreErrorsForFiles filesToIgnore rule ]
+            project
+    of
+        Rule.ReviewV4_Success { errors } ->
+            let
+                ( missing, unexpected ) =
+                    removeInCommon (removeErrorsForIgnoredFiles filesToIgnore allErrors) [] errors
+            in
+            if List.isEmpty missing && List.isEmpty unexpected then
+                Expect.pass
 
-    else
-        Expect.fail (FailureMessage.resultsAreDifferentWhenFilesAreIgnored { ignoredFiles = filesToIgnore, missing = missing, unexpected = unexpected })
+            else
+                Expect.fail (FailureMessage.resultsAreDifferentWhenFilesAreIgnored { ignoredFiles = filesToIgnore, missing = missing, unexpected = unexpected })
+
+        Rule.ReviewV4_NeedPackageSources _ ->
+            Expect.fail FailureMessage.unexpectedMoreDataNeededWhenFilesAreIgnored
 
 
 removeInCommon : List a -> List a -> List a -> ( List a, List a )
@@ -2024,11 +2033,28 @@ checkAllFixesMatch project target error_ expectedFixed fixes =
                         |> Err
 
                 Err (InvalidProjectError.DuplicateModuleNames { moduleName, paths }) ->
-                    ("Some modules ended up with the same module name `" ++ String.join "." moduleName ++ "`: " ++ String.join ", " paths)
+                    let
+                        details : String
+                        details =
+                            if List.isEmpty paths then
+                                "."
+
+                            else
+                                ": " ++ String.join ", " paths
+                    in
+                    ("Some modules ended up with the same module name `" ++ String.join "." moduleName ++ "`" ++ details)
                         |> Err
 
                 Err InvalidProjectError.NoModulesError ->
                     -- We will consider this to not be a problem in the case of tests
+                    Ok ()
+
+                Err (InvalidProjectError.TypeInferenceError details) ->
+                    ("Found problems when figuring out the types in the new sources: " ++ details)
+                        |> Err
+
+                Err (InvalidProjectError.NeedPackageSources _) ->
+                    -- elm.json probably changed, but this is not necessarily a problem
                     Ok ()
 
                 Ok _ ->
