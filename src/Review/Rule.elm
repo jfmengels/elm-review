@@ -20,7 +20,7 @@ module Review.Rule exposing
     , withElmJsonProjectVisitor, withReadmeProjectVisitor, withDirectDependenciesProjectVisitor, withDependenciesProjectVisitor, withExtraFilesProjectVisitor, withFinalProjectEvaluation
     , withContextFromImportedModules, withContextFromImportedModulesIncludingIndirect
     , providesFixesForProjectRule
-    , ContextCreator, initContextCreator, withModuleName, withModuleNameNode, withIsInSourceDirectories, withFilePath, withIsFileIgnored, withIsFileFixable, withModuleNameLookupTable, withModuleKey, withSourceCodeExtractor, withFullAst, withModuleDocumentation
+    , ContextCreator, initContextCreator, withModuleName, withModuleNameNode, withIsInSourceDirectories, withFilePath, withIsFileIgnored, withIsFileFixable, withModuleNameLookupTable, withTypeLookupTable, withModuleKey, withSourceCodeExtractor, withFullAst, withModuleDocumentation
     , Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix
     , ElmJsonKey, errorForElmJson, errorForElmJsonWithFix
     , ReadmeKey, errorForReadme, errorForReadmeWithFix
@@ -247,7 +247,7 @@ first, as they are in practice a simpler version of project rules.
 
 ## Requesting more information
 
-@docs ContextCreator, initContextCreator, withModuleName, withModuleNameNode, withIsInSourceDirectories, withFilePath, withIsFileIgnored, withIsFileFixable, withModuleNameLookupTable, withModuleKey, withSourceCodeExtractor, withFullAst, withModuleDocumentation
+@docs ContextCreator, initContextCreator, withModuleName, withModuleNameNode, withIsInSourceDirectories, withFilePath, withIsFileIgnored, withIsFileFixable, withModuleNameLookupTable, withTypeLookupTable, withModuleKey, withSourceCodeExtractor, withFullAst, withModuleDocumentation
 
 
 ## Errors
@@ -347,6 +347,8 @@ import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern exposing (Pattern)
 import Elm.Syntax.Range as Range exposing (Range)
+import Elm.TypeInference as TypeInference
+import Elm.TypeInference.Error
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Review.Cache.ContentHash exposing (ContentHash)
@@ -382,7 +384,10 @@ import Review.Project.ModuleIds exposing (ModuleId)
 import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModule)
 import Review.Project.Valid as ValidProject exposing (ValidProject)
 import Review.RequestedData as RequestedData exposing (RequestedData(..))
+import Review.Types.Compute
 import Review.WorkList as WorkList
+import TypeLookupTable exposing (TypeLookupTable)
+import TypeLookupTable.Internal
 import Unicode
 import Vendor.Graph as Graph
 import Vendor.IntSet as IntSet
@@ -1453,6 +1458,7 @@ mergeModuleVisitorsHelp ruleName_ initialProjectContext moduleContextCreator vis
             , moduleKey = ModuleKey "dummy"
             , moduleDocumentation = Nothing
             , moduleNameLookupTable = ModuleNameLookupTableInternal.empty []
+            , typeLookupTable = TypeLookupTable.empty
             , extractSourceCode = always "dummy"
             , filePath = "dummy file path"
             , isInSourceDirectories = True
@@ -5623,10 +5629,29 @@ computeWhatsRequiredToAnalyze project module_ ruleProjectVisitors =
 
 
 computeModuleWithRuleVisitors : ValidProject -> OpaqueProjectModule -> List (AvailableData -> RuleModuleVisitor) -> RequestedData -> List RuleProjectVisitor -> ( ValidProject, List RuleProjectVisitor )
-computeModuleWithRuleVisitors project module_ inputRuleModuleVisitors (RequestedData requestedData) rulesNotToRun =
+computeModuleWithRuleVisitors project0 module_ inputRuleModuleVisitors (RequestedData requestedData) rulesNotToRun =
     let
-        ( moduleNameLookupTable, newProject ) =
-            computeModuleNameLookupTable requestedData project module_
+        ( moduleNameLookupTable, project1 ) =
+            computeModuleNameLookupTable requestedData project0 module_
+
+        { dependencyEnv, interfaces } =
+            ValidProject.typeData project1
+
+        ( typeLookupTable, project2 ) =
+            if requestedData.typeLookupTable then
+                case Review.Types.Compute.computeModule dependencyEnv interfaces module_ of
+                    Ok ( table, updatesInterfaces ) ->
+                        ( table
+                        , -- TODOStore interface back into project
+                          project1
+                        )
+
+                    Err _ ->
+                        -- TODO Store/handle error
+                        ( TypeLookupTable.empty, project1 )
+
+            else
+                ( TypeLookupTable.empty, project1 )
 
         ast : File
         ast =
@@ -5641,6 +5666,7 @@ computeModuleWithRuleVisitors project module_ inputRuleModuleVisitors (Requested
             { ast = ast
             , moduleKey = ModuleKey filePath
             , moduleNameLookupTable = moduleNameLookupTable
+            , typeLookupTable = typeLookupTable
             , moduleDocumentation = findModuleDocumentation ast
             , extractSourceCode =
                 if requestedData.sourceCodeExtractor then
@@ -5663,7 +5689,7 @@ computeModuleWithRuleVisitors project module_ inputRuleModuleVisitors (Requested
                 |> visitModuleForProjectRule availableData
                 |> List.map (\(RuleModuleVisitor ruleModuleVisitor) -> ruleModuleVisitor.toProjectVisitor ())
     in
-    ( newProject, List.append rulesNotToRun outputRuleProjectVisitors )
+    ( project2, List.append rulesNotToRun outputRuleProjectVisitors )
 
 
 computeModuleNameLookupTable : { a | moduleNameLookupTable : Bool } -> ValidProject -> OpaqueProjectModule -> ( ModuleNameLookupTableInternal.ModuleNameLookupTable, ValidProject )
@@ -7532,6 +7558,22 @@ withModuleNameLookupTable (ContextCreator fn (RequestedData requested)) =
         (RequestedData { requested | moduleNameLookupTable = True })
 
 
+{-| REPLACEME
+
+TODO Make sure TypeLookupTable is exposed
+TODO Make sure dependencyEnv and interfaces are updated when
+
+  - elm.json changes
+  - files change
+
+-}
+withTypeLookupTable : ContextCreator TypeLookupTable (from -> to) -> ContextCreator from to
+withTypeLookupTable (ContextCreator fn (RequestedData requested)) =
+    ContextCreator
+        (\data isFileIgnored isFileFixable -> fn data isFileIgnored isFileFixable data.typeLookupTable)
+        (RequestedData { requested | typeLookupTable = True })
+
+
 {-| Request the full [AST](https://en.wikipedia.org/wiki/Abstract_syntax_tree) for the current module.
 
 This can be useful if you wish to avoid initializing the module context with dummy data future node visits can replace them.
@@ -7688,6 +7730,7 @@ type alias AvailableData =
     , moduleKey : ModuleKey
     , moduleDocumentation : Maybe (Node String)
     , moduleNameLookupTable : ModuleNameLookupTable
+    , typeLookupTable : TypeLookupTable
     , extractSourceCode : Range -> String
     , filePath : FilePath
     , isInSourceDirectories : Bool
