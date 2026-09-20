@@ -25,7 +25,7 @@ alsoHasTypeAnnotation str = []
 """
                     |> Review.Test.run rule
                     |> Review.Test.expectNoErrors
-        , test "should report when a declaration named `all...` that is of type `List <CustomTypeName>` does not have all the type constructors in its value (1)" <|
+        , test "should report a missing type annotation" <|
             \_ ->
                 """module A exposing (..)
 hasNoTypeAnnotation = 1
@@ -37,6 +37,31 @@ hasNoTypeAnnotation = 1
                             , details = details
                             , under = "hasNoTypeAnnotation"
                             }
+                            |> Review.Test.whenFixed """module A exposing (..)
+hasNoTypeAnnotation : number
+hasNoTypeAnnotation = 1
+"""
+                        ]
+        , test "should report a missing type annotation and qualify types according to existing imports" <|
+            \_ ->
+                """module A exposing (..)
+import Dict
+import Set exposing (Set)
+hasNoTypeAnnotation = Dict.singleton "" Set.empty
+"""
+                    |> Review.Test.run rule
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Missing type annotation for `hasNoTypeAnnotation`"
+                            , details = details
+                            , under = "hasNoTypeAnnotation"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Dict
+import Set exposing (Set)
+hasNoTypeAnnotation : Dict.Dict String (Set a)
+hasNoTypeAnnotation = Dict.singleton "" Set.empty
+"""
                         ]
         , test "should not report anything for custom type declarations" <|
             \_ ->
