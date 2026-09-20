@@ -12,6 +12,7 @@ import NoUnused.Variables
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Options
 import Review.Project as Project exposing (Project)
+import Review.Project.Internal
 import Review.Project.Valid as Valid
 import Review.Rule as Rule exposing (Rule)
 import Review.Test.Dependencies
@@ -46,9 +47,11 @@ a = value
 
                     reviewResult : { errors : List Rule.ReviewError, rules : List Rule, project : Project, extracts : Dict String Encode.Value, fixedErrors : Dict String (List Rule.ReviewError) }
                     reviewResult =
-                        Rule.reviewV3 Review.Options.defaults [ NoUnused.Variables.rule ] project
+                        Rule.reviewV4 Review.Options.defaults [ NoUnused.Variables.rule ] project
+                            |> extractOrFail
                 in
-                Rule.reviewV3 Review.Options.defaults reviewResult.rules reviewResult.project
+                Rule.reviewV4 Review.Options.defaults reviewResult.rules reviewResult.project
+                    |> extractOrFail
                     |> .errors
                     |> Expect.equal reviewResult.errors
         , test "Changing a file after a run in an unrelated manner should yield the same results" <|
@@ -114,7 +117,8 @@ a = value
 
                     reviewResult : { errors : List Rule.ReviewError, rules : List Rule, project : Project, extracts : Dict String Encode.Value, fixedErrors : Dict String (List Rule.ReviewError) }
                     reviewResult =
-                        Rule.reviewV3 Review.Options.defaults [ rule ] project
+                        Rule.reviewV4 Review.Options.defaults [ rule ] project
+                            |> extractOrFail
 
                     updatedProject : Project
                     updatedProject =
@@ -129,7 +133,8 @@ a = value ++ "ok"
                                 }
                             |> clearModuleDocsCache
                 in
-                Rule.reviewV3 Review.Options.defaults reviewResult.rules updatedProject
+                Rule.reviewV4 Review.Options.defaults reviewResult.rules updatedProject
+                    |> extractOrFail
                     |> .errors
                     |> Expect.equal reviewResult.errors
         , -- Regression test
@@ -199,15 +204,26 @@ a = 1
                             |> Expect.equal [ "Unused dependency `abc/def`" ]
                             |> Expect.onFail "Expected pre-test assertion failed"
                     , \reviewResult ->
-                        Rule.reviewV3
+                        Rule.reviewV4
                             Review.Options.defaults
                             reviewResult.rules
                             (Project.addElmJson (createElmJson elmJsonAfterFix) reviewResult.project)
+                            |> extractOrFail
                             |> .errors
                             |> Expect.equal []
                     ]
-                    (Rule.reviewV3 Review.Options.defaults [ NoUnused.Dependencies.rule ] project)
+                    (Rule.reviewV4 Review.Options.defaults [ NoUnused.Dependencies.rule ] project |> extractOrFail)
         ]
+
+
+extractOrFail : Rule.ReviewV4Output -> { errors : List Rule.ReviewError, rules : List Rule, project : Review.Project.Internal.Project, extracts : Dict String Encode.Value, fixedErrors : Dict String (List Rule.ReviewError) }
+extractOrFail runResult =
+    case runResult of
+        Rule.ReviewV4_Success reviewResult ->
+            reviewResult
+
+        Rule.ReviewV4_NeedPackageSources neededSources ->
+            Debug.todo ("Need package sources: " ++ Debug.toString neededSources)
 
 
 createElmJson : String -> { path : String, raw : String, project : Elm.Project.Project }
