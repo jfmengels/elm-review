@@ -67,6 +67,7 @@ type alias ValidProjectData =
     , extraFilesContentHashes : Dict FilePath ContentHash
     , dependencies : Dict String Dependency
     , directDependencies : Dict String Dependency
+    , dependencyFiles : Dict String (List Elm.Syntax.File.File)
     , sourceDirectories : List String
     , projectCache : ProjectCache
     , moduleGraph : Graph FilePath
@@ -91,6 +92,7 @@ toRegularProject (ValidProject validProject) =
         , extraFilesContentHashes = validProject.extraFilesContentHashes
         , dependencies = validProject.dependencies
         , directDependencies = validProject.directDependencies
+        , dependencyFiles = validProject.dependencyFiles
         , moduleGraph = validProject.moduleGraph
         , sourceDirectories = validProject.sourceDirectories
         , cache = validProject.projectCache
@@ -153,7 +155,7 @@ parse ((Project p) as project) =
 
                     Ok ( moduleGraph, sortedModules ) ->
                         -- TODO Avoid computing type information if not requested
-                        case Review.Types.Compute.computeDeps p.dependencies (Dict.keys p.directDependencies) of
+                        case Review.Types.Compute.computeDeps p.dependencies (Dict.keys p.directDependencies) p.dependencyFiles of
                             TypeInference.Ready dependencyEnv ->
                                 fromProjectAndGraph moduleGraph sortedModules dependencyEnv project
                                     |> Ok
@@ -189,6 +191,7 @@ fromProjectAndGraph moduleGraph sortedModules dependencyEnv (Project project) =
         , dependencies = project.dependencies
         , directDependencies = project.directDependencies
         , sourceDirectories = project.sourceDirectories
+        , dependencyFiles = project.dependencyFiles
         , projectCache = project.cache
         , moduleGraph = moduleGraph
         , sortedModules = sortedModules

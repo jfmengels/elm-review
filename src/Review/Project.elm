@@ -11,6 +11,7 @@ module Review.Project exposing
     , addDependency
     , removeDependency, removeDependencies
     , directDependencies, dependencies
+    , addDependencyFiles
     , Diff(..), diffV2, diff
     , precomputeModuleGraph
     )
@@ -61,6 +62,7 @@ that rules can then visit.
 @docs addDependency
 @docs removeDependency, removeDependencies
 @docs directDependencies, dependencies
+@docs addDependencyFiles
 
 
 # Diffing
@@ -125,6 +127,7 @@ new =
         , extraFilesContentHashes = Dict.empty
         , dependencies = Dict.empty
         , directDependencies = Dict.empty
+        , dependencyFiles = Dict.empty
         , moduleGraph = Graph.empty
         , sourceDirectories = [ "src/" ]
         , cache = ProjectCache.empty
@@ -611,6 +614,30 @@ directDependencies (Internal.Project project) =
 
         Nothing ->
             project.dependencies
+
+
+addDependencyFiles : Dict String (List Elm.Syntax.File.File) -> Project -> Project
+addDependencyFiles newDepFiles (Internal.Project project) =
+    let
+        dependencyFiles : Dict String (List Elm.Syntax.File.File)
+        dependencyFiles =
+            if Dict.isEmpty project.dependencyFiles then
+                newDepFiles
+
+            else
+                Dict.foldl
+                    (\depName files dict ->
+                        case Dict.get depName project.dependencyFiles of
+                            Just previousFiles ->
+                                Dict.insert depName (List.append files previousFiles) dict
+
+                            Nothing ->
+                                Dict.insert depName files dict
+                    )
+                    project.dependencyFiles
+                    newDepFiles
+    in
+    Internal.Project { project | dependencyFiles = dependencyFiles }
 
 
 unwrap : Project -> ProjectInternals

@@ -9,8 +9,8 @@ import Elm.TypeInference.Type exposing (PackageName)
 import Review.Project.Dependency as Dependency
 
 
-computeDeps : Dict PackageName Dependency.Dependency -> List PackageName -> DependencyEnvOutcome
-computeDeps dependencies directDependencies =
+computeDeps : Dict PackageName Dependency.Dependency -> List PackageName -> Dict PackageName (List File) -> DependencyEnvOutcome
+computeDeps dependencies directDependencies sourcesToResolveAmbiguity =
     let
         allDeps : List TypeInference.Dependency
         allDeps =
@@ -28,7 +28,7 @@ computeDeps dependencies directDependencies =
     TypeInference.dependencyEnv
         { directDependencies = directDependencies
         , allDependencies = allDeps
-        , sourcesToResolveAmbiguity = Dict.empty
+        , sourcesToResolveAmbiguity = sourcesToResolveAmbiguity
         }
 
 
