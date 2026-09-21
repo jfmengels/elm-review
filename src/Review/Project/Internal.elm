@@ -45,6 +45,7 @@ type alias ProjectInternals =
     , extraFilesContentHashes : Dict {- path -} String ContentHash
     , dependencies : Dict String Dependency
     , directDependencies : Dict String Dependency
+    , dependencyFiles : Dict String (List Elm.Syntax.File.File)
     , moduleGraph : Graph FilePath
     , sourceDirectories : List String
     , cache : ProjectCache
