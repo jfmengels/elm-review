@@ -5754,8 +5754,7 @@ computeModuleWithRuleVisitors project0 module_ inputRuleModuleVisitors (Requeste
                         in
                         case tableResult of
                             Ok table_ ->
-                                -- TODO Store newTypeInferenceProject back into project
-                                ( table_, project1 )
+                                ( table_, ValidProject.setTypeInferenceProject newTypeInferenceProject project1 )
 
                             Err err ->
                                 -- TODO Store/handle error
