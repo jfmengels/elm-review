@@ -158,8 +158,8 @@ parse ((Project p) as project) =
                                 fromProjectAndGraph moduleGraph sortedModules dependencyEnv project
                                     |> Ok
 
-                            TypeInference.NeedPackageSources sources ->
-                                Debug.todo ("Sources: " ++ Debug.toString sources)
+                            TypeInference.NeedPackageSources packageSources ->
+                                Err (InvalidProjectError.NeedPackageSources packageSources)
 
                             TypeInference.Failed _ ->
                                 -- TODO
