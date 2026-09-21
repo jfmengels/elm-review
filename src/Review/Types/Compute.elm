@@ -14,10 +14,11 @@ import Review.Project.Dependency as Dependency
 computeDeps :
     Dict PackageName Dependency.Dependency
     -> List PackageName
+    -> Dict PackageName (List File)
     -> Maybe PackageName
     -> Dict ModuleName File
     -> Result (Dict String (List String)) TypeInference.Project
-computeDeps dependencies directDependencies projectPackageName projectFiles =
+computeDeps dependencies directDependencies sourcesToResolveAmbiguity projectPackageName projectFiles =
     let
         allDeps : List TypeInference.Dependency
         allDeps =
@@ -37,7 +38,7 @@ computeDeps dependencies directDependencies projectPackageName projectFiles =
             TypeInference.init
                 { directDependencies = directDependencies
                 , allDependencies = allDeps
-                , sourcesToResolveAmbiguity = Dict.empty
+                , sourcesToResolveAmbiguity = sourcesToResolveAmbiguity
                 , projectPackageName = projectPackageName
                 , projectFiles = projectFiles
                 }

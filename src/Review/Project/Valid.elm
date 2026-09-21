@@ -72,6 +72,7 @@ type alias ValidProjectData =
     , exposedModules : Maybe (Set String)
     , dependencies : Dict String Dependency
     , directDependencies : Dict String Dependency
+    , dependencyFiles : Dict String (List Elm.Syntax.File.File)
     , sourceDirectories : List String
     , projectCache : ProjectCache
     , moduleGraph : Graph FilePath
@@ -96,6 +97,7 @@ toRegularProject (ValidProject validProject) =
         , extraFilesContentHashes = validProject.extraFilesContentHashes
         , dependencies = validProject.dependencies
         , directDependencies = validProject.directDependencies
+        , dependencyFiles = validProject.dependencyFiles
         , moduleGraph = validProject.moduleGraph
         , sourceDirectories = validProject.sourceDirectories
         , cache = validProject.projectCache
@@ -162,6 +164,7 @@ parse ((Project p) as project) =
                             Review.Types.Compute.computeDeps
                                 p.dependencies
                                 (Dict.keys p.directDependencies)
+                                p.dependencyFiles
                                 (Maybe.andThen (\( elmJson_, _ ) -> packageName elmJson_.project) p.elmJson)
                                 (Dict.foldl (\_ m dict -> Dict.insert (ProjectModule.moduleName m) (ProjectModule.ast m) dict) Dict.empty p.modulesByPath)
                         of
@@ -207,6 +210,7 @@ fromProjectAndGraph moduleGraph sortedModules typeInferenceProject_ (Project pro
         , dependencies = project.dependencies
         , directDependencies = project.directDependencies
         , sourceDirectories = project.sourceDirectories
+        , dependencyFiles = project.dependencyFiles
         , projectCache = project.cache
         , moduleGraph = moduleGraph
         , sortedModules = sortedModules
