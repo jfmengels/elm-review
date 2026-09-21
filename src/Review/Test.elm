@@ -2031,6 +2031,9 @@ checkAllFixesMatch project target error_ expectedFixed fixes =
                     -- We will consider this to not be a problem in the case of tests
                     Ok ()
 
+                Err (InvalidProjectError.NeedPackageSources _) ->
+                    Debug.todo "NeedPackageSources in tests"
+
                 Ok _ ->
                     Ok ()
 
