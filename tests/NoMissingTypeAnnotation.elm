@@ -159,7 +159,7 @@ toString t =
                         |> Dict.toList
                         |> List.map (\( name, fieldType ) -> name ++ " : " ++ toString fieldType)
             in
-            "{" ++ String.join ", " fieldStrings ++ "}"
+            "{ " ++ String.join ", " fieldStrings ++ " }"
 
         ExtensibleRecord { fields, extensionTypevar } ->
             let
