@@ -186,12 +186,12 @@ toString t =
                 |> String.join " "
 
         WebGLShader r ->
-            [ "Shader"
-            , shaderSlotToString r.attributesFields r.attributesExtensionTypevar
-            , shaderSlotToString r.uniformsFields r.uniformsExtensionTypevar
-            , shaderSlotToString r.varyingsFields r.varyingsExtensionTypevar
-            ]
-                |> String.join " "
+            "Shader "
+                ++ shaderSlotToString r.attributesFields r.attributesExtensionTypevar
+                ++ " "
+                ++ shaderSlotToString r.uniformsFields r.uniformsExtensionTypevar
+                ++ " "
+                ++ shaderSlotToString r.varyingsFields r.varyingsExtensionTypevar
 
 
 shaderSlotToType : Dict String Type -> Maybe String -> Type
