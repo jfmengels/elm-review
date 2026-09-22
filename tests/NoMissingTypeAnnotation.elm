@@ -65,17 +65,22 @@ rule =
 
 
 type alias Context =
-    TypeLookupTable
+    { typeLookupTable : TypeLookupTable
+    }
 
 
 initialContext : Rule.ContextCreator () Context
 initialContext =
-    Rule.initContextCreator (\typeLookupTable () -> typeLookupTable)
+    Rule.initContextCreator
+        (\typeLookupTable () ->
+            { typeLookupTable = typeLookupTable
+            }
+        )
         |> Rule.withTypeLookupTable
 
 
-declarationVisitor : Node Declaration -> TypeLookupTable -> ( List (Error {}), TypeLookupTable )
-declarationVisitor declaration typeLookupTable =
+declarationVisitor : Node Declaration -> Context -> ( List (Error {}), Context )
+declarationVisitor declaration context =
     case Node.value declaration of
         Declaration.FunctionDeclaration function ->
             case function.signature of
@@ -86,8 +91,8 @@ declarationVisitor declaration typeLookupTable =
                                 |> Node.value
                                 |> .name
 
-                        ( inferredType, newTypeLookupTable ) =
-                            TypeLookupTable.get (Node.range declaration) typeLookupTable
+                        ( inferredType, typeLookupTable ) =
+                            TypeLookupTable.get (Node.range declaration) context.typeLookupTable
 
                         fix : List Fix.Edit
                         fix =
@@ -105,14 +110,14 @@ declarationVisitor declaration typeLookupTable =
                             range
                             fix
                       ]
-                    , newTypeLookupTable
+                    , { typeLookupTable = typeLookupTable }
                     )
 
                 Just _ ->
-                    ( [], typeLookupTable )
+                    ( [], context )
 
         _ ->
-            ( [], typeLookupTable )
+            ( [], context )
 
 
 toString : Type -> String
