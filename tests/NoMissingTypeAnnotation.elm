@@ -191,7 +191,7 @@ declarationVisitor declaration context =
                         fix =
                             case inferredType of
                                 Just type_ ->
-                                    [ Fix.insertAt (Node.range declaration).start (name ++ " : " ++ toString context type_ ++ "\n") ]
+                                    [ Fix.insertAt (Node.range function.declaration).start (name ++ " : " ++ toString context type_ ++ "\n") ]
 
                                 Nothing ->
                                     []
