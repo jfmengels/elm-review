@@ -8,6 +8,7 @@ module NoMissingTypeAnnotation exposing (rule)
 
 import Dict exposing (Dict)
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
+import Elm.Syntax.Import exposing (Import)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.TypeInference.Type exposing (Type(..))
 import Review.Fix as Fix
@@ -60,23 +61,42 @@ elm-review --template jfmengels/elm-review-common/example --rules NoMissingTypeA
 rule : Rule
 rule =
     Rule.newModuleRuleSchemaUsingContextCreator "NoMissingTypeAnnotation" initialContext
+        |> Rule.withImportVisitor importVisitor
         |> Rule.withDeclarationEnterVisitor declarationVisitor
         |> Rule.fromModuleRuleSchema
 
 
 type alias Context =
     { typeLookupTable : TypeLookupTable
+    , moduleNameAliases : Dict String String
     }
 
 
 initialContext : Rule.ContextCreator () Context
 initialContext =
     Rule.initContextCreator
-        (\typeLookupTable () ->
+        (\typeLookupTable moduleName () ->
             { typeLookupTable = typeLookupTable
+            , moduleNameAliases = Dict.singleton (String.join "." moduleName) ""
             }
         )
         |> Rule.withTypeLookupTable
+        |> Rule.withModuleName
+
+
+importVisitor : Node Import -> Context -> ( List (Error {}), Context )
+importVisitor (Node _ { moduleName, moduleAlias, exposingList }) context =
+    ( []
+    , { typeLookupTable = context.typeLookupTable
+      , moduleNameAliases =
+            case moduleAlias of
+                Just (Node _ alias) ->
+                    Dict.insert (String.join "." (Node.value moduleName)) (String.join "." alias) context.moduleNameAliases
+
+                Nothing ->
+                    context.moduleNameAliases
+      }
+    )
 
 
 declarationVisitor : Node Declaration -> Context -> ( List (Error {}), Context )
@@ -98,7 +118,7 @@ declarationVisitor declaration context =
                         fix =
                             case inferredType of
                                 Just type_ ->
-                                    [ Fix.insertAt (Node.range declaration).start (name ++ " : " ++ toString type_ ++ "\n") ]
+                                    [ Fix.insertAt (Node.range declaration).start (name ++ " : " ++ toString context.moduleNameAliases type_ ++ "\n") ]
 
                                 Nothing ->
                                     []
@@ -110,7 +130,9 @@ declarationVisitor declaration context =
                             range
                             fix
                       ]
-                    , { typeLookupTable = typeLookupTable }
+                    , { typeLookupTable = typeLookupTable
+                      , moduleNameAliases = context.moduleNameAliases
+                      }
                     )
 
                 Just _ ->
@@ -120,14 +142,14 @@ declarationVisitor declaration context =
             ( [], context )
 
 
-toString : Type -> String
-toString t =
+toString : Dict String String -> Type -> String
+toString moduleNameAliases t =
     case t of
         TypeVar name ->
             name
 
         Function { from, to } ->
-            wrappedFrom from ++ " -> " ++ toString to
+            wrappedFrom moduleNameAliases from ++ " -> " ++ toString moduleNameAliases to
 
         Int ->
             "Int"
@@ -145,16 +167,16 @@ toString t =
             "Bool"
 
         List inner ->
-            "List " ++ wrapped inner
+            "List " ++ wrapped moduleNameAliases inner
 
         Unit ->
             "()"
 
         Tuple2 a b ->
-            "( " ++ toString a ++ ", " ++ toString b ++ " )"
+            "( " ++ toString moduleNameAliases a ++ ", " ++ toString moduleNameAliases b ++ " )"
 
         Tuple3 a b c ->
-            "( " ++ toString a ++ ", " ++ toString b ++ ", " ++ toString c ++ " )"
+            "( " ++ toString moduleNameAliases a ++ ", " ++ toString moduleNameAliases b ++ ", " ++ toString moduleNameAliases c ++ " )"
 
         Record { fields } ->
             let
@@ -162,7 +184,7 @@ toString t =
                 fieldStrings =
                     fields
                         |> Dict.toList
-                        |> List.map (\( name, fieldType ) -> name ++ " : " ++ toString fieldType)
+                        |> List.map (\( name, fieldType ) -> name ++ " : " ++ toString moduleNameAliases fieldType)
             in
             "{ " ++ String.join ", " fieldStrings ++ " }"
 
@@ -172,7 +194,7 @@ toString t =
                 fieldStrings =
                     fields
                         |> Dict.toList
-                        |> List.map (\( name, fieldType ) -> name ++ " : " ++ toString fieldType)
+                        |> List.map (\( name, fieldType ) -> name ++ " : " ++ toString moduleNameAliases fieldType)
             in
             "{ " ++ extensionTypevar ++ " | " ++ String.join ", " fieldStrings ++ " }"
 
@@ -180,23 +202,34 @@ toString t =
             let
                 argStrings : List String
                 argStrings =
-                    arguments
-                        |> List.map wrapped
+                    List.map (wrapped moduleNameAliases) arguments
+
+                dotted : String
+                dotted =
+                    String.join "." moduleName
 
                 qualifiedName : String
                 qualifiedName =
-                    String.join "." moduleName ++ "." ++ name
+                    case Dict.get dotted moduleNameAliases of
+                        Just "" ->
+                            name
+
+                        Just alias_ ->
+                            alias_ ++ "." ++ name
+
+                        Nothing ->
+                            dotted ++ "." ++ name
             in
             (qualifiedName :: argStrings)
                 |> String.join " "
 
         WebGLShader r ->
             "Shader "
-                ++ shaderSlotToString r.attributesFields r.attributesExtensionTypevar
+                ++ toString moduleNameAliases (shaderSlotToType r.attributesFields r.attributesExtensionTypevar)
                 ++ " "
-                ++ shaderSlotToString r.uniformsFields r.uniformsExtensionTypevar
+                ++ toString moduleNameAliases (shaderSlotToType r.uniformsFields r.uniformsExtensionTypevar)
                 ++ " "
-                ++ shaderSlotToString r.varyingsFields r.varyingsExtensionTypevar
+                ++ toString moduleNameAliases (shaderSlotToType r.varyingsFields r.varyingsExtensionTypevar)
 
 
 shaderSlotToType : Dict String Type -> Maybe String -> Type
@@ -213,35 +246,30 @@ shaderSlotToType fields extensionTypevar =
                 ExtensibleRecord { fields = fields, extensionTypevar = var }
 
 
-shaderSlotToString : Dict String Type -> Maybe String -> String
-shaderSlotToString fields extensionTypevar =
-    toString (shaderSlotToType fields extensionTypevar)
-
-
 {-| Wraps a type in parentheses when it wouldn't parse back unambiguously
 as an argument of a type constructor application.
 -}
-wrapped : Type -> String
-wrapped t =
+wrapped : Dict String String -> Type -> String
+wrapped moduleNameAliases t =
     case t of
         Function _ ->
-            paren (toString t)
+            paren (toString moduleNameAliases t)
 
         List _ ->
-            paren (toString t)
+            paren (toString moduleNameAliases t)
 
         WebGLShader _ ->
-            paren (toString t)
+            paren (toString moduleNameAliases t)
 
         Named r ->
             if List.isEmpty r.arguments then
-                toString t
+                toString moduleNameAliases t
 
             else
-                paren (toString t)
+                paren (toString moduleNameAliases t)
 
         _ ->
-            toString t
+            toString moduleNameAliases t
 
 
 {-| Wraps a type in parentheses when it wouldn't parse back unambiguously on the
@@ -251,14 +279,14 @@ left of `->`.
 `->` needs parens there: `List a -> b` already parses as `(List a) -> b`.
 
 -}
-wrappedFrom : Type -> String
-wrappedFrom t =
+wrappedFrom : Dict String String -> Type -> String
+wrappedFrom moduleNameAliases t =
     case t of
         Function _ ->
-            paren (toString t)
+            paren (toString moduleNameAliases t)
 
         _ ->
-            toString t
+            toString moduleNameAliases t
 
 
 paren : String -> String
