@@ -814,11 +814,12 @@ runRules (ReviewOptionsInternal reviewOptions) ruleProjectVisitors project =
     let
         result : AnalysisAccumulator
         result =
-            runProjectVisitor
+            computeStepsForProject
                 reviewOptions
-                ruleProjectVisitors
-                FixedErrors.empty
-                project
+                { project = project
+                , ruleProjectVisitors = ruleProjectVisitors
+                , fixedErrors = FixedErrors.empty
+                }
 
         { errors, rules, extracts } =
             computeErrorsAndRulesAndExtracts reviewOptions result.ruleProjectVisitors
@@ -5118,28 +5119,6 @@ removeFixesIfTargetsShouldNotBeFixed exceptions err =
 
     else
         err
-
-
-runProjectVisitor :
-    ReviewOptionsData
-    -> List RuleProjectVisitor
-    -> FixedErrors
-    -> ValidProject
-    -> AnalysisAccumulator
-runProjectVisitor reviewOptions initialRuleProjectVisitors initialFixedErrors initialProject =
-    let
-        { project, ruleProjectVisitors, fixedErrors } =
-            computeStepsForProject
-                reviewOptions
-                { project = initialProject
-                , ruleProjectVisitors = initialRuleProjectVisitors
-                , fixedErrors = initialFixedErrors
-                }
-    in
-    { fixedErrors = fixedErrors
-    , ruleProjectVisitors = ruleProjectVisitors
-    , project = project
-    }
 
 
 finalCacheMarker : String -> Int -> ProjectRuleCache projectContext -> ProjectRuleCache projectContext
