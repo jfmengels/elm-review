@@ -225,20 +225,20 @@ wrapped : Type -> String
 wrapped t =
     case t of
         Function _ ->
-            paren t
+            paren (toString t)
 
         List _ ->
-            paren t
+            paren (toString t)
 
         WebGLShader _ ->
-            paren t
+            paren (toString t)
 
         Named r ->
             if List.isEmpty r.arguments then
                 toString t
 
             else
-                paren t
+                paren (toString t)
 
         _ ->
             toString t
@@ -255,12 +255,12 @@ wrappedFrom : Type -> String
 wrappedFrom t =
     case t of
         Function _ ->
-            paren t
+            paren (toString t)
 
         _ ->
             toString t
 
 
-paren : Type -> String
-paren t =
-    "(" ++ toString t ++ ")"
+paren : String -> String
+paren str =
+    "(" ++ str ++ ")"
