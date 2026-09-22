@@ -5212,12 +5212,9 @@ computeStepsForProject :
     ReviewOptionsData
     -> AnalysisAccumulator
     -> AnalysisAccumulator
-computeStepsForProject reviewOptions { project, ruleProjectVisitors, fixedErrors } =
+computeStepsForProject reviewOptions ({ project, ruleProjectVisitors, fixedErrors } as analysisAcc) =
     if FixedErrors.count fixedErrors > 0 && not (InternalOptions.shouldContinueLookingForFixes reviewOptions fixedErrors) then
-        { project = project
-        , ruleProjectVisitors = ruleProjectVisitors
-        , fixedErrors = fixedErrors
-        }
+        analysisAcc
 
     else
         case ValidProject.workList project |> WorkList.nextStep of
@@ -5292,10 +5289,7 @@ computeStepsForProject reviewOptions { project, ruleProjectVisitors, fixedErrors
                     (computeFinalProjectEvaluation reviewOptions project fixedErrors ruleProjectVisitors [])
 
             WorkList.EndAnalysis ->
-                { project = project
-                , ruleProjectVisitors = ruleProjectVisitors
-                , fixedErrors = fixedErrors
-                }
+                analysisAcc
 
 
 type StepToComputeContext
