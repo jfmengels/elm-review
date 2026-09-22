@@ -6,9 +6,10 @@ module NoMissingTypeAnnotation exposing (rule)
 
 -}
 
+import Dict exposing (Dict)
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Node as Node exposing (Node(..))
-import Elm.TypeInference.Type
+import Elm.TypeInference.Type exposing (Type(..))
 import Review.Fix as Fix
 import Review.Rule as Rule exposing (Error, Rule)
 import TypeLookupTable exposing (TypeLookupTable)
@@ -92,7 +93,7 @@ declarationVisitor declaration typeLookupTable =
                         fix =
                             case inferredType of
                                 Just type_ ->
-                                    [ Fix.insertAt (Node.range declaration).start (name ++ " : " ++ Elm.TypeInference.Type.toString type_ ++ "\n") ]
+                                    [ Fix.insertAt (Node.range declaration).start (name ++ " : " ++ toString type_ ++ "\n") ]
 
                                 Nothing ->
                                     []
@@ -112,3 +113,149 @@ declarationVisitor declaration typeLookupTable =
 
         _ ->
             ( [], typeLookupTable )
+
+
+toString : Type -> String
+toString t =
+    case t of
+        TypeVar name ->
+            name
+
+        Function { from, to } ->
+            wrappedFrom from ++ " -> " ++ toString to
+
+        Int ->
+            "Int"
+
+        Float ->
+            "Float"
+
+        Char ->
+            "Char"
+
+        String ->
+            "String"
+
+        Bool ->
+            "Bool"
+
+        List inner ->
+            "List " ++ wrapped inner
+
+        Unit ->
+            "()"
+
+        Tuple2 a b ->
+            "( " ++ toString a ++ ", " ++ toString b ++ " )"
+
+        Tuple3 a b c ->
+            "( " ++ toString a ++ ", " ++ toString b ++ ", " ++ toString c ++ " )"
+
+        Record { fields } ->
+            let
+                fieldStrings : List String
+                fieldStrings =
+                    fields
+                        |> Dict.toList
+                        |> List.map (\( name, fieldType ) -> name ++ " : " ++ toString fieldType)
+            in
+            "{" ++ String.join ", " fieldStrings ++ "}"
+
+        ExtensibleRecord { fields, extensionTypevar } ->
+            let
+                fieldStrings : List String
+                fieldStrings =
+                    fields
+                        |> Dict.toList
+                        |> List.map (\( name, fieldType ) -> name ++ " : " ++ toString fieldType)
+            in
+            "{ " ++ extensionTypevar ++ " | " ++ String.join ", " fieldStrings ++ " }"
+
+        Named { moduleName, name, arguments } ->
+            let
+                argStrings : List String
+                argStrings =
+                    arguments
+                        |> List.map wrapped
+
+                qualifiedName : String
+                qualifiedName =
+                    String.join "." moduleName ++ "." ++ name
+            in
+            (qualifiedName :: argStrings)
+                |> String.join " "
+
+        WebGLShader r ->
+            [ "Shader"
+            , shaderSlotToString r.attributesFields r.attributesExtensionTypevar
+            , shaderSlotToString r.uniformsFields r.uniformsExtensionTypevar
+            , shaderSlotToString r.varyingsFields r.varyingsExtensionTypevar
+            ]
+                |> String.join " "
+
+
+shaderSlotToType : Dict String Type -> Maybe String -> Type
+shaderSlotToType fields extensionTypevar =
+    case extensionTypevar of
+        Nothing ->
+            Record { fields = fields }
+
+        Just var ->
+            if Dict.isEmpty fields then
+                TypeVar var
+
+            else
+                ExtensibleRecord { fields = fields, extensionTypevar = var }
+
+
+shaderSlotToString : Dict String Type -> Maybe String -> String
+shaderSlotToString fields extensionTypevar =
+    toString (shaderSlotToType fields extensionTypevar)
+
+
+{-| Wraps a type in parentheses when it wouldn't parse back unambiguously
+as an argument of a type constructor application.
+-}
+wrapped : Type -> String
+wrapped t =
+    case t of
+        Function _ ->
+            paren t
+
+        List _ ->
+            paren t
+
+        WebGLShader _ ->
+            paren t
+
+        Named r ->
+            if List.isEmpty r.arguments then
+                toString t
+
+            else
+                paren t
+
+        _ ->
+            toString t
+
+
+{-| Wraps a type in parentheses when it wouldn't parse back unambiguously on the
+left of `->`.
+
+`->` is right-associative and type application binds tighter, so only a nested
+`->` needs parens there: `List a -> b` already parses as `(List a) -> b`.
+
+-}
+wrappedFrom : Type -> String
+wrappedFrom t =
+    case t of
+        Function _ ->
+            paren t
+
+        _ ->
+            toString t
+
+
+paren : Type -> String
+paren t =
+    "(" ++ toString t ++ ")"
