@@ -1449,7 +1449,6 @@ mergeModuleVisitorsHelp ruleName_ initialProjectContext moduleContextCreator vis
         dummyAvailableData : AvailableData
         dummyAvailableData =
             { ast = dummyAst
-            , moduleKey = ModuleKey "dummy"
             , moduleDocumentation = Nothing
             , moduleNameLookupTable = ModuleNameLookupTableInternal.empty []
             , extractSourceCode = always "dummy"
@@ -5660,7 +5659,6 @@ computeModuleWithRuleVisitors project module_ inputRuleModuleVisitors (Requested
         availableData : AvailableData
         availableData =
             { ast = ast
-            , moduleKey = ModuleKey filePath
             , moduleNameLookupTable = moduleNameLookupTable
             , moduleDocumentation = findModuleDocumentation ast
             , extractSourceCode =
@@ -7626,7 +7624,7 @@ withModuleDocumentation (ContextCreator fn requested) =
 withModuleKey : ContextCreator ModuleKey (from -> to) -> ContextCreator from to
 withModuleKey (ContextCreator fn requestedData) =
     ContextCreator
-        (\data isFileIgnored isFileFixable -> fn data isFileIgnored isFileFixable data.moduleKey)
+        (\data isFileIgnored isFileFixable -> fn data isFileIgnored isFileFixable (ModuleKey data.filePath))
         requestedData
 
 
@@ -7706,7 +7704,6 @@ withSourceCodeExtractor (ContextCreator fn (RequestedData requested)) =
 
 type alias AvailableData =
     { ast : Elm.Syntax.File.File
-    , moduleKey : ModuleKey
     , moduleDocumentation : Maybe (Node String)
     , moduleNameLookupTable : ModuleNameLookupTable
     , extractSourceCode : Range -> String
