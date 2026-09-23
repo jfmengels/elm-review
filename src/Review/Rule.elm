@@ -5786,42 +5786,8 @@ computeModuleWithRuleVisitors project0 module_ inputRuleModuleVisitors (Requeste
         ( moduleNameLookupTable, project1 ) =
             computeModuleNameLookupTable requestedData project0 module_
 
-        { typeLookupTable, project2, typeInferenceError } =
-            if requestedData.types then
-                case ValidProject.typeInferenceProject project1 of
-                    Just typeInferenceProject ->
-                        let
-                            ( tableResult, newTypeInferenceProject ) =
-                                TypeInference.inferModule (ProjectModule.moduleName module_) typeInferenceProject
-                        in
-                        case tableResult of
-                            Ok table_ ->
-                                { typeLookupTable = table_
-                                , project2 = ValidProject.setTypeInferenceProject newTypeInferenceProject project1
-                                , typeInferenceError = Nothing
-                                }
-
-                            Err err ->
-                                { typeLookupTable = TypeLookupTable.empty
-                                , project2 = ValidProject.setTypeInferenceProject newTypeInferenceProject project1
-                                , typeInferenceError =
-                                    Just
-                                        { error = err
-                                        , range = moduleNameNode (ProjectModule.ast module_).moduleDefinition |> Node.range
-                                        }
-                                }
-
-                    Nothing ->
-                        { typeLookupTable = TypeLookupTable.empty
-                        , project2 = project1
-                        , typeInferenceError = Nothing
-                        }
-
-            else
-                { typeLookupTable = TypeLookupTable.empty
-                , project2 = project1
-                , typeInferenceError = Nothing
-                }
+        { typeLookupTable, newProject, typeError } =
+            computeTypeLookupTable requestedData.types module_ project1
 
         ast : File
         ast =
@@ -5858,10 +5824,53 @@ computeModuleWithRuleVisitors project0 module_ inputRuleModuleVisitors (Requeste
                 |> visitModuleForProjectRule availableData
                 |> List.map (\(RuleModuleVisitor ruleModuleVisitor) -> ruleModuleVisitor.toProjectVisitor ())
     in
-    ( project2
+    ( newProject
     , List.append rulesNotToRun outputRuleProjectVisitors
-    , typeInferenceError
+    , typeError
     )
+
+
+computeTypeLookupTable :
+    Bool
+    -> OpaqueProjectModule
+    -> ValidProject
+    -> { typeLookupTable : TypeLookupTable, newProject : ValidProject, typeError : Maybe TypeError }
+computeTypeLookupTable typeLookupTableRequested module_ project =
+    if typeLookupTableRequested then
+        case ValidProject.typeInferenceProject project of
+            Just typeInferenceProject ->
+                let
+                    ( tableResult, newTypeInferenceProject ) =
+                        TypeInference.inferModule (ProjectModule.moduleName module_) typeInferenceProject
+                in
+                case tableResult of
+                    Ok table_ ->
+                        { typeLookupTable = table_
+                        , newProject = ValidProject.setTypeInferenceProject newTypeInferenceProject project
+                        , typeError = Nothing
+                        }
+
+                    Err err ->
+                        { typeLookupTable = TypeLookupTable.empty
+                        , newProject = ValidProject.setTypeInferenceProject newTypeInferenceProject project
+                        , typeError =
+                            Just
+                                { error = err
+                                , range = moduleNameNode (ProjectModule.ast module_).moduleDefinition |> Node.range
+                                }
+                        }
+
+            Nothing ->
+                { typeLookupTable = TypeLookupTable.empty
+                , newProject = project
+                , typeError = Nothing
+                }
+
+    else
+        { typeLookupTable = TypeLookupTable.empty
+        , newProject = project
+        , typeError = Nothing
+        }
 
 
 computeModuleNameLookupTable : { a | moduleNameLookupTable : Bool } -> ValidProject -> OpaqueProjectModule -> ( ModuleNameLookupTableInternal.ModuleNameLookupTable, ValidProject )
