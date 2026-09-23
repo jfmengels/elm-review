@@ -112,8 +112,8 @@ computeModulesByModuleName modules =
         modules
 
 
-parse : Project -> Result InvalidProjectError ValidProject
-parse ((Project p) as project) =
+parse : Bool -> Project -> Result InvalidProjectError ValidProject
+parse requestsTypeInformation ((Project p) as project) =
     if not (Dict.isEmpty p.modulesThatFailedToParse) then
         Err (InvalidProjectError.SomeModulesFailedToParse (Dict.keys p.modulesThatFailedToParse))
 
@@ -155,22 +155,26 @@ parse ((Project p) as project) =
                             |> Err
 
                     Ok ( moduleGraph, sortedModules ) ->
-                        -- TODO Avoid computing type information if not requested
-                        case Review.Types.Compute.computeDeps p.dependencies (Dict.keys p.directDependencies) p.dependencyFiles of
-                            TypeInference.Ready dependencyEnv ->
-                                fromProjectAndGraph moduleGraph sortedModules dependencyEnv project
-                                    |> Ok
+                        if requestsTypeInformation then
+                            case Review.Types.Compute.computeDeps p.dependencies (Dict.keys p.directDependencies) p.dependencyFiles of
+                                TypeInference.Ready dependencyEnv ->
+                                    fromProjectAndGraph moduleGraph sortedModules (Just dependencyEnv) project
+                                        |> Ok
 
-                            TypeInference.NeedPackageSources packageSources ->
-                                Err (InvalidProjectError.NeedPackageSources packageSources)
+                                TypeInference.NeedPackageSources packageSources ->
+                                    Err (InvalidProjectError.NeedPackageSources packageSources)
 
-                            TypeInference.Failed _ ->
-                                -- TODO
-                                Err InvalidProjectError.NoModulesError
+                                TypeInference.Failed _ ->
+                                    -- TODO Report a type error when type inference fails at this stage
+                                    Err InvalidProjectError.NoModulesError
+
+                        else
+                            fromProjectAndGraph moduleGraph sortedModules Nothing project
+                                |> Ok
 
 
-fromProjectAndGraph : Graph FilePath -> List (Graph.NodeContext FilePath) -> TypeInference.DependencyEnv -> Project -> ValidProject
-fromProjectAndGraph moduleGraph sortedModules dependencyEnv (Project project) =
+fromProjectAndGraph : Graph FilePath -> List (Graph.NodeContext FilePath) -> Maybe TypeInference.DependencyEnv -> Project -> ValidProject
+fromProjectAndGraph moduleGraph sortedModules maybeDependencyEnv (Project project) =
     let
         extraFilesContentHash : ContentHash
         extraFilesContentHash =
@@ -200,13 +204,23 @@ fromProjectAndGraph moduleGraph sortedModules dependencyEnv (Project project) =
         , moduleIds = project.moduleIds
         , workList = WorkList.recomputeModules moduleGraph sortedModules project.workList
         , typeInferenceProject =
-            -- TODO Only compute if necessary
-            -- TODO Compute module list more efficiently
-            TypeInference.project
-                Nothing
-                dependencyEnv
-                (Dict.values project.modulesByPath |> List.map ProjectModule.ast)
-                |> Result.toMaybe
+            Maybe.andThen
+                (\dependencyEnv ->
+                    case
+                        TypeInference.project
+                            Nothing
+                            dependencyEnv
+                            -- TODO Compute module list more efficiently
+                            (Dict.values project.modulesByPath |> List.map ProjectModule.ast)
+                    of
+                        Ok typeInferenceProject_ ->
+                            Just typeInferenceProject_
+
+                        Err _ ->
+                            -- TODO Report a type error when type inference fails at this stage
+                            Nothing
+                )
+                maybeDependencyEnv
         }
 
 

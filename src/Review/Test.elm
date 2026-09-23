@@ -2013,7 +2013,8 @@ checkAllFixesMatch project target error_ expectedFixed fixes =
             Err failure
 
         Ok newProject ->
-            case ValidProject.parse (Review.Project.Internal.Project newProject) of
+            -- TODO requestsTypeInformation
+            case ValidProject.parse False (Review.Project.Internal.Project newProject) of
                 Err (InvalidProjectError.ImportCycleError files) ->
                     FailureMessage.fixProblem target (FixProblem.CreatesImportCycle files) error_
                         |> Err
