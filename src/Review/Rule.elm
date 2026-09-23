@@ -743,14 +743,14 @@ getValidProjectAndRules : Project -> List Rule -> ValidProjectAndRulesResult
 getValidProjectAndRules project rules =
     case checkForConfigurationErrors rules [] of
         Ok ruleProjectVisitors ->
-            case getModulesSortedByImport project of
-                GetModulesSortedByImportSuccess validProject ->
+            case getValidProject project of
+                GotValidProject validProject ->
                     ValidProjectAndRulesSuccess ( validProject, List.map (\f -> f validProject) ruleProjectVisitors )
 
-                GetModulesSortedByImportNeedPackageSources packageSources ->
+                GotValidProjectNeedPackageSources packageSources ->
                     ValidProjectAndRulesNeedPackageSources packageSources
 
-                GetModulesSortedByImportError errors ->
+                GotValidProjectError errors ->
                     ValidProjectAndRulesError errors
 
         Err errors ->
@@ -806,26 +806,26 @@ collectConfigurationErrors rules =
         rules
 
 
-type GetModulesSortedByImportResult
-    = GetModulesSortedByImportSuccess ValidProject
-    | GetModulesSortedByImportError (List ReviewError)
-    | GetModulesSortedByImportNeedPackageSources (Dict PackageName (List String))
+type GetValidProjectResult
+    = GotValidProject ValidProject
+    | GotValidProjectError (List ReviewError)
+    | GotValidProjectNeedPackageSources (Dict PackageName (List String))
 
 
-getModulesSortedByImport : Project -> GetModulesSortedByImportResult
-getModulesSortedByImport project =
+getValidProject : Project -> GetValidProjectResult
+getValidProject project =
     case ValidProject.parse project of
         Err (InvalidProjectError.SomeModulesFailedToParse pathsThatFailedToParse) ->
-            GetModulesSortedByImportError [ parsingError pathsThatFailedToParse ]
+            GotValidProjectError [ parsingError pathsThatFailedToParse ]
 
         Err (InvalidProjectError.DuplicateModuleNames duplicate) ->
-            GetModulesSortedByImportError [ duplicateModulesGlobalError duplicate ]
+            GotValidProjectError [ duplicateModulesGlobalError duplicate ]
 
         Err (InvalidProjectError.ImportCycleError cycle) ->
-            GetModulesSortedByImportError [ importCycleError cycle ]
+            GotValidProjectError [ importCycleError cycle ]
 
         Err InvalidProjectError.NoModulesError ->
-            GetModulesSortedByImportError
+            GotValidProjectError
                 [ elmReviewGlobalError
                     { ruleName = "Incorrect project"
                     , message = "This project does not contain any Elm modules"
@@ -835,10 +835,10 @@ getModulesSortedByImport project =
                 ]
 
         Err (InvalidProjectError.NeedPackageSources packageSources) ->
-            GetModulesSortedByImportNeedPackageSources packageSources
+            GotValidProjectNeedPackageSources packageSources
 
         Ok validProject ->
-            GetModulesSortedByImportSuccess validProject
+            GotValidProject validProject
 
 
 importCycleError : List String -> ReviewError
