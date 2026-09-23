@@ -5733,24 +5733,37 @@ computeModule :
     -> AnalysisAccumulator
 computeModule params =
     let
-        ( inputRuleModuleVisitors, requestedData, rulesNotToRun ) =
+        ( inputRuleModuleVisitors, RequestedData requestedData, rulesNotToRun ) =
             computeWhatsRequiredToAnalyze params.project params.module_ params.ruleProjectVisitors
+
+        typeLookupTableResult : { typeLookupTable : TypeLookupTable, newProject : ValidProject, typeError : Maybe TypeError }
+        typeLookupTableResult =
+            computeTypeLookupTable requestedData.types params.module_ params.project
+
+        ( moduleNameLookupTable, projectAfterInitialization ) =
+            computeModuleNameLookupTable requestedData.moduleNameLookupTable params.project params.module_
 
         paramsAfterVisit : DataToComputeSingleModule
         paramsAfterVisit =
             if List.isEmpty inputRuleModuleVisitors then
-                params
+                { params | project = projectAfterInitialization }
 
             else
                 let
-                    ( newProject, newRules, typeError ) =
-                        computeModuleWithRuleVisitors params.project params.module_ inputRuleModuleVisitors requestedData rulesNotToRun
+                    newRules : List RuleProjectVisitor
+                    newRules =
+                        computeModuleWithRuleVisitors
+                            params.module_
+                            moduleNameLookupTable
+                            typeLookupTableResult.typeLookupTable
+                            inputRuleModuleVisitors
+                            (RequestedData requestedData)
                 in
                 { params
-                    | project = newProject
-                    , ruleProjectVisitors = newRules
+                    | project = projectAfterInitialization
+                    , ruleProjectVisitors = List.append rulesNotToRun newRules
                     , typeErrors =
-                        case typeError of
+                        case typeLookupTableResult.typeError of
                             Just err ->
                                 Dict.insert (ProjectModule.path params.module_) err params.typeErrors
 
@@ -5782,13 +5795,9 @@ computeWhatsRequiredToAnalyze project module_ ruleProjectVisitors =
         ruleProjectVisitors
 
 
-computeModuleWithRuleVisitors : ValidProject -> OpaqueProjectModule -> List (AvailableData -> RuleModuleVisitor) -> RequestedData -> List RuleProjectVisitor -> ( ValidProject, List RuleProjectVisitor, Maybe TypeError )
-computeModuleWithRuleVisitors project module_ inputRuleModuleVisitors (RequestedData requestedData) rulesNotToRun =
+computeModuleWithRuleVisitors : OpaqueProjectModule -> ModuleNameLookupTable -> TypeLookupTable -> List (AvailableData -> RuleModuleVisitor) -> RequestedData -> List RuleProjectVisitor
+computeModuleWithRuleVisitors module_ moduleNameLookupTable typeLookupTable inputRuleModuleVisitors (RequestedData requestedData) =
     let
-        ( moduleNameLookupTable, { typeLookupTable, newProject, typeError } ) =
-            computeModuleNameLookupTable requestedData.moduleNameLookupTable project module_
-                |> Tuple.mapSecond (\p -> computeTypeLookupTable requestedData.types module_ p)
-
         ast : File
         ast =
             ProjectModule.ast module_
@@ -5817,17 +5826,10 @@ computeModuleWithRuleVisitors project module_ inputRuleModuleVisitors (Requested
             , filePath = filePath
             , isInSourceDirectories = ProjectModule.isInSourceDirectories module_
             }
-
-        outputRuleProjectVisitors : List RuleProjectVisitor
-        outputRuleProjectVisitors =
-            inputRuleModuleVisitors
-                |> visitModuleForProjectRule availableData
-                |> List.map (\(RuleModuleVisitor ruleModuleVisitor) -> ruleModuleVisitor.toProjectVisitor ())
     in
-    ( newProject
-    , List.append rulesNotToRun outputRuleProjectVisitors
-    , typeError
-    )
+    inputRuleModuleVisitors
+        |> visitModuleForProjectRule availableData
+        |> List.map (\(RuleModuleVisitor ruleModuleVisitor) -> ruleModuleVisitor.toProjectVisitor ())
 
 
 computeTypeLookupTable :
