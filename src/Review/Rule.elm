@@ -5243,7 +5243,7 @@ computeStepsForProject reviewOptions ({ project, ruleProjectVisitors, fixedError
                 in
                 computeStepsForProject
                     reviewOptions
-                    (computeExtraFiles reviewOptions project fixedErrors extraFiles ruleProjectVisitors [])
+                    (computeExtraFiles reviewOptions extraFiles ruleProjectVisitors (emptyRules analysisAcc))
 
             WorkList.Dependencies ->
                 let
@@ -5393,18 +5393,16 @@ computeReadme reviewOptions readmeData remainingRules acc =
 
 computeExtraFiles :
     ReviewOptionsData
-    -> ValidProject
-    -> FixedErrors
     -> ExtraFileData
     -> List RuleProjectVisitor
-    -> List RuleProjectVisitor
     -> AnalysisAccumulator
-computeExtraFiles reviewOptions project fixedErrors extraFiles remainingRules accRules =
+    -> AnalysisAccumulator
+computeExtraFiles reviewOptions extraFiles remainingRules acc =
     case remainingRules of
         [] ->
-            { project = ValidProject.updateWorkList WorkList.visitedExtraFiles project
-            , ruleProjectVisitors = accRules
-            , fixedErrors = fixedErrors
+            { project = ValidProject.updateWorkList WorkList.visitedExtraFiles acc.project
+            , ruleProjectVisitors = acc.ruleProjectVisitors
+            , fixedErrors = acc.fixedErrors
             }
 
         ((RuleProjectVisitor rule) as untouched) :: rest ->
@@ -5412,32 +5410,34 @@ computeExtraFiles reviewOptions project fixedErrors extraFiles remainingRules ac
                 Just visitor ->
                     let
                         ( errors, RuleProjectVisitor updatedRule ) =
-                            visitor project extraFiles
+                            visitor acc.project extraFiles
                     in
-                    case findFix reviewOptions project updatedRule.setErrorsForExtraFiles errors fixedErrors of
+                    case findFix reviewOptions acc.project updatedRule.setErrorsForExtraFiles errors acc.fixedErrors of
                         FoundFix fixResult ->
                             { project = fixResult.project
-                            , ruleProjectVisitors = fixResult.rule :: (rest ++ accRules)
+                            , ruleProjectVisitors = fixResult.rule :: rest ++ acc.ruleProjectVisitors
                             , fixedErrors = fixResult.fixedErrors
                             }
 
                         FoundNoFixes newRule ->
                             computeExtraFiles
                                 reviewOptions
-                                project
-                                fixedErrors
                                 extraFiles
                                 rest
-                                (newRule :: accRules)
+                                { project = acc.project
+                                , ruleProjectVisitors = newRule :: acc.ruleProjectVisitors
+                                , fixedErrors = acc.fixedErrors
+                                }
 
                 Nothing ->
                     computeExtraFiles
                         reviewOptions
-                        project
-                        fixedErrors
                         extraFiles
                         rest
-                        (untouched :: accRules)
+                        { project = acc.project
+                        , ruleProjectVisitors = untouched :: acc.ruleProjectVisitors
+                        , fixedErrors = acc.fixedErrors
+                        }
 
 
 computeDependencies :
