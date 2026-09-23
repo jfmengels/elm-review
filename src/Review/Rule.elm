@@ -5271,7 +5271,7 @@ computeStepsForProject reviewOptions ({ project, ruleProjectVisitors, fixedError
             WorkList.FinalProjectEvaluation ->
                 computeStepsForProject
                     reviewOptions
-                    (computeFinalProjectEvaluation reviewOptions project fixedErrors ruleProjectVisitors [])
+                    (computeFinalProjectEvaluation reviewOptions ruleProjectVisitors (emptyRules analysisAcc))
 
             WorkList.EndAnalysis ->
                 analysisAcc
@@ -5491,17 +5491,15 @@ computeDependencies reviewOptions dependenciesData remainingRules acc =
 
 computeFinalProjectEvaluation :
     ReviewOptionsData
-    -> ValidProject
-    -> FixedErrors
-    -> List RuleProjectVisitor
     -> List RuleProjectVisitor
     -> AnalysisAccumulator
-computeFinalProjectEvaluation reviewOptions project fixedErrors remainingRules accRules =
+    -> AnalysisAccumulator
+computeFinalProjectEvaluation reviewOptions remainingRules acc =
     case remainingRules of
         [] ->
-            { project = ValidProject.updateWorkList WorkList.computedFinalEvaluationDependencies project
-            , ruleProjectVisitors = accRules
-            , fixedErrors = fixedErrors
+            { project = ValidProject.updateWorkList WorkList.computedFinalEvaluationDependencies acc.project
+            , ruleProjectVisitors = acc.ruleProjectVisitors
+            , fixedErrors = acc.fixedErrors
             }
 
         ((RuleProjectVisitor rule) as untouched) :: rest ->
@@ -5511,28 +5509,30 @@ computeFinalProjectEvaluation reviewOptions project fixedErrors remainingRules a
                         ( errors, RuleProjectVisitor updatedRule ) =
                             visitor ()
                     in
-                    case findFix reviewOptions project updatedRule.setErrorsForFinalEvaluation errors fixedErrors of
+                    case findFix reviewOptions acc.project updatedRule.setErrorsForFinalEvaluation errors acc.fixedErrors of
                         FoundFix fixResult ->
                             { project = fixResult.project
-                            , ruleProjectVisitors = fixResult.rule :: (rest ++ accRules)
+                            , ruleProjectVisitors = fixResult.rule :: rest ++ acc.ruleProjectVisitors
                             , fixedErrors = fixResult.fixedErrors
                             }
 
                         FoundNoFixes newRule ->
                             computeFinalProjectEvaluation
                                 reviewOptions
-                                project
-                                fixedErrors
                                 rest
-                                (newRule :: accRules)
+                                { project = acc.project
+                                , ruleProjectVisitors = newRule :: acc.ruleProjectVisitors
+                                , fixedErrors = acc.fixedErrors
+                                }
 
                 Nothing ->
                     computeFinalProjectEvaluation
                         reviewOptions
-                        project
-                        fixedErrors
                         rest
-                        (untouched :: accRules)
+                        { project = acc.project
+                        , ruleProjectVisitors = untouched :: acc.ruleProjectVisitors
+                        , fixedErrors = acc.fixedErrors
+                        }
 
 
 reuseProjectRuleCache : (b -> Bool) -> (ProjectRuleCache a -> Maybe b) -> ProjectRuleCache a -> Maybe b
