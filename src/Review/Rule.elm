@@ -931,12 +931,38 @@ runRules (ReviewOptionsInternal reviewOptions) ruleProjectVisitors project =
         { errors, rules, extracts } =
             computeErrorsAndRulesAndExtracts reviewOptions result.ruleProjectVisitors
     in
-    { errors = errors
+    { errors = reportTypeErrors result.typeErrors errors
     , rules = rules
     , extracts = extracts
     , fixedErrors = FixedErrors.toDict result.fixedErrors
     , project = ValidProject.toRegularProject result.project
     }
+
+
+reportTypeErrors : Dict String TypeError -> List ReviewError -> List ReviewError
+reportTypeErrors typeErrors initialErrors =
+    Dict.foldr
+        (\path err acc -> errorForTypeError path err :: acc)
+        initialErrors
+        typeErrors
+
+
+errorForTypeError : String -> TypeError -> ReviewError
+errorForTypeError path err =
+    { message = "A type error was detected"
+    , ruleName = "TYPE MISMATCH"
+    , details =
+        [ Elm.TypeInference.Error.toString err.error
+        , "Please run the Elm compiler to get more information about the type error."
+        ]
+    , range = err.range
+    , filePath = path
+    , fixes = ErrorFixes.none
+    , fixProblem = Nothing
+    , target = Target.module_ path
+    , preventsExtract = True
+    }
+        |> Review.Error.ReviewError.fromBaseError
 
 
 computeErrorsAndRulesAndExtracts : ReviewOptionsData -> List RuleProjectVisitor -> { errors : List ReviewError, rules : List Rule, extracts : Dict String Encode.Value }
