@@ -546,7 +546,7 @@ review rules project =
             ( [ typeInferenceError "review" ], rules )
 
         Ok validProject ->
-            case checkForConfigurationErrors validProject rules [] of
+            case checkForConfigurationErrors rules [] of
                 Err configurationErrors ->
                     ( configurationErrors, rules )
 
@@ -554,7 +554,7 @@ review rules project =
                     let
                         runRulesResult : { errors : List ReviewError, fixedErrors : Dict String (List ReviewError), rules : List Rule, project : Project, extracts : Dict String Encode.Value }
                         runRulesResult =
-                            runRules ReviewOptions.defaults ruleProjectVisitors validProject
+                            runRules ReviewOptions.defaults (List.map (\f -> f validProject) ruleProjectVisitors) validProject
                     in
                     ( runRulesResult.errors, runRulesResult.rules )
 
@@ -760,9 +760,9 @@ getValidProjectAndRules : Project -> List Rule -> ValidProjectAndRulesResult
 getValidProjectAndRules project rules =
     case getModulesSortedByImport project of
         GetModulesSortedByImportSuccess validProject ->
-            case checkForConfigurationErrors validProject rules [] of
+            case checkForConfigurationErrors rules [] of
                 Ok ruleProjectVisitors ->
-                    ValidProjectAndRulesSuccess ( validProject, ruleProjectVisitors )
+                    ValidProjectAndRulesSuccess ( validProject, List.map (\f -> f validProject) ruleProjectVisitors )
 
                 Err errors ->
                     ValidProjectAndRulesError errors
@@ -774,8 +774,8 @@ getValidProjectAndRules project rules =
             ValidProjectAndRulesError errors
 
 
-checkForConfigurationErrors : ValidProject -> List Rule -> List RuleProjectVisitor -> Result (List ReviewError) (List RuleProjectVisitor)
-checkForConfigurationErrors project rules rulesToRunAcc =
+checkForConfigurationErrors : List Rule -> List (ValidProject -> RuleProjectVisitor) -> Result (List ReviewError) (List (ValidProject -> RuleProjectVisitor))
+checkForConfigurationErrors rules rulesToRunAcc =
     case rules of
         [] ->
             Ok rulesToRunAcc
@@ -784,14 +784,12 @@ checkForConfigurationErrors project rules rulesToRunAcc =
             case rule.ruleProjectVisitor of
                 Ok ruleProjectVisitor ->
                     checkForConfigurationErrors
-                        project
                         remainingRules
                         (ruleProjectVisitor
                             { exceptions = rule.exceptions
                             , ruleId = rule.id
                             , requestedData = rule.requestedData
                             }
-                            project
                             :: rulesToRunAcc
                         )
 
