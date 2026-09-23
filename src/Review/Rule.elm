@@ -5260,13 +5260,7 @@ computeStepsForProject reviewOptions ({ project, ruleProjectVisitors, fixedError
             WorkList.Module filePath ->
                 computeStepsForProject
                     reviewOptions
-                    (computeModules
-                        reviewOptions
-                        filePath
-                        project
-                        ruleProjectVisitors
-                        fixedErrors
-                    )
+                    (computeModules reviewOptions filePath analysisAcc)
 
             WorkList.FinalProjectEvaluation ->
                 computeStepsForProject
@@ -5844,25 +5838,23 @@ computeProjectContextIncludingIndirect foldProjectContexts project cache remaini
 computeModules :
     ReviewOptionsData
     -> FilePath
-    -> ValidProject
-    -> List RuleProjectVisitor
-    -> FixedErrors
     -> AnalysisAccumulator
-computeModules reviewOptions filePath project ruleProjectVisitors fixedErrors =
-    case ValidProject.getModuleByPath filePath project of
+    -> AnalysisAccumulator
+computeModules reviewOptions filePath acc =
+    case ValidProject.getModuleByPath filePath acc.project of
         Nothing ->
-            { project = ValidProject.updateWorkList WorkList.visitedNextModule project
-            , ruleProjectVisitors = ruleProjectVisitors
-            , fixedErrors = fixedErrors
+            { project = ValidProject.updateWorkList WorkList.visitedNextModule acc.project
+            , ruleProjectVisitors = acc.ruleProjectVisitors
+            , fixedErrors = acc.fixedErrors
             }
 
         Just module_ ->
             computeModule
                 { reviewOptions = reviewOptions
-                , ruleProjectVisitors = ruleProjectVisitors
+                , ruleProjectVisitors = acc.ruleProjectVisitors
                 , module_ = module_
-                , project = ValidProject.updateWorkList WorkList.visitedNextModule project
-                , fixedErrors = fixedErrors
+                , project = ValidProject.updateWorkList WorkList.visitedNextModule acc.project
+                , fixedErrors = acc.fixedErrors
                 }
 
 
