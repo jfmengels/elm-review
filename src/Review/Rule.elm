@@ -5786,7 +5786,7 @@ computeModuleWithRuleVisitors : ValidProject -> OpaqueProjectModule -> List (Ava
 computeModuleWithRuleVisitors project module_ inputRuleModuleVisitors (RequestedData requestedData) rulesNotToRun =
     let
         ( moduleNameLookupTable, { typeLookupTable, newProject, typeError } ) =
-            computeModuleNameLookupTable requestedData project module_
+            computeModuleNameLookupTable requestedData.moduleNameLookupTable project module_
                 |> Tuple.mapSecond (\p -> computeTypeLookupTable requestedData.types module_ p)
 
         ast : File
@@ -5873,15 +5873,15 @@ computeTypeLookupTable typeLookupTableRequested module_ project =
         }
 
 
-computeModuleNameLookupTable : { a | moduleNameLookupTable : Bool } -> ValidProject -> OpaqueProjectModule -> ( ModuleNameLookupTableInternal.ModuleNameLookupTable, ValidProject )
-computeModuleNameLookupTable requestedData project module_ =
+computeModuleNameLookupTable : Bool -> ValidProject -> OpaqueProjectModule -> ( ModuleNameLookupTableInternal.ModuleNameLookupTable, ValidProject )
+computeModuleNameLookupTable lookupTableRequested project module_ =
     let
         moduleName : ModuleName
         moduleName =
             ProjectModule.moduleName module_
     in
     -- TODO If the file has changed, then compute the module docs anyway.
-    if requestedData.moduleNameLookupTable then
+    if lookupTableRequested then
         Review.ModuleNameLookupTable.Compute.compute moduleName module_ project
 
     else
