@@ -5232,7 +5232,7 @@ computeStepsForProject reviewOptions ({ project, ruleProjectVisitors, fixedError
                 in
                 computeStepsForProject
                     reviewOptions
-                    (computeElmJson reviewOptions project fixedErrors elmJsonData ruleProjectVisitors [])
+                    (computeElmJson reviewOptions elmJsonData ruleProjectVisitors (emptyRules analysisAcc))
 
             WorkList.Readme ->
                 let
@@ -5248,7 +5248,7 @@ computeStepsForProject reviewOptions ({ project, ruleProjectVisitors, fixedError
                 in
                 computeStepsForProject
                     reviewOptions
-                    (computeReadme reviewOptions project fixedErrors readmeData ruleProjectVisitors [])
+                    (computeReadme reviewOptions readmeData ruleProjectVisitors (emptyRules analysisAcc))
 
             WorkList.ExtraFiles ->
                 let
@@ -5258,7 +5258,7 @@ computeStepsForProject reviewOptions ({ project, ruleProjectVisitors, fixedError
                 in
                 computeStepsForProject
                     reviewOptions
-                    (computeExtraFiles reviewOptions project fixedErrors extraFiles ruleProjectVisitors [])
+                    (computeExtraFiles reviewOptions extraFiles ruleProjectVisitors (emptyRules analysisAcc))
 
             WorkList.Dependencies ->
                 let
@@ -5270,26 +5270,28 @@ computeStepsForProject reviewOptions ({ project, ruleProjectVisitors, fixedError
                 in
                 computeStepsForProject
                     reviewOptions
-                    (computeDependencies reviewOptions project fixedErrors dependenciesData ruleProjectVisitors [])
+                    (computeDependencies reviewOptions dependenciesData ruleProjectVisitors (emptyRules analysisAcc))
 
             WorkList.Module filePath ->
                 computeStepsForProject
                     reviewOptions
-                    (computeModules
-                        reviewOptions
-                        filePath
-                        project
-                        ruleProjectVisitors
-                        fixedErrors
-                    )
+                    (computeModules reviewOptions filePath analysisAcc)
 
             WorkList.FinalProjectEvaluation ->
                 computeStepsForProject
                     reviewOptions
-                    (computeFinalProjectEvaluation reviewOptions project fixedErrors ruleProjectVisitors [])
+                    (computeFinalProjectEvaluation reviewOptions ruleProjectVisitors (emptyRules analysisAcc))
 
             WorkList.EndAnalysis ->
                 analysisAcc
+
+
+emptyRules : AnalysisAccumulator -> AnalysisAccumulator
+emptyRules acc =
+    { project = acc.project
+    , ruleProjectVisitors = []
+    , fixedErrors = acc.fixedErrors
+    }
 
 
 type StepToComputeContext
@@ -5302,18 +5304,16 @@ type StepToComputeContext
 
 computeElmJson :
     ReviewOptionsData
-    -> ValidProject
-    -> FixedErrors
     -> Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project }
     -> List RuleProjectVisitor
-    -> List RuleProjectVisitor
     -> AnalysisAccumulator
-computeElmJson reviewOptions project fixedErrors elmJsonData remainingRules accRules =
+    -> AnalysisAccumulator
+computeElmJson reviewOptions elmJsonData remainingRules acc =
     case remainingRules of
         [] ->
-            { project = ValidProject.updateWorkList WorkList.visitedElmJson project
-            , ruleProjectVisitors = accRules
-            , fixedErrors = fixedErrors
+            { project = ValidProject.updateWorkList WorkList.visitedElmJson acc.project
+            , ruleProjectVisitors = acc.ruleProjectVisitors
+            , fixedErrors = acc.fixedErrors
             }
 
         ((RuleProjectVisitor rule) as untouched) :: rest ->
@@ -5321,48 +5321,48 @@ computeElmJson reviewOptions project fixedErrors elmJsonData remainingRules accR
                 Just visitor ->
                     let
                         ( errors, RuleProjectVisitor updatedRule ) =
-                            visitor project elmJsonData
+                            visitor acc.project elmJsonData
                     in
-                    case findFix reviewOptions project updatedRule.setErrorsForElmJson errors fixedErrors of
+                    case findFix reviewOptions acc.project updatedRule.setErrorsForElmJson errors acc.fixedErrors of
                         FoundFix fixResult ->
                             { project = fixResult.project
-                            , ruleProjectVisitors = fixResult.rule :: (rest ++ accRules)
+                            , ruleProjectVisitors = fixResult.rule :: rest ++ acc.ruleProjectVisitors
                             , fixedErrors = fixResult.fixedErrors
                             }
 
                         FoundNoFixes newRule ->
                             computeElmJson
                                 reviewOptions
-                                project
-                                fixedErrors
                                 elmJsonData
                                 rest
-                                (newRule :: accRules)
+                                { project = acc.project
+                                , ruleProjectVisitors = newRule :: acc.ruleProjectVisitors
+                                , fixedErrors = acc.fixedErrors
+                                }
 
                 Nothing ->
                     computeElmJson
                         reviewOptions
-                        project
-                        fixedErrors
                         elmJsonData
                         rest
-                        (untouched :: accRules)
+                        { project = acc.project
+                        , ruleProjectVisitors = untouched :: acc.ruleProjectVisitors
+                        , fixedErrors = acc.fixedErrors
+                        }
 
 
 computeReadme :
     ReviewOptionsData
-    -> ValidProject
-    -> FixedErrors
     -> Maybe { readmeKey : ReadmeKey, content : String }
     -> List RuleProjectVisitor
-    -> List RuleProjectVisitor
     -> AnalysisAccumulator
-computeReadme reviewOptions project fixedErrors readmeData remainingRules accRules =
+    -> AnalysisAccumulator
+computeReadme reviewOptions readmeData remainingRules acc =
     case remainingRules of
         [] ->
-            { project = ValidProject.updateWorkList WorkList.visitedReadme project
-            , ruleProjectVisitors = accRules
-            , fixedErrors = fixedErrors
+            { project = ValidProject.updateWorkList WorkList.visitedReadme acc.project
+            , ruleProjectVisitors = acc.ruleProjectVisitors
+            , fixedErrors = acc.fixedErrors
             }
 
         ((RuleProjectVisitor rule) as untouched) :: rest ->
@@ -5370,48 +5370,48 @@ computeReadme reviewOptions project fixedErrors readmeData remainingRules accRul
                 Just visitor ->
                     let
                         ( errors, RuleProjectVisitor updatedRule ) =
-                            visitor project readmeData
+                            visitor acc.project readmeData
                     in
-                    case findFix reviewOptions project updatedRule.setErrorsForReadme errors fixedErrors of
+                    case findFix reviewOptions acc.project updatedRule.setErrorsForReadme errors acc.fixedErrors of
                         FoundFix fixResult ->
                             { project = fixResult.project
-                            , ruleProjectVisitors = fixResult.rule :: (rest ++ accRules)
+                            , ruleProjectVisitors = fixResult.rule :: rest ++ acc.ruleProjectVisitors
                             , fixedErrors = fixResult.fixedErrors
                             }
 
                         FoundNoFixes newRule ->
                             computeReadme
                                 reviewOptions
-                                project
-                                fixedErrors
                                 readmeData
                                 rest
-                                (newRule :: accRules)
+                                { project = acc.project
+                                , ruleProjectVisitors = newRule :: acc.ruleProjectVisitors
+                                , fixedErrors = acc.fixedErrors
+                                }
 
                 Nothing ->
                     computeReadme
                         reviewOptions
-                        project
-                        fixedErrors
                         readmeData
                         rest
-                        (untouched :: accRules)
+                        { project = acc.project
+                        , ruleProjectVisitors = untouched :: acc.ruleProjectVisitors
+                        , fixedErrors = acc.fixedErrors
+                        }
 
 
 computeExtraFiles :
     ReviewOptionsData
-    -> ValidProject
-    -> FixedErrors
     -> ExtraFileData
     -> List RuleProjectVisitor
-    -> List RuleProjectVisitor
     -> AnalysisAccumulator
-computeExtraFiles reviewOptions project fixedErrors extraFiles remainingRules accRules =
+    -> AnalysisAccumulator
+computeExtraFiles reviewOptions extraFiles remainingRules acc =
     case remainingRules of
         [] ->
-            { project = ValidProject.updateWorkList WorkList.visitedExtraFiles project
-            , ruleProjectVisitors = accRules
-            , fixedErrors = fixedErrors
+            { project = ValidProject.updateWorkList WorkList.visitedExtraFiles acc.project
+            , ruleProjectVisitors = acc.ruleProjectVisitors
+            , fixedErrors = acc.fixedErrors
             }
 
         ((RuleProjectVisitor rule) as untouched) :: rest ->
@@ -5419,48 +5419,48 @@ computeExtraFiles reviewOptions project fixedErrors extraFiles remainingRules ac
                 Just visitor ->
                     let
                         ( errors, RuleProjectVisitor updatedRule ) =
-                            visitor project extraFiles
+                            visitor acc.project extraFiles
                     in
-                    case findFix reviewOptions project updatedRule.setErrorsForExtraFiles errors fixedErrors of
+                    case findFix reviewOptions acc.project updatedRule.setErrorsForExtraFiles errors acc.fixedErrors of
                         FoundFix fixResult ->
                             { project = fixResult.project
-                            , ruleProjectVisitors = fixResult.rule :: (rest ++ accRules)
+                            , ruleProjectVisitors = fixResult.rule :: rest ++ acc.ruleProjectVisitors
                             , fixedErrors = fixResult.fixedErrors
                             }
 
                         FoundNoFixes newRule ->
                             computeExtraFiles
                                 reviewOptions
-                                project
-                                fixedErrors
                                 extraFiles
                                 rest
-                                (newRule :: accRules)
+                                { project = acc.project
+                                , ruleProjectVisitors = newRule :: acc.ruleProjectVisitors
+                                , fixedErrors = acc.fixedErrors
+                                }
 
                 Nothing ->
                     computeExtraFiles
                         reviewOptions
-                        project
-                        fixedErrors
                         extraFiles
                         rest
-                        (untouched :: accRules)
+                        { project = acc.project
+                        , ruleProjectVisitors = untouched :: acc.ruleProjectVisitors
+                        , fixedErrors = acc.fixedErrors
+                        }
 
 
 computeDependencies :
     ReviewOptionsData
-    -> ValidProject
-    -> FixedErrors
     -> { all : Dict String Review.Project.Dependency.Dependency, direct : Dict String Review.Project.Dependency.Dependency }
     -> List RuleProjectVisitor
-    -> List RuleProjectVisitor
     -> AnalysisAccumulator
-computeDependencies reviewOptions project fixedErrors dependenciesData remainingRules accRules =
+    -> AnalysisAccumulator
+computeDependencies reviewOptions dependenciesData remainingRules acc =
     case remainingRules of
         [] ->
-            { project = ValidProject.updateWorkList WorkList.visitedDependencies project
-            , ruleProjectVisitors = accRules
-            , fixedErrors = fixedErrors
+            { project = ValidProject.updateWorkList WorkList.visitedDependencies acc.project
+            , ruleProjectVisitors = acc.ruleProjectVisitors
+            , fixedErrors = acc.fixedErrors
             }
 
         ((RuleProjectVisitor rule) as untouched) :: rest ->
@@ -5468,47 +5468,47 @@ computeDependencies reviewOptions project fixedErrors dependenciesData remaining
                 Just visitor ->
                     let
                         ( errors, RuleProjectVisitor updatedRule ) =
-                            visitor project dependenciesData
+                            visitor acc.project dependenciesData
                     in
-                    case findFix reviewOptions project updatedRule.setErrorsForDependencies errors fixedErrors of
+                    case findFix reviewOptions acc.project updatedRule.setErrorsForDependencies errors acc.fixedErrors of
                         FoundFix fixResult ->
                             { project = fixResult.project
-                            , ruleProjectVisitors = fixResult.rule :: (rest ++ accRules)
+                            , ruleProjectVisitors = fixResult.rule :: rest ++ acc.ruleProjectVisitors
                             , fixedErrors = fixResult.fixedErrors
                             }
 
                         FoundNoFixes newRule ->
                             computeDependencies
                                 reviewOptions
-                                project
-                                fixedErrors
                                 dependenciesData
                                 rest
-                                (newRule :: accRules)
+                                { project = acc.project
+                                , ruleProjectVisitors = newRule :: acc.ruleProjectVisitors
+                                , fixedErrors = acc.fixedErrors
+                                }
 
                 Nothing ->
                     computeDependencies
                         reviewOptions
-                        project
-                        fixedErrors
                         dependenciesData
                         rest
-                        (untouched :: accRules)
+                        { project = acc.project
+                        , ruleProjectVisitors = untouched :: acc.ruleProjectVisitors
+                        , fixedErrors = acc.fixedErrors
+                        }
 
 
 computeFinalProjectEvaluation :
     ReviewOptionsData
-    -> ValidProject
-    -> FixedErrors
-    -> List RuleProjectVisitor
     -> List RuleProjectVisitor
     -> AnalysisAccumulator
-computeFinalProjectEvaluation reviewOptions project fixedErrors remainingRules accRules =
+    -> AnalysisAccumulator
+computeFinalProjectEvaluation reviewOptions remainingRules acc =
     case remainingRules of
         [] ->
-            { project = ValidProject.updateWorkList WorkList.computedFinalEvaluationDependencies project
-            , ruleProjectVisitors = accRules
-            , fixedErrors = fixedErrors
+            { project = ValidProject.updateWorkList WorkList.computedFinalEvaluationDependencies acc.project
+            , ruleProjectVisitors = acc.ruleProjectVisitors
+            , fixedErrors = acc.fixedErrors
             }
 
         ((RuleProjectVisitor rule) as untouched) :: rest ->
@@ -5518,28 +5518,30 @@ computeFinalProjectEvaluation reviewOptions project fixedErrors remainingRules a
                         ( errors, RuleProjectVisitor updatedRule ) =
                             visitor ()
                     in
-                    case findFix reviewOptions project updatedRule.setErrorsForFinalEvaluation errors fixedErrors of
+                    case findFix reviewOptions acc.project updatedRule.setErrorsForFinalEvaluation errors acc.fixedErrors of
                         FoundFix fixResult ->
                             { project = fixResult.project
-                            , ruleProjectVisitors = fixResult.rule :: (rest ++ accRules)
+                            , ruleProjectVisitors = fixResult.rule :: rest ++ acc.ruleProjectVisitors
                             , fixedErrors = fixResult.fixedErrors
                             }
 
                         FoundNoFixes newRule ->
                             computeFinalProjectEvaluation
                                 reviewOptions
-                                project
-                                fixedErrors
                                 rest
-                                (newRule :: accRules)
+                                { project = acc.project
+                                , ruleProjectVisitors = newRule :: acc.ruleProjectVisitors
+                                , fixedErrors = acc.fixedErrors
+                                }
 
                 Nothing ->
                     computeFinalProjectEvaluation
                         reviewOptions
-                        project
-                        fixedErrors
                         rest
-                        (untouched :: accRules)
+                        { project = acc.project
+                        , ruleProjectVisitors = untouched :: acc.ruleProjectVisitors
+                        , fixedErrors = acc.fixedErrors
+                        }
 
 
 reuseProjectRuleCache : (b -> Bool) -> (ProjectRuleCache a -> Maybe b) -> ProjectRuleCache a -> Maybe b
@@ -5941,25 +5943,23 @@ computeProjectContextIncludingIndirect foldProjectContexts project cache remaini
 computeModules :
     ReviewOptionsData
     -> FilePath
-    -> ValidProject
-    -> List RuleProjectVisitor
-    -> FixedErrors
     -> AnalysisAccumulator
-computeModules reviewOptions filePath project ruleProjectVisitors fixedErrors =
-    case ValidProject.getModuleByPath filePath project of
+    -> AnalysisAccumulator
+computeModules reviewOptions filePath acc =
+    case ValidProject.getModuleByPath filePath acc.project of
         Nothing ->
-            { project = ValidProject.updateWorkList WorkList.visitedNextModule project
-            , ruleProjectVisitors = ruleProjectVisitors
-            , fixedErrors = fixedErrors
+            { project = ValidProject.updateWorkList WorkList.visitedNextModule acc.project
+            , ruleProjectVisitors = acc.ruleProjectVisitors
+            , fixedErrors = acc.fixedErrors
             }
 
         Just module_ ->
             computeModule
                 { reviewOptions = reviewOptions
-                , ruleProjectVisitors = ruleProjectVisitors
+                , ruleProjectVisitors = acc.ruleProjectVisitors
                 , module_ = module_
-                , project = ValidProject.updateWorkList WorkList.visitedNextModule project
-                , fixedErrors = fixedErrors
+                , project = ValidProject.updateWorkList WorkList.visitedNextModule acc.project
+                , fixedErrors = acc.fixedErrors
                 }
 
 
