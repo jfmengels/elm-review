@@ -938,7 +938,7 @@ runRules (ReviewOptionsInternal reviewOptions) ruleProjectVisitors project =
                 }
 
         { errors, rules, extracts } =
-            computeErrorsAndRulesAndExtracts reviewOptions result.ruleProjectVisitors
+            computeErrorsAndRulesAndExtracts reviewOptions (Dict.isEmpty result.typeErrors) result.ruleProjectVisitors
     in
     { errors = reportTypeErrors result.typeErrors errors
     , rules = List.map (\(RuleProjectVisitor r) -> r.backToRule ()) result.skippedRules ++ rules
@@ -974,8 +974,8 @@ errorForTypeError path err =
         |> Review.Error.ReviewError.fromBaseError
 
 
-computeErrorsAndRulesAndExtracts : ReviewOptionsData -> List RuleProjectVisitor -> { errors : List ReviewError, rules : List Rule, extracts : Dict String Encode.Value }
-computeErrorsAndRulesAndExtracts reviewOptions ruleProjectVisitors =
+computeErrorsAndRulesAndExtracts : ReviewOptionsData -> Bool -> List RuleProjectVisitor -> { errors : List ReviewError, rules : List Rule, extracts : Dict String Encode.Value }
+computeErrorsAndRulesAndExtracts reviewOptions hasTypeErrors ruleProjectVisitors =
     if reviewOptions.extract then
         List.foldl
             (\(RuleProjectVisitor rule) { errors, rules, extracts } ->
@@ -987,7 +987,7 @@ computeErrorsAndRulesAndExtracts reviewOptions ruleProjectVisitors =
                                 , canComputeExtract_ && not err.preventsExtract
                                 )
                             )
-                            ( errors, True )
+                            ( errors, not (RequestedData.types rule.requestedData && hasTypeErrors) )
                             (rule.getErrors ())
 
                     ( newExtracts, RuleProjectVisitor newRule ) =
