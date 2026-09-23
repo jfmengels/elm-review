@@ -6642,6 +6642,17 @@ type alias RuleProjectVisitorOperations =
 createRuleProjectVisitor : ProjectRuleSchemaData projectContext moduleContext -> ValidProject -> ChangeableRuleData -> ProjectRuleCache projectContext -> RuleProjectVisitor
 createRuleProjectVisitor schema initialProject ruleData initialCache =
     let
+        moduleVisitor :
+            Maybe
+                ((ProjectRuleCache projectContext -> RuleProjectVisitor)
+                 -> RuleProjectVisitorHidden projectContext
+                 -> ValidProject
+                 -> OpaqueProjectModule
+                 -> Maybe (AvailableData -> RuleModuleVisitor)
+                )
+        moduleVisitor =
+            createModuleVisitorFromProjectVisitor schema
+
         raise : { cache : ProjectRuleCache projectContext, ruleData : ChangeableRuleData } -> RuleProjectVisitor
         raise ({ cache } as hidden) =
             let
@@ -6654,7 +6665,7 @@ createRuleProjectVisitor schema initialProject ruleData initialCache =
                 , readmeVisitor = createProjectVisitor schema hidden schema.readmeVisitor ReadmeStep ValidProject.readmeHash .readme (\entry -> raiseCache { cache | readme = Just entry }) (\() -> raise hidden)
                 , extraFilesVisitor = createExtraFilesVisitor schema hidden raise raiseCache
                 , dependenciesVisitor = createDependenciesVisitor schema hidden.ruleData raiseCache cache { allVisitor = schema.dependenciesVisitor, directVisitor = schema.directDependenciesVisitor }
-                , createModuleVisitorFromProjectVisitor = createModuleVisitorFromProjectVisitor schema raiseCache hidden
+                , createModuleVisitorFromProjectVisitor = Maybe.map (\visitor -> visitor raiseCache hidden) moduleVisitor
                 , finalProjectEvaluation = createFinalProjectEvaluationVisitor schema hidden.ruleData raiseCache cache
                 , dataExtractVisitor = createDataExtractVisitor schema raiseCache cache
                 , getErrorsForModule = \filePath -> getErrorsForModule cache filePath
@@ -7029,10 +7040,15 @@ createDataExtractVisitor schema raise cache =
 
 createModuleVisitorFromProjectVisitor :
     ProjectRuleSchemaData projectContext moduleContext
-    -> (ProjectRuleCache projectContext -> RuleProjectVisitor)
-    -> RuleProjectVisitorHidden projectContext
-    -> Maybe (ValidProject -> OpaqueProjectModule -> Maybe (AvailableData -> RuleModuleVisitor))
-createModuleVisitorFromProjectVisitor schema raise hidden =
+    ->
+        Maybe
+            ((ProjectRuleCache projectContext -> RuleProjectVisitor)
+             -> RuleProjectVisitorHidden projectContext
+             -> ValidProject
+             -> OpaqueProjectModule
+             -> Maybe (AvailableData -> RuleModuleVisitor)
+            )
+createModuleVisitorFromProjectVisitor schema =
     case mergeModuleVisitors schema.name schema.initialProjectContext schema.moduleContextCreator schema.moduleVisitors of
         Nothing ->
             Nothing
@@ -7054,7 +7070,7 @@ createModuleVisitorFromProjectVisitor schema raise hidden =
                         ( SchemaRequireContextFromImportedIncludingIndirect, Just folder ) ->
                             RequireContextFromImportedIncludingIndirect folder
             in
-            Just (createModuleVisitorFromProjectVisitorHelp schema raise hidden howToCreateModuleContext moduleRuleSchema)
+            Just (\raise hidden -> createModuleVisitorFromProjectVisitorHelp schema raise hidden howToCreateModuleContext moduleRuleSchema)
 
 
 createModuleVisitorFromProjectVisitorHelp :
