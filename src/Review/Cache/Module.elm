@@ -38,18 +38,11 @@ create :
     , isFileFixable : Bool
     , errors : List error
     , outputContext : context
+    , outputContextHash : ContextHash context
     }
     -> Entry error context
-create entry =
+create =
     Entry
-        { contentHash = entry.contentHash
-        , inputContextHashes = entry.inputContextHashes
-        , isFileIgnored = entry.isFileIgnored
-        , isFileFixable = entry.isFileFixable
-        , errors = entry.errors
-        , outputContext = entry.outputContext
-        , outputContextHash = ContextHash.create entry.outputContext
-        }
 
 
 match : ContentHash -> ComparableContextHash context -> Entry error context -> { isFileIgnored : Bool, isFileFixable : Bool, requestedData : RequestedData } -> Bool

@@ -7160,6 +7160,7 @@ createModuleVisitorFromProjectVisitorHelp schema raise hidden howToCreateModuleC
                                             , isFileIgnored = isFileIgnored
                                             , isFileFixable = isFileFixable
                                             , outputContext = outputProjectContext
+                                            , outputContextHash = ContextHash.create outputProjectContext
                                             }
 
                                     cache : ProjectRuleCache projectContext
