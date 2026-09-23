@@ -741,19 +741,19 @@ type ValidProjectAndRulesResult
 
 getValidProjectAndRules : Project -> List Rule -> ValidProjectAndRulesResult
 getValidProjectAndRules project rules =
-    case getModulesSortedByImport project of
-        GetModulesSortedByImportSuccess validProject ->
-            case checkForConfigurationErrors rules [] of
-                Ok ruleProjectVisitors ->
+    case checkForConfigurationErrors rules [] of
+        Ok ruleProjectVisitors ->
+            case getModulesSortedByImport project of
+                GetModulesSortedByImportSuccess validProject ->
                     ValidProjectAndRulesSuccess ( validProject, List.map (\f -> f validProject) ruleProjectVisitors )
 
-                Err errors ->
+                GetModulesSortedByImportNeedPackageSources packageSources ->
+                    ValidProjectAndRulesNeedPackageSources packageSources
+
+                GetModulesSortedByImportError errors ->
                     ValidProjectAndRulesError errors
 
-        GetModulesSortedByImportNeedPackageSources packageSources ->
-            ValidProjectAndRulesNeedPackageSources packageSources
-
-        GetModulesSortedByImportError errors ->
+        Err errors ->
             ValidProjectAndRulesError errors
 
 
