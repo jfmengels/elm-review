@@ -6634,7 +6634,7 @@ createRuleProjectVisitor schema initialProject ruleData initialCache =
         moduleVisitor =
             createModuleVisitorFromProjectVisitor schema
 
-        raise : { cache : ProjectRuleCache projectContext, ruleData : ChangeableRuleData } -> RuleProjectVisitor
+        raise : RuleProjectVisitorHidden projectContext -> RuleProjectVisitor
         raise ({ cache } as hidden) =
             let
                 raiseCache : ProjectRuleCache projectContext -> RuleProjectVisitor
@@ -6743,7 +6743,7 @@ createProjectVisitor schema hidden maybeVisitor step computeContentHash cacheGet
 createExtraFilesVisitor :
     ProjectRuleSchemaData projectContext moduleContext
     -> RuleProjectVisitorHidden projectContext
-    -> ({ cache : ProjectRuleCache projectContext, ruleData : ChangeableRuleData } -> RuleProjectVisitor)
+    -> (RuleProjectVisitorHidden projectContext -> RuleProjectVisitor)
     -> (ProjectRuleCache projectContext -> RuleProjectVisitor)
     ->
         Maybe
