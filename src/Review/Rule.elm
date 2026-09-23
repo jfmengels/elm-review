@@ -5217,7 +5217,7 @@ computeStepsForProject reviewOptions ({ project, ruleProjectVisitors, fixedError
                 in
                 computeStepsForProject
                     reviewOptions
-                    (computeElmJson reviewOptions project fixedErrors elmJsonData ruleProjectVisitors [])
+                    (computeElmJson reviewOptions elmJsonData ruleProjectVisitors (emptyRules analysisAcc))
 
             WorkList.Readme ->
                 let
@@ -5277,6 +5277,14 @@ computeStepsForProject reviewOptions ({ project, ruleProjectVisitors, fixedError
                 analysisAcc
 
 
+emptyRules : AnalysisAccumulator -> AnalysisAccumulator
+emptyRules acc =
+    { project = acc.project
+    , ruleProjectVisitors = []
+    , fixedErrors = acc.fixedErrors
+    }
+
+
 type StepToComputeContext
     = ElmJsonStep
     | ReadmeStep
@@ -5287,18 +5295,16 @@ type StepToComputeContext
 
 computeElmJson :
     ReviewOptionsData
-    -> ValidProject
-    -> FixedErrors
     -> Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project }
     -> List RuleProjectVisitor
-    -> List RuleProjectVisitor
     -> AnalysisAccumulator
-computeElmJson reviewOptions project fixedErrors elmJsonData remainingRules accRules =
+    -> AnalysisAccumulator
+computeElmJson reviewOptions elmJsonData remainingRules acc =
     case remainingRules of
         [] ->
-            { project = ValidProject.updateWorkList WorkList.visitedElmJson project
-            , ruleProjectVisitors = accRules
-            , fixedErrors = fixedErrors
+            { project = ValidProject.updateWorkList WorkList.visitedElmJson acc.project
+            , ruleProjectVisitors = acc.ruleProjectVisitors
+            , fixedErrors = acc.fixedErrors
             }
 
         ((RuleProjectVisitor rule) as untouched) :: rest ->
@@ -5306,32 +5312,34 @@ computeElmJson reviewOptions project fixedErrors elmJsonData remainingRules accR
                 Just visitor ->
                     let
                         ( errors, RuleProjectVisitor updatedRule ) =
-                            visitor project elmJsonData
+                            visitor acc.project elmJsonData
                     in
-                    case findFix reviewOptions project updatedRule.setErrorsForElmJson errors fixedErrors of
+                    case findFix reviewOptions acc.project updatedRule.setErrorsForElmJson errors acc.fixedErrors of
                         FoundFix fixResult ->
                             { project = fixResult.project
-                            , ruleProjectVisitors = fixResult.rule :: (rest ++ accRules)
+                            , ruleProjectVisitors = fixResult.rule :: rest ++ acc.ruleProjectVisitors
                             , fixedErrors = fixResult.fixedErrors
                             }
 
                         FoundNoFixes newRule ->
                             computeElmJson
                                 reviewOptions
-                                project
-                                fixedErrors
                                 elmJsonData
                                 rest
-                                (newRule :: accRules)
+                                { project = acc.project
+                                , ruleProjectVisitors = newRule :: acc.ruleProjectVisitors
+                                , fixedErrors = acc.fixedErrors
+                                }
 
                 Nothing ->
                     computeElmJson
                         reviewOptions
-                        project
-                        fixedErrors
                         elmJsonData
                         rest
-                        (untouched :: accRules)
+                        { project = acc.project
+                        , ruleProjectVisitors = untouched :: acc.ruleProjectVisitors
+                        , fixedErrors = acc.fixedErrors
+                        }
 
 
 computeReadme :
