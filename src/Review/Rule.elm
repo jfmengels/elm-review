@@ -417,7 +417,7 @@ type Rule
         , exceptions : Exceptions
         , requestedData : RequestedData
         , providesFixes : Bool
-        , ruleProjectVisitor : Result { message : String, details : List String } (ValidProject -> ChangeableRuleData -> RuleProjectVisitor)
+        , ruleProjectVisitor : Result { message : String, details : List String } (ChangeableRuleData -> ValidProject -> RuleProjectVisitor)
         }
 
 
@@ -777,11 +777,11 @@ checkForConfigurationErrors project rules rulesToRunAcc =
                         project
                         remainingRules
                         (ruleProjectVisitor
-                            project
                             { exceptions = rule.exceptions
                             , ruleId = rule.id
                             , requestedData = rule.requestedData
                             }
+                            project
                             :: rulesToRunAcc
                         )
 
@@ -1469,7 +1469,7 @@ fromProjectRuleSchema (ProjectRuleSchema schema) =
                 , providesFixes = schema.providesFixes
                 , ruleProjectVisitor =
                     Ok
-                        (\project ruleData ->
+                        (\ruleData project ->
                             createRuleProjectVisitor
                                 schema
                                 project
@@ -6675,7 +6675,7 @@ createRuleProjectVisitor schema initialProject ruleData initialCache =
                             , exceptions = hidden.ruleData.exceptions
                             , requestedData = hidden.ruleData.requestedData
                             , providesFixes = schema.providesFixes
-                            , ruleProjectVisitor = Ok (\newProject newRuleData -> createRuleProjectVisitor schema newProject newRuleData cache)
+                            , ruleProjectVisitor = Ok (\newRuleData newProject -> createRuleProjectVisitor schema newProject newRuleData cache)
                             }
                 , requestedData = hidden.ruleData.requestedData
                 }
