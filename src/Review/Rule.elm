@@ -5781,13 +5781,11 @@ computeWhatsRequiredToAnalyze project module_ ruleProjectVisitors =
 
 
 computeModuleWithRuleVisitors : ValidProject -> OpaqueProjectModule -> List (AvailableData -> RuleModuleVisitor) -> RequestedData -> List RuleProjectVisitor -> ( ValidProject, List RuleProjectVisitor, Maybe TypeError )
-computeModuleWithRuleVisitors project0 module_ inputRuleModuleVisitors (RequestedData requestedData) rulesNotToRun =
+computeModuleWithRuleVisitors project module_ inputRuleModuleVisitors (RequestedData requestedData) rulesNotToRun =
     let
-        ( moduleNameLookupTable, project1 ) =
-            computeModuleNameLookupTable requestedData project0 module_
-
-        { typeLookupTable, newProject, typeError } =
-            computeTypeLookupTable requestedData.types module_ project1
+        ( moduleNameLookupTable, { typeLookupTable, newProject, typeError } ) =
+            computeModuleNameLookupTable requestedData project module_
+                |> Tuple.mapSecond (\p -> computeTypeLookupTable requestedData.types module_ p)
 
         ast : File
         ast =
