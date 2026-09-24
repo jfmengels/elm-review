@@ -5769,7 +5769,9 @@ computeModule :
     -> AnalysisAccumulator
 computeModule params =
     let
-        ( inputRuleModuleVisitors, RequestedData requestedData, rulesNotToRun ) =
+        workload : { toRun : List { ruleProjectVisitor : RuleProjectVisitorOperations, moduleVisitor : AvailableData -> RuleModuleVisitor }, toSkip : List RuleProjectVisitor }
+        workload =
+            -- TODO Make it so that we don't have rules without a module visitor when we get to this function?
             computeWhatsRequiredToAnalyze params.project params.module_ params.ruleProjectVisitors
 
         alreadyHasTypeErrors : Bool
@@ -5779,7 +5781,7 @@ computeModule params =
         typeLookupTableResult : { typeLookupTable : Maybe TypeLookupTable, newProject : ValidProject, typeError : Maybe TypeError }
         typeLookupTableResult =
             computeTypeLookupTable
-                (alreadyHasTypeErrors && requestedData.types)
+                (alreadyHasTypeErrors && List.any (\r -> RequestedData.requestsTypes r.ruleProjectVisitor.requestedData) workload.toRun)
                 params.module_
                 params.project
 
@@ -5788,20 +5790,26 @@ computeModule params =
                 -- If a type error appears for the first time, then we want to skip all
                 -- the rules that requested that information for the end of the analysis
                 -- (and just report a type error)
-                List.partition projectVisitorNeedsTypes params.ruleProjectVisitors
+                List.partition (\r -> RequestedData.needsTypes r.ruleProjectVisitor.requestedData) workload.toRun
 
             else
-                ( [], params.ruleProjectVisitors )
+                ( [], workload.toRun )
+
+        ( finalRequestedData, moduleVisitorsToRun ) =
+            List.foldl
+                (\r ( requestedAcc, visitors ) -> ( RequestedData.combineJust r.ruleProjectVisitor.requestedData requestedAcc, r.moduleVisitor :: visitors ))
+                ( RequestedData.none, [] )
+                toRun
 
         ( moduleNameLookupTable, projectAfterInitialization ) =
             computeModuleNameLookupTable
-                (List.any projectVisitorRequestsModuleNameLookupTable toRun)
+                (RequestedData.moduleNameLookupTable finalRequestedData)
                 params.project
                 params.module_
 
         paramsAfterVisit : DataToComputeSingleModule
         paramsAfterVisit =
-            if List.isEmpty inputRuleModuleVisitors then
+            if List.isEmpty toRun then
                 { params | project = projectAfterInitialization }
 
             else
@@ -5812,13 +5820,13 @@ computeModule params =
                             params.module_
                             moduleNameLookupTable
                             typeLookupTableResult.typeLookupTable
-                            inputRuleModuleVisitors
-                            (RequestedData requestedData)
+                            moduleVisitorsToRun
+                            finalRequestedData
                 in
                 { params
                     | project = projectAfterInitialization
-                    , ruleProjectVisitors = List.append rulesNotToRun newRules
-                    , skippedRules = toSkip
+                    , ruleProjectVisitors = List.append workload.toSkip newRules
+                    , skippedRules = List.foldl (\r list -> RuleProjectVisitor r.ruleProjectVisitor :: list) params.skippedRules toSkip
                     , typeError =
                         if alreadyHasTypeErrors then
                             params.typeError
@@ -5835,24 +5843,30 @@ computeModule params =
     findFixInComputeModuleResults paramsAfterVisit paramsAfterVisit.ruleProjectVisitors []
 
 
-computeWhatsRequiredToAnalyze : ValidProject -> OpaqueProjectModule -> List RuleProjectVisitor -> ( List (AvailableData -> RuleModuleVisitor), RequestedData, List RuleProjectVisitor )
+computeWhatsRequiredToAnalyze :
+    ValidProject
+    -> OpaqueProjectModule
+    -> List RuleProjectVisitor
+    ->
+        { toRun : List { ruleProjectVisitor : RuleProjectVisitorOperations, moduleVisitor : AvailableData -> RuleModuleVisitor }
+        , toSkip : List RuleProjectVisitor
+        }
 computeWhatsRequiredToAnalyze project module_ ruleProjectVisitors =
     List.foldl
-        (\((RuleProjectVisitor ruleProjectVisitor) as rule) ( with, requestedAcc, without ) ->
+        (\((RuleProjectVisitor ruleProjectVisitor) as rule) { toRun, toSkip } ->
             case
                 ruleProjectVisitor.createModuleVisitorFromProjectVisitor
                     |> Maybe.andThen (\moduleVisitorCreator -> moduleVisitorCreator project module_)
             of
                 Just moduleVisitor ->
-                    ( moduleVisitor :: with
-                    , RequestedData.combineJust ruleProjectVisitor.requestedData requestedAcc
-                    , without
-                    )
+                    { toRun = { ruleProjectVisitor = ruleProjectVisitor, moduleVisitor = moduleVisitor } :: toRun
+                    , toSkip = toSkip
+                    }
 
                 Nothing ->
-                    ( with, requestedAcc, rule :: without )
+                    { toRun = toRun, toSkip = rule :: toSkip }
         )
-        ( [], RequestedData.none, [] )
+        { toRun = [], toSkip = [] }
         ruleProjectVisitors
 
 
