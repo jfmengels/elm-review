@@ -1599,7 +1599,7 @@ mergeModuleVisitorsHelp ruleName_ initialProjectContext moduleContextCreator vis
             { ast = dummyAst
             , moduleDocumentation = Nothing
             , moduleNameLookupTable = ModuleNameLookupTableInternal.empty []
-            , typeLookupTable = TypeLookupTable.empty
+            , typeLookupTable = Nothing
             , extractSourceCode = always "dummy"
             , filePath = "dummy file path"
             , isInSourceDirectories = True
@@ -5774,7 +5774,7 @@ computeModule params =
         alreadyHasTypeErrors =
             Dict.isEmpty params.typeErrors
 
-        typeLookupTableResult : { typeLookupTable : TypeLookupTable, newProject : ValidProject, typeError : Maybe TypeError }
+        typeLookupTableResult : { typeLookupTable : Maybe TypeLookupTable, newProject : ValidProject, typeError : Maybe TypeError }
         typeLookupTableResult =
             computeTypeLookupTable
                 (alreadyHasTypeErrors && requestedData.types)
@@ -5850,7 +5850,7 @@ computeWhatsRequiredToAnalyze project module_ ruleProjectVisitors =
         ruleProjectVisitors
 
 
-computeModuleWithRuleVisitors : OpaqueProjectModule -> ModuleNameLookupTable -> TypeLookupTable -> List (AvailableData -> RuleModuleVisitor) -> RequestedData -> List RuleProjectVisitor
+computeModuleWithRuleVisitors : OpaqueProjectModule -> ModuleNameLookupTable -> Maybe TypeLookupTable -> List (AvailableData -> RuleModuleVisitor) -> RequestedData -> List RuleProjectVisitor
 computeModuleWithRuleVisitors module_ moduleNameLookupTable typeLookupTable inputRuleModuleVisitors (RequestedData requestedData) =
     let
         ast : File
@@ -5891,7 +5891,7 @@ computeTypeLookupTable :
     Bool
     -> OpaqueProjectModule
     -> ValidProject
-    -> { typeLookupTable : TypeLookupTable, newProject : ValidProject, typeError : Maybe TypeError }
+    -> { typeLookupTable : Maybe TypeLookupTable, newProject : ValidProject, typeError : Maybe TypeError }
 computeTypeLookupTable typeLookupTableRequested module_ project =
     if typeLookupTableRequested then
         case ValidProject.typeInferenceProject project of
@@ -5902,13 +5902,13 @@ computeTypeLookupTable typeLookupTableRequested module_ project =
                 in
                 case tableResult of
                     Ok table_ ->
-                        { typeLookupTable = table_
+                        { typeLookupTable = Just table_
                         , newProject = ValidProject.setTypeInferenceProject newTypeInferenceProject project
                         , typeError = Nothing
                         }
 
                     Err err ->
-                        { typeLookupTable = TypeLookupTable.empty
+                        { typeLookupTable = Nothing
                         , newProject = ValidProject.setTypeInferenceProject newTypeInferenceProject project
                         , typeError =
                             Just
@@ -5918,13 +5918,13 @@ computeTypeLookupTable typeLookupTableRequested module_ project =
                         }
 
             Nothing ->
-                { typeLookupTable = TypeLookupTable.empty
+                { typeLookupTable = Nothing
                 , newProject = project
                 , typeError = Nothing
                 }
 
     else
-        { typeLookupTable = TypeLookupTable.empty
+        { typeLookupTable = Nothing
         , newProject = project
         , typeError = Nothing
         }
@@ -7832,7 +7832,7 @@ TODO Make sure dependencyEnv and interfaces are updated when
 withTypeLookupTable : ContextCreator TypeLookupTable (from -> to) -> ContextCreator from to
 withTypeLookupTable (ContextCreator fn (RequestedData requested)) =
     ContextCreator
-        (\data isFileIgnored isFileFixable -> fn data isFileIgnored isFileFixable data.typeLookupTable)
+        (\data isFileIgnored isFileFixable -> fn data isFileIgnored isFileFixable (Maybe.withDefault TypeLookupTable.empty data.typeLookupTable))
         (RequestedData { requested | types = True })
 
 
@@ -7991,7 +7991,7 @@ type alias AvailableData =
     { ast : Elm.Syntax.File.File
     , moduleDocumentation : Maybe (Node String)
     , moduleNameLookupTable : ModuleNameLookupTable
-    , typeLookupTable : TypeLookupTable
+    , typeLookupTable : Maybe TypeLookupTable
     , extractSourceCode : Range -> String
     , filePath : FilePath
     , isInSourceDirectories : Bool
