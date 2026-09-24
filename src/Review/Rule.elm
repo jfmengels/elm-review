@@ -788,7 +788,6 @@ checkForConfigurationErrors rules rulesToRunAcc =
                         (ruleProjectVisitor
                             { exceptions = rule.exceptions
                             , ruleId = rule.id
-                            , requestedData = rule.requestedData
                             }
                             :: rulesToRunAcc
                         )
@@ -1499,6 +1498,7 @@ fromProjectRuleSchema (ProjectRuleSchema schema) =
                                 schema
                                 project
                                 ruleData
+                                requestedData
                                 (initialCacheMarker schema.name ruleData.ruleId emptyCache)
                         )
                 }
@@ -6605,13 +6605,13 @@ type RuleProjectVisitor
 type alias RuleProjectVisitorHidden projectContext =
     { cache : ProjectRuleCache projectContext
     , ruleData : ChangeableRuleData
+    , requestedData : RequestedData
     }
 
 
 type alias ChangeableRuleData =
     { exceptions : Exceptions
     , ruleId : Int
-    , requestedData : RequestedData
     }
 
 
@@ -6642,8 +6642,8 @@ type alias RuleProjectVisitorOperations =
     }
 
 
-createRuleProjectVisitor : ProjectRuleSchemaData projectContext moduleContext -> ValidProject -> ChangeableRuleData -> ProjectRuleCache projectContext -> RuleProjectVisitor
-createRuleProjectVisitor schema initialProject ruleData initialCache =
+createRuleProjectVisitor : ProjectRuleSchemaData projectContext moduleContext -> ValidProject -> ChangeableRuleData -> RequestedData -> ProjectRuleCache projectContext -> RuleProjectVisitor
+createRuleProjectVisitor schema initialProject ruleData requestedData initialCache =
     let
         moduleVisitor :
             Maybe
@@ -6661,7 +6661,7 @@ createRuleProjectVisitor schema initialProject ruleData initialCache =
             let
                 raiseCache : ProjectRuleCache projectContext -> RuleProjectVisitor
                 raiseCache newCache =
-                    raise { cache = newCache, ruleData = hidden.ruleData }
+                    raise { cache = newCache, ruleData = hidden.ruleData, requestedData = requestedData }
             in
             RuleProjectVisitor
                 { elmJsonVisitor = createProjectVisitor schema hidden schema.elmJsonVisitor ElmJsonStep ValidProject.elmJsonHash .elmJson (\entry -> raiseCache { cache | elmJson = Just entry }) (\() -> raise hidden)
@@ -6685,16 +6685,17 @@ createRuleProjectVisitor schema initialProject ruleData initialCache =
                             { name = schema.name
                             , id = hidden.ruleData.ruleId
                             , exceptions = hidden.ruleData.exceptions
-                            , requestedData = hidden.ruleData.requestedData
+                            , requestedData = hidden.requestedData
                             , providesFixes = schema.providesFixes
-                            , ruleProjectVisitor = Ok (\newRuleData newProject -> createRuleProjectVisitor schema newProject newRuleData cache)
+                            , ruleProjectVisitor = Ok (\newRuleData newProject -> createRuleProjectVisitor schema newProject newRuleData hidden.requestedData cache)
                             }
-                , requestedData = hidden.ruleData.requestedData
+                , requestedData = hidden.requestedData
                 }
     in
     raise
         { cache = removeUnknownModulesFromInitialCache initialProject initialCache
         , ruleData = ruleData
+        , requestedData = requestedData
         }
 
 
@@ -7129,7 +7130,7 @@ createModuleVisitorFromProjectVisitorHelp schema raise hidden howToCreateModuleC
                     cacheEntry
                     { isFileIgnored = isFileIgnored
                     , isFileFixable = isFileFixable
-                    , requestedData = hidden.ruleData.requestedData
+                    , requestedData = hidden.requestedData
                     }
 
             maybeCacheEntry : Maybe (ModuleCacheEntry projectContext)
