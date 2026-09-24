@@ -11,6 +11,7 @@ import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Exposing as Exposing
 import Elm.Syntax.Import exposing (Import)
 import Elm.Syntax.Node as Node exposing (Node(..))
+import Elm.Syntax.Range exposing (Range)
 import Elm.TypeInference.Type exposing (Type(..))
 import Review.Fix as Fix
 import Review.Rule as Rule exposing (Error, Rule)
@@ -69,7 +70,7 @@ rule =
 
 
 type alias Context =
-    { typeLookupTable : TypeLookupTable
+    { typeLookupTable : Maybe TypeLookupTable
     , moduleName : String
     , moduleNameAliases : Dict String String
     , availableTypes : Set ( String, String )
@@ -91,7 +92,7 @@ initialContext =
             , availableTypes = preludeTypeImports
             }
         )
-        |> Rule.withTypeLookupTable
+        |> Rule.withTypeLookupTableWhenAvailable
         |> Rule.withModuleName
 
 
@@ -185,7 +186,7 @@ declarationVisitor declaration context =
                                 |> .name
 
                         ( inferredType, typeLookupTable ) =
-                            TypeLookupTable.get (Node.range declaration) context.typeLookupTable
+                            lookupType (Node.range declaration) context.typeLookupTable
 
                         fix : List Fix.Edit
                         fix =
@@ -224,6 +225,17 @@ declarationVisitor declaration context =
 
         _ ->
             ( [], context )
+
+
+lookupType : Range -> Maybe TypeLookupTable -> ( Maybe Type, Maybe TypeLookupTable )
+lookupType range typeLookupTable =
+    case typeLookupTable of
+        Just table ->
+            TypeLookupTable.get range table
+                |> Tuple.mapSecond Just
+
+        Nothing ->
+            ( Nothing, typeLookupTable )
 
 
 toString : Context -> Type -> String
