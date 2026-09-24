@@ -1482,15 +1482,19 @@ fromProjectRuleSchema : ProjectRuleSchema { schemaState | withModuleContext : Fo
 fromProjectRuleSchema (ProjectRuleSchema schema) =
     case schema.extraFileRequest of
         Ok extraFileGlobs ->
-            Rule
-                { name = schema.name
-                , id = 0
-                , exceptions = Exceptions.init
-                , requestedData =
+            let
+                requestedData : RequestedData
+                requestedData =
                     RequestedData.combine
                         (Maybe.map requestedDataFromContextCreator schema.moduleContextCreator)
                         (Maybe.map (.fromModuleToProject >> requestedDataFromContextCreator) schema.folder)
                         |> RequestedData.withFiles extraFileGlobs
+            in
+            Rule
+                { name = schema.name
+                , id = 0
+                , exceptions = Exceptions.init
+                , requestedData = requestedData
                 , providesFixes = schema.providesFixes
                 , ruleProjectVisitor =
                     Ok
