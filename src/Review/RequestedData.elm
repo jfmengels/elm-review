@@ -1,4 +1,24 @@
-module Review.RequestedData exposing (RequestedData(..), combine, combineJust, none, withFiles)
+module Review.RequestedData exposing
+    ( RequestedData(..)
+    , none, withFiles
+    , combine, combineJust
+    )
+
+{-|
+
+@docs RequestedData
+
+
+## Create
+
+@docs none, withFiles
+
+
+## Inspect
+
+@docs combine, combineJust
+
+-}
 
 
 type RequestedData
@@ -22,6 +42,15 @@ none =
         }
 
 
+withFiles : List { files : List { pattern : String, included : Bool }, excludedDirectories : List String } -> RequestedData -> RequestedData
+withFiles files ((RequestedData requested) as untouched) =
+    if List.isEmpty files then
+        untouched
+
+    else
+        RequestedData { requested | files = files }
+
+
 combine : Maybe RequestedData -> Maybe RequestedData -> RequestedData
 combine maybeA maybeB =
     case maybeA of
@@ -35,15 +64,6 @@ combine maybeA maybeB =
 
                 Nothing ->
                     a
-
-
-withFiles : List { files : List { pattern : String, included : Bool }, excludedDirectories : List String } -> RequestedData -> RequestedData
-withFiles files ((RequestedData requested) as untouched) =
-    if List.isEmpty files then
-        untouched
-
-    else
-        RequestedData { requested | files = files }
 
 
 combineJust : RequestedData -> RequestedData -> RequestedData
