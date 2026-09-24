@@ -5832,7 +5832,7 @@ computeModule params =
                             params.typeError
 
                         else
-                            case typeLookupTableResult.typeError of
+                            case Debug.log "type error" typeLookupTableResult.typeError of
                                 Just err ->
                                     Just ( ProjectModule.path params.module_, err )
 
