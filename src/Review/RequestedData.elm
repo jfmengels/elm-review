@@ -1,8 +1,10 @@
 module Review.RequestedData exposing
     ( RequestedData(..)
     , none, withFiles
-    , types, moduleNameLookupTable
+    , needsTypes
+    , moduleNameLookupTable
     , combine, combineJust
+    , requestsTypes
     )
 
 {-|
@@ -17,7 +19,8 @@ module Review.RequestedData exposing
 
 ## Inspect
 
-@docs types, moduleNameLookupTable
+@docs types, needsTypes
+@docs moduleNameLookupTable
 @docs combine, combineJust
 
 -}
@@ -27,6 +30,7 @@ type RequestedData
     = RequestedData
         { moduleNameLookupTable : Bool
         , types : Bool
+        , skipRuleOnTypeError : Bool
         , sourceCodeExtractor : Bool
         , ignoredFiles : Bool
         , ignoredFixes : Bool
@@ -39,6 +43,7 @@ none =
     RequestedData
         { moduleNameLookupTable = False
         , types = False
+        , skipRuleOnTypeError = False
         , sourceCodeExtractor = False
         , ignoredFiles = False
         , ignoredFixes = False
@@ -55,9 +60,14 @@ withFiles files ((RequestedData requested) as untouched) =
         RequestedData { requested | files = files }
 
 
-types : RequestedData -> Bool
-types (RequestedData requestedData) =
+requestsTypes : RequestedData -> Bool
+requestsTypes (RequestedData requestedData) =
     requestedData.types
+
+
+needsTypes : RequestedData -> Bool
+needsTypes (RequestedData requestedData) =
+    requestedData.types && not requestedData.skipRuleOnTypeError
 
 
 moduleNameLookupTable : RequestedData -> Bool
@@ -85,6 +95,7 @@ combineJust (RequestedData a) (RequestedData b) =
     RequestedData
         { moduleNameLookupTable = a.moduleNameLookupTable || b.moduleNameLookupTable
         , types = a.types || b.types
+        , skipRuleOnTypeError = a.skipRuleOnTypeError || b.skipRuleOnTypeError
         , sourceCodeExtractor = a.sourceCodeExtractor || b.sourceCodeExtractor
         , ignoredFiles = a.ignoredFiles || b.ignoredFiles
         , ignoredFixes = a.ignoredFixes || b.ignoredFixes

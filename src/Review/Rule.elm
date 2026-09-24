@@ -20,7 +20,7 @@ module Review.Rule exposing
     , withElmJsonProjectVisitor, withReadmeProjectVisitor, withDirectDependenciesProjectVisitor, withDependenciesProjectVisitor, withExtraFilesProjectVisitor, withFinalProjectEvaluation
     , withContextFromImportedModules, withContextFromImportedModulesIncludingIndirect
     , providesFixesForProjectRule
-    , ContextCreator, initContextCreator, withModuleName, withModuleNameNode, withIsInSourceDirectories, withFilePath, withIsFileIgnored, withIsFileFixable, withModuleNameLookupTable, withTypeLookupTable, withModuleKey, withSourceCodeExtractor, withFullAst, withModuleDocumentation
+    , ContextCreator, initContextCreator, withModuleName, withModuleNameNode, withIsInSourceDirectories, withFilePath, withIsFileIgnored, withIsFileFixable, withModuleNameLookupTable, withTypeLookupTable, withTypeLookupTableWhenAvailable, withModuleKey, withSourceCodeExtractor, withFullAst, withModuleDocumentation
     , Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix
     , ElmJsonKey, errorForElmJson, errorForElmJsonWithFix
     , ReadmeKey, errorForReadme, errorForReadmeWithFix
@@ -247,7 +247,7 @@ first, as they are in practice a simpler version of project rules.
 
 ## Requesting more information
 
-@docs ContextCreator, initContextCreator, withModuleName, withModuleNameNode, withIsInSourceDirectories, withFilePath, withIsFileIgnored, withIsFileFixable, withModuleNameLookupTable, withTypeLookupTable, withModuleKey, withSourceCodeExtractor, withFullAst, withModuleDocumentation
+@docs ContextCreator, initContextCreator, withModuleName, withModuleNameNode, withIsInSourceDirectories, withFilePath, withIsFileIgnored, withIsFileFixable, withModuleNameLookupTable, withTypeLookupTable, withTypeLookupTableWhenAvailable, withModuleKey, withSourceCodeExtractor, withFullAst, withModuleDocumentation
 
 
 ## Errors
@@ -728,14 +728,14 @@ reviewV4 reviewOptions rules project =
                 }
 
 
-projectVisitorRequestsTypes : RuleProjectVisitor -> Bool
-projectVisitorRequestsTypes (RuleProjectVisitor ruleProjectVisitor) =
-    RequestedData.types ruleProjectVisitor.requestedData
+projectVisitorNeedsTypes : RuleProjectVisitor -> Bool
+projectVisitorNeedsTypes (RuleProjectVisitor ruleProjectVisitor) =
+    RequestedData.needsTypes ruleProjectVisitor.requestedData
 
 
 ruleRequestsTypes : Rule -> Bool
 ruleRequestsTypes (Rule rule) =
-    RequestedData.types rule.requestedData
+    RequestedData.requestsTypes rule.requestedData
 
 
 projectVisitorRequestsModuleNameLookupTable : RuleProjectVisitor -> Bool
@@ -987,7 +987,7 @@ computeErrorsAndRulesAndExtracts reviewOptions hasTypeErrors ruleProjectVisitors
                                 , canComputeExtract_ && not err.preventsExtract
                                 )
                             )
-                            ( errors, not (RequestedData.types rule.requestedData && hasTypeErrors) )
+                            ( errors, not (RequestedData.requestsTypes rule.requestedData && hasTypeErrors) )
                             (rule.getErrors ())
 
                     ( newExtracts, RuleProjectVisitor newRule ) =
@@ -5786,7 +5786,7 @@ computeModule params =
                 -- If a type error appears for the first time, then we want to skip all
                 -- the rules that requested that information for the end of the analysis
                 -- (and just report a type error)
-                List.partition projectVisitorRequestsTypes params.ruleProjectVisitors
+                List.partition projectVisitorNeedsTypes params.ruleProjectVisitors
 
             else
                 ( [], params.ruleProjectVisitors )
@@ -7833,7 +7833,16 @@ withTypeLookupTable : ContextCreator TypeLookupTable (from -> to) -> ContextCrea
 withTypeLookupTable (ContextCreator fn (RequestedData requested)) =
     ContextCreator
         (\data isFileIgnored isFileFixable -> fn data isFileIgnored isFileFixable (Maybe.withDefault TypeLookupTable.empty data.typeLookupTable))
-        (RequestedData { requested | types = True })
+        (RequestedData { requested | types = True, skipRuleOnTypeError = True })
+
+
+{-| REPLACEME
+-}
+withTypeLookupTableWhenAvailable : ContextCreator (Maybe TypeLookupTable) (from -> to) -> ContextCreator from to
+withTypeLookupTableWhenAvailable (ContextCreator fn (RequestedData requested)) =
+    ContextCreator
+        (\data isFileIgnored isFileFixable -> fn data isFileIgnored isFileFixable data.typeLookupTable)
+        (RequestedData { requested | types = True, skipRuleOnTypeError = False })
 
 
 {-| Request the full [AST](https://en.wikipedia.org/wiki/Abstract_syntax_tree) for the current module.
