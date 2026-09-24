@@ -909,7 +909,7 @@ type alias AnalysisAccumulator =
     , ruleProjectVisitors : List RuleProjectVisitor
     , skippedRules : List RuleProjectVisitor
     , fixedErrors : FixedErrors
-    , typeErrors : Dict String {- File path -} TypeError
+    , typeError : Maybe ( String {- File path -}, TypeError )
     }
 
 
@@ -934,13 +934,13 @@ runRules (ReviewOptionsInternal reviewOptions) ruleProjectVisitors project =
                 , ruleProjectVisitors = ruleProjectVisitors
                 , skippedRules = []
                 , fixedErrors = FixedErrors.empty
-                , typeErrors = Dict.empty
+                , typeError = Nothing
                 }
 
         { errors, rules, extracts } =
-            computeErrorsAndRulesAndExtracts reviewOptions (Dict.isEmpty result.typeErrors) result.ruleProjectVisitors
+            computeErrorsAndRulesAndExtracts reviewOptions (result.typeError /= Nothing) result.ruleProjectVisitors
     in
-    { errors = reportTypeErrors result.typeErrors errors
+    { errors = reportTypeError result.typeError errors
     , rules = List.map (\(RuleProjectVisitor r) -> r.backToRule ()) result.skippedRules ++ rules
     , extracts = extracts
     , fixedErrors = FixedErrors.toDict result.fixedErrors
@@ -948,12 +948,14 @@ runRules (ReviewOptionsInternal reviewOptions) ruleProjectVisitors project =
     }
 
 
-reportTypeErrors : Dict String TypeError -> List ReviewError -> List ReviewError
-reportTypeErrors typeErrors initialErrors =
-    Dict.foldr
-        (\path err acc -> errorForTypeError path err :: acc)
-        initialErrors
-        typeErrors
+reportTypeError : Maybe ( String, TypeError ) -> List ReviewError -> List ReviewError
+reportTypeError maybeTypeError initialErrors =
+    case maybeTypeError of
+        Just ( path, err ) ->
+            errorForTypeError path err :: initialErrors
+
+        Nothing ->
+            initialErrors
 
 
 errorForTypeError : String -> TypeError -> ReviewError
@@ -5345,7 +5347,7 @@ computeStepsForProject :
     ReviewOptionsData
     -> AnalysisAccumulator
     -> AnalysisAccumulator
-computeStepsForProject reviewOptions ({ project, ruleProjectVisitors, fixedErrors, typeErrors } as analysisAcc) =
+computeStepsForProject reviewOptions ({ project, ruleProjectVisitors, fixedErrors, typeError } as analysisAcc) =
     if FixedErrors.count fixedErrors > 0 && not (InternalOptions.shouldContinueLookingForFixes reviewOptions fixedErrors) then
         analysisAcc
 
@@ -5425,7 +5427,7 @@ emptyRules acc =
     , ruleProjectVisitors = []
     , skippedRules = []
     , fixedErrors = acc.fixedErrors
-    , typeErrors = acc.typeErrors
+    , typeError = acc.typeError
     }
 
 
@@ -5450,7 +5452,7 @@ computeElmJson reviewOptions elmJsonData remainingRules acc =
             , ruleProjectVisitors = acc.ruleProjectVisitors
             , skippedRules = acc.skippedRules
             , fixedErrors = acc.fixedErrors
-            , typeErrors = acc.typeErrors
+            , typeError = acc.typeError
             }
 
         ((RuleProjectVisitor rule) as untouched) :: rest ->
@@ -5466,7 +5468,7 @@ computeElmJson reviewOptions elmJsonData remainingRules acc =
                             , ruleProjectVisitors = fixResult.rule :: rest ++ acc.ruleProjectVisitors
                             , skippedRules = acc.skippedRules
                             , fixedErrors = fixResult.fixedErrors
-                            , typeErrors = acc.typeErrors
+                            , typeError = acc.typeError
                             }
 
                         FoundNoFixes newRule ->
@@ -5478,7 +5480,7 @@ computeElmJson reviewOptions elmJsonData remainingRules acc =
                                 , ruleProjectVisitors = newRule :: acc.ruleProjectVisitors
                                 , skippedRules = acc.skippedRules
                                 , fixedErrors = acc.fixedErrors
-                                , typeErrors = acc.typeErrors
+                                , typeError = acc.typeError
                                 }
 
                 Nothing ->
@@ -5490,7 +5492,7 @@ computeElmJson reviewOptions elmJsonData remainingRules acc =
                         , ruleProjectVisitors = untouched :: acc.ruleProjectVisitors
                         , skippedRules = acc.skippedRules
                         , fixedErrors = acc.fixedErrors
-                        , typeErrors = acc.typeErrors
+                        , typeError = acc.typeError
                         }
 
 
@@ -5507,7 +5509,7 @@ computeReadme reviewOptions readmeData remainingRules acc =
             , ruleProjectVisitors = acc.ruleProjectVisitors
             , skippedRules = acc.skippedRules
             , fixedErrors = acc.fixedErrors
-            , typeErrors = acc.typeErrors
+            , typeError = acc.typeError
             }
 
         ((RuleProjectVisitor rule) as untouched) :: rest ->
@@ -5523,7 +5525,7 @@ computeReadme reviewOptions readmeData remainingRules acc =
                             , ruleProjectVisitors = fixResult.rule :: rest ++ acc.ruleProjectVisitors
                             , skippedRules = acc.skippedRules
                             , fixedErrors = fixResult.fixedErrors
-                            , typeErrors = acc.typeErrors
+                            , typeError = acc.typeError
                             }
 
                         FoundNoFixes newRule ->
@@ -5535,7 +5537,7 @@ computeReadme reviewOptions readmeData remainingRules acc =
                                 , ruleProjectVisitors = newRule :: acc.ruleProjectVisitors
                                 , skippedRules = acc.skippedRules
                                 , fixedErrors = acc.fixedErrors
-                                , typeErrors = acc.typeErrors
+                                , typeError = acc.typeError
                                 }
 
                 Nothing ->
@@ -5547,7 +5549,7 @@ computeReadme reviewOptions readmeData remainingRules acc =
                         , ruleProjectVisitors = untouched :: acc.ruleProjectVisitors
                         , skippedRules = acc.skippedRules
                         , fixedErrors = acc.fixedErrors
-                        , typeErrors = acc.typeErrors
+                        , typeError = acc.typeError
                         }
 
 
@@ -5564,7 +5566,7 @@ computeExtraFiles reviewOptions extraFiles remainingRules acc =
             , ruleProjectVisitors = acc.ruleProjectVisitors
             , skippedRules = acc.skippedRules
             , fixedErrors = acc.fixedErrors
-            , typeErrors = acc.typeErrors
+            , typeError = acc.typeError
             }
 
         ((RuleProjectVisitor rule) as untouched) :: rest ->
@@ -5580,7 +5582,7 @@ computeExtraFiles reviewOptions extraFiles remainingRules acc =
                             , ruleProjectVisitors = fixResult.rule :: rest ++ acc.ruleProjectVisitors
                             , skippedRules = acc.skippedRules
                             , fixedErrors = fixResult.fixedErrors
-                            , typeErrors = acc.typeErrors
+                            , typeError = acc.typeError
                             }
 
                         FoundNoFixes newRule ->
@@ -5592,7 +5594,7 @@ computeExtraFiles reviewOptions extraFiles remainingRules acc =
                                 , ruleProjectVisitors = newRule :: acc.ruleProjectVisitors
                                 , skippedRules = acc.skippedRules
                                 , fixedErrors = acc.fixedErrors
-                                , typeErrors = acc.typeErrors
+                                , typeError = acc.typeError
                                 }
 
                 Nothing ->
@@ -5604,7 +5606,7 @@ computeExtraFiles reviewOptions extraFiles remainingRules acc =
                         , ruleProjectVisitors = untouched :: acc.ruleProjectVisitors
                         , skippedRules = acc.skippedRules
                         , fixedErrors = acc.fixedErrors
-                        , typeErrors = acc.typeErrors
+                        , typeError = acc.typeError
                         }
 
 
@@ -5621,7 +5623,7 @@ computeDependencies reviewOptions dependenciesData remainingRules acc =
             , ruleProjectVisitors = acc.ruleProjectVisitors
             , skippedRules = acc.skippedRules
             , fixedErrors = acc.fixedErrors
-            , typeErrors = acc.typeErrors
+            , typeError = acc.typeError
             }
 
         ((RuleProjectVisitor rule) as untouched) :: rest ->
@@ -5637,7 +5639,7 @@ computeDependencies reviewOptions dependenciesData remainingRules acc =
                             , ruleProjectVisitors = fixResult.rule :: rest ++ acc.ruleProjectVisitors
                             , skippedRules = acc.skippedRules
                             , fixedErrors = fixResult.fixedErrors
-                            , typeErrors = acc.typeErrors
+                            , typeError = acc.typeError
                             }
 
                         FoundNoFixes newRule ->
@@ -5649,7 +5651,7 @@ computeDependencies reviewOptions dependenciesData remainingRules acc =
                                 , ruleProjectVisitors = newRule :: acc.ruleProjectVisitors
                                 , skippedRules = acc.skippedRules
                                 , fixedErrors = acc.fixedErrors
-                                , typeErrors = acc.typeErrors
+                                , typeError = acc.typeError
                                 }
 
                 Nothing ->
@@ -5661,7 +5663,7 @@ computeDependencies reviewOptions dependenciesData remainingRules acc =
                         , ruleProjectVisitors = untouched :: acc.ruleProjectVisitors
                         , skippedRules = acc.skippedRules
                         , fixedErrors = acc.fixedErrors
-                        , typeErrors = acc.typeErrors
+                        , typeError = acc.typeError
                         }
 
 
@@ -5677,7 +5679,7 @@ computeFinalProjectEvaluation reviewOptions remainingRules acc =
             , ruleProjectVisitors = acc.ruleProjectVisitors
             , skippedRules = acc.skippedRules
             , fixedErrors = acc.fixedErrors
-            , typeErrors = acc.typeErrors
+            , typeError = acc.typeError
             }
 
         ((RuleProjectVisitor rule) as untouched) :: rest ->
@@ -5693,7 +5695,7 @@ computeFinalProjectEvaluation reviewOptions remainingRules acc =
                             , ruleProjectVisitors = fixResult.rule :: rest ++ acc.ruleProjectVisitors
                             , skippedRules = acc.skippedRules
                             , fixedErrors = fixResult.fixedErrors
-                            , typeErrors = acc.typeErrors
+                            , typeError = acc.typeError
                             }
 
                         FoundNoFixes newRule ->
@@ -5704,7 +5706,7 @@ computeFinalProjectEvaluation reviewOptions remainingRules acc =
                                 , ruleProjectVisitors = newRule :: acc.ruleProjectVisitors
                                 , skippedRules = acc.skippedRules
                                 , fixedErrors = acc.fixedErrors
-                                , typeErrors = acc.typeErrors
+                                , typeError = acc.typeError
                                 }
 
                 Nothing ->
@@ -5715,7 +5717,7 @@ computeFinalProjectEvaluation reviewOptions remainingRules acc =
                         , ruleProjectVisitors = untouched :: acc.ruleProjectVisitors
                         , skippedRules = acc.skippedRules
                         , fixedErrors = acc.fixedErrors
-                        , typeErrors = acc.typeErrors
+                        , typeError = acc.typeError
                         }
 
 
@@ -5758,7 +5760,7 @@ type alias DataToComputeSingleModule =
     , module_ : OpaqueProjectModule
     , project : ValidProject
     , fixedErrors : FixedErrors
-    , typeErrors : Dict String {- File path -} TypeError
+    , typeError : Maybe ( String, {- File path -} TypeError )
     }
 
 
@@ -5772,7 +5774,7 @@ computeModule params =
 
         alreadyHasTypeErrors : Bool
         alreadyHasTypeErrors =
-            Dict.isEmpty params.typeErrors
+            params.typeError /= Nothing
 
         typeLookupTableResult : { typeLookupTable : Maybe TypeLookupTable, newProject : ValidProject, typeError : Maybe TypeError }
         typeLookupTableResult =
@@ -5817,13 +5819,17 @@ computeModule params =
                     | project = projectAfterInitialization
                     , ruleProjectVisitors = List.append rulesNotToRun newRules
                     , skippedRules = toSkip
-                    , typeErrors =
-                        case typeLookupTableResult.typeError of
-                            Just err ->
-                                Dict.insert (ProjectModule.path params.module_) err params.typeErrors
+                    , typeError =
+                        if alreadyHasTypeErrors then
+                            params.typeError
 
-                            Nothing ->
-                                params.typeErrors
+                        else
+                            case typeLookupTableResult.typeError of
+                                Just err ->
+                                    Just ( ProjectModule.path params.module_, err )
+
+                                Nothing ->
+                                    params.typeError
                 }
     in
     findFixInComputeModuleResults paramsAfterVisit paramsAfterVisit.ruleProjectVisitors []
@@ -5950,14 +5956,14 @@ findFixInComputeModuleResults :
     -> List RuleProjectVisitor
     -> List RuleProjectVisitor
     -> AnalysisAccumulator
-findFixInComputeModuleResults ({ reviewOptions, module_, project, fixedErrors, typeErrors } as params) remainingRules rulesSoFar =
+findFixInComputeModuleResults ({ reviewOptions, module_, project, fixedErrors, typeError } as params) remainingRules rulesSoFar =
     case remainingRules of
         [] ->
             { project = project
             , ruleProjectVisitors = rulesSoFar
             , skippedRules = params.skippedRules
             , fixedErrors = fixedErrors
-            , typeErrors = typeErrors
+            , typeError = typeError
             }
 
         (RuleProjectVisitor ruleProjectVisitor) :: rest ->
@@ -5976,7 +5982,7 @@ findFixInComputeModuleResults ({ reviewOptions, module_, project, fixedErrors, t
                     , ruleProjectVisitors = fixResult.rule :: (rest ++ rulesSoFar)
                     , skippedRules = params.skippedRules
                     , fixedErrors = fixResult.fixedErrors
-                    , typeErrors = typeErrors
+                    , typeError = typeError
                     }
 
                 FoundNoFixes newRule ->
@@ -6121,7 +6127,7 @@ computeModules reviewOptions filePath acc =
             , ruleProjectVisitors = acc.ruleProjectVisitors
             , skippedRules = acc.skippedRules
             , fixedErrors = acc.fixedErrors
-            , typeErrors = acc.typeErrors
+            , typeError = acc.typeError
             }
 
         Just module_ ->
@@ -6132,7 +6138,7 @@ computeModules reviewOptions filePath acc =
                 , module_ = module_
                 , project = ValidProject.updateWorkList WorkList.visitedNextModule acc.project
                 , fixedErrors = acc.fixedErrors
-                , typeErrors = acc.typeErrors
+                , typeError = acc.typeError
                 }
 
 
