@@ -5782,7 +5782,7 @@ computeModule params =
         typeLookupTableResult : { typeLookupTable : Maybe TypeLookupTable, newProject : ValidProject, typeError : Maybe TypeError }
         typeLookupTableResult =
             computeTypeLookupTable
-                (alreadyHasTypeErrors && List.any (\r -> RequestedData.requestsTypes r.ruleProjectVisitor.requestedData) workload.toRun)
+                (Debug.log "compute types" <| alreadyHasTypeErrors && List.any (\r -> RequestedData.requestsTypes r.ruleProjectVisitor.requestedData) workload.toRun)
                 params.module_
                 params.project
 
