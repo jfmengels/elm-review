@@ -5769,6 +5769,7 @@ computeModule :
     -> AnalysisAccumulator
 computeModule params =
     let
+        -- TODO PROBLEM: Type Error is not reported
         workload : { toRun : List { ruleProjectVisitor : RuleProjectVisitorOperations, moduleVisitor : AvailableData -> RuleModuleVisitor }, toSkip : List RuleProjectVisitor }
         workload =
             -- TODO Make it so that we don't have rules without a module visitor when we get to this function?
