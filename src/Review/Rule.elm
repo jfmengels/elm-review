@@ -5758,30 +5758,24 @@ type alias DataToComputeSingleModule =
     }
 
 
-computeModule :
-    DataToComputeSingleModule
-    -> AnalysisAccumulator
+computeModule : DataToComputeSingleModule -> DataToComputeSingleModule
 computeModule params =
     let
         ( inputRuleModuleVisitors, requestedData, rulesNotToRun ) =
             computeWhatsRequiredToAnalyze params.project params.module_ params.ruleProjectVisitors
-
-        paramsAfterVisit : DataToComputeSingleModule
-        paramsAfterVisit =
-            if List.isEmpty inputRuleModuleVisitors then
-                params
-
-            else
-                let
-                    ( newProject, newRules ) =
-                        computeModuleWithRuleVisitors params.project params.module_ inputRuleModuleVisitors requestedData rulesNotToRun
-                in
-                { params
-                    | project = newProject
-                    , ruleProjectVisitors = newRules
-                }
     in
-    findFixInComputeModuleResults paramsAfterVisit paramsAfterVisit.ruleProjectVisitors []
+    if List.isEmpty inputRuleModuleVisitors then
+        params
+
+    else
+        let
+            ( newProject, newRules ) =
+                computeModuleWithRuleVisitors params.project params.module_ inputRuleModuleVisitors requestedData
+        in
+        { params
+            | project = newProject
+            , ruleProjectVisitors = List.append rulesNotToRun newRules
+        }
 
 
 computeWhatsRequiredToAnalyze : ValidProject -> OpaqueProjectModule -> List RuleProjectVisitor -> ( List (AvailableData -> RuleModuleVisitor), RequestedData, List RuleProjectVisitor )
@@ -5805,8 +5799,8 @@ computeWhatsRequiredToAnalyze project module_ ruleProjectVisitors =
         ruleProjectVisitors
 
 
-computeModuleWithRuleVisitors : ValidProject -> OpaqueProjectModule -> List (AvailableData -> RuleModuleVisitor) -> RequestedData -> List RuleProjectVisitor -> ( ValidProject, List RuleProjectVisitor )
-computeModuleWithRuleVisitors initialProject module_ inputRuleModuleVisitors (RequestedData requestedData) rulesNotToRun =
+computeModuleWithRuleVisitors : ValidProject -> OpaqueProjectModule -> List (AvailableData -> RuleModuleVisitor) -> RequestedData -> ( ValidProject, List RuleProjectVisitor )
+computeModuleWithRuleVisitors initialProject module_ inputRuleModuleVisitors (RequestedData requestedData) =
     let
         { moduleNameLookupTable, exposed, project } =
             computeModuleNameLookupTable requestedData initialProject module_
@@ -5861,7 +5855,7 @@ computeModuleWithRuleVisitors initialProject module_ inputRuleModuleVisitors (Re
                 |> List.map (\(RuleModuleVisitor ruleModuleVisitor) -> ruleModuleVisitor.toProjectVisitor ())
     in
     ( project
-    , List.append rulesNotToRun outputRuleProjectVisitors
+    , outputRuleProjectVisitors
     )
 
 
@@ -6138,13 +6132,18 @@ computeModules reviewOptions filePath acc =
             }
 
         Just module_ ->
-            computeModule
-                { reviewOptions = reviewOptions
-                , ruleProjectVisitors = acc.ruleProjectVisitors
-                , module_ = module_
-                , project = ValidProject.updateWorkList WorkList.visitedNextModule acc.project
-                , fixedErrors = acc.fixedErrors
-                }
+            let
+                params : DataToComputeSingleModule
+                params =
+                    computeModule
+                        { reviewOptions = reviewOptions
+                        , ruleProjectVisitors = acc.ruleProjectVisitors
+                        , module_ = module_
+                        , project = ValidProject.updateWorkList WorkList.visitedNextModule acc.project
+                        , fixedErrors = acc.fixedErrors
+                        }
+            in
+            findFixInComputeModuleResults params params.ruleProjectVisitors []
 
 
 reuseCache : (ModuleCacheEntry v -> Bool) -> Maybe (ModuleCacheEntry v) -> Maybe (ModuleCacheEntry v)
