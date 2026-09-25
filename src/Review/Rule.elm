@@ -5701,30 +5701,24 @@ type alias DataToComputeSingleModule =
     }
 
 
-computeModule :
-    DataToComputeSingleModule
-    -> AnalysisAccumulator
+computeModule : DataToComputeSingleModule -> DataToComputeSingleModule
 computeModule params =
     let
         ( inputRuleModuleVisitors, requestedData, rulesNotToRun ) =
             computeWhatsRequiredToAnalyze params.project params.module_ params.ruleProjectVisitors
-
-        paramsAfterVisit : DataToComputeSingleModule
-        paramsAfterVisit =
-            if List.isEmpty inputRuleModuleVisitors then
-                params
-
-            else
-                let
-                    ( newProject, newRules ) =
-                        computeModuleWithRuleVisitors params.project params.module_ inputRuleModuleVisitors requestedData rulesNotToRun
-                in
-                { params
-                    | project = newProject
-                    , ruleProjectVisitors = newRules
-                }
     in
-    findFixInComputeModuleResults paramsAfterVisit paramsAfterVisit.ruleProjectVisitors []
+    if List.isEmpty inputRuleModuleVisitors then
+        params
+
+    else
+        let
+            ( newProject, newRules ) =
+                computeModuleWithRuleVisitors params.project params.module_ inputRuleModuleVisitors requestedData rulesNotToRun
+        in
+        { params
+            | project = newProject
+            , ruleProjectVisitors = newRules
+        }
 
 
 computeWhatsRequiredToAnalyze : ValidProject -> OpaqueProjectModule -> List RuleProjectVisitor -> ( List (AvailableData -> RuleModuleVisitor), RequestedData, List RuleProjectVisitor )
@@ -6081,13 +6075,18 @@ computeModules reviewOptions filePath acc =
             }
 
         Just module_ ->
-            computeModule
-                { reviewOptions = reviewOptions
-                , ruleProjectVisitors = acc.ruleProjectVisitors
-                , module_ = module_
-                , project = ValidProject.updateWorkList WorkList.visitedNextModule acc.project
-                , fixedErrors = acc.fixedErrors
-                }
+            let
+                params : DataToComputeSingleModule
+                params =
+                    computeModule
+                        { reviewOptions = reviewOptions
+                        , ruleProjectVisitors = acc.ruleProjectVisitors
+                        , module_ = module_
+                        , project = ValidProject.updateWorkList WorkList.visitedNextModule acc.project
+                        , fixedErrors = acc.fixedErrors
+                        }
+            in
+            findFixInComputeModuleResults params params.ruleProjectVisitors []
 
 
 reuseCache : (ModuleCacheEntry v -> Bool) -> Maybe (ModuleCacheEntry v) -> Maybe (ModuleCacheEntry v)
