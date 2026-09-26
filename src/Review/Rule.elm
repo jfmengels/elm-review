@@ -7789,11 +7789,9 @@ withModuleNameLookupTable (ContextCreator fn (RequestedData requested)) =
 
 {-| REPLACEME
 
-TODO Make sure TypeLookupTable is exposed
-TODO Make sure dependencyEnv and interfaces are updated when
+TODO When a file asks for types, invalidate its cache if the module docs of its imports (including indirect...) have changed
 
-  - elm.json changes
-  - files change
+TODO Docs
 
 -}
 withTypes :

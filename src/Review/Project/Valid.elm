@@ -161,6 +161,7 @@ parse requestsTypeInformation ((Project p) as project) =
                     Ok ( moduleGraph, sortedModules ) ->
                         if requestsTypeInformation then
                             case
+                                -- TODO Avoid recomputing deps every time
                                 computeTypeInferenceProject
                                     p.dependencies
                                     (Dict.keys p.directDependencies)
