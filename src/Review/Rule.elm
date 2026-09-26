@@ -7775,11 +7775,14 @@ withModuleNameLookupTable (ContextCreator fn (RequestedData requested)) =
 
 {-| REPLACEME
 
-TODO Make sure TypeLookupTable is exposed
-TODO Make sure dependencyEnv and interfaces are updated when
+TODO Find a way to store the project again. Pass a function `ModuleContext -> TypeInference.Project` to `withTypeLookupTable` : `|> Rule.withTypeLookupTable .types`
+Or patch the JS output
 
-  - elm.json changes
-  - files change
+TODO When a file asks for types, invalidate its cache if the module docs of its imports (including indirect...) have changed
+TODO Update the type inference project with:
+
+  - new files when they get updated
+  - Reset when elm.json changes
 
 -}
 withTypes :
