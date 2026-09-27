@@ -22,7 +22,7 @@ import Elm.TypeInference.Type exposing (PackageName, VarName)
 import Elm.TypeInference.Type.Internal as TypeI exposing (MonoType(..))
 import Elm.TypeInference.TypeVar as TypeVar
 import Elm.TypeInference.Unify exposing (TypeAlias)
-import Result.Extra
+import Result.ExtraExtra
 
 
 type alias DependencyPackage =
@@ -188,7 +188,7 @@ fromDocsType resolver type_ =
             else
                 Result.andThen
                     (\( package, moduleId ) ->
-                        Result.Extra.combineMap (\arg -> fromDocsType resolver arg) args
+                        Result.ExtraExtra.combineMap (\arg -> fromDocsType resolver arg) args
                             |> Result.map
                                 (\argTypes ->
                                     case TypeI.collapsePrimitive package moduleId typeName argTypes of
@@ -223,7 +223,7 @@ fromDocsType resolver type_ =
 
 fromDocsFields : Resolver -> List ( String, Elm.Type.Type ) -> Result FromDocsTypeError (List ( String, MonoType ))
 fromDocsFields resolver fields =
-    Result.Extra.combineMap
+    Result.ExtraExtra.combineMap
         (\( name, value ) ->
             fromDocsType resolver value
                 |> Result.map (\valueType -> ( name, valueType ))
@@ -269,7 +269,7 @@ register moduleMapping deps =
     in
     deps
         |> Dict.toList
-        |> Result.Extra.foldlWhileOk
+        |> Result.ExtraExtra.foldlWhileOk
             (\( pkgName, pkg ) acc ->
                 registerPackage
                     moduleMappingWithAllPackageModules
@@ -304,7 +304,7 @@ registerPackage moduleMapping deps pkgName pkg registered =
             resolverFor moduleMapping deps pkgName
     in
     pkg.modules
-        |> Result.Extra.foldlWhileOk
+        |> Result.ExtraExtra.foldlWhileOk
             (\mod acc ->
                 registerModule
                     moduleMapping
@@ -346,10 +346,10 @@ registerModule moduleMapping pkgName resolver mod registered =
                 |> Result.map (\monoType -> addGlobalBinding ( moduleId, pkgName, name ) monoType acc)
     in
     registered
-        |> (\acc -> Result.Extra.foldlWhileOk (\v -> addBinding v.name v.tipe) acc mod.values)
-        |> Result.andThen (\acc -> Result.Extra.foldlWhileOk (\b -> addBinding b.name b.tipe) acc mod.binops)
-        |> Result.andThen (\acc -> Result.Extra.foldlWhileOk (registerUnion pkgName moduleId mod.name resolver) acc mod.unions)
-        |> Result.andThen (\acc -> Result.Extra.foldlWhileOk (registerAlias pkgName moduleId mod.name resolver) acc mod.aliases)
+        |> (\acc -> Result.ExtraExtra.foldlWhileOk (\v -> addBinding v.name v.tipe) acc mod.values)
+        |> Result.andThen (\acc -> Result.ExtraExtra.foldlWhileOk (\b -> addBinding b.name b.tipe) acc mod.binops)
+        |> Result.andThen (\acc -> Result.ExtraExtra.foldlWhileOk (registerUnion pkgName moduleId mod.name resolver) acc mod.unions)
+        |> Result.andThen (\acc -> Result.ExtraExtra.foldlWhileOk (registerAlias pkgName moduleId mod.name resolver) acc mod.aliases)
 
 
 registerUnion : PackageName -> ModuleId -> String -> Resolver -> Elm.Docs.Union -> Registered -> Result ProjectError Registered
@@ -380,9 +380,9 @@ registerUnion pkgName moduleId dottedModuleName resolver union registered =
                         }
     in
     union.tags
-        |> Result.Extra.foldlWhileOk
+        |> Result.ExtraExtra.foldlWhileOk
             (\( ctorName, argTypeStrings ) acc ->
-                Result.Extra.combineMap
+                Result.ExtraExtra.combineMap
                     (\argDocsType -> fromDocsType resolver argDocsType)
                     argTypeStrings
                     |> Result.mapError toError

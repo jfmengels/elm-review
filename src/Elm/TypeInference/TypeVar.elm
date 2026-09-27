@@ -15,7 +15,7 @@ module Elm.TypeInference.TypeVar exposing
 
 {-| -}
 
-import List.Extra
+import List.ExtraExtra
 import Set exposing (Set)
 
 
@@ -77,7 +77,7 @@ parse name =
         maybeConstrained : Maybe ( TypeVarStyle, SuperType )
         maybeConstrained =
             typeVariableConstraintPrefixes
-                |> List.Extra.findMap
+                |> List.ExtraExtra.findMap
                     (\( prefix, super ) ->
                         if String.startsWith prefix name then
                             Just

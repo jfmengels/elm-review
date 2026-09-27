@@ -2,8 +2,6 @@ module String.ExtraExtra exposing (firstCharIsUpper, indent, multilineInput)
 
 {-| -}
 
-import String.Extra
-
 
 {-|
 
@@ -29,7 +27,7 @@ indent n string =
 multilineInput : String -> String
 multilineInput string =
     string
-        |> String.Extra.unindent
+        |> unindent
         |> removeNewlinesAtEnds
 
 
@@ -75,3 +73,60 @@ leading to NaN being returned.
 charIsUtf8Surrogate : Char -> Bool
 charIsUtf8Surrogate char =
     Basics.isNaN (Basics.toFloat (Char.toCode char))
+
+
+{-| Remove the shortest sequence of leading spaces or tabs on each line
+of the string, so that at least one of the lines will not have any
+leading spaces nor tabs and the rest of the lines will have the same
+amount of indentation removed.
+
+    unindent "  Hello\n    World" --> "Hello\n  World"
+
+    unindent "\t\tHello\n\t\t\t\tWorld" --> "Hello\n\t\tWorld"
+
+-}
+unindent : String -> String
+unindent multilineSting =
+    let
+        lines =
+            String.lines multilineSting
+
+        countLeadingWhitespace count line =
+            case String.uncons line of
+                Nothing ->
+                    count
+
+                Just ( char, rest ) ->
+                    case char of
+                        ' ' ->
+                            countLeadingWhitespace (count + 1) rest
+
+                        '\t' ->
+                            countLeadingWhitespace (count + 1) rest
+
+                        _ ->
+                            count
+
+        isNotWhitespace char =
+            char /= ' ' && char /= '\t'
+
+        minLead =
+            lines
+                |> List.filterMap
+                    (\s ->
+                        if String.any isNotWhitespace s then
+                            Just (countLeadingWhitespace 0 s)
+
+                        else
+                            Nothing
+                    )
+                |> List.minimum
+                |> Maybe.withDefault 0
+    in
+    if minLead == 0 then
+        multilineSting
+
+    else
+        lines
+            |> List.map (String.dropLeft minLead)
+            |> String.join "\n"

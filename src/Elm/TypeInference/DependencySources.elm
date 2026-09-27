@@ -25,7 +25,7 @@ import Elm.TypeInference.Type.Internal as TypeI
 import Elm.TypeInference.TypeVar as TypeVar
 import Elm.TypeInference.Unify exposing (TypeAlias)
 import List.ExtraExtra
-import Result.Extra
+import Result.ExtraExtra
 import Set exposing (Set)
 
 
@@ -308,7 +308,7 @@ packageAliases moduleMapping deps package files =
                 |> Tuple.first
     in
     List.reverse indexedFilesReversed
-        |> Result.Extra.foldlWhileOk
+        |> Result.ExtraExtra.foldlWhileOk
             (\( file, thisModule ) dictAcrossFiles ->
                 let
                     resolver : TypeI.TypeResolver
@@ -326,7 +326,7 @@ packageAliases moduleMapping deps package files =
                                 )
                 in
                 file.declarations
-                    |> Result.Extra.foldlWhileOk
+                    |> Result.ExtraExtra.foldlWhileOk
                         (\node dict ->
                             case Node.value node of
                                 Declaration.AliasDeclaration alias_ ->

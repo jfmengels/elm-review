@@ -2,6 +2,7 @@ module List.ExtraExtra exposing
     ( fastConcatMap
     , fastConcatMapWithInitial
     , findLastMap
+    , findMap
     )
 
 {-| -}
@@ -21,6 +22,21 @@ fastConcatMap fn list =
 fastConcatMapWithInitial : (a -> List b) -> List a -> List b -> List b
 fastConcatMapWithInitial fn list initial =
     List.foldr (\item acc -> fn item ++ acc) initial list
+
+
+findMap : (a -> Maybe b) -> List a -> Maybe b
+findMap mapper list =
+    case list of
+        [] ->
+            Nothing
+
+        first :: rest ->
+            case mapper first of
+                Just value ->
+                    Just value
+
+                Nothing ->
+                    findMap mapper rest
 
 
 findLastMap : (a -> Maybe b) -> List a -> Maybe b

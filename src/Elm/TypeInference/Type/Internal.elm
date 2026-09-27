@@ -40,7 +40,7 @@ import Elm.TypeInference.TypeVar as TypeVar
         , TypeVarStyle(..)
         , superTypeTag
         )
-import Result.Extra
+import Result.ExtraExtra
 import Set exposing (Set)
 
 
@@ -946,7 +946,7 @@ fromTypeAnnotation resolver typeAnnotation =
             -> Result FromTypeAnnotationError (Dict VarName MonoType)
         recordBindings fields =
             fields
-                |> Result.Extra.foldlWhileOk
+                |> Result.ExtraExtra.foldlWhileOk
                     (\fieldNode acc ->
                         let
                             ( fieldNameNode, annotationNode ) =
@@ -970,7 +970,7 @@ fromTypeAnnotation resolver typeAnnotation =
                 args : Result FromTypeAnnotationError (List MonoType)
                 args =
                     annotations
-                        |> Result.Extra.combineMap (\(Node.Node _ arg) -> f arg)
+                        |> Result.ExtraExtra.combineMap (\(Node.Node _ arg) -> f arg)
             in
             -- Resolve names before collapsing primitives: local or imported
             -- types can shadow implicit names such as List, Int, and String.

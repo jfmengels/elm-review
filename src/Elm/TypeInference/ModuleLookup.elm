@@ -24,7 +24,7 @@ import Elm.TypeInference.State as State exposing (StateM)
 import Elm.TypeInference.Type exposing (PackageName, VarName)
 import Elm.TypeInference.Type.Internal exposing (TypeResolver)
 import List.ExtraExtra
-import Result.Extra
+import Result.ExtraExtra
 import Set exposing (Set)
 import String.ExtraExtra
 
@@ -297,7 +297,7 @@ unqualifiedVarOutsideThisModule :
     -> VarName
     -> Result InferErrorDetails (Maybe ( PackageName, ModuleId ))
 unqualifiedVarOutsideThisModule moduleMapping index modules thisModule varName =
-    Result.Extra.combineMap
+    Result.ExtraExtra.combineMap
         (\import_ ->
             if ModuleIndex.importCouldExposeValue import_ varName then
                 explicitImportDefinesValue moduleMapping index modules import_ varName
@@ -462,7 +462,7 @@ qualifiedVar moduleMapping index modules thisModule qualifier varName =
                                 singleModulesWithAlias
                         )
             in
-            Result.Extra.combineMap
+            Result.ExtraExtra.combineMap
                 (\unaliased -> qualifiedModuleDefines moduleMapping index modules unaliased varName)
                 aliasCandidates
                 |> Result.andThen
