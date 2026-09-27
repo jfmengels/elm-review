@@ -62,7 +62,7 @@ import Elm.TypeInference.TypeVar as TypeVar
 import Elm.TypeInference.Unify exposing (TypeAlias)
 import List.ExtraExtra
 import RangeLike
-import Result.Extra
+import Result.ExtraExtra
 import Set exposing (Set)
 
 
@@ -1520,7 +1520,7 @@ registerCustomType resolver moduleId moduleName customType =
                     argTypes : Result FromTypeAnnotationError (List MonoType)
                     argTypes =
                         arguments
-                            |> Result.Extra.combineMap
+                            |> Result.ExtraExtra.combineMap
                                 (\(Node.Node _ arg) -> TypeI.fromTypeAnnotation resolver arg)
                 in
                 case argTypes of
@@ -1560,7 +1560,7 @@ registerPort resolver moduleId moduleName sig =
                     ( moduleId, "", Node.value sig.name )
                     (TypeI.closeOver t)
             )
-        |> Result.Extra.merge
+        |> Result.ExtraExtra.merge
 
 
 {-| Register the magic `command` / `subscription` values for `effect module`s.
