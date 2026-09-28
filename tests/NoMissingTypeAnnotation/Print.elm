@@ -29,7 +29,7 @@ insertTypeAnnotation context insertLocation name t =
         missingImportsStr =
             Set.foldr (\moduleName imports -> "import " ++ moduleName ++ "\n" ++ imports) "" missingImports
     in
-    [ Fix.insertAt insertLocation (name ++ " : " ++ stringifiedType ++ "\n")
+    [ Fix.insertAt insertLocation (name ++ " : " ++ stringifiedType ++ "\n" ++ String.repeat (insertLocation.column - 1) " ")
     , Fix.insertAt { row = context.importLine, column = 1 } missingImportsStr
     ]
 
