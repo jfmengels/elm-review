@@ -20,8 +20,8 @@ all =
 hasTypeAnnotation : Int
 hasTypeAnnotation = 1
 
-alsoHasTypeAnnotation : String -> List Things
-alsoHasTypeAnnotation = doSomething
+alsoHasTypeAnnotation : String -> List Int
+alsoHasTypeAnnotation str = []
 """
                     |> Review.Test.run rule
                     |> Review.Test.expectNoErrors
