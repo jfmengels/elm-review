@@ -20,7 +20,7 @@ all =
 hasTypeAnnotation : Int
 hasTypeAnnotation = 1
 
-hasNoTypeAnnotation = doSomething
+alsoHasTypeAnnotation str = []
 """
                     |> Review.Test.run rule
                     |> Review.Test.expectNoErrors
@@ -45,7 +45,7 @@ a = let
       hasNoTypeAnnotation_1 = 1
       hasNoTypeAnnotation_2 = 1
     in
-    d
+    2
 """
                     |> Review.Test.run rule
                     |> Review.Test.expectErrors
@@ -63,12 +63,13 @@ a = let
         , test "should not report anything for let..in destructuring" <|
             \_ ->
                 """module A exposing (..)
+type Thing = Thing Int
 a = let
-      (b, c) = foo
-      {e, f} = foo
-      (Thing thing) = foo
+      (b, c) = (1, 2)
+      {e, f} = { e = 1, f = 2 }
+      (Thing thing) = Thing 1
     in
-    d
+    b
 """
                     |> Review.Test.run rule
                     |> Review.Test.expectNoErrors
