@@ -43,7 +43,7 @@ a = let
                 """module A exposing (..)
 a = let
       hasNoTypeAnnotation_1 = 1
-      hasNoTypeAnnotation_2 = 1
+      hasNoTypeAnnotation_2 = ""
     in
     2
 """
@@ -54,11 +54,27 @@ a = let
                             , details = details
                             , under = "hasNoTypeAnnotation_1"
                             }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = let
+      hasNoTypeAnnotation_1 : number
+      hasNoTypeAnnotation_1 = 1
+      hasNoTypeAnnotation_2 = ""
+    in
+    2
+"""
                         , Review.Test.error
                             { message = "Missing type annotation for `hasNoTypeAnnotation_2`"
                             , details = details
                             , under = "hasNoTypeAnnotation_2"
                             }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = let
+      hasNoTypeAnnotation_1 = 1
+      hasNoTypeAnnotation_2 : String
+      hasNoTypeAnnotation_2 = ""
+    in
+    2
+"""
                         ]
         , test "should not report anything for let..in destructuring" <|
             \_ ->
