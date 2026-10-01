@@ -863,6 +863,19 @@ registerImportExposed import_ innerContext =
                         foldIntoDict list dict =
                             List.foldl (\{ name } acc -> Dict.insert name moduleName acc) dict list
 
+                        addRecordAliases : List Elm.Docs.Alias -> Dict String ModuleName -> Dict String ModuleName
+                        addRecordAliases list dict =
+                            List.foldl
+                                (\{ name, tipe } acc ->
+                                    if isPlainRecordType tipe then
+                                        Dict.insert name moduleName acc
+
+                                    else
+                                        acc
+                                )
+                                dict
+                                list
+
                         foldCustomTypesIntoDict : List { a | tags : List ( String, b ) } -> Dict String ModuleName -> Dict String ModuleName
                         foldCustomTypesIntoDict unions dict =
                             List.foldl
@@ -877,7 +890,7 @@ registerImportExposed import_ innerContext =
                             innerContext.importedFunctions
                                 |> foldIntoDict module_.values
                                 |> foldIntoDict module_.binops
-                                |> foldIntoDict module_.aliases
+                                |> addRecordAliases module_.aliases
                                 |> foldCustomTypesIntoDict module_.unions
 
                         importedTypes : Dict String ModuleName
@@ -936,7 +949,7 @@ valuesFromExposingList moduleName module_ topLevelExposeList acc =
                     valuesFromExposingList moduleName module_ rest (Dict.insert function moduleName acc)
 
                 Exposing.TypeOrAliasExpose name ->
-                    if List.any (\alias -> alias.name == name) module_.aliases then
+                    if List.any (\alias -> alias.name == name && isPlainRecordType alias.tipe) module_.aliases then
                         valuesFromExposingList moduleName module_ rest (Dict.insert name moduleName acc)
 
                     else
@@ -964,6 +977,16 @@ valuesFromExposingList moduleName module_ topLevelExposeList acc =
 
                         Nothing ->
                             valuesFromExposingList moduleName module_ rest acc
+
+
+isPlainRecordType : Elm.Type.Type -> Bool
+isPlainRecordType type_ =
+    case type_ of
+        Elm.Type.Record _ Nothing ->
+            True
+
+        _ ->
+            False
 
 
 typesFromExposingList : Node TopLevelExpose -> Maybe String

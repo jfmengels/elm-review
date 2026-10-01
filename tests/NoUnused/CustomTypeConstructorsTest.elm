@@ -960,6 +960,22 @@ main = [MyModule.Bar, MyModule.Baz]
 """ ]
                     |> Review.Test.runOnModulesWithProjectData applicationProject (rule [])
                     |> Review.Test.expectNoErrors
+        , test "should not report used type constructors when an application module imports a type alias with the same name as the constructor" <|
+            \() ->
+                [ """
+module FooBar exposing (..)
+type Foo = Bar
+""", """
+module Bar exposing (..)
+type alias Bar = String
+""", """
+module Main exposing (main)
+import FooBar exposing (Foo(..))
+import Bar exposing (Bar)
+main = Bar
+""" ]
+                    |> Review.Test.runOnModulesWithProjectData applicationProject (rule [])
+                    |> Review.Test.expectNoErrors
         , test "should not report unused type constructors when package module is exposing the constructors of that type and module is exposed" <|
             \() ->
                 """

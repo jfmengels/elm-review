@@ -379,6 +379,86 @@ fn =
                             , under = "module"
                             }
                         ]
+        , test "should not get confused about type constructors and type aliases" <|
+            \() ->
+                let
+                    lookupFunction : ModuleNameLookupTable -> Range -> Maybe ModuleName
+                    lookupFunction =
+                        ModuleNameLookupTable.moduleNameAt
+
+                    rule : Rule
+                    rule =
+                        createRule
+                            (Rule.withExpressionEnterVisitor (expressionVisitor lookupFunction)
+                                >> Rule.withDeclarationEnterVisitor (declarationVisitor lookupFunction)
+                            )
+                in
+                [ """
+module CustomType exposing (..)
+type CustomType = Name
+""", """
+module TypeAlias exposing (..)
+type alias Name = ()
+""", """module Main exposing (main)
+import CustomType exposing (CustomType(..))
+import TypeAlias exposing (Name)
+
+type alias Alias = Name
+main = Name
+""" ]
+                    |> Review.Test.runOnModules rule
+                    |> Review.Test.expect
+                        [ Review.Test.moduleErrors "Main"
+                            [ Review.Test.error
+                                { message = """
+<nothing>.Name -> TypeAlias.Name
+<nothing>.Name -> CustomType.Name
+"""
+                                , details = [ "details" ]
+                                , under = "module"
+                                }
+                            ]
+                        ]
+        , test "should not get confused about type constructors and type aliases (exposing all)" <|
+            \() ->
+                let
+                    lookupFunction : ModuleNameLookupTable -> Range -> Maybe ModuleName
+                    lookupFunction =
+                        ModuleNameLookupTable.moduleNameAt
+
+                    rule : Rule
+                    rule =
+                        createRule
+                            (Rule.withExpressionEnterVisitor (expressionVisitor lookupFunction)
+                                >> Rule.withDeclarationEnterVisitor (declarationVisitor lookupFunction)
+                            )
+                in
+                [ """
+module CustomType exposing (..)
+type CustomType = Name
+""", """
+module TypeAlias exposing (..)
+type alias Name = ()
+""", """module Main exposing (main)
+import CustomType exposing (..)
+import TypeAlias exposing (..)
+
+type alias Alias = Name
+main = Name
+""" ]
+                    |> Review.Test.runOnModules rule
+                    |> Review.Test.expect
+                        [ Review.Test.moduleErrors "Main"
+                            [ Review.Test.error
+                                { message = """
+<nothing>.Name -> TypeAlias.Name
+<nothing>.Name -> CustomType.Name
+"""
+                                , details = [ "details" ]
+                                , under = "module"
+                                }
+                            ]
+                        ]
         ]
 
 

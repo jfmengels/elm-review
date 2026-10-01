@@ -5,6 +5,7 @@
 - Added [`Review.Rule.withContextFromImportedModulesIncludingIndirect`].
 - Added [`Review.Project.getModuleByPath`].
 - Fixed an issue where changes to `elm.json` (through an automatic fix or in watch mode) would get ignored, yielding incorrect results.
+- Fixed an issue where `ModuleNameLookupTable` would sometimes yield an incorrect confuse type constructors for type aliases in expressions.
 - When Elm files are syntactically incorrect, there is now a single global error reported listing the files, instead of one error per file.  
 - Some performance optimizations (thanks [@Arkham](https://github.com/Arkham)!)
 

@@ -1318,7 +1318,21 @@ func = A { foo = 1, bar = 2, baz = 3}
 """
                 ]
                     |> Review.Test.runOnModules (rule defaults)
-                    |> Review.Test.expectNoErrors
+                    |> Review.Test.expect
+                        [ Review.Test.moduleErrors "A"
+                            [ unsortedError
+                                |> Review.Test.atExactly { start = { row = 8, column = 10 }, end = { row = 8, column = 11 } }
+                                |> Review.Test.whenFixed """module A exposing (..)
+
+import B exposing (A)
+
+type alias B = { bar : Int, foo : Int, baz : Int }
+
+func : Bool
+func = A { bar = 2, foo = 1, baz = 3}
+"""
+                            ]
+                        ]
         ]
 
 
