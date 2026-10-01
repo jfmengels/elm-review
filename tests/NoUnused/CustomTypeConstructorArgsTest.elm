@@ -9,14 +9,9 @@ import Review.Test.Dependencies
 import Test exposing (Test, describe, test)
 
 
-message : String
-message =
-    "Argument is never extracted and therefore never used."
-
-
 details : List String
 details =
-    [ "This argument is never used. You should either use it somewhere, or remove it at the location I pointed at."
+    [ "This field is never extracted and therefore never used. You should either use it somewhere, or remove it at the location I pointed at."
     ]
 
 
@@ -38,10 +33,20 @@ something =
                     |> Review.Test.run rule
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = message
+                            { message = "The 1st field of B is never used"
                             , details = details
                             , under = "B_Data"
                             }
+                            |> Review.Test.whenFixed """module A exposing (..)
+type CustomType
+  = B
+
+b = B
+
+something =
+  case foo of
+    B -> ()
+"""
                         ]
         , test "should report an error when custom type constructor argument is never used, even in parens" <|
             \() ->
@@ -58,10 +63,20 @@ something =
                     |> Review.Test.run rule
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = message
+                            { message = "The 1st field of B is never used"
                             , details = details
                             , under = "B_Data"
                             }
+                            |> Review.Test.whenFixed """module A exposing (..)
+type CustomType
+  = B
+
+b = B
+
+something =
+  case foo of
+    B -> ()
+"""
                         ]
         , test "should not report an error if custom type constructor argument is used" <|
             \() ->
@@ -81,9 +96,9 @@ something =
             \() ->
                 """module A exposing (..)
 type CustomType
-  = Constructor SomeData SomeOtherData
+  = Constructor Int ()
 
-b = Constructor ()
+b = Constructor 0 ()
 
 something =
   case foo of
@@ -92,22 +107,34 @@ something =
                     |> Review.Test.run rule
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = message
+                            { message = "The 1st field of Constructor is never used"
                             , details = details
-                            , under = "SomeData"
+                            , under = "Int"
                             }
+                            |> Review.Test.whenFixed """module A exposing (..)
+type CustomType
+  = Constructor ()
+
+b = Constructor ()
+
+something =
+  case foo of
+    Constructor value -> value
+"""
                         ]
         , test "should not report an error for used arguments in nested patterns (tuple)" <|
             \() ->
                 """module A exposing (..)
 type CustomType
   = Constructor SomeData
+type SomeData = SomeData
 
-b = Constructor ()
+b = Constructor SomeData
 
 something =
   case foo of
     (_, Constructor value) -> value
+    _ -> SomeData
 """
                     |> Review.Test.run rule
                     |> Review.Test.expectNoErrors
@@ -116,12 +143,14 @@ something =
                 """module A exposing (..)
 type CustomType
   = Constructor SomeData
+type SomeData = SomeData
 
-b = Constructor ()
+b = Constructor SomeData
 
 something =
   case foo of
     [Constructor value] -> value
+    _ -> SomeData
 """
                     |> Review.Test.run rule
                     |> Review.Test.expectNoErrors
@@ -130,12 +159,15 @@ something =
                 """module A exposing (..)
 type CustomType
   = Constructor A B
+type A = A
+type B = B
 
-b = Constructor ()
+b = Constructor A B
 
 something =
   case foo of
-    Constructor a _ :: [Constructor _ b] -> value
+    Constructor a _ :: [Constructor _ b] -> b
+    _ -> B
 """
                     |> Review.Test.run rule
                     |> Review.Test.expectNoErrors
@@ -144,12 +176,14 @@ something =
                 """module A exposing (..)
 type CustomType
   = Constructor A B
+type A = A
+type B = B
 
-b = Constructor ()
+b = Constructor A B
 
 something =
   case foo of
-    ( Constructor a b ) -> value
+    ( Constructor a b ) -> a
 """
                     |> Review.Test.run rule
                     |> Review.Test.expectNoErrors
@@ -158,12 +192,14 @@ something =
                 """module A exposing (..)
 type CustomType
   = Constructor A B
+type A = A
+type B = B
 
-b = Constructor ()
+b = Constructor A B
 
 something =
   case foo of
-    Constructor _ (Constructor a _ ) -> value
+    Constructor _ (Constructor a _ ) -> a
 """
                     |> Review.Test.run rule
                     |> Review.Test.expectNoErrors
@@ -172,12 +208,13 @@ something =
                 """module A exposing (..)
 type CustomType
   = Constructor A
+type A = A
 
-b = Constructor ()
+b = Constructor A
 
 something =
   case foo of
-    (Constructor a ) as thing -> value
+    (Constructor a ) as thing -> a
 """
                     |> Review.Test.run rule
                     |> Review.Test.expectNoErrors
@@ -186,8 +223,9 @@ something =
                 """module A exposing (..)
 type CustomType
   = Constructor A
+type A = A
 
-b = Constructor ()
+b = Constructor A
 
 something (Constructor a) =
   a
@@ -199,14 +237,15 @@ something (Constructor a) =
                 """module A exposing (..)
 type CustomType
   = Constructor A
+type A = A
 
-b = Constructor ()
+b = Constructor A
 
 something =
   let
     foo (Constructor a) = 1
   in
-  a
+  foo (Constructor A)
 """
                     |> Review.Test.run rule
                     |> Review.Test.expectNoErrors
@@ -215,8 +254,9 @@ something =
                 """module A exposing (..)
 type CustomType
   = Constructor A
+type A = A
 
-b = Constructor ()
+b = Constructor A
 
 something =
   \\(Constructor a) -> 1
@@ -228,8 +268,9 @@ something =
                 """module A exposing (..)
 type CustomType
   = Constructor A
+type A = A
 
-b = Constructor ()
+b = Constructor A
 
 something =
   let
@@ -243,7 +284,7 @@ something =
             \() ->
                 [ """module A exposing (..)
 type CustomType
-  = Constructor A
+  = Constructor ()
 """, """module B exposing (..)
 import A
 
@@ -258,8 +299,9 @@ something =
                 """module NotExposed exposing (..)
 type CustomType
   = Constructor SomeData
+type SomeData = SomeData
 
-b = Constructor ()
+b = Constructor SomeData
 
 something =
   case foo of
@@ -268,18 +310,31 @@ something =
                     |> Review.Test.runWithProjectData packageProject rule
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = message
+                            { message = "The 1st field of Constructor is never used"
                             , details = details
                             , under = "SomeData"
                             }
+                            |> Review.Test.atExactly { start = { row = 3, column = 17 }, end = { row = 3, column = 25 } }
+                            |> Review.Test.whenFixed """module NotExposed exposing (..)
+type CustomType
+  = Constructor
+type SomeData = SomeData
+
+b = Constructor
+
+something =
+  case foo of
+    Constructor -> 1
+"""
                         ]
         , test "should report errors for non-exposed modules in a package (exposing explicitly)" <|
             \() ->
                 """module NotExposed exposing (CustomType(..))
 type CustomType
   = Constructor SomeData
+type SomeData = SomeData
 
-b = Constructor ()
+b = Constructor SomeData
 
 something =
   case foo of
@@ -288,22 +343,34 @@ something =
                     |> Review.Test.runWithProjectData packageProject rule
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = message
+                            { message = "The 1st field of Constructor is never used"
                             , details = details
                             , under = "SomeData"
                             }
+                            |> Review.Test.atExactly { start = { row = 3, column = 17 }, end = { row = 3, column = 25 } }
+                            |> Review.Test.whenFixed """module NotExposed exposing (CustomType(..))
+type CustomType
+  = Constructor
+type SomeData = SomeData
+
+b = Constructor
+
+something =
+  case foo of
+    Constructor -> 1
+"""
                         ]
         , test "should not report errors for exposed modules that expose everything" <|
             \() ->
                 """module Exposed exposing (..)
 type CustomType
-  = Constructor SomeData
+  = Constructor ()
 
 b = Constructor ()
 
 something =
   case foo of
-    Constructor _ -> 1
+    Constructor -> 1
 """
                     |> Review.Test.runWithProjectData packageProject rule
                     |> Review.Test.expectNoErrors
@@ -311,7 +378,7 @@ something =
             \() ->
                 """module Exposed exposing (CustomType(..))
 type CustomType
-  = Constructor SomeData
+  = Constructor ()
 
 b = Constructor ()
 
@@ -325,7 +392,7 @@ something =
             \() ->
                 """module Exposed exposing (b)
 type CustomType
-  = Constructor SomeData
+  = Constructor ()
 
 b = Constructor ()
 
@@ -336,16 +403,28 @@ something =
                     |> Review.Test.runWithProjectData packageProject rule
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = message
+                            { message = "The 1st field of Constructor is never used"
                             , details = details
-                            , under = "SomeData"
+                            , under = "()"
                             }
+                            |> Review.Test.atExactly { start = { row = 3, column = 17 }, end = { row = 3, column = 19 } }
+                            |> Review.Test.whenFixed """module Exposed exposing (b)
+type CustomType
+  = Constructor
+
+b = Constructor
+
+something =
+  case foo of
+    Constructor -> 1
+"""
                         ]
         , test "should report errors if the type is exposed but not its constructors" <|
             \() ->
                 """module Exposed exposing (CustomType)
 type CustomType
   = Constructor SomeData
+type alias SomeData = ()
 
 b = Constructor ()
 
@@ -356,10 +435,22 @@ something =
                     |> Review.Test.runWithProjectData packageProject rule
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = message
+                            { message = "The 1st field of Constructor is never used"
                             , details = details
                             , under = "SomeData"
                             }
+                            |> Review.Test.atExactly { start = { row = 3, column = 17 }, end = { row = 3, column = 25 } }
+                            |> Review.Test.whenFixed """module Exposed exposing (CustomType)
+type CustomType
+  = Constructor
+type alias SomeData = ()
+
+b = Constructor
+
+something =
+  case foo of
+    Constructor -> 1
+"""
                         ]
         , test "should not report args if they are used in a different module" <|
             \() ->
@@ -419,10 +510,16 @@ type CustomType
                     |> Review.Test.runWithProjectData packageProject rule
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = message
+                            { message = "The 1st field of B is never used"
                             , details = details
                             , under = "SomeData"
                             }
+                            |> Review.Test.whenFixed """
+module Main exposing (a)
+a = 1
+type CustomType
+  = B Never
+"""
                         ]
         , test "should not report args for type constructors used in an equality expression (==)" <|
             \() ->
@@ -434,6 +531,28 @@ b = B
 """
                     |> Review.Test.runWithProjectData packageProject rule
                     |> Review.Test.expectNoErrors
+        , test "should report args for type constructors that are siblings of ones referenced in an equality expression (==)" <|
+            \() ->
+                """
+module MyModule exposing (a, b)
+type Foo = Unused Int | B
+a = B == b
+b = B
+"""
+                    |> Review.Test.runWithProjectData packageProject rule
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "The 1st field of Unused is never used"
+                            , details = details
+                            , under = "Int"
+                            }
+                            |> Review.Test.whenFixed """
+module MyModule exposing (a, b)
+type Foo = Unused | B
+a = B == b
+b = B
+"""
+                        ]
         , test "should not report args for type constructors starting with a non-ASCII letter used in an equality expression (==)" <|
             \() ->
                 """
@@ -454,6 +573,87 @@ b = B
 """
                     |> Review.Test.runWithProjectData packageProject rule
                     |> Review.Test.expectNoErrors
+        , test "should remove field in calls using (|>)" <|
+            \() ->
+                """
+module MyModule exposing (a)
+type Foo = Unused Int
+a = 0 |> Unused
+"""
+                    |> Review.Test.runWithProjectData packageProject rule
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "The 1st field of Unused is never used"
+                            , details = details
+                            , under = "Int"
+                            }
+                            |> Review.Test.whenFixed """
+module MyModule exposing (a)
+type Foo = Unused
+a = Unused
+"""
+                        ]
+        , test "should remove field in calls using (|>) (multiline)" <|
+            \() ->
+                """
+module MyModule exposing (a)
+type Foo = Unused Int
+a = 0
+        |> Unused
+"""
+                    |> Review.Test.runWithProjectData packageProject rule
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "The 1st field of Unused is never used"
+                            , details = details
+                            , under = "Int"
+                            }
+                            |> Review.Test.whenFixed """
+module MyModule exposing (a)
+type Foo = Unused
+a = Unused
+"""
+                        ]
+        , test "should remove field in calls using (<|)" <|
+            \() ->
+                """
+module MyModule exposing (a)
+type Foo = Unused Int
+a = Unused <| 0
+"""
+                    |> Review.Test.runWithProjectData packageProject rule
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "The 1st field of Unused is never used"
+                            , details = details
+                            , under = "Int"
+                            }
+                            |> Review.Test.whenFixed """
+module MyModule exposing (a)
+type Foo = Unused
+a = Unused
+"""
+                        ]
+        , test "should remove field in calls using (<|) (multiline)" <|
+            \() ->
+                """
+module MyModule exposing (a)
+type Foo = Unused Int
+a = Unused <| 0
+"""
+                    |> Review.Test.runWithProjectData packageProject rule
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "The 1st field of Unused is never used"
+                            , details = details
+                            , under = "Int"
+                            }
+                            |> Review.Test.whenFixed """
+module MyModule exposing (a)
+type Foo = Unused
+a = Unused
+"""
+                        ]
         , test "should report args for type constructors used in non-equality operator expressions" <|
             \() ->
                 """
@@ -465,10 +665,16 @@ b = B
                     |> Review.Test.runWithProjectData packageProject rule
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = message
+                            { message = "The 1st field of Unused is never used"
                             , details = details
                             , under = "Int"
                             }
+                            |> Review.Test.whenFixed """
+module MyModule exposing (a, b)
+type Foo = Unused | B
+a = Unused
+b = B
+"""
                         ]
         , test "should report args for type constructors starting with a non-ASCII letter used in non-equality operator expressions" <|
             \() ->
@@ -481,10 +687,16 @@ b = Ö_B
                     |> Review.Test.runWithProjectData packageProject rule
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = message
+                            { message = "The 1st field of Ö_Unused is never used"
                             , details = details
                             , under = "Int"
                             }
+                            |> Review.Test.whenFixed """
+module MyModule exposing (a, b)
+type Foo = Ö_Unused | Ö_B
+a = Ö_Unused
+b = Ö_B
+"""
                         ]
         , test "should not report args for type constructors used as arguments to a prefixed equality operator (==)" <|
             \() ->
@@ -560,10 +772,17 @@ b = B
                     |> Review.Test.runWithProjectData packageProject rule
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = message
+                            { message = "The 1st field of Unused is never used"
                             , details = details
                             , under = "Int"
                             }
+                            |> Review.Test.whenFixed """
+
+module MyModule exposing (a, b)
+type Foo = Unused | B
+a = foo (Unused) == b
+b = B
+"""
                         ]
         ]
 
