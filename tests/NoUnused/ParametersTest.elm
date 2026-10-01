@@ -330,6 +330,46 @@ module Exposed exposing (exposed)
 exposed _ = 1
 """
                     ]
+    , test "should remove an unused argument when it's alone even when passed through <| in call sites" <|
+        \() ->
+            """module A exposing (a)
+fn unused =
+    1
+a = fn <| 2
+"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Parameter `unused` is not used"
+                        , details = details
+                        , under = "unused"
+                        }
+                        |> Review.Test.whenFixed """module A exposing (a)
+fn =
+    1
+a = fn
+"""
+                    ]
+    , test "should remove an unused argument when it's alone even when passed through |> in call sites" <|
+        \() ->
+            """module A exposing (a)
+fn unused =
+    1
+a = 2 |> fn
+"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Parameter `unused` is not used"
+                        , details = details
+                        , under = "unused"
+                        }
+                        |> Review.Test.whenFixed """module A exposing (a)
+fn =
+    1
+a = fn
+"""
+                    ]
     ]
 
 

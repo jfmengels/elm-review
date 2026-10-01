@@ -908,13 +908,13 @@ finalEvaluationForProject exceptionExplanation projectContext =
                 projectContext.usedInIgnoredModules
                 projectContext.usedInIgnoredModules
 
-        filterExposedPackage_ : ModuleNameStr -> Bool
-        filterExposedPackage_ =
-            filterExposedPackage projectContext
+        isModuleExposed_ : ModuleNameStr -> Bool
+        isModuleExposed_ =
+            isModuleExposed projectContext
     in
     Dict.foldl
         (\moduleName module_ acc ->
-            if not (filterExposedPackage_ moduleName) || moduleName == "ReviewConfig" then
+            if isModuleExposed_ moduleName || moduleName == "ReviewConfig" then
                 acc
 
             else if Set.member moduleName projectContext.usedModules then
@@ -1089,14 +1089,14 @@ what elementType =
             "Exposed type"
 
 
-filterExposedPackage : ProjectContext -> ModuleNameStr -> Bool
-filterExposedPackage projectContext =
+isModuleExposed : ProjectContext -> ModuleNameStr -> Bool
+isModuleExposed projectContext =
     case projectContext.projectType of
         IsApplication _ ->
-            always True
+            always False
 
         IsPackage exposedModuleNames ->
-            \moduleName -> not <| Set.member moduleName exposedModuleNames
+            \moduleName -> Set.member moduleName exposedModuleNames
 
 
 isApplicationException : ProjectContext -> String -> Bool

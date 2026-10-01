@@ -211,7 +211,7 @@ type alias ModuleContext =
     { exposedModules : Set ModuleName
     , lookupTable : ModuleNameLookupTable
     , scopes : Nonempty Scope
-    , recursiveFunctions : Dict String FunctionArgs
+    , recursiveFunctions : Dict FunctionName FunctionArgs
     , locationsToIgnoreForRecursiveArguments : LocationsToIgnore
     , functionCallsWithArguments : Dict FunctionName (List CallSite)
     , functionCallsWithArgumentsForOtherModules : Dict ( ModuleName, FunctionName ) (List CallSite)
@@ -225,7 +225,7 @@ type alias Scope =
     , declared : List Declared
     , functionsDeclaredInSubScope : Set String
     , used : Set String
-    , usedRecursively : Set String
+    , usedRecursively : Set FunctionName
     , toReport : List ArgumentToReport
     , locationsToIgnoreForFunctionCalls : List Location
     }
@@ -284,8 +284,8 @@ type Source
 fromProjectToModule : Rule.ContextCreator ProjectContext ModuleContext
 fromProjectToModule =
     Rule.initContextCreator
-        (\lookupTable projectContent ->
-            { exposedModules = projectContent.exposedModules
+        (\lookupTable projectContext ->
+            { exposedModules = projectContext.exposedModules
             , lookupTable = lookupTable
             , scopes =
                 NonemptyList.fromElement
@@ -308,7 +308,7 @@ fromProjectToModule =
                         List.foldl (\{ functionName } setAcc -> Set.insert ( moduleName, functionName ) setAcc) set args
                     )
                     Set.empty
-                    projectContent.toReport
+                    projectContext.toReport
             }
         )
         |> Rule.withModuleNameLookupTable
@@ -340,30 +340,24 @@ fromModuleToProject =
                   , functionCallsWithArguments =
                         List.foldl
                             (\arg functionCallsWithArguments ->
-                                if isExposed arg.functionName then
-                                    if Set.member moduleName moduleContext.exposedModules then
-                                        functionCallsWithArguments
-
-                                    else
-                                        case Dict.get arg.functionName moduleContext.functionCallsWithArguments of
-                                            Just callSites ->
-                                                let
-                                                    key : ( ModuleName, FunctionName )
-                                                    key =
-                                                        ( moduleName, arg.functionName )
-                                                in
-                                                case Dict.get key functionCallsWithArguments of
-                                                    Just previous ->
-                                                        Dict.insert key ({ key = moduleKey, isFileFixable = isFileFixable, callSites = callSites } :: previous) functionCallsWithArguments
-
-                                                    Nothing ->
-                                                        Dict.insert key [ { key = moduleKey, isFileFixable = isFileFixable, callSites = callSites } ] functionCallsWithArguments
-
-                                            Nothing ->
-                                                functionCallsWithArguments
+                                let
+                                    isModuleExposed : Bool
+                                    isModuleExposed =
+                                        Set.member moduleName moduleContext.exposedModules
+                                in
+                                if isModuleExposed || not (isExposed arg.functionName) then
+                                    functionCallsWithArguments
 
                                 else
-                                    functionCallsWithArguments
+                                    case Dict.get arg.functionName moduleContext.functionCallsWithArguments of
+                                        Just callSites ->
+                                            insertInDictList
+                                                ( moduleName, arg.functionName )
+                                                { key = moduleKey, isFileFixable = isFileFixable, callSites = callSites }
+                                                functionCallsWithArguments
+
+                                        Nothing ->
+                                            functionCallsWithArguments
                             )
                             (Dict.map (\_ callSites -> [ { key = moduleKey, isFileFixable = isFileFixable, callSites = callSites } ]) moduleContext.functionCallsWithArgumentsForOtherModules)
                             (NonemptyList.head moduleContext.scopes).toReport
@@ -401,17 +395,10 @@ fromModuleToProject =
                                         , functionCallsWithArguments =
                                             case Dict.get arg.functionName moduleContext.functionCallsWithArguments of
                                                 Just callSites ->
-                                                    let
-                                                        key : ( ModuleName, FunctionName )
-                                                        key =
-                                                            ( moduleName, arg.functionName )
-                                                    in
-                                                    case Dict.get key acc.functionCallsWithArguments of
-                                                        Just previous ->
-                                                            Dict.insert key ({ key = moduleKey, isFileFixable = isFileFixable, callSites = callSites } :: previous) acc.functionCallsWithArguments
-
-                                                        Nothing ->
-                                                            Dict.insert key [ { key = moduleKey, isFileFixable = isFileFixable, callSites = callSites } ] acc.functionCallsWithArguments
+                                                    insertInDictList
+                                                        ( moduleName, arg.functionName )
+                                                        { key = moduleKey, isFileFixable = isFileFixable, callSites = callSites }
+                                                        acc.functionCallsWithArguments
 
                                                 Nothing ->
                                                     acc.functionCallsWithArguments
@@ -873,11 +860,25 @@ expressionEnterVisitor (Node range node) context =
                 (arguments ++ [ Node { start = start, end = applicationRange.start } lastArg ])
                 context
 
+        Expression.OperatorApplication "|>" _ (Node { start } lastArg) (Node fnRange (Expression.FunctionOrValue _ fnName)) ->
+            registerFunctionCallReference
+                fnName
+                fnRange
+                [ Node { start = start, end = fnRange.start } lastArg ]
+                context
+
         Expression.OperatorApplication "<|" _ (Node applicationRange (Expression.Application ((Node fnRange (Expression.FunctionOrValue _ fnName)) :: arguments))) (Node { end } lastArg) ->
             registerFunctionCallReference
                 fnName
                 fnRange
                 (arguments ++ [ Node { start = applicationRange.end, end = end } lastArg ])
+                context
+
+        Expression.OperatorApplication "<|" _ (Node fnRange (Expression.FunctionOrValue _ fnName)) (Node { end } lastArg) ->
+            registerFunctionCallReference
+                fnName
+                fnRange
+                [ Node { start = fnRange.end, end = end } lastArg ]
                 context
 
         _ ->
@@ -963,22 +964,28 @@ registerFunctionCallReference fnName fnRange arguments context =
     if isVariableOrFunctionName fnName && not (List.member fnRange.start context.locationsToIgnoreFunctionCalls) then
         case ModuleNameLookupTable.moduleNameAt context.lookupTable fnRange of
             Just [] ->
-                case Dict.get fnName context.recursiveFunctions of
-                    Just fnArgs ->
-                        let
-                            locationsToIgnore : LocationsToIgnore
-                            locationsToIgnore =
+                let
+                    locationsToIgnoreForRecursiveArguments : LocationsToIgnore
+                    locationsToIgnoreForRecursiveArguments =
+                        case Dict.get fnName context.recursiveFunctions of
+                            Just fnArgs ->
                                 ignoreLocationsForRecursiveArguments fnArgs arguments 0 context.locationsToIgnoreForRecursiveArguments
-                        in
-                        { context
-                            | locationsToIgnoreForRecursiveArguments = locationsToIgnore
-                            , locationsToIgnoreFunctionCalls = fnRange.start :: context.locationsToIgnoreFunctionCalls
-                        }
-                            |> registerLocalFunctionReference fnName fnRange.end (Array.fromList arguments)
 
-                    Nothing ->
-                        { context | locationsToIgnoreFunctionCalls = fnRange.start :: context.locationsToIgnoreFunctionCalls }
-                            |> registerLocalFunctionReference fnName fnRange.end (Array.fromList arguments)
+                            Nothing ->
+                                context.locationsToIgnoreForRecursiveArguments
+
+                    functionCallsWithArguments : Dict FunctionName (List CallSite)
+                    functionCallsWithArguments =
+                        insertInDictList
+                            fnName
+                            { fnNameEnd = fnRange.end, arguments = Array.fromList arguments }
+                            context.functionCallsWithArguments
+                in
+                { context
+                    | locationsToIgnoreForRecursiveArguments = locationsToIgnoreForRecursiveArguments
+                    , locationsToIgnoreFunctionCalls = fnRange.start :: context.locationsToIgnoreFunctionCalls
+                    , functionCallsWithArguments = functionCallsWithArguments
+                }
 
             Just moduleName ->
                 registerExternalFunctionReference moduleName
@@ -1005,30 +1012,15 @@ registerExternalFunctionReference moduleName fnName fnRange arguments context =
         let
             functionCallsWithArgumentsForOtherModules : Dict ( ModuleName, FunctionName ) (List CallSite)
             functionCallsWithArgumentsForOtherModules =
-                case Dict.get key context.functionCallsWithArgumentsForOtherModules of
-                    Just previous ->
-                        Dict.insert key ({ fnNameEnd = fnRange.end, arguments = Array.fromList arguments } :: previous) context.functionCallsWithArgumentsForOtherModules
-
-                    Nothing ->
-                        Dict.insert key [ { fnNameEnd = fnRange.end, arguments = Array.fromList arguments } ] context.functionCallsWithArgumentsForOtherModules
+                insertInDictList
+                    key
+                    { fnNameEnd = fnRange.end, arguments = Array.fromList arguments }
+                    context.functionCallsWithArgumentsForOtherModules
         in
         { context | functionCallsWithArgumentsForOtherModules = functionCallsWithArgumentsForOtherModules }
 
     else
         context
-
-
-registerLocalFunctionReference : FunctionName -> Location -> Array (Node Expression) -> ModuleContext -> ModuleContext
-registerLocalFunctionReference fnName fnNameEnd arguments context =
-    { context
-        | functionCallsWithArguments =
-            case Dict.get fnName context.functionCallsWithArguments of
-                Just previous ->
-                    Dict.insert fnName ({ fnNameEnd = fnNameEnd, arguments = arguments } :: previous) context.functionCallsWithArguments
-
-                Nothing ->
-                    Dict.insert fnName [ { fnNameEnd = fnNameEnd, arguments = arguments } ] context.functionCallsWithArguments
-    }
 
 
 ignoreLocationsForRecursiveArguments : FunctionArgs -> List (Node Expression) -> Int -> LocationsToIgnore -> LocationsToIgnore
@@ -1299,12 +1291,13 @@ accumulate { reportLater, reportNow, remainingUsed } reportTime =
 
 insertInDictList : comparable -> value -> Dict comparable (List value) -> Dict comparable (List value)
 insertInDictList key value dict =
-    case Dict.get key dict of
-        Nothing ->
-            Dict.insert key [ value ] dict
-
-        Just previous ->
-            Dict.insert key (value :: previous) dict
+    let
+        previous : List value
+        previous =
+            Dict.get key dict
+                |> Maybe.withDefault []
+    in
+    Dict.insert key (value :: previous) dict
 
 
 findDeclared : String -> Source -> Location -> List (Node Pattern) -> Maybe (Node Signature) -> List (List Declared)
