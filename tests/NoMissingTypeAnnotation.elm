@@ -11,9 +11,10 @@ import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Exposing as Exposing
 import Elm.Syntax.Import exposing (Import)
 import Elm.Syntax.Node as Node exposing (Node(..))
-import Elm.Syntax.Range exposing (Range)
+import Elm.Syntax.Range exposing (Location, Range)
 import Elm.TypeInference.InferError exposing (InferError)
 import Elm.TypeInference.Type exposing (Type(..))
+import NoMissingTypeAnnotation.Print as Print
 import Review.Fix as Fix
 import Review.Rule as Rule exposing (Error, Rule)
 import Set exposing (Set)
@@ -74,13 +75,14 @@ type alias Context =
     , moduleName : String
     , moduleNameAliases : Dict String String
     , availableTypes : Set ( String, String )
+    , importLine : Int
     }
 
 
 initialContext : Rule.ContextCreator () Context
 initialContext =
     Rule.initContextCreator
-        (\getType moduleName_ () ->
+        (\getType moduleName_ ast () ->
             let
                 moduleName : String
                 moduleName =
@@ -90,10 +92,18 @@ initialContext =
             , moduleName = moduleName
             , moduleNameAliases = Dict.insert moduleName "" preludeTypeAliases
             , availableTypes = preludeTypeImports
+            , importLine =
+                case List.head ast.imports of
+                    Just (Node range _) ->
+                        range.start.row
+
+                    Nothing ->
+                        (Node.range ast.moduleDefinition).start.row + 1
             }
         )
         |> Rule.withTypes
         |> Rule.withModuleName
+        |> Rule.withFullAst
 
 
 preludeTypeImports : Set ( String, String )
@@ -129,18 +139,22 @@ importVisitor (Node _ { moduleName, moduleAlias, exposingList }) context =
         moduleName_ : String
         moduleName_ =
             String.join "." (Node.value moduleName)
+
+        nameInUse : String
+        nameInUse =
+            case moduleAlias of
+                Just (Node _ alias) ->
+                    String.join "." alias
+
+                Nothing ->
+                    moduleName_
     in
     ( []
     , { getType = context.getType
-      , moduleName = context.moduleName
-      , moduleNameAliases =
-            case moduleAlias of
-                Just (Node _ alias) ->
-                    Dict.insert moduleName_ (String.join "." alias) context.moduleNameAliases
-
-                Nothing ->
-                    context.moduleNameAliases
+      , moduleName = moduleName_
+      , moduleNameAliases = Dict.insert moduleName_ nameInUse context.moduleNameAliases
       , availableTypes = addImportedTypes moduleName_ exposingList context.availableTypes
+      , importLine = context.importLine
       }
     )
 
@@ -190,7 +204,11 @@ declarationVisitor (Node declRange declaration) context =
                         fix =
                             case context.getType declRange of
                                 Ok type_ ->
-                                    [ Fix.insertAt (Node.range function.declaration).start (name ++ " : " ++ toString context type_ ++ "\n") ]
+                                    Print.insertTypeAnnotation
+                                        context
+                                        (Node.range function.declaration).start
+                                        name
+                                        type_
 
                                 Err _ ->
                                     []
@@ -206,6 +224,7 @@ declarationVisitor (Node declRange declaration) context =
                       , moduleName = context.moduleName
                       , moduleNameAliases = context.moduleNameAliases
                       , availableTypes = context.availableTypes
+                      , importLine = context.importLine
                       }
                     )
 
@@ -214,145 +233,3 @@ declarationVisitor (Node declRange declaration) context =
 
         _ ->
             ( [], context )
-
-
-toString : Context -> Type -> String
-toString context t =
-    case t of
-        TypeVar name ->
-            name
-
-        Function { from, to } ->
-            wrappedFrom context from ++ " -> " ++ toString context to
-
-        Int ->
-            "Int"
-
-        Float ->
-            "Float"
-
-        Char ->
-            "Char"
-
-        String ->
-            "String"
-
-        Bool ->
-            "Bool"
-
-        List inner ->
-            "List " ++ wrapped context inner
-
-        Unit ->
-            "()"
-
-        Tuple2 a b ->
-            "( " ++ toString context a ++ ", " ++ toString context b ++ " )"
-
-        Tuple3 a b c ->
-            "( " ++ toString context a ++ ", " ++ toString context b ++ ", " ++ toString context c ++ " )"
-
-        Record { fields } ->
-            let
-                fieldStrings : List String
-                fieldStrings =
-                    fields
-                        |> Dict.toList
-                        |> List.map (\( name, fieldType ) -> name ++ " : " ++ toString context fieldType)
-            in
-            "{ " ++ String.join ", " fieldStrings ++ " }"
-
-        ExtensibleRecord { fields, extensionTypevar } ->
-            let
-                fieldStrings : List String
-                fieldStrings =
-                    fields
-                        |> Dict.toList
-                        |> List.map (\( name, fieldType ) -> name ++ " : " ++ toString context fieldType)
-            in
-            "{ " ++ extensionTypevar ++ " | " ++ String.join ", " fieldStrings ++ " }"
-
-        Named { moduleName, name, arguments } ->
-            let
-                argStrings : List String
-                argStrings =
-                    List.map (wrapped context) arguments
-
-                dotted : String
-                dotted =
-                    String.join "." moduleName
-
-                qualifiedName : String
-                qualifiedName =
-                    if Set.member ( dotted, name ) context.availableTypes then
-                        name
-
-                    else
-                        case Dict.get dotted context.moduleNameAliases of
-                            Just "" ->
-                                name
-
-                            Just alias_ ->
-                                alias_ ++ "." ++ name
-
-                            Nothing ->
-                                dotted ++ "." ++ name
-            in
-            (qualifiedName :: argStrings)
-                |> String.join " "
-
-        WebGLShader r ->
-            "Shader "
-                ++ wrapped context r.attributes
-                ++ " "
-                ++ wrapped context r.uniforms
-                ++ " "
-                ++ wrapped context r.varyings
-
-
-{-| Wraps a type in parentheses when it wouldn't parse back unambiguously
-as an argument of a type constructor application.
--}
-wrapped : Context -> Type -> String
-wrapped context t =
-    case t of
-        Function _ ->
-            paren (toString context t)
-
-        List _ ->
-            paren (toString context t)
-
-        WebGLShader _ ->
-            paren (toString context t)
-
-        Named r ->
-            if List.isEmpty r.arguments then
-                toString context t
-
-            else
-                paren (toString context t)
-
-        _ ->
-            toString context t
-
-
-{-| Wraps a type in parentheses when it wouldn't parse back unambiguously on the
-left of `->`.
-
-`->` is right-associative and type application binds tighter, so only a nested
-`->` needs parens there: `List a -> b` already parses as `(List a) -> b`.
-
--}
-wrappedFrom : Context -> Type -> String
-wrappedFrom context t =
-    case t of
-        Function _ ->
-            paren (toString context t)
-
-        _ ->
-            toString context t
-
-
-paren : String -> String
-paren str =
-    "(" ++ str ++ ")"
