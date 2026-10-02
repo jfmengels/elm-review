@@ -16,7 +16,7 @@ import Elm.Syntax.Pattern as Pattern exposing (Pattern)
 import Elm.Syntax.Range exposing (Location, Range)
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
 import Elm.TypeInference.InferError exposing (InferError)
-import Elm.TypeInference.Type exposing (Type)
+import Elm.TypeInference.Type as Type exposing (Type)
 import NoUnused.Parameters.ParameterPath as ParameterPath
 import Review.Fix as Fix
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
@@ -104,6 +104,7 @@ type alias ProjectContext =
                `Just Nothing` means we have found at least one location where it's used, and we don't want to report it.
             -}
             (Maybe (List { moduleKey : Rule.ModuleKey, args : List Range }))
+    , customTypesNotToReport : Set ( TypeName, ModuleName )
     , constructorsNotToReport : Set ( ConstructorName, ModuleName )
     , functionCallsWithArguments :
         Dict
@@ -182,6 +183,7 @@ initialProjectContext =
     { dependencyModules = Set.empty
     , constructorsPerModule = Dict.empty
     , unusedArgumentsInPatterns = Dict.empty
+    , customTypesNotToReport = Set.empty
     , constructorsNotToReport = Set.empty
     , functionCallsWithArguments = Dict.empty
     }
@@ -218,6 +220,7 @@ fromModuleToProject =
                     , constructors = getNonPublicConstructors (Maybe.withDefault False isModuleExposed) exposesAll exposed moduleContext
                     }
             , unusedArgumentsInPatterns = Dict.map (\_ args -> Maybe.map (\args_ -> [ { moduleKey = moduleKey, args = args_ } ]) args) moduleContext.unusedArgumentsInPatterns
+            , customTypesNotToReport = moduleContext.customTypesNotToReport
             , constructorsNotToReport = moduleContext.constructorsNotToReport
             , functionCallsWithArguments = Dict.map (\_ callSites -> [ { moduleKey = moduleKey, callSites = callSites } ]) moduleContext.functionCallsWithArguments
             }
@@ -284,6 +287,7 @@ foldProjectContexts newContext previousContext =
             )
             newContext.unusedArgumentsInPatterns
             previousContext.unusedArgumentsInPatterns
+    , customTypesNotToReport = Set.union newContext.customTypesNotToReport previousContext.customTypesNotToReport
     , constructorsNotToReport = Set.union newContext.constructorsNotToReport previousContext.constructorsNotToReport
     , functionCallsWithArguments = mergeFunctionCallsWithArguments previousContext.functionCallsWithArguments newContext.functionCallsWithArguments
     }
@@ -456,7 +460,13 @@ expressionVisitor (Node range node) context =
 
         Expression.OperatorApplication operator _ left right ->
             if operator == "==" || operator == "/=" then
-                { context | constructorsNotToReport = findCustomTypeConstructors context [ left, right ] context.constructorsNotToReport }
+                --{ context | constructorsNotToReport = findCustomTypeConstructors context [ left, right ] context.constructorsNotToReport }
+                case context.getType (Node.range left) of
+                    Ok type_ ->
+                        { context | customTypesNotToReport = avoidReportingCustomTypes type_ context.customTypesNotToReport }
+
+                    Err _ ->
+                        context
 
             else
                 context
@@ -470,6 +480,61 @@ expressionVisitor (Node range node) context =
 
         _ ->
             context
+
+
+avoidReportingCustomTypes : Type -> Set ( TypeName, ModuleName ) -> Set ( TypeName, ModuleName )
+avoidReportingCustomTypes type_ customTypesNotToReport =
+    case type_ of
+        Type.Named { package, moduleName, name, arguments } ->
+            if package == "" then
+                -- TODO Handle args
+                Set.insert ( name, moduleName ) customTypesNotToReport
+
+            else
+                -- TODO Handle args
+                customTypesNotToReport
+
+        Type.TypeVar string ->
+            customTypesNotToReport
+
+        Type.Function record ->
+            customTypesNotToReport
+
+        Type.Int ->
+            customTypesNotToReport
+
+        Type.Float ->
+            customTypesNotToReport
+
+        Type.Char ->
+            customTypesNotToReport
+
+        Type.String ->
+            customTypesNotToReport
+
+        Type.Bool ->
+            customTypesNotToReport
+
+        Type.List _ ->
+            customTypesNotToReport
+
+        Type.Unit ->
+            customTypesNotToReport
+
+        Type.Tuple2 _ _ ->
+            customTypesNotToReport
+
+        Type.Tuple3 _ _ _ ->
+            customTypesNotToReport
+
+        Type.Record record ->
+            customTypesNotToReport
+
+        Type.ExtensibleRecord record ->
+            customTypesNotToReport
+
+        Type.WebGLShader record ->
+            customTypesNotToReport
 
 
 findCustomTypeConstructors : ModuleContext -> List (Node Expression) -> Set ( String, ModuleName ) -> Set ( String, ModuleName )
@@ -684,12 +749,10 @@ finalEvaluationForSingleModule : ProjectContext -> ModuleName -> ModuleConstruct
 finalEvaluationForSingleModule context moduleName { moduleKey, constructors } previousErrors =
     Dict.foldl
         (\( constructorName, typeName ) { nameRange, args } acc ->
-            let
-                key : ( ConstructorName, ModuleName )
-                key =
-                    ( constructorName, moduleName )
-            in
-            if Set.member key context.constructorsNotToReport then
+            if
+                Set.member ( typeName, moduleName ) context.customTypesNotToReport
+                    || Set.member ( constructorName, moduleName ) context.constructorsNotToReport
+            then
                 acc
 
             else
