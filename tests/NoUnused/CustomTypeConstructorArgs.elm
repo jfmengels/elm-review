@@ -460,13 +460,14 @@ expressionVisitor (Node range node) context =
 
         Expression.OperatorApplication operator _ left right ->
             if operator == "==" || operator == "/=" then
-                --{ context | constructorsNotToReport = findCustomTypeConstructors context [ left, right ] context.constructorsNotToReport }
-                case context.getType (Node.range left) of
-                    Ok type_ ->
-                        { context | customTypesNotToReport = avoidReportingCustomTypes type_ context.customTypesNotToReport }
-
-                    Err _ ->
-                        context
+                let
+                    ( typeVars, customTypesNotToReport ) =
+                        avoidReportingCustomTypes
+                            (List.filterMap (Node.range >> context.getType >> Result.toMaybe) [ left, right ])
+                            Set.empty
+                            context.customTypesNotToReport
+                in
+                { context | customTypesNotToReport = customTypesNotToReport }
 
             else
                 context
@@ -482,59 +483,62 @@ expressionVisitor (Node range node) context =
             context
 
 
-avoidReportingCustomTypes : Type -> Set ( TypeName, ModuleName ) -> Set ( TypeName, ModuleName )
-avoidReportingCustomTypes type_ customTypesNotToReport =
-    case type_ of
-        Type.Named { package, moduleName, name, arguments } ->
-            if package == "" then
-                -- TODO Handle args
-                Set.insert ( name, moduleName ) customTypesNotToReport
+avoidReportingCustomTypes : List Type -> Set String -> Set ( TypeName, ModuleName ) -> ( Set String, Set ( TypeName, ModuleName ) )
+avoidReportingCustomTypes types typeVars acc =
+    case types of
+        [] ->
+            ( typeVars, acc )
 
-            else
-                -- TODO Handle args
-                customTypesNotToReport
+        type_ :: rest ->
+            case type_ of
+                Type.Named { package, moduleName, name, arguments } ->
+                    let
+                        newAcc =
+                            if package == "" then
+                                -- TODO Handle args
+                                Set.insert ( name, moduleName ) acc
 
-        Type.TypeVar string ->
-            customTypesNotToReport
+                            else
+                                -- TODO Handle args
+                                acc
+                    in
+                    avoidReportingCustomTypes rest typeVars newAcc
 
-        Type.Function record ->
-            customTypesNotToReport
+                Type.TypeVar var ->
+                    avoidReportingCustomTypes rest (Set.insert var typeVars) acc
 
-        Type.Int ->
-            customTypesNotToReport
+                Type.List subType ->
+                    avoidReportingCustomTypes
+                        (subType :: rest)
+                        typeVars
+                        acc
 
-        Type.Float ->
-            customTypesNotToReport
+                Type.Tuple2 a b ->
+                    avoidReportingCustomTypes
+                        (a :: b :: rest)
+                        typeVars
+                        acc
 
-        Type.Char ->
-            customTypesNotToReport
+                Type.Tuple3 a b c ->
+                    avoidReportingCustomTypes
+                        (a :: b :: c :: rest)
+                        typeVars
+                        acc
 
-        Type.String ->
-            customTypesNotToReport
+                Type.Record { fields } ->
+                    avoidReportingCustomTypes
+                        (Dict.foldl (\_ fieldType list -> fieldType :: list) rest fields)
+                        typeVars
+                        acc
 
-        Type.Bool ->
-            customTypesNotToReport
+                Type.ExtensibleRecord { extensionTypevar, fields } ->
+                    avoidReportingCustomTypes
+                        (Dict.foldl (\_ fieldType list -> fieldType :: list) rest fields)
+                        (Set.insert extensionTypevar typeVars)
+                        acc
 
-        Type.List _ ->
-            customTypesNotToReport
-
-        Type.Unit ->
-            customTypesNotToReport
-
-        Type.Tuple2 _ _ ->
-            customTypesNotToReport
-
-        Type.Tuple3 _ _ _ ->
-            customTypesNotToReport
-
-        Type.Record record ->
-            customTypesNotToReport
-
-        Type.ExtensibleRecord record ->
-            customTypesNotToReport
-
-        Type.WebGLShader record ->
-            customTypesNotToReport
+                _ ->
+                    avoidReportingCustomTypes rest typeVars acc
 
 
 findCustomTypeConstructors : ModuleContext -> List (Node Expression) -> Set ( String, ModuleName ) -> Set ( String, ModuleName )
