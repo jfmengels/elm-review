@@ -114,7 +114,7 @@ type alias ProjectContext =
 
 type alias ModuleConstructors =
     { moduleKey : Rule.ModuleKey
-    , constructors : Dict ConstructorName { nameRange : Range, args : List Range }
+    , constructors : Dict ( TypeName, ConstructorName ) { nameRange : Range, args : List Range }
     }
 
 
@@ -122,7 +122,7 @@ type alias ModuleContext =
     { lookupTable : ModuleNameLookupTable
     , getType : Range -> Result.Result InferError Type
     , dependencyModules : Set ModuleName
-    , customTypeArgs : List ( TypeName, Dict ConstructorName { nameRange : Range, args : List Range } )
+    , customTypeArgs : Dict ( TypeName, ConstructorName ) { nameRange : Range, args : List Range }
     , unusedArgumentsInPatterns :
         Dict
             ( Int, ConstructorName, ModuleName )
@@ -130,7 +130,7 @@ type alias ModuleContext =
                `Just Nothing` means we have found at least one location where it's used, and we don't want to report it.
             -}
             (Maybe (List Range))
-    , customTypesNotToReport : Set ( TypeNameS, ModuleName )
+    , customTypesNotToReport : Set ( TypeName, ModuleName )
     , constructorsNotToReport : Set ( ConstructorName, ModuleName )
 
     -- Function calls
@@ -145,11 +145,7 @@ type alias CallSite =
     }
 
 
-type TypeName
-    = TypeName TypeNameS
-
-
-type alias TypeNameS =
+type alias TypeName =
     String
 
 
@@ -198,7 +194,7 @@ fromProjectToModule =
             { lookupTable = lookupTable
             , getType = getType
             , dependencyModules = projectContext.dependencyModules
-            , customTypeArgs = []
+            , customTypeArgs = Dict.empty
             , unusedArgumentsInPatterns = Dict.empty
             , customTypesNotToReport = Set.empty
             , constructorsNotToReport = Set.empty
@@ -235,7 +231,7 @@ fromModuleToProject =
 {-| Get all custom types from the module whose constructors are not part of the public API of the package.
 If the module is private or the project is an application, then all open custom types are collected.
 -}
-getNonPublicConstructors : Bool -> Bool -> Dict TypeNameS Bool -> ModuleContext -> Dict ConstructorName { nameRange : Range, args : List Range }
+getNonPublicConstructors : Bool -> Bool -> Dict TypeName Bool -> ModuleContext -> Dict ( TypeName, ConstructorName ) { nameRange : Range, args : List Range }
 getNonPublicConstructors isModuleExposed exposesAll exposed moduleContext =
     if isModuleExposed then
         if exposesAll then
@@ -243,7 +239,7 @@ getNonPublicConstructors isModuleExposed exposesAll exposed moduleContext =
 
         else
             let
-                exposedCustomTypes : Set TypeNameS
+                exposedCustomTypes : Set TypeName
                 exposedCustomTypes =
                     Dict.foldl
                         (\typeName isOpen set ->
@@ -256,22 +252,14 @@ getNonPublicConstructors isModuleExposed exposesAll exposed moduleContext =
                         Set.empty
                         exposed
             in
-            List.foldl
-                (\( TypeName typeName, args ) acc ->
-                    if Set.member typeName exposedCustomTypes then
-                        acc
-
-                    else
-                        Dict.union args acc
+            Dict.filter
+                (\( _, typeName ) _ ->
+                    not (Set.member typeName exposedCustomTypes)
                 )
-                Dict.empty
                 moduleContext.customTypeArgs
 
     else
-        List.foldl
-            (\( _, args ) acc -> Dict.union args acc)
-            Dict.empty
-            moduleContext.customTypeArgs
+        moduleContext.customTypeArgs
 
 
 foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext
@@ -354,23 +342,21 @@ declarationVisitor (Node _ node) context =
 
         Declaration.CustomTypeDeclaration typeDeclaration ->
             let
-                customTypeConstructors : Dict ConstructorName { nameRange : Range, args : List Range }
+                customTypeConstructors : Dict ( TypeName, ConstructorName ) { nameRange : Range, args : List Range }
                 customTypeConstructors =
                     List.foldl
                         (\(Node _ constructor) acc ->
                             Dict.insert
-                                (Node.value constructor.name)
+                                ( Node.value constructor.name, Node.value typeDeclaration.name )
                                 { nameRange = Node.range constructor.name
                                 , args = createArguments context.lookupTable constructor.arguments
                                 }
                                 acc
                         )
-                        Dict.empty
+                        context.customTypeArgs
                         typeDeclaration.constructors
             in
-            { context
-                | customTypeArgs = ( TypeName (Node.value typeDeclaration.name), customTypeConstructors ) :: context.customTypeArgs
-            }
+            { context | customTypeArgs = customTypeConstructors }
 
         _ ->
             context
@@ -697,7 +683,7 @@ finalEvaluation context =
 finalEvaluationForSingleModule : ProjectContext -> ModuleName -> ModuleConstructors -> List (Error { useErrorForModule : () }) -> List (Error { useErrorForModule : () })
 finalEvaluationForSingleModule context moduleName { moduleKey, constructors } previousErrors =
     Dict.foldl
-        (\constructorName { nameRange, args } acc ->
+        (\( constructorName, typeName ) { nameRange, args } acc ->
             let
                 key : ( ConstructorName, ModuleName )
                 key =
