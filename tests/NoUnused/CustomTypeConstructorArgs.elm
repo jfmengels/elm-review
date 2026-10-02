@@ -15,6 +15,8 @@ import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern as Pattern exposing (Pattern)
 import Elm.Syntax.Range exposing (Location, Range)
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
+import Elm.TypeInference.InferError exposing (InferError)
+import Elm.TypeInference.Type exposing (Type)
 import NoUnused.Parameters.ParameterPath as ParameterPath
 import Review.Fix as Fix
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
@@ -118,6 +120,7 @@ type alias ModuleConstructors =
 
 type alias ModuleContext =
     { lookupTable : ModuleNameLookupTable
+    , getType : Range -> Result.Result InferError Type
     , dependencyModules : Set ModuleName
     , customTypeArgs : List ( TypeName, Dict ConstructorName { nameRange : Range, args : List Range } )
     , unusedArgumentsInPatterns :
@@ -190,8 +193,9 @@ initialProjectContext =
 fromProjectToModule : Rule.ContextCreator ProjectContext ModuleContext
 fromProjectToModule =
     Rule.initContextCreator
-        (\lookupTable projectContext ->
+        (\lookupTable getType projectContext ->
             { lookupTable = lookupTable
+            , getType = getType
             , dependencyModules = projectContext.dependencyModules
             , customTypeArgs = []
             , unusedArgumentsInPatterns = Dict.empty
@@ -201,6 +205,7 @@ fromProjectToModule =
             }
         )
         |> Rule.withModuleNameLookupTable
+        |> Rule.withTypes
 
 
 fromModuleToProject : Rule.ContextCreator ModuleContext ProjectContext
