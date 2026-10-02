@@ -805,10 +805,9 @@ b = B
 indirectEqualityTests : Test
 indirectEqualityTests =
     describe "Indirect (in)equality checks"
-        [ Test.only <|
-            test "should not report args for custom types passed to (==) as an operator" <|
-                \() ->
-                    """
+        [ test "should not report args for custom types passed to (==) as an operator" <|
+            \() ->
+                """
 module MyModule exposing (a)
 type Foo = Unused Int | B
 
@@ -816,8 +815,8 @@ areEqual : Foo -> Foo -> Bool
 areEqual a b =
     a == b
 """
-                        |> Review.Test.runWithProjectData packageProject rule
-                        |> Review.Test.expectNoErrors
+                    |> Review.Test.runWithProjectData packageProject rule
+                    |> Review.Test.expectNoErrors
         , test "should not report args for custom types passed to (/=) as an operator" <|
             \() ->
                 """
@@ -854,10 +853,9 @@ areNotEqual a b =
 """
                     |> Review.Test.runWithProjectData packageProject rule
                     |> Review.Test.expectNoErrors
-        , Test.only <|
-            test "should not report args for custom types wrapped in a type passed to (==) as an operator" <|
-                \() ->
-                    """
+        , test "should not report args for custom types wrapped in a type passed to (==) as an operator" <|
+            \() ->
+                """
 module MyModule exposing (a)
 type Foo = Unused Int | B
 
@@ -865,8 +863,8 @@ areEqual : List Foo -> List Foo -> Bool
 areEqual a b =
     a == b
 """
-                        |> Review.Test.runWithProjectData packageProject rule
-                        |> Review.Test.expectNoErrors
+                    |> Review.Test.runWithProjectData packageProject rule
+                    |> Review.Test.expectNoErrors
         ]
 
 
