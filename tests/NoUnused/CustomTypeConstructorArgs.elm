@@ -130,6 +130,7 @@ type alias ModuleContext =
                `Just Nothing` means we have found at least one location where it's used, and we don't want to report it.
             -}
             (Maybe (List Range))
+    , customTypesNotToReport : Set ( TypeNameS, ModuleName )
     , constructorsNotToReport : Set ( ConstructorName, ModuleName )
 
     -- Function calls
@@ -199,6 +200,7 @@ fromProjectToModule =
             , dependencyModules = projectContext.dependencyModules
             , customTypeArgs = []
             , unusedArgumentsInPatterns = Dict.empty
+            , customTypesNotToReport = Set.empty
             , constructorsNotToReport = Set.empty
             , functionCallsWithArguments = Dict.empty
             , locationsToIgnoreFunctionCalls = []
