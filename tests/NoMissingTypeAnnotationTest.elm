@@ -63,6 +63,57 @@ hasNoTypeAnnotation : Dict.Dict String (Set a)
 hasNoTypeAnnotation = Dict.singleton "" Set.empty
 """
                         ]
+        , test "should report a missing type annotation and add missing imports" <|
+            \_ ->
+                [ """module A exposing (..)
+import B
+import Set
+
+hasNoTypeAnnotation = B.value
+""", """module B exposing (..)
+import Dict
+import Set exposing (Set)
+
+type alias X = Int
+
+value : Dict.Dict String (Set X)
+value = Dict.singleton "" Set.empty
+""" ]
+                    |> Review.Test.runOnModules rule
+                    |> Review.Test.expect
+                        [ Review.Test.moduleErrors "A"
+                            [ Review.Test.error
+                                { message = "Missing type annotation for `hasNoTypeAnnotation`"
+                                , details = details
+                                , under = "hasNoTypeAnnotation"
+                                }
+                                |> Review.Test.whenFixed """module A exposing (..)
+import Dict
+import B
+import Set
+
+hasNoTypeAnnotation : Dict.Dict String (Set.Set B.X)
+hasNoTypeAnnotation = B.value
+"""
+                            ]
+                        ]
+        , test "should report a missing type annotation for record" <|
+            \_ ->
+                """module A exposing (..)
+hasNoTypeAnnotation = { a = "", b = [ True ] }
+"""
+                    |> Review.Test.run rule
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Missing type annotation for `hasNoTypeAnnotation`"
+                            , details = details
+                            , under = "hasNoTypeAnnotation"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+hasNoTypeAnnotation : { a : String, b : List Bool }
+hasNoTypeAnnotation = { a = "", b = [ True ] }
+"""
+                        ]
         , test "should not report anything for custom type declarations" <|
             \_ ->
                 """module A exposing (..)
