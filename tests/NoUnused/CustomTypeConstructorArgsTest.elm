@@ -18,6 +18,14 @@ details =
 all : Test
 all =
     describe "NoUnused.CustomTypeConstructorArgs"
+        [ baseTests
+        , directEqualityTests
+        ]
+
+
+baseTests : Test
+baseTests =
+    Test.concat
         [ test "should report an error when custom type constructor argument is never used" <|
             \() ->
                 """module A exposing (..)
@@ -521,58 +529,6 @@ type CustomType
   = B Never
 """
                         ]
-        , test "should not report args for type constructors used in an equality expression (==)" <|
-            \() ->
-                """
-module MyModule exposing (a, b)
-type Foo = Unused Int | B
-a = Unused 0 == b
-b = B
-"""
-                    |> Review.Test.runWithProjectData packageProject rule
-                    |> Review.Test.expectNoErrors
-        , test "should report args for type constructors that are siblings of ones referenced in an equality expression (==)" <|
-            \() ->
-                """
-module MyModule exposing (a, b)
-type Foo = Unused Int | B
-a = B == b
-b = B
-"""
-                    |> Review.Test.runWithProjectData packageProject rule
-                    |> Review.Test.expectErrors
-                        [ Review.Test.error
-                            { message = "The 1st field of Unused is never used"
-                            , details = details
-                            , under = "Int"
-                            }
-                            |> Review.Test.whenFixed """
-module MyModule exposing (a, b)
-type Foo = Unused | B
-a = B == b
-b = B
-"""
-                        ]
-        , test "should not report args for type constructors starting with a non-ASCII letter used in an equality expression (==)" <|
-            \() ->
-                """
-module MyModule exposing (a, b)
-type Foo = Ö_Unused Int | Ö_B
-a = Ö_Unused 0 == b
-b = Ö_B
-"""
-                    |> Review.Test.runWithProjectData packageProject rule
-                    |> Review.Test.expectNoErrors
-        , test "should not report args for type constructors used in an inequality expression (/=)" <|
-            \() ->
-                """
-module MyModule exposing (a, b)
-type Foo = Unused Int | B
-a = Unused 0 /= b
-b = B
-"""
-                    |> Review.Test.runWithProjectData packageProject rule
-                    |> Review.Test.expectNoErrors
         , test "should remove field in calls using (|>)" <|
             \() ->
                 """
@@ -698,6 +654,64 @@ a = Ö_Unused
 b = Ö_B
 """
                         ]
+        ]
+
+
+directEqualityTests : Test
+directEqualityTests =
+    describe "Direct (in)equality checks"
+        [ test "should not report args for type constructors used in an equality expression (==)" <|
+            \() ->
+                """
+module MyModule exposing (a, b)
+type Foo = Unused Int | B
+a = Unused 0 == b
+b = B
+"""
+                    |> Review.Test.runWithProjectData packageProject rule
+                    |> Review.Test.expectNoErrors
+        , test "should report args for type constructors that are siblings of ones referenced in an equality expression (==)" <|
+            \() ->
+                """
+module MyModule exposing (a, b)
+type Foo = Unused Int | B
+a = B == b
+b = B
+"""
+                    |> Review.Test.runWithProjectData packageProject rule
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "The 1st field of Unused is never used"
+                            , details = details
+                            , under = "Int"
+                            }
+                            |> Review.Test.whenFixed """
+module MyModule exposing (a, b)
+type Foo = Unused | B
+a = B == b
+b = B
+"""
+                        ]
+        , test "should not report args for type constructors starting with a non-ASCII letter used in an equality expression (==)" <|
+            \() ->
+                """
+module MyModule exposing (a, b)
+type Foo = Ö_Unused Int | Ö_B
+a = Ö_Unused 0 == b
+b = Ö_B
+"""
+                    |> Review.Test.runWithProjectData packageProject rule
+                    |> Review.Test.expectNoErrors
+        , test "should not report args for type constructors used in an inequality expression (/=)" <|
+            \() ->
+                """
+module MyModule exposing (a, b)
+type Foo = Unused Int | B
+a = Unused 0 /= b
+b = B
+"""
+                    |> Review.Test.runWithProjectData packageProject rule
+                    |> Review.Test.expectNoErrors
         , test "should not report args for type constructors used as arguments to a prefixed equality operator (==)" <|
             \() ->
                 """
