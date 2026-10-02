@@ -483,6 +483,243 @@ expressionVisitor (Node range node) context =
             context
 
 
+compareTypes :
+    ModuleContext
+    -> List ( Node Expression, Node Expression )
+    -> { constructorsNotToReport : Set ( ConstructorName, ModuleName ), customTypesNotToReport : Set ( TypeName, ModuleName ) }
+    -> { constructorsNotToReport : Set ( ConstructorName, ModuleName ), customTypesNotToReport : Set ( TypeName, ModuleName ) }
+compareTypes context list acc =
+    case list of
+        [] ->
+            acc
+
+        ( (Node leftRange left) as nodeL, (Node rightRange right) as nodeR ) :: rest ->
+            case ( left, right ) of
+                -- Expanding
+                ( Expression.ParenthesizedExpression expr, _ ) ->
+                    compareTypes context (( expr, nodeR ) :: rest) acc
+
+                ( _, Expression.ParenthesizedExpression expr ) ->
+                    compareTypes context (( nodeL, expr ) :: rest) acc
+
+                ( Expression.RecordAccess expr _, _ ) ->
+                    -- TODO expand field
+                    compareTypes context (( expr, nodeR ) :: rest) acc
+
+                ( _, Expression.RecordAccess expr _ ) ->
+                    -- TODO expand field
+                    compareTypes context (( nodeL, expr ) :: rest) acc
+
+                ( Expression.LetExpression { expression }, _ ) ->
+                    compareTypes context (( expression, nodeR ) :: rest) acc
+
+                ( _, Expression.LetExpression { expression } ) ->
+                    compareTypes context (( nodeL, expression ) :: rest) acc
+
+                ( Expression.CaseExpression _, _ ) ->
+                    -- TODO Compare
+                    -- TODO Can we simplify this further?
+                    compareTypes context rest acc
+
+                ( _, Expression.CaseExpression _ ) ->
+                    -- TODO Compare
+                    -- TODO Can we simplify this further?
+                    compareTypes context rest acc
+
+                -- Associating elements for more detailed comparisons
+                ( Expression.TupledExpression listL, Expression.TupledExpression listR ) ->
+                    compareTypes context
+                        (List.map2 Tuple.pair listL listR ++ rest)
+                        acc
+
+                ( Expression.ListExpr listL, Expression.ListExpr listR ) ->
+                    if areSameSize listL listR then
+                        compareTypes context
+                            (List.map2 Tuple.pair listL listR ++ rest)
+                            acc
+
+                    else
+                        -- If one list is longer, then the equality is simply False
+                        -- and whatever constructors we use is irrelevant is contained
+                        compareTypes context rest acc
+
+                ( Expression.IfBlock _ then_ else_, _ ) ->
+                    compareTypes context (( nodeL, then_ ) :: ( nodeL, else_ ) :: rest) acc
+
+                ( _, Expression.IfBlock _ then_ else_ ) ->
+                    compareTypes context (( then_, nodeR ) :: ( else_, nodeR ) :: rest) acc
+
+                ( Expression.RecordExpr listL, Expression.RecordExpr listR ) ->
+                    let
+                        ( newRest, newAcc ) =
+                            prepareRecordsForTypeComparison context ( Nothing, listL ) ( Nothing, listR ) rest acc
+                    in
+                    compareTypes context newRest newAcc
+
+                ( Expression.RecordUpdateExpression updateL listL, Expression.RecordExpr listR ) ->
+                    let
+                        ( newRest, newAcc ) =
+                            prepareRecordsForTypeComparison context ( Just updateL, listL ) ( Nothing, listR ) rest acc
+                    in
+                    compareTypes context newRest newAcc
+
+                ( Expression.RecordExpr listL, Expression.RecordUpdateExpression updateR listR ) ->
+                    let
+                        ( newRest, newAcc ) =
+                            prepareRecordsForTypeComparison context ( Nothing, listL ) ( Just updateR, listR ) rest acc
+                    in
+                    compareTypes context newRest newAcc
+
+                ( Expression.RecordUpdateExpression updateL listL, Expression.RecordUpdateExpression updateR listR ) ->
+                    let
+                        ( newRest, newAcc ) =
+                            prepareRecordsForTypeComparison context ( Just updateL, listL ) ( Just updateR, listR ) rest acc
+                    in
+                    compareTypes context newRest newAcc
+
+                -- Types where we know there is no fields involved
+                ( Expression.UnitExpr, _ ) ->
+                    compareTypes context rest acc
+
+                ( _, Expression.UnitExpr ) ->
+                    compareTypes context rest acc
+
+                ( Expression.Integer _, _ ) ->
+                    compareTypes context rest acc
+
+                ( _, Expression.Integer _ ) ->
+                    compareTypes context rest acc
+
+                ( Expression.Hex _, _ ) ->
+                    compareTypes context rest acc
+
+                ( _, Expression.Hex _ ) ->
+                    compareTypes context rest acc
+
+                ( Expression.Floatable _, _ ) ->
+                    compareTypes context rest acc
+
+                ( _, Expression.Floatable _ ) ->
+                    compareTypes context rest acc
+
+                ( Expression.Negation _, _ ) ->
+                    compareTypes context rest acc
+
+                ( _, Expression.Negation _ ) ->
+                    compareTypes context rest acc
+
+                ( Expression.Literal _, _ ) ->
+                    compareTypes context rest acc
+
+                ( _, Expression.Literal _ ) ->
+                    compareTypes context rest acc
+
+                ( Expression.CharLiteral _, _ ) ->
+                    compareTypes context rest acc
+
+                ( _, Expression.CharLiteral _ ) ->
+                    compareTypes context rest acc
+
+                ( Expression.GLSLExpression _, _ ) ->
+                    compareTypes context rest acc
+
+                ( _, Expression.GLSLExpression _ ) ->
+                    compareTypes context rest acc
+
+                ( Expression.Operator _, _ ) ->
+                    compareTypes context rest acc
+
+                ( _, Expression.Operator _ ) ->
+                    compareTypes context rest acc
+
+                ( Expression.RecordAccessFunction _, _ ) ->
+                    compareTypes context rest acc
+
+                ( _, Expression.RecordAccessFunction _ ) ->
+                    compareTypes context rest acc
+
+                ( Expression.LambdaExpression _, _ ) ->
+                    compareTypes context rest acc
+
+                ( _, Expression.LambdaExpression _ ) ->
+                    compareTypes context rest acc
+
+                ( Expression.PrefixOperator _, _ ) ->
+                    compareTypes context rest acc
+
+                ( _, Expression.PrefixOperator _ ) ->
+                    compareTypes context rest acc
+
+                -- The rest is other impossible combinations, such as `( ListExpr _, RecordExpr _ )`
+                -- Or non-reducible values, such as `FunctionOrValue` or `Application`
+                _ ->
+                    -- TODO
+                    let
+                        ( typeVars, customTypesNotToReport ) =
+                            avoidReportingCustomTypes
+                                [ context.getType leftRange |> Result.withDefault Type.Unit
+                                , context.getType rightRange |> Result.withDefault Type.Unit
+                                ]
+                                Set.empty
+                                acc.customTypesNotToReport
+                    in
+                    compareTypes
+                        context
+                        rest
+                        { constructorsNotToReport = acc.constructorsNotToReport, customTypesNotToReport = customTypesNotToReport }
+
+
+prepareRecordsForTypeComparison :
+    ModuleContext
+    -> ( Maybe (Node String), List (Node Expression.RecordSetter) )
+    -> ( Maybe (Node String), List (Node Expression.RecordSetter) )
+    -> List ( Node Expression, Node Expression )
+    -> { constructorsNotToReport : Set ( ConstructorName, ModuleName ), customTypesNotToReport : Set ( TypeName, ModuleName ) }
+    ->
+        ( List ( Node Expression, Node Expression )
+        , { constructorsNotToReport : Set ( ConstructorName, ModuleName ), customTypesNotToReport : Set ( TypeName, ModuleName ) }
+        )
+prepareRecordsForTypeComparison context ( updateVarL, listL ) ( updateVarR, listR ) rest acc =
+    let
+        leftFieldDict : Dict String (Node Expression)
+        leftFieldDict =
+            List.foldl
+                (\(Node _ ( Node _ field, valueL )) dict -> Dict.insert field valueL dict)
+                Dict.empty
+                listL
+
+        fieldDiffResult : { expressions : List (Node Expression), rest : List ( Node Expression, Node Expression ), leftFieldDict : Dict String (Node Expression) }
+        fieldDiffResult =
+            List.foldl
+                (\(Node _ ( Node _ field, valueR )) subAcc ->
+                    case Dict.get field subAcc.leftFieldDict of
+                        Just valueL ->
+                            { expressions = subAcc.expressions
+                            , rest = ( valueL, valueR ) :: subAcc.rest
+                            , leftFieldDict = Dict.remove field subAcc.leftFieldDict
+                            }
+
+                        Nothing ->
+                            { expressions = valueR :: subAcc.expressions
+                            , rest = subAcc.rest
+                            , leftFieldDict = subAcc.leftFieldDict
+                            }
+                )
+                { expressions = [], rest = rest, leftFieldDict = leftFieldDict }
+                listR
+    in
+    ( fieldDiffResult.rest
+    , { constructorsNotToReport =
+            findCustomTypeConstructors
+                context
+                (Dict.values fieldDiffResult.leftFieldDict ++ fieldDiffResult.expressions)
+                -- TODO Add all fields from the updateVar, except the ones available in the record update expression
+                acc.constructorsNotToReport
+      , customTypesNotToReport = acc.customTypesNotToReport
+      }
+    )
+
+
 avoidReportingCustomTypes : List Type -> Set String -> Set ( TypeName, ModuleName ) -> ( Set String, Set ( TypeName, ModuleName ) )
 avoidReportingCustomTypes types typeVars acc =
     case types of
@@ -972,3 +1209,18 @@ insertInDictList key value dict =
                 |> Maybe.withDefault []
     in
     Dict.insert key (value :: previous) dict
+
+
+areSameSize : List a -> List b -> Bool
+areSameSize left right =
+    case left of
+        [] ->
+            List.isEmpty right
+
+        _ :: restL ->
+            case right of
+                [] ->
+                    False
+
+                _ :: restR ->
+                    areSameSize restL restR
