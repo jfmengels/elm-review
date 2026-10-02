@@ -20,6 +20,7 @@ all =
     describe "NoUnused.CustomTypeConstructorArgs"
         [ baseTests
         , directEqualityTests
+        , indirectEqualityTests
         ]
 
 
@@ -798,6 +799,60 @@ a = foo (Unused) == b
 b = B
 """
                         ]
+        ]
+
+
+indirectEqualityTests : Test
+indirectEqualityTests =
+    describe "Indirect (in)equality checks"
+        [ test "should not report args for custom types passed to (==) as an operator" <|
+            \() ->
+                """
+module MyModule exposing (a)
+type Foo = Unused Int | B
+
+areEqual : Foo -> Foo -> Bool
+areEqual a b =
+    a == b
+"""
+                    |> Review.Test.runWithProjectData packageProject rule
+                    |> Review.Test.expectNoErrors
+        , test "should not report args for custom types passed to (/=) as an operator" <|
+            \() ->
+                """
+module MyModule exposing (a)
+type Foo = Unused Int | B
+
+areNotEqual : Foo -> Foo -> Bool
+areNotEqual a b =
+    a /= b
+"""
+                    |> Review.Test.runWithProjectData packageProject rule
+                    |> Review.Test.expectNoErrors
+        , test "should not report args for custom types passed to (==) as a function" <|
+            \() ->
+                """
+module MyModule exposing (a)
+type Foo = Unused Int | B
+
+areEqual : Foo -> Foo -> Bool
+areEqual a b =
+    (==) a b
+"""
+                    |> Review.Test.runWithProjectData packageProject rule
+                    |> Review.Test.expectNoErrors
+        , test "should not report args for custom types passed to (/=) as a function" <|
+            \() ->
+                """
+module MyModule exposing (a)
+type Foo = Unused Int | B
+
+areNotEqual : Foo -> Foo -> Bool
+areNotEqual a b =
+    (/=) a b
+"""
+                    |> Review.Test.runWithProjectData packageProject rule
+                    |> Review.Test.expectNoErrors
         ]
 
 
