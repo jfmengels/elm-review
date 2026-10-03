@@ -652,8 +652,19 @@ compareTypes context list acc =
                 ( _, Expression.PrefixOperator _ ) ->
                     compareTypes context rest acc
 
-                --    The rest is other impossible combinations, such as `( ListExpr _, RecordExpr _ )`
-                --    Or non-reducible values, such as `FunctionOrValue` or `Application` that we want to compare
+                --    Actual comparison
+                ( Expression.FunctionOrValue _ _, Expression.FunctionOrValue _ _ ) ->
+                    let
+                        constructorsL =
+                            findCustomTypeConstructors context [ nodeL ] Set.empty
+
+                        constructorsR =
+                            findCustomTypeConstructors context [ nodeR ] Set.empty
+                    in
+                    compareTypes context rest acc
+
+                -- The rest is other impossible combinations, such as `( ListExpr _, RecordExpr _ )`
+                -- Or non-reducible values, such as `FunctionOrValue` or `Application`that we want to compare
                 _ ->
                     -- TODO
                     let
