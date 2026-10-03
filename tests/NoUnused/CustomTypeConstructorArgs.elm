@@ -792,7 +792,7 @@ avoidReportingCustomTypes types typeVars acc =
                     avoidReportingCustomTypes rest typeVars acc
 
 
-findCustomTypeConstructors : ModuleContext -> List (Node Expression) -> Set ( String, ModuleName ) -> Set ( String, ModuleName )
+findCustomTypeConstructors : ModuleContext -> List (Node Expression) -> Set ( ConstructorName, ModuleName ) -> Set ( ConstructorName, ModuleName )
 findCustomTypeConstructors context nodes acc =
     case nodes of
         [] ->
