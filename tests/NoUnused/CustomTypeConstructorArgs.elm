@@ -688,6 +688,41 @@ compareTypes context list acc =
                             , customTypesNotToReport = acc.customTypesNotToReport
                             }
 
+                ( Expression.Application (((Node _ (Expression.FunctionOrValue _ _)) as fnNodeL) :: _), Expression.Application (((Node _ (Expression.FunctionOrValue _ _)) as fnNodeR) :: _) ) ->
+                    let
+                        -- TODO If the custom type constructors are the same
+                        -- then we only want to mark the fields with different values as used.
+                        constructorsL : Set ( ConstructorName, ModuleName )
+                        constructorsL =
+                            findCustomTypeConstructors context [ fnNodeL ] Set.empty
+
+                        constructorsR : Set ( ConstructorName, ModuleName )
+                        constructorsR =
+                            findCustomTypeConstructors context [ fnNodeR ] Set.empty
+                    in
+                    if Set.isEmpty constructorsL && Set.isEmpty constructorsR then
+                        let
+                            ( typeVars, customTypesNotToReport ) =
+                                avoidReportingCustomTypes
+                                    [ context.getType leftRange |> Result.withDefault Type.Unit
+                                    , context.getType rightRange |> Result.withDefault Type.Unit
+                                    ]
+                                    Set.empty
+                                    acc.customTypesNotToReport
+                        in
+                        compareTypes context
+                            rest
+                            { constructorsNotToReport = acc.constructorsNotToReport
+                            , customTypesNotToReport = customTypesNotToReport
+                            }
+
+                    else
+                        compareTypes context
+                            rest
+                            { constructorsNotToReport = Set.union constructorsL (Set.union constructorsR acc.constructorsNotToReport)
+                            , customTypesNotToReport = acc.customTypesNotToReport
+                            }
+
                 ( Expression.Application (((Node _ (Expression.FunctionOrValue _ _)) as fnNode) :: _), _ ) ->
                     let
                         constructors : Set ( ConstructorName, ModuleName )
