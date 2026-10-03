@@ -655,13 +655,21 @@ compareTypes context list acc =
                 --    Actual comparison
                 ( Expression.FunctionOrValue _ _, Expression.FunctionOrValue _ _ ) ->
                     let
+                        -- TODO If the custom type constructors are the same
+                        -- then we only want to mark the fields with different values as used.
+                        constructorsL : Set ( ConstructorName, ModuleName )
                         constructorsL =
                             findCustomTypeConstructors context [ nodeL ] Set.empty
 
+                        constructorsR : Set ( ConstructorName, ModuleName )
                         constructorsR =
                             findCustomTypeConstructors context [ nodeR ] Set.empty
                     in
-                    compareTypes context rest acc
+                    compareTypes context
+                        rest
+                        { constructorsNotToReport = Set.union constructorsL (Set.union constructorsR acc.constructorsNotToReport)
+                        , customTypesNotToReport = acc.customTypesNotToReport
+                        }
 
                 -- The rest is other impossible combinations, such as `( ListExpr _, RecordExpr _ )`
                 -- Or non-reducible values, such as `FunctionOrValue` or `Application`that we want to compare
