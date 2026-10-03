@@ -461,13 +461,15 @@ expressionVisitor (Node range node) context =
         Expression.OperatorApplication operator _ left right ->
             if operator == "==" || operator == "/=" then
                 let
-                    ( typeVars, customTypesNotToReport ) =
-                        avoidReportingCustomTypes
-                            (List.filterMap (Node.range >> context.getType >> Result.toMaybe) [ left, right ])
-                            Set.empty
-                            context.customTypesNotToReport
+                    { constructorsNotToReport, customTypesNotToReport } =
+                        compareTypes context
+                            [ ( left, right ) ]
+                            { constructorsNotToReport = context.constructorsNotToReport, customTypesNotToReport = context.customTypesNotToReport }
                 in
-                { context | customTypesNotToReport = customTypesNotToReport }
+                { context
+                    | constructorsNotToReport = constructorsNotToReport
+                    , customTypesNotToReport = customTypesNotToReport
+                }
 
             else
                 context
