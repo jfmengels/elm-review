@@ -665,11 +665,28 @@ compareTypes context list acc =
                         constructorsR =
                             findCustomTypeConstructors context [ nodeR ] Set.empty
                     in
-                    compareTypes context
-                        rest
-                        { constructorsNotToReport = Set.union constructorsL (Set.union constructorsR acc.constructorsNotToReport)
-                        , customTypesNotToReport = acc.customTypesNotToReport
-                        }
+                    if Set.isEmpty constructorsL && Set.isEmpty constructorsR then
+                        let
+                            ( typeVars, customTypesNotToReport ) =
+                                avoidReportingCustomTypes
+                                    [ context.getType leftRange |> Result.withDefault Type.Unit
+                                    , context.getType rightRange |> Result.withDefault Type.Unit
+                                    ]
+                                    Set.empty
+                                    acc.customTypesNotToReport
+                        in
+                        compareTypes context
+                            rest
+                            { constructorsNotToReport = acc.constructorsNotToReport
+                            , customTypesNotToReport = customTypesNotToReport
+                            }
+
+                    else
+                        compareTypes context
+                            rest
+                            { constructorsNotToReport = Set.union constructorsL (Set.union constructorsR acc.constructorsNotToReport)
+                            , customTypesNotToReport = acc.customTypesNotToReport
+                            }
 
                 -- The rest is other impossible combinations, such as `( ListExpr _, RecordExpr _ )`
                 -- Or non-reducible values, such as `FunctionOrValue` or `Application`that we want to compare
