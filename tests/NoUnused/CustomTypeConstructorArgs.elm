@@ -110,6 +110,7 @@ type alias ProjectContext =
         Dict
             ( ConstructorName, ModuleName )
             (List { moduleKey : Rule.ModuleKey, callSites : List CallSite })
+    , comparisonFunctions : Dict ( FunctionName, ModuleName ) (List ParameterPath.Path)
     }
 
 
@@ -137,6 +138,11 @@ type alias ModuleContext =
     -- Function calls
     , functionCallsWithArguments : Dict ( ConstructorName, ModuleName ) (List CallSite)
     , locationsToIgnoreFunctionCalls : List Location
+
+    -- Comparison functions
+    -- TODO Can we create relation ships between arguments?
+    , comparisonFunctions : Dict ( FunctionName, ModuleName ) (List ParameterPath.Path)
+    , newComparisonFunctions : List ( FunctionName, List ParameterPath.Path )
     }
 
 
@@ -151,6 +157,10 @@ type alias TypeName =
 
 
 type alias ConstructorName =
+    String
+
+
+type alias FunctionName =
     String
 
 
@@ -186,6 +196,7 @@ initialProjectContext =
     , customTypesNotToReport = Set.empty
     , constructorsNotToReport = Set.empty
     , functionCallsWithArguments = Dict.empty
+    , comparisonFunctions = Dict.empty
     }
 
 
@@ -202,6 +213,8 @@ fromProjectToModule =
             , constructorsNotToReport = Set.empty
             , functionCallsWithArguments = Dict.empty
             , locationsToIgnoreFunctionCalls = []
+            , comparisonFunctions = projectContext.comparisonFunctions
+            , newComparisonFunctions = []
             }
         )
         |> Rule.withModuleNameLookupTable
@@ -223,6 +236,7 @@ fromModuleToProject =
             , customTypesNotToReport = moduleContext.customTypesNotToReport
             , constructorsNotToReport = moduleContext.constructorsNotToReport
             , functionCallsWithArguments = Dict.map (\_ callSites -> [ { moduleKey = moduleKey, callSites = callSites } ]) moduleContext.functionCallsWithArguments
+            , comparisonFunctions = List.foldl (\( fnName, list ) dict -> Dict.insert ( fnName, moduleName ) list dict) Dict.empty moduleContext.newComparisonFunctions
             }
         )
         |> Rule.withModuleKey
@@ -290,6 +304,7 @@ foldProjectContexts newContext previousContext =
     , customTypesNotToReport = Set.union newContext.customTypesNotToReport previousContext.customTypesNotToReport
     , constructorsNotToReport = Set.union newContext.constructorsNotToReport previousContext.constructorsNotToReport
     , functionCallsWithArguments = mergeFunctionCallsWithArguments previousContext.functionCallsWithArguments newContext.functionCallsWithArguments
+    , comparisonFunctions = Dict.union newContext.comparisonFunctions previousContext.comparisonFunctions
     }
 
 
