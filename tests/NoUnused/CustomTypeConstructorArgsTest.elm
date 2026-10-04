@@ -728,7 +728,7 @@ b = B
                 """
 module MyModule exposing (a, b)
 type Foo = Unused Int | B
-a = (/=) Unused 0 b
+a = (/=) (Unused 0) b
 b = B
 """
                     |> Review.Test.runWithProjectData packageProject rule
