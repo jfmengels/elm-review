@@ -658,6 +658,10 @@ b = Ö_B
         ]
 
 
+
+-- TODO Mark nested custom types as used when used in comparisons
+
+
 directEqualityTests : Test
 directEqualityTests =
     describe "Direct (in)equality checks"
