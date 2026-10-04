@@ -476,7 +476,26 @@ expressionVisitor (Node range node) context =
 
         Expression.Application ((Node _ (Expression.PrefixOperator operator)) :: restOfArgs) ->
             if operator == "==" || operator == "/=" then
-                { context | constructorsNotToReport = findCustomTypeConstructors context restOfArgs context.constructorsNotToReport }
+                case restOfArgs of
+                    [ left, right ] ->
+                        let
+                            { constructorsNotToReport, customTypesNotToReport } =
+                                compareTypes context
+                                    [ ( left, right ) ]
+                                    { constructorsNotToReport = context.constructorsNotToReport, customTypesNotToReport = context.customTypesNotToReport }
+                        in
+                        { context
+                            | constructorsNotToReport = constructorsNotToReport
+                            , customTypesNotToReport = customTypesNotToReport
+                        }
+
+                    [ left ] ->
+                        -- TODO
+                        context
+
+                    _ ->
+                        -- Impossible cases
+                        context
 
             else
                 context
