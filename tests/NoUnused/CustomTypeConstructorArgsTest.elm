@@ -668,10 +668,12 @@ directEqualityTests =
         [ test "should not report args for type constructors used in an equality expression (==)" <|
             \() ->
                 """
-module MyModule exposing (a, b)
-type Foo = Unused Int | B
-a = Unused 0 == b
-b = B
+module MyModule exposing (Foo(..), compare)
+type Foo = A Int | B
+
+compare : Foo -> Bool
+compare a =
+    a == A 0
 """
                     |> Review.Test.runWithProjectData packageProject rule
                     |> Review.Test.expectNoErrors
