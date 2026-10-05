@@ -688,132 +688,24 @@ compareTypes context list acc =
 
                 --    Actual comparison
                 ( Expression.FunctionOrValue _ _, Expression.FunctionOrValue _ _ ) ->
-                    let
-                        -- TODO If the custom type constructors are the same
-                        -- then we only want to mark the fields with different values as used.
-                        constructorsL : Set ( ConstructorName, ModuleName )
-                        constructorsL =
-                            findCustomTypeConstructors context [ nodeL ] Set.empty
-
-                        constructorsR : Set ( ConstructorName, ModuleName )
-                        constructorsR =
-                            findCustomTypeConstructors context [ nodeR ] Set.empty
-                    in
-                    if Set.isEmpty constructorsL && Set.isEmpty constructorsR then
-                        let
-                            ( typeVars, customTypesNotToReport ) =
-                                avoidReportingCustomTypes
-                                    [ context.getType leftRange |> Result.withDefault Type.Unit
-                                    , context.getType rightRange |> Result.withDefault Type.Unit
-                                    ]
-                                    Set.empty
-                                    acc.customTypesNotToReport
-                        in
-                        compareTypes context
-                            rest
-                            { constructorsNotToReport = acc.constructorsNotToReport
-                            , customTypesNotToReport = customTypesNotToReport
-                            }
-
-                    else
-                        compareTypes context
-                            rest
-                            { constructorsNotToReport = Set.union constructorsL (Set.union constructorsR acc.constructorsNotToReport)
-                            , customTypesNotToReport = acc.customTypesNotToReport
-                            }
+                    compareTypes context
+                        rest
+                        (gatherAndCompareTypes context [ nodeL ] [ nodeR ] leftRange rightRange acc)
 
                 ( Expression.Application (((Node _ (Expression.FunctionOrValue _ _)) as fnNodeL) :: _), Expression.Application (((Node _ (Expression.FunctionOrValue _ _)) as fnNodeR) :: _) ) ->
-                    let
-                        -- TODO If the custom type constructors are the same
-                        -- then we only want to mark the fields with different values as used.
-                        constructorsL : Set ( ConstructorName, ModuleName )
-                        constructorsL =
-                            findCustomTypeConstructors context [ fnNodeL ] Set.empty
-
-                        constructorsR : Set ( ConstructorName, ModuleName )
-                        constructorsR =
-                            findCustomTypeConstructors context [ fnNodeR ] Set.empty
-                    in
-                    if Set.isEmpty constructorsL && Set.isEmpty constructorsR then
-                        let
-                            ( typeVars, customTypesNotToReport ) =
-                                avoidReportingCustomTypes
-                                    [ context.getType leftRange |> Result.withDefault Type.Unit
-                                    , context.getType rightRange |> Result.withDefault Type.Unit
-                                    ]
-                                    Set.empty
-                                    acc.customTypesNotToReport
-                        in
-                        compareTypes context
-                            rest
-                            { constructorsNotToReport = acc.constructorsNotToReport
-                            , customTypesNotToReport = customTypesNotToReport
-                            }
-
-                    else
-                        compareTypes context
-                            rest
-                            { constructorsNotToReport = Set.union constructorsL (Set.union constructorsR acc.constructorsNotToReport)
-                            , customTypesNotToReport = acc.customTypesNotToReport
-                            }
+                    compareTypes context
+                        rest
+                        (gatherAndCompareTypes context [ fnNodeL ] [ fnNodeR ] leftRange rightRange acc)
 
                 ( Expression.Application (((Node _ (Expression.FunctionOrValue _ _)) as fnNode) :: _), _ ) ->
-                    let
-                        constructors : Set ( ConstructorName, ModuleName )
-                        constructors =
-                            findCustomTypeConstructors context [ fnNode ] Set.empty
-                    in
-                    if Set.isEmpty constructors then
-                        let
-                            ( typeVars, customTypesNotToReport ) =
-                                avoidReportingCustomTypes
-                                    [ context.getType leftRange |> Result.withDefault Type.Unit
-                                    , context.getType rightRange |> Result.withDefault Type.Unit
-                                    ]
-                                    Set.empty
-                                    acc.customTypesNotToReport
-                        in
-                        compareTypes context
-                            rest
-                            { constructorsNotToReport = acc.constructorsNotToReport
-                            , customTypesNotToReport = customTypesNotToReport
-                            }
-
-                    else
-                        compareTypes context
-                            rest
-                            { constructorsNotToReport = Set.union constructors acc.constructorsNotToReport
-                            , customTypesNotToReport = acc.customTypesNotToReport
-                            }
+                    compareTypes context
+                        rest
+                        (gatherAndCompareTypes context [ fnNode ] [] leftRange rightRange acc)
 
                 ( _, Expression.Application (((Node _ (Expression.FunctionOrValue _ _)) as fnNode) :: _) ) ->
-                    let
-                        constructors : Set ( ConstructorName, ModuleName )
-                        constructors =
-                            findCustomTypeConstructors context [ fnNode ] Set.empty
-                    in
-                    if Set.isEmpty constructors then
-                        let
-                            ( typeVars, customTypesNotToReport ) =
-                                avoidReportingCustomTypes
-                                    [ context.getType leftRange |> Result.withDefault Type.Unit
-                                    , context.getType rightRange |> Result.withDefault Type.Unit
-                                    ]
-                                    Set.empty
-                                    acc.customTypesNotToReport
-                        in
-                        compareTypes context
-                            rest
-                            { constructorsNotToReport = acc.constructorsNotToReport
-                            , customTypesNotToReport = customTypesNotToReport
-                            }
-
-                    else
-                        compareTypes context
-                            rest
-                            { constructorsNotToReport = Set.union constructors acc.constructorsNotToReport
-                            , customTypesNotToReport = acc.customTypesNotToReport
-                            }
+                    compareTypes context
+                        rest
+                        (gatherAndCompareTypes context [ fnNode ] [] leftRange rightRange acc)
 
                 -- The rest is other impossible combinations, such as `( ListExpr _, RecordExpr _ )`
                 -- Or non-reducible values, such as `FunctionOrValue` or `Application`that we want to compare
@@ -832,6 +724,46 @@ compareTypes context list acc =
                         context
                         rest
                         { constructorsNotToReport = acc.constructorsNotToReport, customTypesNotToReport = customTypesNotToReport }
+
+
+gatherAndCompareTypes :
+    ModuleContext
+    -> List (Node Expression)
+    -> List (Node Expression)
+    -> Range
+    -> Range
+    -> { constructorsNotToReport : Set ( ConstructorName, ModuleName ), customTypesNotToReport : Set ( TypeName, ModuleName ) }
+    -> { constructorsNotToReport : Set ( ConstructorName, ModuleName ), customTypesNotToReport : Set ( TypeName, ModuleName ) }
+gatherAndCompareTypes context nodesL nodesR leftRange rightRange acc =
+    let
+        -- TODO If the custom type constructors are the same
+        -- then we only want to mark the fields with different values as used.
+        constructorsL : Set ( ConstructorName, ModuleName )
+        constructorsL =
+            findCustomTypeConstructors context nodesL Set.empty
+
+        constructorsR : Set ( ConstructorName, ModuleName )
+        constructorsR =
+            findCustomTypeConstructors context nodesR Set.empty
+    in
+    if Set.isEmpty constructorsL && Set.isEmpty constructorsR then
+        let
+            ( typeVars, customTypesNotToReport ) =
+                avoidReportingCustomTypes
+                    [ context.getType leftRange |> Result.withDefault Type.Unit
+                    , context.getType rightRange |> Result.withDefault Type.Unit
+                    ]
+                    Set.empty
+                    acc.customTypesNotToReport
+        in
+        { constructorsNotToReport = acc.constructorsNotToReport
+        , customTypesNotToReport = customTypesNotToReport
+        }
+
+    else
+        { constructorsNotToReport = Set.union constructorsL (Set.union constructorsR acc.constructorsNotToReport)
+        , customTypesNotToReport = acc.customTypesNotToReport
+        }
 
 
 prepareRecordsForTypeComparison :
