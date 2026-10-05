@@ -805,6 +805,47 @@ a = foo (Unused) == b
 b = B
 """
                         ]
+        , test "should not report args for nested type constructors used in an equality expression (==)" <|
+            \() ->
+                """
+module MyModule exposing (Foo(..), Bar(..), compare)
+type Foo = A Bar | B
+type Bar = X Int | Y Int
+
+compare : Foo -> Foo -> Bool
+compare a b =
+    a == b
+"""
+                    |> Review.Test.runWithProjectData packageProject rule
+                    |> Review.Test.expectNoErrors
+        , test "should report args for nested type constructors that are siblings of ones referenced in an equality expression (==)" <|
+            \() ->
+                """
+module MyModule exposing (Foo(..), Bar(..), compare)
+type Foo = A Bar | B
+type Bar = X | Unused Int
+
+compare : Foo -> Foo -> Bool
+compare a b =
+    a == A X
+"""
+                    |> Review.Test.runWithProjectData packageProject rule
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "The 1st field of Unused is never used"
+                            , details = details
+                            , under = "Int"
+                            }
+                            |> Review.Test.whenFixed """
+module MyModule exposing (Foo(..), Bar(..), compare)
+type Foo = A Bar | B
+type Bar = X | Unused
+
+compare : Foo -> Foo -> Bool
+compare a b =
+    a == A X
+"""
+                        ]
         ]
 
 
