@@ -1,0 +1,1645 @@
+module Elm.TypeInference.Type.Internal exposing
+    ( Id
+    , MonoType(..)
+    , Type(..)
+    , TypeResolver
+    , applyNameHints
+    , closeOver
+    , collapseExtensible
+    , collapsePrimitive
+    , external
+    , fromPublicType
+    , fromTypeAnnotation
+    , fromTypeAnnotationError
+    , id_
+    , mapVarsMono
+    , moduleIdsIn
+    , mono
+    , monoPublicKey
+    , monoTypeVars
+    , nameVarsTogether
+    , normalize
+    , number_
+    , toPublicPair
+    , toPublicType
+    )
+
+import Dict exposing (Dict)
+import Elm.Syntax.FullModuleName as FullModuleName
+import Elm.Syntax.Node as Node exposing (Node)
+import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
+import Elm.TypeInference.Error.Internal exposing (FromTypeAnnotationError(..), ResolverAmbiguity)
+import Elm.TypeInference.ImplicitImports as ImplicitImports
+import Elm.TypeInference.InferError exposing (InferErrorDetails(..))
+import Elm.TypeInference.ModuleIds as ModuleIds exposing (ModuleId)
+import Elm.TypeInference.Type as Public exposing (PackageName, Type, VarName)
+import Elm.TypeInference.TypeVar as TypeVar
+    exposing
+        ( SuperType(..)
+        , TypeVar
+        , TypeVarStyle(..)
+        , superTypeTag
+        )
+import Result.Extra
+import Set exposing (Set)
+
+
+type alias Id =
+    Int
+
+
+type alias TypeResolver =
+    List String -> String -> Result ResolverAmbiguity ( PackageName, ModuleId )
+
+
+id_ : Id -> MonoType
+id_ theId =
+    TypeVar ( Generated theId, Normal )
+
+
+number_ : Id -> MonoType
+number_ theId =
+    TypeVar ( Generated theId, Number )
+
+
+{-| A more truthful / detailed representation of types.
+For example, it deals with type schemes (these `forall`s)!
+
+These are mainly helpful for let polymorphism and not much more. Stupid feature.
+It brings baggage like generalization and instantiation, so that your
+`id : x -> x` can be used for two calls `(id 0, id "x")` separately without
+throwing an error that type of 0 !== type of "x".
+
+-}
+type Type
+    = Forall (List TypeVar) MonoType
+
+
+{-| At least monotypes always only deal with monotypes...
+-}
+type MonoType
+    = TypeVar TypeVar
+    | Function
+        { from : MonoType
+        , to : MonoType
+        }
+    | Int
+    | Float
+    | Char
+    | String
+    | Bool
+    | List MonoType
+    | Unit
+    | Tuple2 MonoType MonoType
+    | Tuple3 MonoType MonoType MonoType
+    | Record (Dict VarName MonoType)
+    | ExtensibleRecord
+        { extensionTypevar : MonoType
+        , fields : Dict VarName MonoType
+        }
+    | UserDefinedType
+        { package : PackageName
+        , moduleId : ModuleId
+        , name : VarName
+        , args : List MonoType
+        }
+    | WebGLShader
+        { attributes : MonoType
+        , uniforms : MonoType
+        , varyings : MonoType
+        }
+
+
+external : PackageName -> ModuleId -> VarName -> MonoType
+external package moduleId typeName =
+    UserDefinedType
+        { package = package
+        , moduleId = moduleId
+        , name = typeName
+        , args = []
+        }
+
+
+mono : MonoType -> Type
+mono t =
+    Forall [] t
+
+
+{-| Canonicalize an extensible-record chain:
+
+  - `{ r | }` (no fields) is just `r`
+  - `{ { b : Char } | a : Float }` is `{ a : Float, b : Char }`
+  - `{ { s | b : Char } | a : Float }` is `{ s | a : Float, b : Char }`
+
+Bias towards the outer fields.
+
+-}
+collapseExtensible :
+    { extensionTypevar : MonoType
+    , fields : Dict VarName MonoType
+    }
+    -> MonoType
+collapseExtensible r1 =
+    if Dict.isEmpty r1.fields then
+        case r1.extensionTypevar of
+            ExtensibleRecord extensionExtensible ->
+                collapseExtensible extensionExtensible
+
+            extension ->
+                extension
+
+    else
+        case r1.extensionTypevar of
+            Record r2Fields ->
+                Record (Dict.union r1.fields r2Fields)
+
+            ExtensibleRecord r2 ->
+                collapseExtensible <|
+                    { extensionTypevar = r2.extensionTypevar
+                    , fields = Dict.union r1.fields r2.fields
+                    }
+
+            _ ->
+                ExtensibleRecord r1
+
+
+{-| Converts special `UserDefinedType`s into dedicated `MonoType`s:
+
+  - `elm/core` Int, Float, Bool, Char, String, List
+  - `elm-explorations/webgl` Shader
+
+-}
+collapsePrimitive : PackageName -> ModuleId -> VarName -> List MonoType -> Maybe MonoType
+collapsePrimitive package moduleId name args =
+    if package == ImplicitImports.elmCorePackage then
+        collapseElmCoreType moduleId name args
+
+    else if package == webGLPackage then
+        collapseWebGLShader moduleId name args
+
+    else
+        Nothing
+
+
+webGLPackage : PackageName
+webGLPackage =
+    "elm-explorations/webgl"
+
+
+collapseElmCoreType : ModuleId -> VarName -> List MonoType -> Maybe MonoType
+collapseElmCoreType moduleId name args =
+    case args of
+        [] ->
+            if moduleId == ModuleIds.basicsId then
+                case name of
+                    "Int" ->
+                        Just Int
+
+                    "Float" ->
+                        Just Float
+
+                    "Bool" ->
+                        Just Bool
+
+                    _ ->
+                        Nothing
+
+            else if moduleId == ModuleIds.charId && name == "Char" then
+                Just Char
+
+            else if moduleId == ModuleIds.stringId && name == "String" then
+                Just String
+
+            else
+                Nothing
+
+        [ inner ] ->
+            if moduleId == ModuleIds.listId && name == "List" then
+                Just (List inner)
+
+            else
+                Nothing
+
+        _ ->
+            Nothing
+
+
+collapseWebGLShader : ModuleId -> VarName -> List MonoType -> Maybe MonoType
+collapseWebGLShader moduleId name args =
+    if moduleId == ModuleIds.webGLId && name == "Shader" then
+        case args of
+            [ attributes, uniforms, varyings ] ->
+                -- In practice records or extensible records, but we hold full
+                -- types to support type aliases as well.
+                Just
+                    (WebGLShader
+                        { attributes = attributes
+                        , uniforms = uniforms
+                        , varyings = varyings
+                        }
+                    )
+
+            _ ->
+                Nothing
+
+    else
+        Nothing
+
+
+
+-- RECURSION HELPERS
+
+
+{-| Apply `f` to the direct children of a type, keeping the type's shape.
+-}
+recurse : (MonoType -> MonoType) -> MonoType -> MonoType
+recurse f type_ =
+    case type_ of
+        TypeVar _ ->
+            type_
+
+        Function { from, to } ->
+            Function
+                { from = f from
+                , to = f to
+                }
+
+        Int ->
+            type_
+
+        Float ->
+            type_
+
+        Char ->
+            type_
+
+        String ->
+            type_
+
+        Bool ->
+            type_
+
+        List listItemType ->
+            List <| f listItemType
+
+        Unit ->
+            type_
+
+        Tuple2 t1 t2 ->
+            Tuple2 (f t1) (f t2)
+
+        Tuple3 t1 t2 t3 ->
+            Tuple3 (f t1) (f t2) (f t3)
+
+        Record fields ->
+            Record (Dict.map (\_ value -> f value) fields)
+
+        ExtensibleRecord r ->
+            ExtensibleRecord
+                { extensionTypevar = f r.extensionTypevar
+                , fields = Dict.map (\_ value -> f value) r.fields
+                }
+
+        UserDefinedType r ->
+            UserDefinedType
+                { package = r.package
+                , moduleId = r.moduleId
+                , name = r.name
+                , args = List.map f r.args
+                }
+
+        WebGLShader r ->
+            WebGLShader
+                { attributes = f r.attributes
+                , uniforms = f r.uniforms
+                , varyings = f r.varyings
+                }
+
+
+{-| Collect every type variable occurring in a monotype.
+
+Returns them backwards to later insert into TypeVar.deduplicate backwards,
+so that they're there in order of first appearance,
+SO THAT `normalize` can give us `a -> b -> a` instead of `b -> a -> b`.
+
+Used to decide which variables to quantify in `closeOver` (all of them) and in
+`State.generalize` (those above the current let-rank).
+
+-}
+monoTypeVars : MonoType -> List TypeVar
+monoTypeVars type_ =
+    monoTypeVarsHelp type_ []
+
+
+monoTypeVarsHelp : MonoType -> List TypeVar -> List TypeVar
+monoTypeVarsHelp type_ acc =
+    case type_ of
+        TypeVar typeVar ->
+            typeVar :: acc
+
+        Function { from, to } ->
+            acc
+                |> monoTypeVarsHelp to
+                |> monoTypeVarsHelp from
+
+        Int ->
+            acc
+
+        Float ->
+            acc
+
+        Char ->
+            acc
+
+        String ->
+            acc
+
+        Bool ->
+            acc
+
+        List listItemType ->
+            monoTypeVarsHelp listItemType acc
+
+        Unit ->
+            acc
+
+        Tuple2 t1 t2 ->
+            acc
+                |> monoTypeVarsHelp t2
+                |> monoTypeVarsHelp t1
+
+        Tuple3 t1 t2 t3 ->
+            acc
+                |> monoTypeVarsHelp t3
+                |> monoTypeVarsHelp t2
+                |> monoTypeVarsHelp t1
+
+        Record fields ->
+            monoTypeVarsInFieldsHelp fields acc
+
+        ExtensibleRecord r ->
+            acc
+                |> monoTypeVarsInFieldsHelp r.fields
+                |> monoTypeVarsHelp r.extensionTypevar
+
+        UserDefinedType r ->
+            List.foldr monoTypeVarsHelp acc r.args
+
+        WebGLShader r ->
+            acc
+                |> monoTypeVarsHelp r.varyings
+                |> monoTypeVarsHelp r.uniforms
+                |> monoTypeVarsHelp r.attributes
+
+
+{-| Modules whose named types the type mentions.
+-}
+moduleIdsIn : MonoType -> Set ModuleId -> Set ModuleId
+moduleIdsIn type_ acc =
+    case type_ of
+        TypeVar _ ->
+            acc
+
+        Function { from, to } ->
+            acc
+                |> moduleIdsIn from
+                |> moduleIdsIn to
+
+        Int ->
+            acc
+
+        Float ->
+            acc
+
+        Char ->
+            acc
+
+        String ->
+            acc
+
+        Bool ->
+            acc
+
+        List inner ->
+            moduleIdsIn inner acc
+
+        Unit ->
+            acc
+
+        Tuple2 a b ->
+            acc
+                |> moduleIdsIn a
+                |> moduleIdsIn b
+
+        Tuple3 a b c ->
+            acc
+                |> moduleIdsIn a
+                |> moduleIdsIn b
+                |> moduleIdsIn c
+
+        Record fields ->
+            Dict.foldl (\_ v inner -> moduleIdsIn v inner) acc fields
+
+        ExtensibleRecord r ->
+            Dict.foldl
+                (\_ v inner -> moduleIdsIn v inner)
+                (moduleIdsIn r.extensionTypevar acc)
+                r.fields
+
+        UserDefinedType r ->
+            List.foldl moduleIdsIn (Set.insert r.moduleId acc) r.args
+
+        WebGLShader r ->
+            acc
+                |> moduleIdsIn r.attributes
+                |> moduleIdsIn r.uniforms
+                |> moduleIdsIn r.varyings
+
+
+monoTypeVarsInFieldsHelp : Dict VarName MonoType -> List TypeVar -> List TypeVar
+monoTypeVarsInFieldsHelp fields acc_ =
+    Dict.foldr (\_ fieldType accAcrossFields -> monoTypeVarsHelp fieldType accAcrossFields) acc_ fields
+
+
+{-|
+
+     a -> List b
+     --> Forall [ a, b ] (a -> List b)
+
+Useful for types that can't interact with a lexical environment, eg. type
+annotations, constructors, aliases, ports, dependency types.
+
+Global environment is supposed to only ever hold closed schemes (no free
+typevars), for State.lookupGlobalEnv to be able to instantiate them directly
+without substitution.
+
+Note that State.generalize (used for let-bound locals) uses let-rank to
+decide what to close over.
+
+-}
+closeOver : MonoType -> Type
+closeOver monoType =
+    Forall (monoTypeVars monoType |> TypeVar.deduplicate) monoType
+
+
+{-| Rename IDs to be as minimal as possible.
+
+     a -> x
+     --> a -> b
+
+     b -> c -> b
+     --> a -> b -> a
+
+     number3 -> number4
+     --> number -> number1
+
+-}
+normalize : Type -> Type
+normalize ((Forall boundVars monoType) as type_) =
+    let
+        allVars : List TypeVar
+        allVars =
+            -- first-appearance order, like `monoTypeVars`
+            List.reverse boundVars
+                ++ monoTypeVars monoType
+                |> TypeVar.deduplicate
+
+        -- eg. `number` and `comparable` get their own slot sequence independent of the `Normal` one
+        usedNamesBySuper : Dict Int (Set String)
+        usedNamesBySuper =
+            allVars
+                |> List.foldl
+                    (\( style, super ) acc ->
+                        case style of
+                            Named name ->
+                                let
+                                    tag : Int
+                                    tag =
+                                        superTypeTag super
+                                in
+                                case Dict.get tag acc of
+                                    Just existing ->
+                                        Dict.insert tag (Set.insert name existing) acc
+
+                                    Nothing ->
+                                        Dict.insert tag (Set.singleton name) acc
+
+                            Generated _ ->
+                                acc
+                    )
+                    Dict.empty
+
+        -- slot 0 is the bare word ("a", or "" for supertypes -> just "number");
+        -- slot >= 1 is "b", "c", ... or "1", "2", ... for supertypes.
+        nameForSlot : SuperType -> Int -> String
+        nameForSlot super slot =
+            case super of
+                Normal ->
+                    ordToName slot
+
+                _ ->
+                    if slot == 0 then
+                        ""
+
+                    else
+                        String.fromInt slot
+
+        nextFreeSlot : SuperType -> Int -> Int
+        nextFreeSlot super slot =
+            let
+                used : Set String
+                used =
+                    case Dict.get (superTypeTag super) usedNamesBySuper of
+                        Just names ->
+                            names
+
+                        Nothing ->
+                            Set.empty
+            in
+            if Set.member (nameForSlot super slot) used then
+                nextFreeSlot super (slot + 1)
+
+            else
+                slot
+
+        newVars : List TypeVar
+        newVars =
+            allVars
+                |> List.foldl
+                    (\(( style, super ) as var) ( nextSlotBySuper, acc ) ->
+                        case style of
+                            Named _ ->
+                                -- Leave it exactly as it is.
+                                ( nextSlotBySuper, var :: acc )
+
+                            Generated _ ->
+                                let
+                                    key : Int
+                                    key =
+                                        superTypeTag super
+
+                                    startSlot : Int
+                                    startSlot =
+                                        case Dict.get key nextSlotBySuper of
+                                            Just nextSlot ->
+                                                nextSlot
+
+                                            Nothing ->
+                                                0
+
+                                    slot : Int
+                                    slot =
+                                        nextFreeSlot super startSlot
+                                in
+                                ( Dict.insert key (slot + 1) nextSlotBySuper
+                                , ( Named (nameForSlot super slot), super ) :: acc
+                                )
+                    )
+                    ( Dict.empty, [] )
+                |> (\( _, vars ) -> List.reverse vars)
+
+        ( substGen, substNamed ) =
+            List.map2 Tuple.pair allVars newVars
+                |> List.foldl
+                    (\( ( style, super ), newVar ) ( genAcc, namedAcc ) ->
+                        case style of
+                            Generated theId ->
+                                ( Dict.insert (TypeVar.genKeyFrom theId super) newVar genAcc
+                                , namedAcc
+                                )
+
+                            Named name ->
+                                ( genAcc
+                                , Dict.insert (TypeVar.namedKeyFrom name super) newVar namedAcc
+                                )
+                    )
+                    ( Dict.empty, Dict.empty )
+    in
+    type_
+        |> mapVars
+            (\(( style, super ) as var) ->
+                case style of
+                    Generated theId ->
+                        case Dict.get (TypeVar.genKeyFrom theId super) substGen of
+                            Nothing ->
+                                var
+
+                            Just newVar ->
+                                newVar
+
+                    Named name ->
+                        case Dict.get (TypeVar.namedKeyFrom name super) substNamed of
+                            Nothing ->
+                                var
+
+                            Just newVar ->
+                                newVar
+            )
+
+
+{-| Name generated vars after their name hints:
+
+    Dict #1 #2 (with hints k, v)
+    --> Dict k v
+
+Already taken hint gets a numeric suffix: `k`, `k1`, `k2`, ...
+Vars without a hint are left for `normalize`.
+
+-}
+applyNameHints : (Id -> SuperType -> Maybe String) -> Type -> Type
+applyNameHints hintFor ((Forall boundVars monoType) as type_) =
+    let
+        allVars : List TypeVar
+        allVars =
+            List.reverse boundVars
+                ++ monoTypeVars monoType
+                |> TypeVar.deduplicate
+
+        taken : Set TypeVar.NamedKey
+        taken =
+            allVars
+                |> List.foldl
+                    (\( style, super ) acc ->
+                        case style of
+                            Named name ->
+                                Set.insert (TypeVar.namedKeyFrom name super) acc
+
+                            Generated _ ->
+                                acc
+                    )
+                    Set.empty
+
+        ( mapping, _ ) =
+            allVars
+                |> List.foldl
+                    (\( style, super ) (( mappingAcc, takenAcc ) as acc) ->
+                        case style of
+                            Named _ ->
+                                acc
+
+                            Generated theId ->
+                                case hintFor theId super of
+                                    Nothing ->
+                                        acc
+
+                                    Just hint ->
+                                        let
+                                            name : String
+                                            name =
+                                                freeHintName super hint 0 takenAcc
+                                        in
+                                        ( Dict.insert (TypeVar.genKeyFrom theId super) ( Named name, super ) mappingAcc
+                                        , Set.insert (TypeVar.namedKeyFrom name super) takenAcc
+                                        )
+                    )
+                    ( Dict.empty, taken )
+    in
+    if Dict.isEmpty mapping then
+        type_
+
+    else
+        mapVars
+            (\(( style, super ) as var) ->
+                case style of
+                    Generated theId ->
+                        case Dict.get (TypeVar.genKeyFrom theId super) mapping of
+                            Just renamed ->
+                                renamed
+
+                            Nothing ->
+                                var
+
+                    Named _ ->
+                        var
+            )
+            type_
+
+
+{-| Used for all types inside a top-level declaration.
+
+See test letBoundTypeVarNamesMatchEnclosingDeclarationRegression.
+
+-}
+nameVarsTogether : (Id -> SuperType -> Maybe String) -> List MonoType -> List MonoType
+nameVarsTogether hintFor types =
+    let
+        varsPerType : List (List TypeVar)
+        varsPerType =
+            List.map (\t -> TypeVar.deduplicate (monoTypeVars t)) types
+
+        namedTaken : Set TypeVar.NamedKey
+        namedTaken =
+            varsPerType
+                |> List.concat
+                |> List.foldl
+                    (\( style, super ) acc ->
+                        case style of
+                            Named name ->
+                                Set.insert (TypeVar.namedKeyFrom name super) acc
+
+                            Generated _ ->
+                                acc
+                    )
+                    Set.empty
+
+        nameNew :
+            (Id -> SuperType -> Dict Int Int -> Set TypeVar.NamedKey -> ( String, Dict Int Int ))
+            -> List TypeVar
+            -> ( Dict TypeVar.GenKey TypeVar, Set TypeVar.NamedKey )
+            -> ( Dict TypeVar.GenKey TypeVar, Set TypeVar.NamedKey )
+        nameNew pickName vars acc0 =
+            vars
+                |> List.foldl
+                    (\( style, super ) (( ( mappingAcc, takenAcc ), slotsAcc ) as acc) ->
+                        case style of
+                            Named _ ->
+                                acc
+
+                            Generated theId ->
+                                let
+                                    key : TypeVar.GenKey
+                                    key =
+                                        TypeVar.genKeyFrom theId super
+                                in
+                                if Dict.member key mappingAcc then
+                                    acc
+
+                                else
+                                    let
+                                        ( name, newSlots ) =
+                                            pickName theId super slotsAcc takenAcc
+                                    in
+                                    ( ( Dict.insert key ( Named name, super ) mappingAcc
+                                      , Set.insert (TypeVar.namedKeyFrom name super) takenAcc
+                                      )
+                                    , newSlots
+                                    )
+                    )
+                    ( acc0, Dict.empty )
+                |> Tuple.first
+
+        ( mapping, _ ) =
+            varsPerType
+                |> List.foldl
+                    (\vars acc ->
+                        acc
+                            -- hinted vars first, like `applyNameHints`
+                            |> nameNew
+                                (\theId super slots taken ->
+                                    ( freeHintName super (Maybe.withDefault "" (hintFor theId super)) 0 taken
+                                    , slots
+                                    )
+                                )
+                                (List.filter (isHinted hintFor) vars)
+                            -- then the rest, like `normalize`
+                            |> nameNew
+                                (\_ super slots taken ->
+                                    let
+                                        tag : Int
+                                        tag =
+                                            TypeVar.superTypeTag super
+
+                                        slot : Int
+                                        slot =
+                                            freeSlot super (Maybe.withDefault 0 (Dict.get tag slots)) taken
+                                    in
+                                    ( slotName super slot, Dict.insert tag (slot + 1) slots )
+                                )
+                                vars
+                    )
+                    ( Dict.empty, namedTaken )
+    in
+    List.map
+        (mapVarsMono
+            (\(( style, super ) as var) ->
+                case style of
+                    Generated theId ->
+                        Dict.get (TypeVar.genKeyFrom theId super) mapping
+                            |> Maybe.withDefault var
+
+                    Named _ ->
+                        var
+            )
+        )
+        types
+
+
+isHinted : (Id -> SuperType -> Maybe String) -> TypeVar -> Bool
+isHinted hintFor ( style, super ) =
+    case style of
+        Generated theId ->
+            hintFor theId super /= Nothing
+
+        Named _ ->
+            False
+
+
+{-| Same naming scheme as `normalize`
+-}
+slotName : SuperType -> Int -> String
+slotName super slot =
+    case super of
+        Normal ->
+            ordToName slot
+
+        _ ->
+            if slot == 0 then
+                ""
+
+            else
+                String.fromInt slot
+
+
+freeSlot : SuperType -> Int -> Set TypeVar.NamedKey -> Int
+freeSlot super slot taken =
+    if Set.member (TypeVar.namedKeyFrom (slotName super slot) super) taken then
+        freeSlot super (slot + 1) taken
+
+    else
+        slot
+
+
+freeHintName : SuperType -> String -> Int -> Set TypeVar.NamedKey -> String
+freeHintName super hint suffix taken =
+    let
+        candidate : String
+        candidate =
+            if suffix == 0 then
+                hint
+
+            else
+                hint ++ String.fromInt suffix
+    in
+    if Set.member (TypeVar.namedKeyFrom candidate super) taken then
+        freeHintName super hint (suffix + 1) taken
+
+    else
+        candidate
+
+
+mapVars : (TypeVar -> TypeVar) -> Type -> Type
+mapVars fn (Forall boundVars monoType) =
+    Forall (List.map fn boundVars) (mapVarsMono fn monoType)
+
+
+{-| Map every var **once**, simultaneously, without chain-following.
+
+This atomicity is important for instantiation; two overlapping ID spaces could
+interact weirdly otherwise.
+
+-}
+mapVarsMono : (TypeVar -> TypeVar) -> MonoType -> MonoType
+mapVarsMono fn type_ =
+    case type_ of
+        TypeVar var ->
+            TypeVar (fn var)
+
+        _ ->
+            recurse (\child -> child |> mapVarsMono fn) type_
+
+
+{-|
+
+    0 -> a
+    1 -> b
+    25 -> z
+    26 -> aa
+    27 -> ab
+
+-}
+ordToName : Int -> String
+ordToName n =
+    let
+        radix : Int
+        radix =
+            26
+
+        {- The functions below are stolen from fredcy/elm-parseint and tweaked
+           to work similar to:
+
+           https://en.wikipedia.org/wiki/Bijective_numeration#The_bijective_base-26_system
+        -}
+        charFromInt : Int -> Char
+        charFromInt i =
+            Char.fromCode <| i + Char.toCode 'a'
+
+        go : Int -> String
+        go i =
+            if i < radix then
+                String.fromChar <| charFromInt i
+
+            else
+                go ((i // radix) - 1) ++ (String.fromChar <| charFromInt (modBy radix i))
+    in
+    go n
+
+
+fromTypeAnnotation : TypeResolver -> TypeAnnotation -> Result FromTypeAnnotationError MonoType
+fromTypeAnnotation resolver typeAnnotation =
+    let
+        f : TypeAnnotation -> Result FromTypeAnnotationError MonoType
+        f annotation =
+            fromTypeAnnotation resolver annotation
+
+        recordBindings :
+            List (Node ( Node String, Node TypeAnnotation ))
+            -> Result FromTypeAnnotationError (Dict VarName MonoType)
+        recordBindings fields =
+            fields
+                |> Result.Extra.foldlWhileOk
+                    (\fieldNode acc ->
+                        let
+                            ( fieldNameNode, annotationNode ) =
+                                Node.value fieldNode
+
+                            type_ : Result FromTypeAnnotationError MonoType
+                            type_ =
+                                f (Node.value annotationNode)
+                        in
+                        type_
+                            |> Result.map (\type__ -> Dict.insert (Node.value fieldNameNode) type__ acc)
+                    )
+                    Dict.empty
+    in
+    case typeAnnotation of
+        TypeAnnotation.GenericType name ->
+            Ok <| TypeVar (TypeVar.parse name)
+
+        TypeAnnotation.Typed name annotations ->
+            let
+                args : Result FromTypeAnnotationError (List MonoType)
+                args =
+                    annotations
+                        |> Result.Extra.combineMap (\(Node.Node _ arg) -> f arg)
+            in
+            -- Resolve names before collapsing primitives: local or imported
+            -- types can shadow implicit names such as List, Int, and String.
+            args
+                |> Result.andThen
+                    (\args_ ->
+                        let
+                            ( moduleName, typeName ) =
+                                Node.value name
+                        in
+                        resolver moduleName typeName
+                            |> Result.mapError AmbiguousModuleName
+                            |> Result.map
+                                (\( package, moduleId ) ->
+                                    case collapsePrimitive package moduleId typeName args_ of
+                                        Just collapsed ->
+                                            collapsed
+
+                                        Nothing ->
+                                            UserDefinedType
+                                                { package = package
+                                                , moduleId = moduleId
+                                                , name = typeName
+                                                , args = args_
+                                                }
+                                )
+                    )
+
+        TypeAnnotation.Unit ->
+            Ok Unit
+
+        TypeAnnotation.Tupled [ a, b ] ->
+            Result.map2 Tuple2
+                (f (Node.value a))
+                (f (Node.value b))
+
+        TypeAnnotation.Tupled [ a, b, c ] ->
+            Result.map3 Tuple3
+                (f (Node.value a))
+                (f (Node.value b))
+                (f (Node.value c))
+
+        TypeAnnotation.Tupled _ ->
+            Err (ImpossibleAnnotation typeAnnotation)
+
+        TypeAnnotation.Record fields ->
+            recordBindings fields
+                |> Result.map Record
+
+        TypeAnnotation.GenericRecord name fields ->
+            recordBindings (Node.value fields)
+                |> Result.map
+                    (\fields_ ->
+                        ExtensibleRecord
+                            { extensionTypevar = TypeVar (TypeVar.parse (Node.value name))
+                            , fields = fields_
+                            }
+                    )
+
+        TypeAnnotation.FunctionTypeAnnotation from to ->
+            Result.map2
+                (\from_ to_ ->
+                    Function
+                        { from = from_
+                        , to = to_
+                        }
+                )
+                (f (Node.value from))
+                (f (Node.value to))
+
+
+{-| Convert a type-annotation conversion failure into an inference error.
+-}
+fromTypeAnnotationError : FromTypeAnnotationError -> InferErrorDetails
+fromTypeAnnotationError err =
+    case err of
+        ImpossibleAnnotation typeAnnotation ->
+            ImpossibleType typeAnnotation
+
+        AmbiguousModuleName ambiguity ->
+            AmbiguousModuleOwner ambiguity
+
+
+fromPublicType : ModuleIds.Mapping -> Public.Type -> Maybe MonoType
+fromPublicType moduleMapping publicType =
+    let
+        go : Public.Type -> Maybe MonoType
+        go =
+            fromPublicType moduleMapping
+
+        goDict : Dict VarName Public.Type -> Maybe (Dict VarName MonoType)
+        goDict fields =
+            Dict.foldl
+                (\name t acc -> Maybe.map2 (Dict.insert name) (go t) acc)
+                (Just Dict.empty)
+                fields
+    in
+    case publicType of
+        Public.TypeVar name ->
+            Just (TypeVar (TypeVar.parse name))
+
+        Public.Function { from, to } ->
+            Maybe.map2 (\f t -> Function { from = f, to = t }) (go from) (go to)
+
+        Public.Int ->
+            Just Int
+
+        Public.Float ->
+            Just Float
+
+        Public.Char ->
+            Just Char
+
+        Public.String ->
+            Just String
+
+        Public.Bool ->
+            Just Bool
+
+        Public.List inner ->
+            Maybe.map List (go inner)
+
+        Public.Unit ->
+            Just Unit
+
+        Public.Tuple2 a b ->
+            Maybe.map2 Tuple2 (go a) (go b)
+
+        Public.Tuple3 a b c ->
+            Maybe.map3 Tuple3 (go a) (go b) (go c)
+
+        Public.Record { fields } ->
+            Maybe.map Record (goDict fields)
+
+        Public.ExtensibleRecord { fields, extensionTypevar } ->
+            goDict fields
+                |> Maybe.map
+                    (\monoFields ->
+                        ExtensibleRecord
+                            { extensionTypevar = TypeVar (TypeVar.parse extensionTypevar)
+                            , fields = monoFields
+                            }
+                    )
+
+        Public.Named { package, moduleName, name, arguments } ->
+            Maybe.map2
+                (\moduleId args ->
+                    UserDefinedType
+                        { package = package
+                        , moduleId = moduleId
+                        , name = name
+                        , args = args
+                        }
+                )
+                (FullModuleName.fromModuleName moduleName
+                    |> Maybe.andThen (\full -> ModuleIds.getId full moduleMapping)
+                )
+                (List.foldr (\arg acc -> Maybe.map2 (::) (go arg) acc) (Just []) arguments)
+
+        Public.WebGLShader r ->
+            Maybe.map3
+                (\attributes uniforms varyings ->
+                    WebGLShader
+                        { attributes = attributes
+                        , uniforms = uniforms
+                        , varyings = varyings
+                        }
+                )
+                (go r.attributes)
+                (go r.uniforms)
+                (go r.varyings)
+
+
+toPublicType : ModuleIds.Mapping -> { alreadyNormalized : Bool } -> MonoType -> Public.Type
+toPublicType moduleMapping { alreadyNormalized } origMono =
+    let
+        mono_ : MonoType
+        mono_ =
+            if alreadyNormalized then
+                origMono
+
+            else
+                let
+                    (Forall _ normalizedMono) =
+                        normalize (Forall [] origMono)
+                in
+                normalizedMono
+    in
+    toPublicTypeNormalized moduleMapping mono_
+
+
+moduleIdToModuleName : ModuleIds.Mapping -> ModuleId -> List String
+moduleIdToModuleName moduleMapping moduleId =
+    ModuleIds.moduleNameForDisplay moduleId moduleMapping
+
+
+{-| Convert two `MonoType`s to public `Type`s with a shared normalization.
+
+Normalizing each side independently would name distinct variables identically
+(`a` on both sides) and suggest sharing where there is none, or rename a
+shared variable differently on each side.
+
+Used for type errors, where types come in pairs.
+
+-}
+toPublicPair : ModuleIds.Mapping -> MonoType -> MonoType -> ( Public.Type, Public.Type )
+toPublicPair moduleMapping t1 t2 =
+    let
+        (Forall _ normalizedCombined) =
+            normalize (Forall [] (Tuple2 t1 t2))
+    in
+    case normalizedCombined of
+        Tuple2 nt1 nt2 ->
+            ( toPublicType moduleMapping { alreadyNormalized = True } nt1
+            , toPublicType moduleMapping { alreadyNormalized = True } nt2
+            )
+
+        _ ->
+            -- Shouldn't happen
+            ( toPublicType moduleMapping { alreadyNormalized = False } t1
+            , toPublicType moduleMapping { alreadyNormalized = False } t2
+            )
+
+
+toPublicTypeNormalized : ModuleIds.Mapping -> MonoType -> Public.Type
+toPublicTypeNormalized moduleMapping mono_ =
+    case mono_ of
+        TypeVar typeVar ->
+            Public.TypeVar (TypeVar.toString typeVar)
+
+        Function { from, to } ->
+            Public.Function
+                { from = toPublicType moduleMapping { alreadyNormalized = True } from
+                , to = toPublicType moduleMapping { alreadyNormalized = True } to
+                }
+
+        Int ->
+            Public.Int
+
+        Float ->
+            Public.Float
+
+        Char ->
+            Public.Char
+
+        String ->
+            Public.String
+
+        Bool ->
+            Public.Bool
+
+        List ts ->
+            Public.List (toPublicType moduleMapping { alreadyNormalized = True } ts)
+
+        Unit ->
+            Public.Unit
+
+        Tuple2 t1 t2 ->
+            Public.Tuple2
+                (toPublicType moduleMapping { alreadyNormalized = True } t1)
+                (toPublicType moduleMapping { alreadyNormalized = True } t2)
+
+        Tuple3 t1 t2 t3 ->
+            Public.Tuple3
+                (toPublicType moduleMapping { alreadyNormalized = True } t1)
+                (toPublicType moduleMapping { alreadyNormalized = True } t2)
+                (toPublicType moduleMapping { alreadyNormalized = True } t3)
+
+        Record fields ->
+            Public.Record { fields = Dict.map (\_ v -> toPublicType moduleMapping { alreadyNormalized = True } v) fields }
+
+        ExtensibleRecord extensibleRecordUncollapsed ->
+            case collapseExtensible extensibleRecordUncollapsed of
+                ExtensibleRecord { extensionTypevar, fields } ->
+                    Public.ExtensibleRecord
+                        { extensionTypevar =
+                            case
+                                extensionTypevar
+                            of
+                                TypeVar var ->
+                                    TypeVar.toString var
+
+                                _ ->
+                                    -- Should be impossible to trigger for users of the
+                                    -- library, as they don't have access to MonoType
+                                    -- constructors.
+                                    "<elm-syntax-type-inference bug: non-var as extensible record base>"
+                        , fields = fields |> Dict.map (\_ v -> toPublicType moduleMapping { alreadyNormalized = True } v)
+                        }
+
+                collapsed ->
+                    toPublicTypeNormalized moduleMapping collapsed
+
+        UserDefinedType r ->
+            Public.Named
+                { package = r.package
+                , moduleName = moduleIdToModuleName moduleMapping r.moduleId
+                , name = r.name
+                , arguments = List.map (\arg -> toPublicType moduleMapping { alreadyNormalized = True } arg) r.args
+                }
+
+        WebGLShader r ->
+            Public.WebGLShader
+                { attributes = toPublicType moduleMapping { alreadyNormalized = True } r.attributes
+                , uniforms = toPublicType moduleMapping { alreadyNormalized = True } r.uniforms
+                , varyings = toPublicType moduleMapping { alreadyNormalized = True } r.varyings
+                }
+
+
+{-| A deduplication key for a normalized monotype inside a single module's lookup table.
+-}
+monoPublicKey : { alreadyNormalized : Bool } -> MonoType -> String
+monoPublicKey { alreadyNormalized } origMono =
+    if alreadyNormalized then
+        monoPublicKeyNormalized origMono
+
+    else
+        monoPublicKeyAlpha origMono
+
+
+{-| Alpha-equivalence deduplication key.
+-}
+monoPublicKeyAlpha : MonoType -> String
+monoPublicKeyAlpha mono_ =
+    Tuple.first
+        (monoPublicKeyAlphaHelp
+            (case mono_ of
+                ExtensibleRecord extensibleRecord ->
+                    collapseExtensible extensibleRecord
+
+                notExtensibleRecord ->
+                    notExtensibleRecord
+            )
+            alphaStateEmpty
+        )
+
+
+alphaStateEmpty : AlphaState
+alphaStateEmpty =
+    { next = 0, mapping = Dict.empty }
+
+
+type alias AlphaState =
+    { next : Int
+    , mapping : Dict Int Int
+    }
+
+
+superTagString : SuperType -> String
+superTagString super =
+    case super of
+        Normal ->
+            "0"
+
+        Number ->
+            "1"
+
+        Comparable ->
+            "2"
+
+        Appendable ->
+            "3"
+
+        CompAppend ->
+            "4"
+
+
+alphaVarCode : TypeVar -> AlphaState -> ( String, AlphaState )
+alphaVarCode ( style, super ) state =
+    case style of
+        Named name ->
+            ( "n" ++ superTagString super ++ ";" ++ strKey name
+            , state
+            )
+
+        Generated theId ->
+            let
+                k : Int
+                k =
+                    theId * 5 + superTypeTag super
+            in
+            case Dict.get k state.mapping of
+                Just i ->
+                    ( "g" ++ superTagString super ++ ";" ++ String.fromInt i ++ ";"
+                    , state
+                    )
+
+                Nothing ->
+                    let
+                        i : Int
+                        i =
+                            state.next
+                    in
+                    ( "g" ++ superTagString super ++ ";" ++ String.fromInt i ++ ";"
+                    , { next = i + 1, mapping = Dict.insert k i state.mapping }
+                    )
+
+
+monoPublicKeyAlphaHelp : MonoType -> AlphaState -> ( String, AlphaState )
+monoPublicKeyAlphaHelp mono_ state =
+    case mono_ of
+        TypeVar var ->
+            let
+                ( code, state1 ) =
+                    alphaVarCode var state
+            in
+            ( "0;" ++ strKey code, state1 )
+
+        Function { from, to } ->
+            let
+                ( k1, s1 ) =
+                    monoPublicKeyAlphaHelp from state
+
+                ( k2, s2 ) =
+                    monoPublicKeyAlphaHelp to s1
+            in
+            ( "1;" ++ strKey k1 ++ strKey k2, s2 )
+
+        Int ->
+            ( "2;", state )
+
+        Float ->
+            ( "3;", state )
+
+        Char ->
+            ( "4;", state )
+
+        String ->
+            ( "5;", state )
+
+        Bool ->
+            ( "6;", state )
+
+        List inner ->
+            let
+                ( k, s1 ) =
+                    monoPublicKeyAlphaHelp inner state
+            in
+            ( "7;" ++ strKey k, s1 )
+
+        Unit ->
+            ( "8;", state )
+
+        Tuple2 t1 t2 ->
+            let
+                ( k1, s1 ) =
+                    monoPublicKeyAlphaHelp t1 state
+
+                ( k2, s2 ) =
+                    monoPublicKeyAlphaHelp t2 s1
+            in
+            ( "9;" ++ strKey k1 ++ strKey k2, s2 )
+
+        Tuple3 t1 t2 t3 ->
+            let
+                ( k1, s1 ) =
+                    monoPublicKeyAlphaHelp t1 state
+
+                ( k2, s2 ) =
+                    monoPublicKeyAlphaHelp t2 s1
+
+                ( k3, s3 ) =
+                    monoPublicKeyAlphaHelp t3 s2
+            in
+            ( "10;" ++ strKey k1 ++ strKey k2 ++ strKey k3, s3 )
+
+        Record fields ->
+            let
+                ( rk, s1 ) =
+                    recordKeyAlpha fields state
+            in
+            ( "11;" ++ strKey rk, s1 )
+
+        ExtensibleRecord extensibleRecordUncollapsed ->
+            case collapseExtensible extensibleRecordUncollapsed of
+                ExtensibleRecord { extensionTypevar, fields } ->
+                    let
+                        ( ek, s1 ) =
+                            extNameAlpha extensionTypevar state
+
+                        ( rk, s2 ) =
+                            recordKeyAlpha fields s1
+                    in
+                    ( "12;" ++ strKey ek ++ strKey rk, s2 )
+
+                collapsed ->
+                    monoPublicKeyAlphaHelp collapsed state
+
+        UserDefinedType r ->
+            let
+                ( ak, s1 ) =
+                    argsKeyAlpha r.args state
+            in
+            ( "13;"
+                ++ strKey r.package
+                ++ strKey (String.fromInt r.moduleId)
+                ++ strKey r.name
+                ++ strKey ak
+            , s1
+            )
+
+        WebGLShader r ->
+            let
+                ( a, s1 ) =
+                    monoPublicKeyAlphaHelp r.attributes state
+
+                ( b, s2 ) =
+                    monoPublicKeyAlphaHelp r.uniforms s1
+
+                ( c, s3 ) =
+                    monoPublicKeyAlphaHelp r.varyings s2
+            in
+            ( "14;" ++ strKey a ++ strKey b ++ strKey c, s3 )
+
+
+recordKeyAlpha : Dict VarName MonoType -> AlphaState -> ( String, AlphaState )
+recordKeyAlpha fields state =
+    let
+        step : VarName -> MonoType -> ( String, AlphaState ) -> ( String, AlphaState )
+        step k v ( acc, st ) =
+            let
+                ( vk, st2 ) =
+                    monoPublicKeyAlphaHelp v st
+            in
+            ( acc ++ (strKey k ++ strKey vk), st2 )
+
+        ( partsConcatenated, finalState ) =
+            Dict.foldl step ( "", state ) fields
+    in
+    ( String.fromInt (Dict.size fields) ++ ";" ++ partsConcatenated
+    , finalState
+    )
+
+
+argsKeyAlpha : List MonoType -> AlphaState -> ( String, AlphaState )
+argsKeyAlpha args state =
+    let
+        go : List MonoType -> AlphaState -> String -> ( String, AlphaState )
+        go remaining st acc =
+            case remaining of
+                [] ->
+                    ( acc, st )
+
+                a :: rest ->
+                    let
+                        ( ak, st2 ) =
+                            monoPublicKeyAlphaHelp a st
+                    in
+                    go rest st2 (acc ++ strKey ak)
+
+        ( partsConcatenated, finalState ) =
+            go args state ""
+    in
+    ( String.fromInt (List.length args) ++ ";" ++ partsConcatenated
+    , finalState
+    )
+
+
+extNameAlpha : MonoType -> AlphaState -> ( String, AlphaState )
+extNameAlpha extensionTypevar state =
+    case extensionTypevar of
+        TypeVar var ->
+            alphaVarCode var state
+
+        _ ->
+            ( "<elm-syntax-type-inference bug: non-var as extensible record base>"
+            , state
+            )
+
+
+monoPublicKeyNormalized : MonoType -> String
+monoPublicKeyNormalized mono_ =
+    case mono_ of
+        TypeVar typeVar ->
+            "0;" ++ strKey (TypeVar.toString typeVar)
+
+        Function { from, to } ->
+            "1;"
+                ++ strKey (monoPublicKeyNormalized from)
+                ++ strKey (monoPublicKeyNormalized to)
+
+        Int ->
+            "2;"
+
+        Float ->
+            "3;"
+
+        Char ->
+            "4;"
+
+        String ->
+            "5;"
+
+        Bool ->
+            "6;"
+
+        List inner ->
+            "7;" ++ strKey (monoPublicKeyNormalized inner)
+
+        Unit ->
+            "8;"
+
+        Tuple2 t1 t2 ->
+            "9;"
+                ++ strKey (monoPublicKeyNormalized t1)
+                ++ strKey (monoPublicKeyNormalized t2)
+
+        Tuple3 t1 t2 t3 ->
+            "10;"
+                ++ strKey (monoPublicKeyNormalized t1)
+                ++ strKey (monoPublicKeyNormalized t2)
+                ++ strKey (monoPublicKeyNormalized t3)
+
+        Record fields ->
+            "11;" ++ strKey (recordKeyOf fields)
+
+        ExtensibleRecord extensibleRecordNotCollapsed ->
+            case collapseExtensible extensibleRecordNotCollapsed of
+                ExtensibleRecord { extensionTypevar, fields } ->
+                    "12;"
+                        ++ strKey (extNameOf extensionTypevar)
+                        ++ strKey (recordKeyOf fields)
+
+                collapsed ->
+                    monoPublicKeyNormalized collapsed
+
+        UserDefinedType r ->
+            "13;"
+                ++ strKey r.package
+                ++ strKey (String.fromInt r.moduleId)
+                ++ strKey r.name
+                ++ strKey (argsKeyOf r.args)
+
+        WebGLShader r ->
+            "14;"
+                ++ strKey (monoPublicKeyNormalized r.attributes)
+                ++ strKey (monoPublicKeyNormalized r.uniforms)
+                ++ strKey (monoPublicKeyNormalized r.varyings)
+
+
+extNameOf : MonoType -> String
+extNameOf extensionTypevar =
+    case extensionTypevar of
+        TypeVar var ->
+            TypeVar.toString var
+
+        _ ->
+            "<elm-syntax-type-inference bug: non-var as extensible record base>"
+
+
+recordKeyOf : Dict VarName MonoType -> String
+recordKeyOf fields =
+    String.fromInt (Dict.size fields)
+        ++ ";"
+        ++ Dict.foldl
+            (\k v acc -> acc ++ (strKey k ++ strKey (monoPublicKeyNormalized v)))
+            ""
+            fields
+
+
+argsKeyOf : List MonoType -> String
+argsKeyOf args =
+    String.fromInt (List.length args)
+        ++ ";"
+        ++ List.foldl (\arg acc -> acc ++ strKey (monoPublicKeyNormalized arg)) "" args
+
+
+strKey : String -> String
+strKey s =
+    String.fromInt (String.length s)
+        ++ ":"
+        ++ s
