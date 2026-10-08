@@ -52,7 +52,7 @@ config =
     , NoExposingEverything.rule
         |> Rule.ignoreErrorsForDirectories [ "tests/", "tests/Fn" ]
     , NoImportingEverything.rule []
-    , NoMissingTypeAnnotation.rule
+    , NoMissingTypeAnnotation.rule { nested = True }
         |> Rule.ignoreErrorsForDirectories [ "src/vendor/" ]
     , NoMissingTypeAnnotationInLetIn.rule
         |> Rule.ignoreErrorsForDirectories [ "src/Vendor/", "tests/" ]
