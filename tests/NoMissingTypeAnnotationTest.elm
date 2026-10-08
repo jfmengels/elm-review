@@ -23,14 +23,14 @@ hasTypeAnnotation = 1
 alsoHasTypeAnnotation : String -> List Int
 alsoHasTypeAnnotation str = []
 """
-                    |> Review.Test.run rule
+                    |> Review.Test.run (rule { nested = True })
                     |> Review.Test.expectNoErrors
         , test "should report a missing type annotation" <|
             \_ ->
                 """module A exposing (..)
 hasNoTypeAnnotation = 1
 """
-                    |> Review.Test.run rule
+                    |> Review.Test.run (rule { nested = True })
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Missing type annotation for `hasNoTypeAnnotation`"
@@ -49,7 +49,7 @@ import Dict
 import Set exposing (Set)
 hasNoTypeAnnotation = Dict.singleton "" Set.empty
 """
-                    |> Review.Test.run rule
+                    |> Review.Test.run (rule { nested = True })
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Missing type annotation for `hasNoTypeAnnotation`"
@@ -79,7 +79,7 @@ type alias X = Int
 value : Dict.Dict String (Set X)
 value = Dict.singleton "" Set.empty
 """ ]
-                    |> Review.Test.runOnModules rule
+                    |> Review.Test.runOnModules (rule { nested = True })
                     |> Review.Test.expect
                         [ Review.Test.moduleErrors "A"
                             [ Review.Test.error
@@ -102,7 +102,7 @@ hasNoTypeAnnotation = B.value
                 """module A exposing (..)
 hasNoTypeAnnotation = { a = "", b = [ True ] }
 """
-                    |> Review.Test.run rule
+                    |> Review.Test.run (rule { nested = True })
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Missing type annotation for `hasNoTypeAnnotation`"
@@ -119,14 +119,14 @@ hasNoTypeAnnotation = { a = "", b = [ True ] }
                 """module A exposing (..)
 type A = B | C
 """
-                    |> Review.Test.run rule
+                    |> Review.Test.run (rule { nested = True })
                     |> Review.Test.expectNoErrors
         , test "should not report anything for type alias declarations" <|
             \_ ->
                 """module A exposing (..)
 type alias A = { a : String }
 """
-                    |> Review.Test.run rule
+                    |> Review.Test.run (rule { nested = True })
                     |> Review.Test.expectNoErrors
         , test "should not report anything for port declarations" <|
             \_ ->
@@ -134,6 +134,88 @@ type alias A = { a : String }
 port toJavaScript : Int -> Cmd msg
 port fromJavaScript : (Int -> msg) -> Sub msg
 """
-                    |> Review.Test.run rule
+                    |> Review.Test.run (rule { nested = True })
+                    |> Review.Test.expectNoErrors
+        , test "should not report anything when all let in declarations have a type annotation" <|
+            \_ ->
+                """module A exposing (..)
+a : number
+a = let
+      b : number
+      b = 1
+
+      c : number
+      c = 1
+    in
+    b + c
+"""
+                    |> Review.Test.run (rule { nested = True })
+                    |> Review.Test.expectNoErrors
+        , test "should report an error when a let in declaration has no type annotation" <|
+            \_ ->
+                """module A exposing (..)
+a : number
+a = let
+      hasNoTypeAnnotation_1 = 1
+      hasNoTypeAnnotation_2 = ""
+    in
+    2
+"""
+                    |> Review.Test.run (rule { nested = True })
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Missing type annotation for `hasNoTypeAnnotation_1`"
+                            , details = details
+                            , under = "hasNoTypeAnnotation_1"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a : number
+a = let
+      hasNoTypeAnnotation_1 : number
+      hasNoTypeAnnotation_1 = 1
+      hasNoTypeAnnotation_2 = ""
+    in
+    2
+"""
+                        , Review.Test.error
+                            { message = "Missing type annotation for `hasNoTypeAnnotation_2`"
+                            , details = details
+                            , under = "hasNoTypeAnnotation_2"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a : number
+a = let
+      hasNoTypeAnnotation_1 = 1
+      hasNoTypeAnnotation_2 : String
+      hasNoTypeAnnotation_2 = ""
+    in
+    2
+"""
+                        ]
+        , test "should not report an error when the rule is configured not to, even if a let in declaration has no type annotation" <|
+            \_ ->
+                """module A exposing (..)
+a : number
+a = let
+      hasNoTypeAnnotation_1 = 1
+      hasNoTypeAnnotation_2 = ""
+    in
+    2
+"""
+                    |> Review.Test.run (rule { nested = False })
+                    |> Review.Test.expectNoErrors
+        , test "should not report anything for let..in destructuring" <|
+            \_ ->
+                """module A exposing (..)
+type Thing = Thing Int
+a : number
+a = let
+      (b, c) = (1, 2)
+      {e, f} = { e = 1, f = 2 }
+      (Thing thing) = Thing 1
+    in
+    b
+"""
+                    |> Review.Test.run (rule { nested = True })
                     |> Review.Test.expectNoErrors
         ]
