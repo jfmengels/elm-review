@@ -72,6 +72,7 @@ type alias ValidProjectData =
     , exposedModules : Maybe (Set String)
     , dependencies : Dict String Dependency
     , directDependencies : Dict String Dependency
+    , dependencyFiles : Dict String (List Elm.Syntax.File.File)
     , sourceDirectories : List String
     , projectCache : ProjectCache
     , moduleGraph : Graph FilePath
@@ -96,6 +97,7 @@ toRegularProject (ValidProject validProject) =
         , extraFilesContentHashes = validProject.extraFilesContentHashes
         , dependencies = validProject.dependencies
         , directDependencies = validProject.directDependencies
+        , dependencyFiles = validProject.dependencyFiles
         , moduleGraph = validProject.moduleGraph
         , sourceDirectories = validProject.sourceDirectories
         , cache = validProject.projectCache
@@ -162,6 +164,7 @@ parse ((Project p) as project) =
                             computeTypeInferenceProject
                                 p.dependencies
                                 (Dict.keys p.directDependencies)
+                                p.dependencyFiles
                                 (Maybe.andThen (\( elmJson_, _ ) -> packageName elmJson_.project) p.elmJson)
                                 (Dict.foldl (\_ m list -> ProjectModule.ast m :: list) [] p.modulesByPath)
                         of
@@ -174,12 +177,13 @@ parse ((Project p) as project) =
 
 
 computeTypeInferenceProject :
-    Dict PackageName Dependency
+    Dict PackageName Dependency.Dependency
     -> List PackageName
+    -> Dict PackageName (List Elm.Syntax.File.File)
     -> Maybe PackageName
     -> List Elm.Syntax.File.File
     -> Result InvalidProjectError TypeInference.Project
-computeTypeInferenceProject dependencies_ directDependencies_ projectPackageName projectFiles =
+computeTypeInferenceProject dependencies_ directDependencies_ sourcesToResolveAmbiguity projectPackageName projectFiles =
     let
         allDeps : List TypeInference.Dependency
         allDeps =
@@ -199,7 +203,7 @@ computeTypeInferenceProject dependencies_ directDependencies_ projectPackageName
             TypeInference.init
                 { directDependencies = directDependencies_
                 , allDependencies = allDeps
-                , sourcesToResolveAmbiguity = Dict.empty
+                , sourcesToResolveAmbiguity = sourcesToResolveAmbiguity
                 , projectPackageName = projectPackageName
                 , projectFiles = projectFiles
                 }
@@ -262,6 +266,7 @@ fromProjectAndGraph moduleGraph sortedModules typeInferenceProject_ (Project pro
         , dependencies = project.dependencies
         , directDependencies = project.directDependencies
         , sourceDirectories = project.sourceDirectories
+        , dependencyFiles = project.dependencyFiles
         , projectCache = project.cache
         , moduleGraph = moduleGraph
         , sortedModules = sortedModules
