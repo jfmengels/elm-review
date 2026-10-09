@@ -58,7 +58,7 @@ type alias SourceCode =
 didNotExpectErrors : String -> List ReviewError -> String
 didNotExpectErrors moduleName errors =
     failureMessage "DID NOT EXPECT ERRORS"
-        ("""I expected no errors for module `""" ++ moduleName ++ """` but found:
+        ("I expected no errors for module `" ++ moduleName ++ """` but found:
 
 """ ++ listErrorMessagesAndPositions errors)
 
@@ -424,7 +424,7 @@ make much sense to me."""
 duplicateModuleName : List String -> String
 duplicateModuleName moduleName =
     failureMessage "DUPLICATE MODULE NAMES"
-        ("""I found several modules named `""" ++ String.join "." moduleName ++ """` in the test source codes.
+        ("I found several modules named `" ++ String.join "." moduleName ++ """` in the test source codes.
 
 I expect all modules to be able to exist together in the same project,
 but having several modules with the same name is not allowed by the Elm
@@ -436,7 +436,7 @@ Please rename the modules so that they all have different names.""")
 unknownModulesInExpectedErrors : String -> String
 unknownModulesInExpectedErrors moduleName =
     failureMessage "UNKNOWN MODULES IN EXPECTED ERRORS"
-        ("""I expected errors for a module named `""" ++ moduleName ++ """` in the list passed to
+        ("I expected errors for a module named `" ++ moduleName ++ """` in the list passed to
 `expectErrorsForModules`, but I couldn't find a module in the test source
 codes named that way.
 
@@ -683,7 +683,7 @@ fixProblem target fixProblem_ error_ =
 unchangedSourceAfterEdit : Target -> ReviewError -> { filePath : String, edits : List Edit } -> String
 unchangedSourceAfterEdit target error problem =
     failureMessage "UNCHANGED SOURCE AFTER EDIT"
-        ("""I got something unexpected when applying the fixes provided by the """ ++ describeTarget target ++ """ with the following message:
+        ("I got something unexpected when applying the fixes provided by the " ++ describeTarget target ++ """ with the following message:
 
   """ ++ wrapInQuotes (Rule.errorMessage error) ++ """
 
@@ -707,7 +707,7 @@ Hint: Maybe you inserted an empty string into the source code.""")
 removesUnknownFile : Target -> String -> ReviewError -> String
 removesUnknownFile target filePath error =
     failureMessage "FIX REMOVES UNKNOWN FILE"
-        ("""I got something unexpected when applying the fixes provided by the """ ++ describeTarget target ++ """ with the following message:
+        ("I got something unexpected when applying the fixes provided by the " ++ describeTarget target ++ """ with the following message:
 
   """ ++ wrapInQuotes (Rule.errorMessage error) ++ """
 
@@ -721,7 +721,7 @@ can be fixed.""")
 otherProblem : Target -> String -> ReviewError -> String
 otherProblem target problem error =
     failureMessage "PROBLEM OCCURRED WHEN APPLYING FIX"
-        ("""I got something unexpected when applying the fixes provided by the """ ++ describeTarget target ++ """ with the following message:
+        ("I got something unexpected when applying the fixes provided by the " ++ describeTarget target ++ """ with the following message:
 
   """ ++ wrapInQuotes (Rule.errorMessage error) ++ """
 
@@ -731,7 +731,7 @@ otherProblem target problem error =
 invalidElmFileAfterFix : Target -> ReviewError -> { filePath : String, source : SourceCode, edits : List Edit, parsingErrors : List Parser.DeadEnd } -> String
 invalidElmFileAfterFix target error { filePath, source, edits, parsingErrors } =
     failureMessage "INVALID SOURCE AFTER FIX"
-        ("""I got something unexpected when applying the fixes provided by the """ ++ describeTarget target ++ """ with the following message:
+        ("I got something unexpected when applying the fixes provided by the " ++ describeTarget target ++ """ with the following message:
 
   """ ++ wrapInQuotes (Rule.errorMessage error) ++ """
 
@@ -758,7 +758,7 @@ all.""")
 invalidJsonAfterFix : Target -> ReviewError -> { filePath : String, source : SourceCode, edits : List Edit, decodingError : Decode.Error } -> String
 invalidJsonAfterFix target error { filePath, source, edits, decodingError } =
     failureMessage "INVALID JSON AFTER FIX"
-        ("""I got something unexpected when applying the fixes provided by the """ ++ describeTarget target ++ """ with the following message:
+        ("I got something unexpected when applying the fixes provided by the " ++ describeTarget target ++ """ with the following message:
 
   """ ++ wrapInQuotes (Rule.errorMessage error) ++ """
 
@@ -798,7 +798,7 @@ project:
 editWithNegativeRange : Target -> String -> ReviewError -> Edit -> String
 editWithNegativeRange target fileWithFixIssues error edit =
     failureMessage "FOUND NEGATIVE RANGE IN EDIT"
-        ("""I got something unexpected when applying the fixes provided by the """ ++ describeTarget target ++ """ with the following message:
+        ("I got something unexpected when applying the fixes provided by the " ++ describeTarget target ++ """ with the following message:
 
   """ ++ wrapInQuotes (Rule.errorMessage error) ++ """
 
@@ -813,7 +813,7 @@ I don't know what to do with this edit.""")
 hasCollisionsInEditRanges : Target -> String -> ReviewError -> List Edit -> String
 hasCollisionsInEditRanges target fileWithFixIssues error edits =
     failureMessage "FOUND COLLISIONS IN EDIT RANGES"
-        ("""I got something unexpected when applying the fixes provided by the """ ++ describeTarget target ++ """ with the following message:
+        ("I got something unexpected when applying the fixes provided by the " ++ describeTarget target ++ """ with the following message:
 
   """ ++ wrapInQuotes (Rule.errorMessage error) ++ """
 
