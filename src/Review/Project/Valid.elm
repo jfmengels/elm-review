@@ -532,6 +532,11 @@ addParsedModule { path, source, ast } (ValidProject project) =
                         , moduleIds = moduleIds
                         , modulesByPath = modulesByPath
                         , workList = WorkList.touchedModule path project.workList
+                        , typeInferenceProject =
+                            TypeInference.addFile ast project.typeInferenceProject
+                                -- The only way `TypeInference.addFile` can fail right now is if the module name is empty
+                                -- which is impossible as parsing would fail first.
+                                |> Result.withDefault project.typeInferenceProject
                     }
                 )
 
@@ -615,6 +620,7 @@ removeModule path (ValidProject project) =
                     | modulesByPath = modulesByPath
                     , moduleGraph = Graph.removeNode moduleId project.moduleGraph
                     , edgeChanges = edgeChanges
+                    , typeInferenceProject = TypeInference.removeFile (ProjectModule.moduleName module_) project.typeInferenceProject
                 }
                 |> Ok
 
