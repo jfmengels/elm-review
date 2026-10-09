@@ -7161,9 +7161,13 @@ createModuleVisitorFromProjectVisitorHelp schema raise hidden howToCreateModuleC
 
             inputContextHashes : ComparableContextHash projectContext
             inputContextHashes =
-                -- TODO If requested.types || requested.moduleNameLookupTable then also
-                -- Add the hash of the module docs of the directly imported files
-                computeProjectContextHashes howToCreateModuleContext project hidden.cache.moduleContexts incoming initialProjectContextHash
+                if RequestedData.informationFromImportedModules hidden.requestedData then
+                    -- TODO Add the hash of the module docs of the directly imported files
+                    -- TODO When requesting types, should we also include those of indirectly imported files? I'm afraid so.
+                    computeProjectContextHashes howToCreateModuleContext project hidden.cache.moduleContexts incoming initialProjectContextHash
+
+                else
+                    computeProjectContextHashes howToCreateModuleContext project hidden.cache.moduleContexts incoming initialProjectContextHash
 
             isFileIgnored : Bool
             isFileIgnored =
