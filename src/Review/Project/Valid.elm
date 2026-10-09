@@ -26,6 +26,7 @@ module Review.Project.Valid exposing
     , readmeHash
     , removeExtraFile
     , removeModule
+    , setTypeInferenceProject
     , toRegularProject
     , typeInferenceProject
     , updateProjectCache
@@ -460,6 +461,11 @@ updateProjectCache projectCache_ (ValidProject project) =
 typeInferenceProject : ValidProject -> TypeInference.Project
 typeInferenceProject (ValidProject validProject) =
     validProject.typeInferenceProject
+
+
+setTypeInferenceProject : TypeInference.Project -> ValidProject -> ValidProject
+setTypeInferenceProject typeInferenceProject_ (ValidProject project) =
+    ValidProject { project | typeInferenceProject = typeInferenceProject_ }
 
 
 workList : ValidProject -> WorkList

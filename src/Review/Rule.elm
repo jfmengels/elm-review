@@ -5778,15 +5778,15 @@ computeModuleWithRuleVisitors initialProject module_ inputRuleModuleVisitors (Re
         moduleName =
             ProjectModule.moduleName module_
 
-        typeInferenceProject : TypeInference.Project
+        typeInferenceProject : ( TypeInference.Project, () )
         typeInferenceProject =
-            ValidProject.typeInferenceProject project
+            ( ValidProject.typeInferenceProject project, () )
 
         availableData : AvailableData
         availableData =
             { ast = ast
             , moduleNameLookupTable = moduleNameLookupTable
-            , getType = \range -> TypeInference.getType moduleName range typeInferenceProject |> Tuple.first
+            , getType = \range -> TypeInference.getType moduleName range (Tuple.first typeInferenceProject) |> getTypeMarker typeInferenceProject
             , moduleDocumentation = findModuleDocumentation ast
             , isModuleExposed = ValidProject.isModuleExposed initialProject (Node.value moduleNameNode_)
             , exposed = exposed
@@ -5811,9 +5811,14 @@ computeModuleWithRuleVisitors initialProject module_ inputRuleModuleVisitors (Re
                 |> visitModuleForProjectRule availableData
                 |> List.map (\(RuleModuleVisitor ruleModuleVisitor) -> ruleModuleVisitor.toProjectVisitor ())
     in
-    ( project
+    ( ValidProject.setTypeInferenceProject (Tuple.first typeInferenceProject) project
     , outputRuleProjectVisitors
     )
+
+
+getTypeMarker : ( TypeInference.Project, () ) -> ( Result InferError Elm.TypeInference.Type.Type, TypeInference.Project ) -> Result InferError Elm.TypeInference.Type.Type
+getTypeMarker _ ( type_, _ ) =
+    type_
 
 
 exposesAll : Elm.Syntax.File.File -> Bool
