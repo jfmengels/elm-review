@@ -1,5 +1,5 @@
 module Review.RequestedData exposing
-    ( RequestedData(..)
+    ( RequestedData(..), Data
     , none, withFiles
     , types
     , combine, combineJust
@@ -7,7 +7,7 @@ module Review.RequestedData exposing
 
 {-|
 
-@docs RequestedData
+@docs RequestedData, Data
 
 
 ## Create
@@ -24,15 +24,18 @@ module Review.RequestedData exposing
 
 
 type RequestedData
-    = RequestedData
-        { moduleNameLookupTable : Bool
-        , types : Bool
-        , sourceCodeExtractor : Bool
-        , exposed : Bool
-        , ignoredFiles : Bool
-        , ignoredFixes : Bool
-        , files : List { files : List { pattern : String, included : Bool }, excludedDirectories : List String }
-        }
+    = RequestedData Data
+
+
+type alias Data =
+    { moduleNameLookupTable : Bool
+    , types : Bool
+    , sourceCodeExtractor : Bool
+    , exposed : Bool
+    , ignoredFiles : Bool
+    , ignoredFixes : Bool
+    , files : List { files : List { pattern : String, included : Bool }, excludedDirectories : List String }
+    }
 
 
 none : RequestedData
