@@ -83,6 +83,7 @@ import Elm.Syntax.File
 import Elm.Syntax.Module
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node
+import Elm.TypeInference as TypeInference
 import Path
 import Review.Cache.ContentHash as ContentHash
 import Review.FileParser as FileParser
@@ -133,6 +134,7 @@ new =
         , cache = ProjectCache.empty
         , sortedModules = Internal.NeedsToAddNewEdgesToGraph Dict.empty
         , workList = WorkList.empty
+        , typeInferenceProject = Nothing
         }
 
 
@@ -225,6 +227,7 @@ addParsedModule { path, source, ast } (Internal.Project project) =
                 else
                     Internal.NeedsToAddNewEdgesToGraph result.edgeChanges
             , workList = WorkList.touchedModule path project.workList
+            , typeInferenceProject = Maybe.map (Internal.addFileToTypeInferenceProject ast) project.typeInferenceProject
         }
 
 
@@ -263,6 +266,7 @@ removeModule path (Internal.Project project) =
 
                         else
                             Internal.NeedsToAddNewEdgesToGraph edgeChanges
+                    , typeInferenceProject = Maybe.map (TypeInference.removeFile (ProjectModule.moduleName module_)) project.typeInferenceProject
                 }
 
         Nothing ->
