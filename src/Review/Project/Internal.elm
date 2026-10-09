@@ -3,6 +3,7 @@ module Review.Project.Internal exposing
     , Project(..)
     , ProjectInternals
     , SortedModules(..)
+    , addFileToTypeInferenceProject
     , addModuleToGraph
     , removeModuleFromGraph
     , sourceDirectoriesForProject
@@ -17,6 +18,7 @@ import Elm.Project
 import Elm.Syntax.File
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node(..))
+import Elm.TypeInference as TypeInference
 import Path
 import Review.Cache.ContentHash exposing (ContentHash)
 import Review.FilePath exposing (FilePath)
@@ -51,6 +53,7 @@ type alias ProjectInternals =
     , cache : ProjectCache
     , sortedModules : SortedModules
     , workList : WorkList
+    , typeInferenceProject : Maybe TypeInference.Project
     }
 
 
@@ -196,6 +199,14 @@ addModuleToGraph module_ maybeExistingModule moduleIds edgeChanges =
                 else
                     Dict.insert moduleId edgeChangesForFile edgeChanges
             }
+
+
+addFileToTypeInferenceProject : Elm.Syntax.File.File -> TypeInference.Project -> TypeInference.Project
+addFileToTypeInferenceProject ast typeInferenceProject_ =
+    TypeInference.addFile ast typeInferenceProject_
+        -- The only way `TypeInference.addFile` can fail right now is if the module name is empty
+        -- which is impossible as parsing would fail first.
+        |> Result.withDefault typeInferenceProject_
 
 
 removeModuleFromGraph : ModuleId -> Graph FilePath -> Dict ModuleId (List EdgeChange) -> Dict ModuleId (List EdgeChange)
