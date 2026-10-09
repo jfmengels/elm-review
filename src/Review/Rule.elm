@@ -5906,7 +5906,7 @@ addUnions list initial =
 
 
 computeModuleNameLookupTable :
-    { a | moduleNameLookupTable : Bool, exposed : Bool }
+    RequestedData.Data
     -> ValidProject
     -> OpaqueProjectModule
     ->
