@@ -81,7 +81,7 @@ type alias ValidProjectData =
     , edgeChanges : Dict ModuleId (List Internal.EdgeChange)
     , moduleIds : ModuleIds
     , workList : WorkList
-    , typeInferenceProject : TypeInference.Project
+    , typeInferenceProject : Maybe TypeInference.Project
     }
 
 
@@ -279,7 +279,7 @@ fromProjectAndGraph moduleGraph sortedModules typeInferenceProject_ (Project pro
         , edgeChanges = Dict.empty
         , moduleIds = project.moduleIds
         , workList = WorkList.recomputeModules moduleGraph sortedModules project.workList
-        , typeInferenceProject = Maybe.withDefault TypeInference.empty typeInferenceProject_
+        , typeInferenceProject = typeInferenceProject_
         }
 
 
@@ -461,11 +461,12 @@ updateProjectCache projectCache_ (ValidProject project) =
 typeInferenceProject : ValidProject -> TypeInference.Project
 typeInferenceProject (ValidProject validProject) =
     validProject.typeInferenceProject
+        |> Maybe.withDefault TypeInference.empty
 
 
 setTypeInferenceProject : TypeInference.Project -> ValidProject -> ValidProject
 setTypeInferenceProject typeInferenceProject_ (ValidProject project) =
-    ValidProject { project | typeInferenceProject = typeInferenceProject_ }
+    ValidProject { project | typeInferenceProject = Just typeInferenceProject_ }
 
 
 workList : ValidProject -> WorkList
@@ -533,11 +534,7 @@ addParsedModule { path, source, ast } (ValidProject project) =
                         , moduleIds = moduleIds
                         , modulesByPath = modulesByPath
                         , workList = WorkList.touchedModule path project.workList
-                        , typeInferenceProject =
-                            TypeInference.addFile ast project.typeInferenceProject
-                                -- The only way `TypeInference.addFile` can fail right now is if the module name is empty
-                                -- which is impossible as parsing would fail first.
-                                |> Result.withDefault project.typeInferenceProject
+                        , typeInferenceProject = Maybe.map (addFileToTypeInferenceProject ast) project.typeInferenceProject
                     }
                 )
 
@@ -545,6 +542,14 @@ addParsedModule { path, source, ast } (ValidProject project) =
             -- We don't support adding new files at the moment.
             -- TODO Support creating a new file (only in known source-directories?)
             Err (FixProblem.Unchanged { filePath = path, edits = [] })
+
+
+addFileToTypeInferenceProject : Elm.Syntax.File.File -> TypeInference.Project -> TypeInference.Project
+addFileToTypeInferenceProject ast typeInferenceProject_ =
+    TypeInference.addFile ast typeInferenceProject_
+        -- The only way `TypeInference.addFile` can fail right now is if the module name is empty
+        -- which is impossible as parsing would fail first.
+        |> Result.withDefault typeInferenceProject_
 
 
 checkGraph : ValidProject -> Result FixProblem ValidProject
@@ -621,7 +626,7 @@ removeModule path (ValidProject project) =
                     | modulesByPath = modulesByPath
                     , moduleGraph = Graph.removeNode moduleId project.moduleGraph
                     , edgeChanges = edgeChanges
-                    , typeInferenceProject = TypeInference.removeFile (ProjectModule.moduleName module_) project.typeInferenceProject
+                    , typeInferenceProject = Maybe.map (TypeInference.removeFile (ProjectModule.moduleName module_)) project.typeInferenceProject
                 }
                 |> Ok
 
