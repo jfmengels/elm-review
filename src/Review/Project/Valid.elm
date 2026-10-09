@@ -162,23 +162,29 @@ parse requestsTypeInformation ((Project p) as project) =
 
                     Ok ( moduleGraph, sortedModules ) ->
                         if requestsTypeInformation then
-                            case
-                                computeTypeInferenceProject
-                                    p.dependencies
-                                    (Dict.keys p.directDependencies)
-                                    p.dependencyFiles
-                                    (Maybe.andThen (\( elmJson_, _ ) -> packageName elmJson_.project) p.elmJson)
-                                    (Dict.foldl (\_ m list -> ProjectModule.ast m :: list) [] p.modulesByPath)
-                            of
-                                Ok typeInferenceProject_ ->
+                            case p.typeInferenceProject of
+                                Just typeInferenceProject_ ->
                                     fromProjectAndGraph moduleGraph sortedModules (Just typeInferenceProject_) project
                                         |> Ok
 
-                                Err invalidProjectError ->
-                                    Err invalidProjectError
+                                Nothing ->
+                                    case
+                                        computeTypeInferenceProject
+                                            p.dependencies
+                                            (Dict.keys p.directDependencies)
+                                            p.dependencyFiles
+                                            (Maybe.andThen (\( elmJson_, _ ) -> packageName elmJson_.project) p.elmJson)
+                                            (Dict.foldl (\_ m list -> ProjectModule.ast m :: list) [] p.modulesByPath)
+                                    of
+                                        Ok typeInferenceProject_ ->
+                                            fromProjectAndGraph moduleGraph sortedModules (Just typeInferenceProject_) project
+                                                |> Ok
+
+                                        Err invalidProjectError ->
+                                            Err invalidProjectError
 
                         else
-                            fromProjectAndGraph moduleGraph sortedModules Nothing project
+                            fromProjectAndGraph moduleGraph sortedModules p.typeInferenceProject project
                                 |> Ok
 
 
@@ -684,4 +690,5 @@ addElmJson elmJson_ (ValidProject project) =
         { project
             | elmJson = Just ( elmJson_, ContentHash.hash elmJson_.raw )
             , workList = WorkList.touchedElmJson project.workList
+            , typeInferenceProject = Nothing
         }
