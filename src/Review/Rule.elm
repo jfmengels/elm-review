@@ -7161,6 +7161,8 @@ createModuleVisitorFromProjectVisitorHelp schema raise hidden howToCreateModuleC
 
             inputContextHashes : ComparableContextHash projectContext
             inputContextHashes =
+                -- TODO If requested.types || requested.moduleNameLookupTable then also
+                -- Add the hash of the module docs of the directly imported files
                 computeProjectContextHashes howToCreateModuleContext project hidden.cache.moduleContexts incoming initialProjectContextHash
 
             isFileIgnored : Bool
