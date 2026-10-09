@@ -104,6 +104,7 @@ toRegularProject (ValidProject validProject) =
         , cache = validProject.projectCache
         , sortedModules = Internal.ComputedSortedModules validProject.sortedModules
         , workList = validProject.workList
+        , typeInferenceProject = validProject.typeInferenceProject
         }
 
 
@@ -534,7 +535,7 @@ addParsedModule { path, source, ast } (ValidProject project) =
                         , moduleIds = moduleIds
                         , modulesByPath = modulesByPath
                         , workList = WorkList.touchedModule path project.workList
-                        , typeInferenceProject = Maybe.map (addFileToTypeInferenceProject ast) project.typeInferenceProject
+                        , typeInferenceProject = Maybe.map (Internal.addFileToTypeInferenceProject ast) project.typeInferenceProject
                     }
                 )
 
@@ -542,14 +543,6 @@ addParsedModule { path, source, ast } (ValidProject project) =
             -- We don't support adding new files at the moment.
             -- TODO Support creating a new file (only in known source-directories?)
             Err (FixProblem.Unchanged { filePath = path, edits = [] })
-
-
-addFileToTypeInferenceProject : Elm.Syntax.File.File -> TypeInference.Project -> TypeInference.Project
-addFileToTypeInferenceProject ast typeInferenceProject_ =
-    TypeInference.addFile ast typeInferenceProject_
-        -- The only way `TypeInference.addFile` can fail right now is if the module name is empty
-        -- which is impossible as parsing would fail first.
-        |> Result.withDefault typeInferenceProject_
 
 
 checkGraph : ValidProject -> Result FixProblem ValidProject
