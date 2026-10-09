@@ -6036,20 +6036,12 @@ computeProjectContextHashes howToCreateModuleContext project cache incoming init
                 |> ContextHash.toComparable
 
         RequireContextFromImportedIncludingIndirect _ ->
-            IntSet.foldl
-                (\key acc ->
-                    case
-                        ValidProject.getGraphNode key project
-                            |> Maybe.andThen (\graphModule -> Dict.get graphModule.node.label cache)
-                    of
-                        Just importedModuleCache ->
-                            ModuleCache.outputContextHash importedModuleCache :: acc
-
-                        Nothing ->
-                            acc
-                )
-                initial
+            computeProjectContextHashesIncludingIndirect
+                project
+                cache
+                (IntSet.foldl (::) [] incoming)
                 incoming
+                initial
                 |> ContextHash.toComparable
 
 
@@ -6127,6 +6119,48 @@ computeProjectContextIncludingIndirect foldProjectContexts project cache remaini
 
                 Nothing ->
                     computeProjectContextIncludingIndirect foldProjectContexts project cache rest nodesToVisit acc
+
+
+computeProjectContextHashesIncludingIndirect :
+    ValidProject
+    -> Dict FilePath (ModuleCache.Entry error context)
+    -> List ModuleId
+    -> IntSet.IntSet
+    -> List (ContextHash context)
+    -> List (ContextHash context)
+computeProjectContextHashesIncludingIndirect project cache remainingNodesToVisit nodesToVisit acc =
+    case remainingNodesToVisit of
+        [] ->
+            acc
+
+        key :: rest ->
+            case ValidProject.getGraphNode key project of
+                Just graphModule ->
+                    computeProjectContextHashesIncludingIndirect
+                        project
+                        cache
+                        (IntSet.foldl
+                            (\int x ->
+                                if IntSet.member int nodesToVisit then
+                                    x
+
+                                else
+                                    int :: x
+                            )
+                            rest
+                            graphModule.incoming
+                        )
+                        nodesToVisit
+                        (case Dict.get graphModule.node.label cache of
+                            Just importedModuleCache ->
+                                ModuleCache.outputContextHash importedModuleCache :: acc
+
+                            Nothing ->
+                                acc
+                        )
+
+                Nothing ->
+                    computeProjectContextHashesIncludingIndirect project cache rest nodesToVisit acc
 
 
 computeModules :
