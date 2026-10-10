@@ -813,7 +813,7 @@ registerDeclaration (Node declarationRange declaration) innerContext =
             in
             innerContext
                 |> addToScope name
-                |> registerIfExposed (\ctx -> registerExposedValue function name ctx) name
+                |> ifExposed (\ctx -> registerExposedValue function name ctx) name
 
         Declaration.AliasDeclaration alias ->
             let
@@ -832,7 +832,7 @@ registerDeclaration (Node declarationRange declaration) innerContext =
             in
             { innerContext | localTypes = Set.insert name innerContext.localTypes }
                 |> registerAlias
-                |> registerIfExposed (\ctx -> registerExposedTypeAlias name ctx) name
+                |> ifExposed (\ctx -> registerExposedTypeAlias name ctx) name
 
         Declaration.CustomTypeDeclaration customType ->
             let
@@ -856,7 +856,7 @@ registerDeclaration (Node declarationRange declaration) innerContext =
             in
             innerContext
                 |> addToScope name
-                |> registerIfExposed
+                |> ifExposed
                     (\ctx ->
                         registerExposedValue { documentation = Nothing, signature = Just (Node declarationRange signature) } name ctx
                     )
@@ -870,7 +870,7 @@ registerDeclaration (Node declarationRange declaration) innerContext =
             in
             innerContext
                 |> addToScope name
-                |> registerIfExposed
+                |> ifExposed
                     (\ctx ->
                         registerExposedBinop { documentation = Nothing, signature = Nothing } name ctx
                     )
@@ -987,8 +987,8 @@ registerExposedBinop function name innerContext =
     }
 
 
-registerIfExposed : (Context -> Context) -> String -> Context -> Context
-registerIfExposed registerFn name innerContext =
+ifExposed : (Context -> Context) -> String -> Context -> Context
+ifExposed registerFn name innerContext =
     if innerContext.exposesEverything || Dict.member name innerContext.exposedNames then
         registerFn innerContext
 
