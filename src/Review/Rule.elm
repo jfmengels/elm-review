@@ -5830,7 +5830,7 @@ computeModuleWithRuleVisitors initialProject module_ inputRuleModuleVisitors (Re
             { ast = ast
             , moduleNameLookupTable = moduleNameLookupTable
             , getType = \range -> TypeInference.getType moduleName range (Tuple.first typeInferenceProject) |> getTypeMarker typeInferenceProject
-            , moduleDocumentation = findModuleDocumentation ast
+            , moduleDocumentation = Review.ModuleNameLookupTable.Compute.findModuleDocumentation ast
             , isModuleExposed = ValidProject.isModuleExposed initialProject (Node.value moduleNameNode_)
             , exposed = exposed
             , extractSourceCode =
@@ -7575,44 +7575,6 @@ moduleNameNode node =
 
         Module.EffectModule data ->
             data.moduleName
-
-
-findModuleDocumentation : Elm.Syntax.File.File -> Maybe (Node String)
-findModuleDocumentation ast =
-    let
-        cutOffLine : Int
-        cutOffLine =
-            case ast.imports of
-                firstImport :: _ ->
-                    (Node.range firstImport).start.row
-
-                [] ->
-                    case ast.declarations of
-                        firstDeclaration :: _ ->
-                            (Node.range firstDeclaration).start.row
-
-                        [] ->
-                            -- Should not happen, as every module should have at least one declaration
-                            0
-    in
-    findModuleDocumentationBeforeCutOffLine cutOffLine ast.comments
-
-
-findModuleDocumentationBeforeCutOffLine : Int -> List (Node String) -> Maybe (Node String)
-findModuleDocumentationBeforeCutOffLine cutOffLine comments =
-    case comments of
-        [] ->
-            Nothing
-
-        ((Node range content) as comment) :: restOfComments ->
-            if range.start.row > cutOffLine then
-                Nothing
-
-            else if String.startsWith "{-|" content then
-                Just comment
-
-            else
-                findModuleDocumentationBeforeCutOffLine cutOffLine restOfComments
 
 
 {-| Concatenate the errors of the previous step and of the last step, and take the last step's context.
