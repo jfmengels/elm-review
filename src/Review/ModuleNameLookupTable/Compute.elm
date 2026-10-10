@@ -225,7 +225,7 @@ computeHelp cacheKey moduleName module_ project =
 
         moduleDocsForFile : Elm.Docs.Module
         moduleDocsForFile =
-            { name = String.join "." moduleName
+            { name = joinModuleName moduleName
             , comment = findModuleDocumentation moduleAst |> Maybe.map Node.value |> Maybe.withDefault ""
             , unions = moduleContext.exposedUnions
             , aliases = moduleContext.exposedAliases
@@ -322,7 +322,7 @@ computeSimpleHelp moduleName module_ project =
 
         moduleDocsForFile : Elm.Docs.Module
         moduleDocsForFile =
-            { name = String.join "." moduleName
+            { name = joinModuleName moduleName
             , comment = findModuleDocumentation moduleAst |> Maybe.map Node.value |> Maybe.withDefault ""
             , unions = moduleContext.exposedUnions
             , aliases = moduleContext.exposedAliases
@@ -539,7 +539,7 @@ computeOnlyModuleDocs ({ baseModuleContext } as data) moduleName module_ basePro
 
         moduleDocs : Elm.Docs.Module
         moduleDocs =
-            { name = String.join "." moduleName
+            { name = joinModuleName moduleName
             , comment = findModuleDocumentation moduleAst |> Maybe.map Node.value |> Maybe.withDefault ""
             , unions = moduleContext.exposedUnions
             , aliases = moduleContext.exposedAliases
@@ -1019,7 +1019,7 @@ syntaxTypeAnnotationToDocsType innerContext (Node _ typeAnnotation) =
                 realModuleName =
                     moduleNameForType innerContext typeName moduleName
             in
-            Elm.Type.Type (String.join "." realModuleName ++ "." ++ typeName) (List.map (\node -> syntaxTypeAnnotationToDocsType innerContext node) typeParameters)
+            Elm.Type.Type (joinModuleName realModuleName ++ "." ++ typeName) (List.map (\node -> syntaxTypeAnnotationToDocsType innerContext node) typeParameters)
 
         TypeAnnotation.Unit ->
             Elm.Type.Tuple []
