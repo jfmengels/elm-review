@@ -1003,6 +1003,7 @@ convertTypeSignatureToDocsType innerContext maybeSignature =
             syntaxTypeAnnotationToDocsType innerContext typeAnnotation
 
         Nothing ->
+            -- TODO Infer type
             Elm.Type.Tuple []
 
 
