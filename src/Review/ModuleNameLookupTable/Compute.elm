@@ -1,4 +1,4 @@
-module Review.ModuleNameLookupTable.Compute exposing (compute, computeSimple)
+module Review.ModuleNameLookupTable.Compute exposing (compute, computeSimple, findModuleDocumentation)
 
 import Dict exposing (Dict)
 import Elm.Docs
@@ -226,7 +226,7 @@ computeHelp cacheKey moduleName module_ project =
         moduleDocsForFile : Elm.Docs.Module
         moduleDocsForFile =
             { name = String.join "." moduleName
-            , comment = ""
+            , comment = findModuleDocumentation moduleAst |> Maybe.map Node.value |> Maybe.withDefault ""
             , unions = moduleContext.exposedUnions
             , aliases = moduleContext.exposedAliases
             , values = moduleContext.exposedValues
@@ -323,7 +323,7 @@ computeSimpleHelp moduleName module_ project =
         moduleDocsForFile : Elm.Docs.Module
         moduleDocsForFile =
             { name = String.join "." moduleName
-            , comment = ""
+            , comment = findModuleDocumentation moduleAst |> Maybe.map Node.value |> Maybe.withDefault ""
             , unions = moduleContext.exposedUnions
             , aliases = moduleContext.exposedAliases
             , values = moduleContext.exposedValues
@@ -540,7 +540,7 @@ computeOnlyModuleDocs ({ baseModuleContext } as data) moduleName module_ basePro
         moduleDocs : Elm.Docs.Module
         moduleDocs =
             { name = String.join "." moduleName
-            , comment = ""
+            , comment = findModuleDocumentation moduleAst |> Maybe.map Node.value |> Maybe.withDefault ""
             , unions = moduleContext.exposedUnions
             , aliases = moduleContext.exposedAliases
             , values = moduleContext.exposedValues
@@ -588,6 +588,44 @@ computeBaseModule elmCorePreludeModules =
         , caseToExit = NonEmpty.fromElement Range.empty
         }
         elmCorePrelude
+
+
+findModuleDocumentation : Elm.Syntax.File.File -> Maybe (Node String)
+findModuleDocumentation ast =
+    let
+        cutOffLine : Int
+        cutOffLine =
+            case ast.imports of
+                firstImport :: _ ->
+                    (Node.range firstImport).start.row
+
+                [] ->
+                    case ast.declarations of
+                        firstDeclaration :: _ ->
+                            (Node.range firstDeclaration).start.row
+
+                        [] ->
+                            -- Should not happen, as every module should have at least one declaration
+                            0
+    in
+    findModuleDocumentationBeforeCutOffLine cutOffLine ast.comments
+
+
+findModuleDocumentationBeforeCutOffLine : Int -> List (Node String) -> Maybe (Node String)
+findModuleDocumentationBeforeCutOffLine cutOffLine comments =
+    case comments of
+        [] ->
+            Nothing
+
+        ((Node range content) as comment) :: restOfComments ->
+            if range.start.row > cutOffLine then
+                Nothing
+
+            else if String.startsWith "{-|" content then
+                Just comment
+
+            else
+                findModuleDocumentationBeforeCutOffLine cutOffLine restOfComments
 
 
 collectModuleDocs : Elm.Syntax.File.File -> Context -> Context
