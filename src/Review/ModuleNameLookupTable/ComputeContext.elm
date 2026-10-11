@@ -7,6 +7,7 @@ import Dict exposing (Dict)
 import Elm.Docs
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Range exposing (Range)
+import Elm.TypeInference
 import NonEmpty exposing (NonEmpty)
 import Review.ModuleNameLookupTable.Builder exposing (ModuleNameLookupTableBuilder)
 import Set exposing (Set)
@@ -14,6 +15,8 @@ import Set exposing (Set)
 
 type alias Context =
     { scopes : NonEmpty Scope
+    , types : Elm.TypeInference.Project
+    , moduleName : ModuleName
     , localTypes : Set String
     , importAliases : Dict String (List ModuleName)
     , importedFunctions : Dict String ModuleName
