@@ -800,7 +800,7 @@ declarationListVisitor declarations innerContext =
 
 
 registerDeclaration : Node Declaration -> Context -> Context
-registerDeclaration (Node declarationRange declaration) innerContext =
+registerDeclaration (Node _ declaration) innerContext =
     case declaration of
         Declaration.FunctionDeclaration function ->
             let
@@ -858,7 +858,7 @@ registerDeclaration (Node declarationRange declaration) innerContext =
                 |> addToScope name
                 |> ifExposed
                     (\ctx ->
-                        registerExposedValue { documentation = Nothing, signature = Just (Node declarationRange signature) } name ctx
+                        registerPortValue signature.typeAnnotation name ctx
                     )
                     name
 
@@ -893,7 +893,7 @@ addToScope name innerContext =
     { innerContext | scopes = newScopes }
 
 
-registerExposedValue : { a | documentation : Maybe (Node String), signature : Maybe (Node Signature) } -> String -> Context -> Context
+registerExposedValue : Expression.Function -> String -> Context -> Context
 registerExposedValue function name innerContext =
     { innerContext
         | exposedValues =
@@ -906,6 +906,20 @@ registerExposedValue function name innerContext =
                     Nothing ->
                         ""
             , tipe = convertTypeSignatureToDocsType innerContext function.signature
+            }
+                :: innerContext.exposedValues
+    }
+
+
+registerPortValue : Node TypeAnnotation -> String -> Context -> Context
+registerPortValue typeAnnotation name innerContext =
+    { innerContext
+        | exposedValues =
+            { name = name
+
+            -- TODO Collect documentation for port
+            , comment = ""
+            , tipe = syntaxTypeAnnotationToDocsType innerContext typeAnnotation
             }
                 :: innerContext.exposedValues
     }
