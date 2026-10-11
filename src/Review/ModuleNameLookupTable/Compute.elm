@@ -17,6 +17,8 @@ import Elm.Syntax.Signature exposing (Signature)
 import Elm.Syntax.Type
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
 import Elm.Type
+import Elm.TypeInference
+import Elm.TypeInference.Type
 import NonEmpty exposing (NonEmpty)
 import Review.Cache.ContentHash exposing (ContentHash)
 import Review.ModuleNameLookupTable.Builder as Builder exposing (ModuleNameLookupTableBuilder)
@@ -187,7 +189,7 @@ computeHelp cacheKey moduleName module_ project =
                         deps_ =
                             computeDependencies project
                     in
-                    { deps = deps_, baseModuleContext = computeBaseModule (preludeModuleDocs deps_) }
+                    { deps = deps_, baseModuleContext = computeBaseModule moduleName (ValidProject.typeInferenceProject project) (preludeModuleDocs deps_) }
             in
             case projectCache.dependencies of
                 Just cache ->
@@ -207,15 +209,15 @@ computeHelp cacheKey moduleName module_ project =
             , deps = deps
             }
 
-        { imported, projectModules } =
+        { imported, projectModules, types } =
             List.foldl
                 (\node acc -> computeImportedModulesDocs dataForModuleDocs node acc)
-                { imported = baseModuleContext.modules, projectModules = projectCache.modules }
+                { imported = baseModuleContext.modules, projectModules = projectCache.modules, types = baseModuleContext.types }
                 moduleAst.imports
 
         moduleContext : Context
         moduleContext =
-            { baseModuleContext | modules = imported }
+            { baseModuleContext | modules = imported, types = types }
                 |> collectModuleDocs moduleAst
                 |> collectLookupTable moduleAst.declarations
 
@@ -252,7 +254,10 @@ computeHelp cacheKey moduleName module_ project =
     in
     { moduleNameLookupTable = lookupTable
     , moduleDocs = moduleDocsForFile
-    , project = ValidProject.updateProjectCache newProjectCache project
+    , project =
+        project
+            |> ValidProject.updateProjectCache newProjectCache
+            |> ValidProject.setTypeInferenceProject moduleContext.types
     }
 
 
@@ -289,7 +294,7 @@ computeSimpleHelp moduleName module_ project =
                         deps_ =
                             computeDependencies project
                     in
-                    { deps = deps_, baseModuleContext = computeBaseModule (preludeModuleDocs deps_) }
+                    { deps = deps_, baseModuleContext = computeBaseModule moduleName (ValidProject.typeInferenceProject project) (preludeModuleDocs deps_) }
             in
             case projectCache.dependencies of
                 Just cache ->
@@ -309,15 +314,15 @@ computeSimpleHelp moduleName module_ project =
             , deps = deps
             }
 
-        { imported, projectModules } =
+        { imported, projectModules, types } =
             List.foldl
                 (\node acc -> computeImportedModulesDocs dataForModuleDocs node acc)
-                { imported = baseModuleContext.modules, projectModules = projectCache.modules }
+                { imported = baseModuleContext.modules, projectModules = projectCache.modules, types = baseModuleContext.types }
                 moduleAst.imports
 
         moduleContext : Context
         moduleContext =
-            { baseModuleContext | modules = imported }
+            { baseModuleContext | modules = imported, types = types }
                 |> collectModuleDocs moduleAst
 
         moduleDocsForFile : Elm.Docs.Module
@@ -343,7 +348,10 @@ computeSimpleHelp moduleName module_ project =
             }
     in
     { moduleDocs = moduleDocsForFile
-    , project = ValidProject.updateProjectCache newProjectCache project
+    , project =
+        project
+            |> ValidProject.updateProjectCache newProjectCache
+            |> ValidProject.setTypeInferenceProject moduleContext.types
     }
 
 
@@ -475,8 +483,8 @@ type alias DataForModuleDocs =
 computeImportedModulesDocs :
     DataForModuleDocs
     -> Node Import
-    -> { imported : Dict ModuleName Elm.Docs.Module, projectModules : Dict ModuleName Elm.Docs.Module }
-    -> { imported : Dict ModuleName Elm.Docs.Module, projectModules : Dict ModuleName Elm.Docs.Module }
+    -> { imported : Dict ModuleName Elm.Docs.Module, projectModules : Dict ModuleName Elm.Docs.Module, types : Elm.TypeInference.Project }
+    -> { imported : Dict ModuleName Elm.Docs.Module, projectModules : Dict ModuleName Elm.Docs.Module, types : Elm.TypeInference.Project }
 computeImportedModulesDocs data (Node _ import_) acc =
     let
         importedModuleName : ModuleName
@@ -487,6 +495,7 @@ computeImportedModulesDocs data (Node _ import_) acc =
         Just importedModule ->
             { imported = Dict.insert importedModuleName importedModule acc.imported
             , projectModules = acc.projectModules
+            , types = acc.types
             }
 
         Nothing ->
@@ -496,11 +505,12 @@ computeImportedModulesDocs data (Node _ import_) acc =
                         -- This occurs when an imported file hasn't been reviewed
                         -- (and therefore its module docs computation was skipped)
                         -- because it used its result cache.
-                        { moduleDocs, projectModules } =
-                            computeOnlyModuleDocs data importedModuleName importedModule acc.projectModules
+                        { moduleDocs, projectModules, types } =
+                            computeOnlyModuleDocs data importedModuleName importedModule acc.projectModules acc.types
                     in
                     { imported = Dict.insert importedModuleName moduleDocs acc.imported
                     , projectModules = projectModules
+                    , types = types
                     }
 
                 Nothing ->
@@ -508,6 +518,7 @@ computeImportedModulesDocs data (Node _ import_) acc =
                         Just importedModule ->
                             { imported = Dict.insert importedModuleName importedModule acc.imported
                             , projectModules = acc.projectModules
+                            , types = acc.types
                             }
 
                         Nothing ->
@@ -519,22 +530,23 @@ computeOnlyModuleDocs :
     -> ModuleName
     -> OpaqueProjectModule
     -> Dict ModuleName Elm.Docs.Module
-    -> { moduleDocs : Elm.Docs.Module, projectModules : Dict ModuleName Elm.Docs.Module }
-computeOnlyModuleDocs ({ baseModuleContext } as data) moduleName module_ baseProjectModules =
+    -> Elm.TypeInference.Project
+    -> { moduleDocs : Elm.Docs.Module, projectModules : Dict ModuleName Elm.Docs.Module, types : Elm.TypeInference.Project }
+computeOnlyModuleDocs ({ baseModuleContext } as data) moduleName module_ baseProjectModules baseTypes =
     let
         moduleAst : Elm.Syntax.File.File
         moduleAst =
             ProjectModule.ast module_
 
-        { imported, projectModules } =
+        { imported, projectModules, types } =
             List.foldl
                 (\node acc -> computeImportedModulesDocs data node acc)
-                { imported = data.baseModuleContext.modules, projectModules = baseProjectModules }
+                { imported = data.baseModuleContext.modules, projectModules = baseProjectModules, types = baseTypes }
                 moduleAst.imports
 
         moduleContext : Context
         moduleContext =
-            { baseModuleContext | modules = imported }
+            { baseModuleContext | modules = imported, types = types }
                 |> collectModuleDocs moduleAst
 
         moduleDocs : Elm.Docs.Module
@@ -549,6 +561,7 @@ computeOnlyModuleDocs ({ baseModuleContext } as data) moduleName module_ basePro
     in
     { moduleDocs = moduleDocs
     , projectModules = Dict.insert moduleName moduleDocs projectModules
+    , types = moduleContext.types
     }
 
 
@@ -568,10 +581,12 @@ computeDependencies project =
             Dict.empty
 
 
-computeBaseModule : Dict ModuleName Elm.Docs.Module -> Context
-computeBaseModule elmCorePreludeModules =
+computeBaseModule : ModuleName -> Elm.TypeInference.Project -> Dict ModuleName Elm.Docs.Module -> Context
+computeBaseModule moduleName types elmCorePreludeModules =
     List.foldl importVisitor
         { scopes = NonEmpty.fromElement Set.empty
+        , types = types
+        , moduleName = moduleName
         , localTypes = Set.empty
         , importAliases = Dict.empty
         , importedFunctions = Dict.empty
@@ -895,6 +910,22 @@ addToScope name innerContext =
 
 registerExposedValue : Expression.Function -> String -> Context -> Context
 registerExposedValue function name innerContext =
+    let
+        ( type_, types ) =
+            case function.signature of
+                Just (Node _ { typeAnnotation }) ->
+                    ( syntaxTypeAnnotationToDocsType innerContext typeAnnotation
+                    , innerContext.types
+                    )
+
+                Nothing ->
+                    case Elm.TypeInference.getType innerContext.moduleName (Node.range function.declaration) innerContext.types of
+                        ( Ok type__, newTypes ) ->
+                            ( inferredTypeToDocsType type__, newTypes )
+
+                        ( Err _, newTypes ) ->
+                            ( Elm.Type.Tuple [], newTypes )
+    in
     { innerContext
         | exposedValues =
             { name = name
@@ -905,9 +936,10 @@ registerExposedValue function name innerContext =
 
                     Nothing ->
                         ""
-            , tipe = convertTypeSignatureToDocsType innerContext function.signature
+            , tipe = type_
             }
                 :: innerContext.exposedValues
+        , types = types
     }
 
 
@@ -1062,6 +1094,75 @@ recordUpdateToDocsType innerContext updates =
             )
         )
         updates
+
+
+inferredTypeToDocsType : Elm.TypeInference.Type.Type -> Elm.Type.Type
+inferredTypeToDocsType type_ =
+    -- IGNORE TCO
+    case type_ of
+        Elm.TypeInference.Type.TypeVar name ->
+            Elm.Type.Var name
+
+        Elm.TypeInference.Type.Named { moduleName, name, arguments } ->
+            Elm.Type.Type (joinModuleName moduleName ++ "." ++ name) (List.map inferredTypeToDocsType arguments)
+
+        Elm.TypeInference.Type.Unit ->
+            Elm.Type.Tuple []
+
+        Elm.TypeInference.Type.Tuple2 a b ->
+            Elm.Type.Tuple [ inferredTypeToDocsType a, inferredTypeToDocsType b ]
+
+        Elm.TypeInference.Type.Tuple3 a b c ->
+            Elm.Type.Tuple [ inferredTypeToDocsType a, inferredTypeToDocsType b, inferredTypeToDocsType c ]
+
+        Elm.TypeInference.Type.List subType ->
+            Elm.Type.Type "List" [ inferredTypeToDocsType subType ]
+
+        Elm.TypeInference.Type.Record { fields } ->
+            Elm.Type.Record (inferredRecordTypeToDocsType fields) Nothing
+
+        Elm.TypeInference.Type.ExtensibleRecord { fields, extensionTypevar } ->
+            Elm.Type.Record (inferredRecordTypeToDocsType fields) (Just extensionTypevar)
+
+        Elm.TypeInference.Type.Function { from, to } ->
+            Elm.Type.Lambda
+                (inferredTypeToDocsType from)
+                (inferredTypeToDocsType to)
+
+        Elm.TypeInference.Type.Int ->
+            Elm.Type.Type "Basics.Int" []
+
+        Elm.TypeInference.Type.Float ->
+            Elm.Type.Type "Basics.Float" []
+
+        Elm.TypeInference.Type.Char ->
+            Elm.Type.Type "Char.Char" []
+
+        Elm.TypeInference.Type.String ->
+            Elm.Type.Type "String.String" []
+
+        Elm.TypeInference.Type.Bool ->
+            Elm.Type.Type "Basics.Bool" []
+
+        Elm.TypeInference.Type.WebGLShader r ->
+            Elm.Type.Type "WebGL.Shader"
+                [ inferredTypeToDocsType r.attributes
+                , inferredTypeToDocsType r.uniforms
+                , inferredTypeToDocsType r.varyings
+                ]
+
+
+inferredRecordTypeToDocsType : Dict String Elm.TypeInference.Type.Type -> List ( String, Elm.Type.Type )
+inferredRecordTypeToDocsType fields =
+    Dict.foldr
+        (\name typeAnnotation acc ->
+            ( name
+            , inferredTypeToDocsType typeAnnotation
+            )
+                :: acc
+        )
+        []
+        fields
 
 
 
