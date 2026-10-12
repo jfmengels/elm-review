@@ -320,7 +320,19 @@ import Test exposing (Test, describe, fuzz, test)
 
 all : Test
 all =
-   test "NameVisitor" testFn
+   test "thing" testFn
+
+a = 1
+"""
+                    |> Review.Test.runWithProjectData package rule
+                    |> Review.Test.expectNoErrors
+        , test "should not report exposed tests (without a type annotation)" <|
+            \() ->
+                """module A exposing (all)
+import Test exposing (describe)
+
+all =
+   describe "thing" []
 
 a = 1
 """
