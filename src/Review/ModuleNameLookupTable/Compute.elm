@@ -29,6 +29,7 @@ import Review.Project.Dependency
 import Review.Project.ProjectCache as ProjectCache exposing (ProjectCache)
 import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModule)
 import Review.Project.Valid as ValidProject exposing (ValidProject)
+import Review.Resources.ElmCorePrelude
 import Set
 import Vendor.ListExtra as ListExtra
 
@@ -585,7 +586,7 @@ computeBaseModule moduleName types elmCorePreludeModules =
         , branches = NonEmpty.fromElement ( Range.empty, Set.empty )
         , caseToExit = NonEmpty.fromElement Range.empty
         }
-        elmCorePrelude
+        Review.Resources.ElmCorePrelude.elmCorePrelude
 
 
 extractModuleDocumentation : Elm.Syntax.File.File -> String
@@ -701,111 +702,7 @@ preludeModuleDocs deps =
                     acc
         )
         Dict.empty
-        elmCorePrelude
-
-
-elmCorePrelude : List (Node Import)
-elmCorePrelude =
-    let
-        explicit : List Exposing.TopLevelExpose -> Maybe Exposing
-        explicit exposed =
-            exposed
-                |> List.map (Node Range.emptyRange)
-                |> Exposing.Explicit
-                |> Just
-    in
-    -- These are the default imports implicitly added by the Elm compiler
-    -- https://package.elm-lang.org/packages/elm/core/latest
-    [ createFakeImport
-        { moduleName = [ "Basics" ]
-        , moduleAlias = Nothing
-        , exposingList = Just <| Exposing.All Range.emptyRange
-        }
-    , createFakeImport
-        { moduleName = [ "List" ]
-        , moduleAlias = Nothing
-        , exposingList =
-            explicit
-                [ Exposing.TypeExpose { name = "List", open = Nothing }
-                , Exposing.InfixExpose "::"
-                ]
-        }
-    , createFakeImport
-        { moduleName = [ "Maybe" ]
-        , moduleAlias = Nothing
-        , exposingList =
-            explicit
-                [ Exposing.TypeExpose { name = "Maybe", open = Just Range.emptyRange }
-                ]
-        }
-    , createFakeImport
-        { moduleName = [ "Result" ]
-        , moduleAlias = Nothing
-        , exposingList =
-            explicit
-                [ Exposing.TypeExpose { name = "Result", open = Just Range.emptyRange }
-                ]
-        }
-    , createFakeImport
-        { moduleName = [ "String" ]
-        , moduleAlias = Nothing
-        , exposingList =
-            explicit
-                [ Exposing.TypeExpose { name = "String", open = Nothing }
-                ]
-        }
-    , createFakeImport
-        { moduleName = [ "Char" ]
-        , moduleAlias = Nothing
-        , exposingList =
-            explicit
-                [ Exposing.TypeExpose { name = "Char", open = Nothing }
-                ]
-        }
-    , createFakeImport
-        { moduleName = [ "Tuple" ]
-        , moduleAlias = Nothing
-        , exposingList = Nothing
-        }
-    , createFakeImport
-        { moduleName = [ "Debug" ]
-        , moduleAlias = Nothing
-        , exposingList = Nothing
-        }
-    , createFakeImport
-        { moduleName = [ "Platform" ]
-        , moduleAlias = Nothing
-        , exposingList =
-            explicit
-                [ Exposing.TypeExpose { name = "Program", open = Nothing }
-                ]
-        }
-    , createFakeImport
-        { moduleName = [ "Platform", "Cmd" ]
-        , moduleAlias = Just "Cmd"
-        , exposingList =
-            explicit
-                [ Exposing.TypeExpose { name = "Cmd", open = Nothing }
-                ]
-        }
-    , createFakeImport
-        { moduleName = [ "Platform", "Sub" ]
-        , moduleAlias = Just "Sub"
-        , exposingList =
-            explicit
-                [ Exposing.TypeExpose { name = "Sub", open = Nothing }
-                ]
-        }
-    ]
-
-
-createFakeImport : { moduleName : ModuleName, exposingList : Maybe Exposing, moduleAlias : Maybe String } -> Node Import
-createFakeImport { moduleName, moduleAlias, exposingList } =
-    Node Range.emptyRange
-        { moduleName = Node Range.emptyRange moduleName
-        , moduleAlias = moduleAlias |> Maybe.map (List.singleton >> Node Range.emptyRange)
-        , exposingList = exposingList |> Maybe.map (Node Range.emptyRange)
-        }
+        Review.Resources.ElmCorePrelude.elmCorePrelude
 
 
 declarationListVisitor : List (Node Declaration) -> Context -> Context
