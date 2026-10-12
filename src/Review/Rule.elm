@@ -5943,7 +5943,7 @@ computeModuleNameLookupTable requestedData project module_ =
         let
             computeResult : { moduleDocs : Elm.Docs.Module, project : ValidProject }
             computeResult =
-                Review.ModuleNameLookupTable.Compute.computeSimple moduleName module_ project
+                Review.ModuleNameLookupTable.Compute.computeJustModuleDocs moduleName module_ project
 
             exposesAll_ : Bool
             exposesAll_ =
