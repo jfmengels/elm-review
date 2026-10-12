@@ -24,7 +24,7 @@ module Review.Rule exposing
     , withModuleName, withModuleNameNode
     , withIsInSourceDirectories, withFilePath
     , withIsFileIgnored, withIsFileFixable
-    , withModuleNameLookupTable, withTypes, withModuleKey
+    , withModuleNameLookupTable, withTypes, withImportedModuleDocs, withModuleKey
     , withFullAst, withModuleDocumentation, withIsModuleExposed, withExposed
     , withSourceCodeExtractor
     , Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix
@@ -257,7 +257,7 @@ first, as they are in practice a simpler version of project rules.
 @docs withModuleName, withModuleNameNode
 @docs withIsInSourceDirectories, withFilePath
 @docs withIsFileIgnored, withIsFileFixable
-@docs withModuleNameLookupTable, withTypes, withModuleKey
+@docs withModuleNameLookupTable, withTypes, withImportedModuleDocs, withModuleKey
 @docs withFullAst, withModuleDocumentation, withIsModuleExposed, withExposed
 @docs withSourceCodeExtractor
 
@@ -395,6 +395,7 @@ import Review.Project.Dependency
 import Review.Project.Internal exposing (Project)
 import Review.Project.InvalidProjectError as InvalidProjectError
 import Review.Project.ModuleIds exposing (ModuleId)
+import Review.Project.ProjectCache exposing (ProjectCache)
 import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModule)
 import Review.Project.Valid as ValidProject exposing (ValidProject)
 import Review.RequestedData as RequestedData exposing (RequestedData(..))
@@ -1595,6 +1596,7 @@ mergeModuleVisitorsHelp ruleName_ initialProjectContext moduleContextCreator vis
             , moduleDocumentation = Nothing
             , isModuleExposed = Nothing
             , exposed = { exposesAll = True, exposed = Dict.empty }
+            , importedModuleDocs = Dict.empty
             , moduleNameLookupTable = ModuleNameLookupTableInternal.empty []
             , getType = \_ -> Ok Elm.TypeInference.Type.Unit
             , extractSourceCode = always "dummy"
@@ -5782,6 +5784,10 @@ computeModuleWithRuleVisitors initialProject module_ inputRuleModuleVisitors (Re
         typeInferenceProject =
             ( ValidProject.typeInferenceProject project, () )
 
+        moduleDocs : Dict ModuleName Elm.Docs.Module
+        moduleDocs =
+            (ValidProject.projectCache project).modules
+
         availableData : AvailableData
         availableData =
             { ast = ast
@@ -5790,6 +5796,9 @@ computeModuleWithRuleVisitors initialProject module_ inputRuleModuleVisitors (Re
             , moduleDocumentation = Review.ModuleNameLookupTable.Compute.findModuleDocumentation ast
             , isModuleExposed = ValidProject.isModuleExposed initialProject (Node.value moduleNameNode_)
             , exposed = exposed
+
+            -- TODO Filter importedModuleDocs
+            , importedModuleDocs = moduleDocs
             , extractSourceCode =
                 if requestedData.sourceCodeExtractor then
                     let
@@ -7812,6 +7821,21 @@ withTypes (ContextCreator fn (RequestedData requested)) =
         (RequestedData { requested | types = True })
 
 
+withImportedModuleDocs :
+    { skipDependencies : Bool
+    , skipPrelude : Bool
+
+    -- TODO Add?
+    -- , onlyThoseWithDotDot : Bool -- With `exposing (..)` and `exposing (Type(..))`
+    }
+    -> ContextCreator (Dict ModuleName Elm.Docs.Module) (from -> to)
+    -> ContextCreator from to
+withImportedModuleDocs params (ContextCreator fn requestedData) =
+    ContextCreator
+        (\data isFileIgnored isFileFixable -> fn data isFileIgnored isFileFixable data.importedModuleDocs)
+        requestedData
+
+
 {-| Request the full [AST](https://en.wikipedia.org/wiki/Abstract_syntax_tree) for the current module.
 
 This can be useful if you wish to avoid initializing the module context with dummy data future node visits can replace them.
@@ -8058,6 +8082,7 @@ type alias AvailableData =
     , moduleDocumentation : Maybe (Node String)
     , isModuleExposed : Maybe Bool
     , exposed : Exposed
+    , importedModuleDocs : Dict ModuleName Elm.Docs.Module
     , moduleNameLookupTable : ModuleNameLookupTable
     , getType : Range -> Result InferError Elm.TypeInference.Type.Type
     , extractSourceCode : Range -> String
