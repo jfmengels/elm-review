@@ -110,15 +110,6 @@ computeSimple moduleName module_ project =
         projectCache : ProjectCache
         projectCache =
             ValidProject.projectCache project
-
-        computeLookupTableForModule :
-            ()
-            ->
-                { moduleDocs : Elm.Docs.Module
-                , project : ValidProject
-                }
-        computeLookupTableForModule () =
-            computeSimpleHelp moduleName module_ project
     in
     case Dict.get moduleName projectCache.lookupTables of
         Just cache ->
@@ -148,10 +139,10 @@ computeSimple moduleName module_ project =
                 }
 
             else
-                computeLookupTableForModule ()
+                computeSimpleHelp moduleName module_ project
 
         Nothing ->
-            computeLookupTableForModule ()
+            computeSimpleHelp moduleName module_ project
 
 
 computeHelp :
