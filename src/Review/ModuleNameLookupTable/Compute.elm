@@ -66,14 +66,28 @@ compute moduleName module_ project =
                 Dict.empty
                 (ProjectModule.ast module_).imports
 
-        computeLookupTableForModule :
-            ()
-            ->
-                { moduleNameLookupTable : ModuleNameLookupTable
-                , moduleDocs : Elm.Docs.Module
-                , project : ValidProject
-                }
-        computeLookupTableForModule () =
+        cacheToReuse : Maybe { moduleNameLookupTable : ModuleNameLookupTable, moduleDocs : Elm.Docs.Module, project : ValidProject }
+        cacheToReuse =
+            case Dict.get moduleName projectCache.lookupTables of
+                Just cache ->
+                    if cache.key.contentHash == ProjectModule.contentHash module_ && cache.key.implicitImports == implicitImports then
+                        Just
+                            { moduleNameLookupTable = cache.lookupTable
+                            , moduleDocs = Dict.get moduleName projectCache.modules |> Maybe.withDefault emptyModuleDocs
+                            , project = project
+                            }
+
+                    else
+                        Nothing
+
+                Nothing ->
+                    Nothing
+    in
+    case cacheToReuse of
+        Just cache ->
+            cache
+
+        Nothing ->
             computeHelp
                 { implicitImports = implicitImports
                 , contentHash = ProjectModule.contentHash module_
@@ -81,20 +95,6 @@ compute moduleName module_ project =
                 moduleName
                 module_
                 project
-    in
-    case Dict.get moduleName projectCache.lookupTables of
-        Just cache ->
-            if cache.key.contentHash == ProjectModule.contentHash module_ && cache.key.implicitImports == implicitImports then
-                { moduleNameLookupTable = cache.lookupTable
-                , moduleDocs = Dict.get moduleName projectCache.modules |> Maybe.withDefault emptyModuleDocs
-                , project = project
-                }
-
-            else
-                computeLookupTableForModule ()
-
-        Nothing ->
-            computeLookupTableForModule ()
 
 
 computeJustModuleDocs :
@@ -172,26 +172,17 @@ computeHelp cacheKey moduleName module_ project =
         ({ deps, baseModuleContext } as depsCache) =
             -- TODO Only invalidate the lookup tables if the dependencies in elm.json have changed?
             -- i.e. if only the description has changed but not the dependencies
-            let
-                computeDepsAndBaseModuleContext : () -> { deps : Dict ModuleName Elm.Docs.Module, baseModuleContext : Context }
-                computeDepsAndBaseModuleContext () =
+            case reuseMaybe (elmJsonContentHash == projectCache.elmJsonContentHash) projectCache.dependencies of
+                Just cache ->
+                    cache
+
+                Nothing ->
                     let
                         deps_ : Dict ModuleName Elm.Docs.Module
                         deps_ =
                             computeDependencies project
                     in
                     { deps = deps_, baseModuleContext = computeBaseModule moduleName (ValidProject.typeInferenceProject project) (preludeModuleDocs deps_) }
-            in
-            case projectCache.dependencies of
-                Just cache ->
-                    if elmJsonContentHash == projectCache.elmJsonContentHash then
-                        cache
-
-                    else
-                        computeDepsAndBaseModuleContext ()
-
-                Nothing ->
-                    computeDepsAndBaseModuleContext ()
 
         dataForModuleDocs : DataForModuleDocs
         dataForModuleDocs =
@@ -277,26 +268,17 @@ computeJustModuleDocsHelp moduleName module_ project =
         ({ deps, baseModuleContext } as depsCache) =
             -- TODO Only invalidate the lookup tables if the dependencies in elm.json have changed?
             -- i.e. if only the description has changed but not the dependencies
-            let
-                computeDepsAndBaseModuleContext : () -> { deps : Dict ModuleName Elm.Docs.Module, baseModuleContext : Context }
-                computeDepsAndBaseModuleContext () =
+            case reuseMaybe (elmJsonContentHash == projectCache.elmJsonContentHash) projectCache.dependencies of
+                Just cache ->
+                    cache
+
+                Nothing ->
                     let
                         deps_ : Dict ModuleName Elm.Docs.Module
                         deps_ =
                             computeDependencies project
                     in
                     { deps = deps_, baseModuleContext = computeBaseModule moduleName (ValidProject.typeInferenceProject project) (preludeModuleDocs deps_) }
-            in
-            case projectCache.dependencies of
-                Just cache ->
-                    if elmJsonContentHash == projectCache.elmJsonContentHash then
-                        cache
-
-                    else
-                        computeDepsAndBaseModuleContext ()
-
-                Nothing ->
-                    computeDepsAndBaseModuleContext ()
 
         dataForModuleDocs : DataForModuleDocs
         dataForModuleDocs =
@@ -344,6 +326,15 @@ computeJustModuleDocsHelp moduleName module_ project =
             |> ValidProject.updateProjectCache newProjectCache
             |> ValidProject.setTypeInferenceProject moduleContext.types
     }
+
+
+reuseMaybe : Bool -> Maybe a -> Maybe a
+reuseMaybe check maybe =
+    if check then
+        maybe
+
+    else
+        Nothing
 
 
 emptyModuleDocs : Elm.Docs.Module
