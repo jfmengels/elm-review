@@ -24,7 +24,7 @@ module Review.Rule exposing
     , withModuleName, withModuleNameNode
     , withIsInSourceDirectories, withFilePath
     , withIsFileIgnored, withIsFileFixable
-    , withModuleNameLookupTable, withTypes, withModuleKey
+    , withModuleNameLookupTable, withTypes, withImportedModuleDocs, withModuleKey
     , withFullAst, withModuleDocumentation, withIsModuleExposed, withExposed
     , withSourceCodeExtractor
     , Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix
@@ -257,7 +257,7 @@ first, as they are in practice a simpler version of project rules.
 @docs withModuleName, withModuleNameNode
 @docs withIsInSourceDirectories, withFilePath
 @docs withIsFileIgnored, withIsFileFixable
-@docs withModuleNameLookupTable, withTypes, withModuleKey
+@docs withModuleNameLookupTable, withTypes, withImportedModuleDocs, withModuleKey
 @docs withFullAst, withModuleDocumentation, withIsModuleExposed, withExposed
 @docs withSourceCodeExtractor
 
@@ -395,9 +395,11 @@ import Review.Project.Dependency
 import Review.Project.Internal exposing (Project)
 import Review.Project.InvalidProjectError as InvalidProjectError
 import Review.Project.ModuleIds exposing (ModuleId)
+import Review.Project.ProjectCache exposing (ProjectCache)
 import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModule)
 import Review.Project.Valid as ValidProject exposing (ValidProject)
 import Review.RequestedData as RequestedData exposing (RequestedData(..))
+import Review.Resources.ElmCorePrelude
 import Review.WorkList as WorkList
 import Unicode
 import Vendor.Graph as Graph
@@ -1589,6 +1591,7 @@ mergeModuleVisitorsHelp ruleName_ initialProjectContext moduleContextCreator vis
             , moduleDocumentation = Nothing
             , isModuleExposed = Nothing
             , exposed = { exposesAll = True, exposed = Dict.empty }
+            , importedModuleDocs = always Dict.empty
             , moduleNameLookupTable = ModuleNameLookupTableInternal.empty []
             , getType = \_ -> Ok Elm.TypeInference.Type.Unit
             , extractSourceCode = always "dummy"
@@ -5776,6 +5779,10 @@ computeModuleWithRuleVisitors initialProject module_ inputRuleModuleVisitors (Re
         typeInferenceProject =
             ( ValidProject.typeInferenceProject project, () )
 
+        projectCache : ProjectCache
+        projectCache =
+            ValidProject.projectCache project
+
         availableData : AvailableData
         availableData =
             { ast = ast
@@ -5784,6 +5791,7 @@ computeModuleWithRuleVisitors initialProject module_ inputRuleModuleVisitors (Re
             , moduleDocumentation = Review.ModuleNameLookupTable.Compute.findModuleDocumentation ast
             , isModuleExposed = ValidProject.isModuleExposed initialProject (Node.value moduleNameNode_)
             , exposed = exposed
+            , importedModuleDocs = \params -> filterModuleDocs ast.imports params projectCache
             , extractSourceCode =
                 if requestedData.sourceCodeExtractor then
                     let
@@ -5808,6 +5816,46 @@ computeModuleWithRuleVisitors initialProject module_ inputRuleModuleVisitors (Re
     ( ValidProject.setTypeInferenceProject (Tuple.first typeInferenceProject) project
     , outputRuleProjectVisitors
     )
+
+
+filterModuleDocs : List (Node Import) -> { implicitImports : Bool, dependencies : Bool } -> ProjectCache -> Dict ModuleName Elm.Docs.Module
+filterModuleDocs imports params projectCache =
+    let
+        dependencies : Dict ModuleName Elm.Docs.Module
+        dependencies =
+            if params.dependencies then
+                Maybe.map .deps projectCache.dependencies
+                    |> Maybe.withDefault Dict.empty
+
+            else
+                Dict.empty
+    in
+    List.foldl
+        (\(Node _ import_) dict ->
+            let
+                moduleName : ModuleName
+                moduleName =
+                    Node.value import_.moduleName
+            in
+            case Dict.get moduleName projectCache.modules of
+                Just doc ->
+                    Dict.insert moduleName doc dict
+
+                Nothing ->
+                    case Dict.get moduleName dependencies of
+                        Just doc ->
+                            Dict.insert moduleName doc dict
+
+                        Nothing ->
+                            dict
+        )
+        Dict.empty
+        (if params.implicitImports && params.dependencies then
+            Review.Resources.ElmCorePrelude.elmCorePrelude ++ imports
+
+         else
+            imports
+        )
 
 
 {-| This function will be patched by the CLI to mutate the tuple.
@@ -5890,7 +5938,7 @@ computeModuleNameLookupTable requestedData project module_ =
         , project = computeResult.project
         }
 
-    else if requestedData.exposed then
+    else if requestedData.exposed || requestedData.moduleDocs then
         let
             computeResult : { moduleDocs : Elm.Docs.Module, project : ValidProject }
             computeResult =
@@ -7801,6 +7849,42 @@ withTypes (ContextCreator fn (RequestedData requested)) =
         (RequestedData { requested | types = True })
 
 
+{-| Requests the `docs.json` for every module imported by the current module,
+including those from modules of the project.
+
+This is mostly useful to avoid collecting information manually, potentially bypassing the need to use a project rule.
+
+The options are there to indicate what to include.
+
+If `implicitImports` is `True`, then the docs for modules that Elm implicitly imports
+(`Basics`, `List`, ...) will be included. If `False`, then these will only be included if the file explicitly imports these modules.
+
+If `dependencies` is `True`, then docs from dependency modules will be included.
+Note that these docs can also be obtained by using [`withDirectDependenciesModuleVisitor`](#withDirectDependenciesModuleVisitor)
+or [`withDirectDependenciesProjectVisitor`](#withDirectDependenciesProjectVisitor).
+
+    contextCreator : Rule.ContextCreator () Context
+    contextCreator =
+        Rule.initContextCreator
+            (\moduleDocs () ->
+                { moduleDocs = moduleDocs
+
+                -- ...other fields
+                }
+            )
+            |> Rule.withImportedModuleDocs { implicitImports = False, dependencies = False }
+
+-}
+withImportedModuleDocs :
+    { implicitImports : Bool, dependencies : Bool }
+    -> ContextCreator (Dict ModuleName Elm.Docs.Module) (from -> to)
+    -> ContextCreator from to
+withImportedModuleDocs params (ContextCreator fn (RequestedData requestedData)) =
+    ContextCreator
+        (\data isFileIgnored isFileFixable -> fn data isFileIgnored isFileFixable (data.importedModuleDocs params))
+        (RequestedData { requestedData | moduleDocs = True })
+
+
 {-| Request the full [AST](https://en.wikipedia.org/wiki/Abstract_syntax_tree) for the current module.
 
 This can be useful if you wish to access information about the AST ahead of visitors running,
@@ -8046,6 +8130,7 @@ type alias AvailableData =
     , moduleDocumentation : Maybe (Node String)
     , isModuleExposed : Maybe Bool
     , exposed : Exposed
+    , importedModuleDocs : { implicitImports : Bool, dependencies : Bool } -> Dict ModuleName Elm.Docs.Module
     , moduleNameLookupTable : ModuleNameLookupTable
     , getType : Range -> Result InferError Elm.TypeInference.Type.Type
     , extractSourceCode : Range -> String
