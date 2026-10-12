@@ -1,4 +1,4 @@
-module Review.ModuleNameLookupTable.Compute exposing (compute, computeSimple, findModuleDocumentation)
+module Review.ModuleNameLookupTable.Compute exposing (compute, computeJustModuleDocs, findModuleDocumentation)
 
 import Dict exposing (Dict)
 import Elm.Docs
@@ -97,7 +97,7 @@ compute moduleName module_ project =
             computeLookupTableForModule ()
 
 
-computeSimple :
+computeJustModuleDocs :
     ModuleName
     -> OpaqueProjectModule
     -> ValidProject
@@ -105,7 +105,7 @@ computeSimple :
         { moduleDocs : Elm.Docs.Module
         , project : ValidProject
         }
-computeSimple moduleName module_ project =
+computeJustModuleDocs moduleName module_ project =
     let
         projectCache : ProjectCache
         projectCache =
@@ -139,10 +139,10 @@ computeSimple moduleName module_ project =
                 }
 
             else
-                computeSimpleHelp moduleName module_ project
+                computeJustModuleDocsHelp moduleName module_ project
 
         Nothing ->
-            computeSimpleHelp moduleName module_ project
+            computeJustModuleDocsHelp moduleName module_ project
 
 
 computeHelp :
@@ -252,7 +252,7 @@ computeHelp cacheKey moduleName module_ project =
     }
 
 
-computeSimpleHelp :
+computeJustModuleDocsHelp :
     ModuleName
     -> OpaqueProjectModule
     -> ValidProject
@@ -260,7 +260,7 @@ computeSimpleHelp :
         { moduleDocs : Elm.Docs.Module
         , project : ValidProject
         }
-computeSimpleHelp moduleName module_ project =
+computeJustModuleDocsHelp moduleName module_ project =
     let
         projectCache : ProjectCache
         projectCache =
