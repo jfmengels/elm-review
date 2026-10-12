@@ -7821,6 +7821,13 @@ withTypes (ContextCreator fn (RequestedData requested)) =
         (RequestedData { requested | types = True })
 
 
+withModuleDocsForCurrent : ContextCreator Elm.Docs.Module (from -> to) -> ContextCreator from to
+withModuleDocsForCurrent (ContextCreator fn requestedData) =
+    ContextCreator
+        (\data isFileIgnored isFileFixable -> fn data isFileIgnored isFileFixable (Debug.todo "withModuleDocsForCurrent"))
+        requestedData
+
+
 withImportedModuleDocs :
     { skipDependencies : Bool
     , skipPrelude : Bool
