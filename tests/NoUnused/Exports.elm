@@ -111,6 +111,8 @@ import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern as Pattern exposing (Pattern)
 import Elm.Syntax.Range as Range exposing (Location, Range)
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
+import Elm.TypeInference.InferError exposing (InferError)
+import Elm.TypeInference.Type as Type exposing (Type)
 import List.Extra
 import NoUnused.LamderaSupport as LamderaSupport
 import Review.Fix as Fix
@@ -529,6 +531,7 @@ typeRealm =
 
 type alias ModuleContext =
     { lookupTable : ModuleNameLookupTable
+    , getType : Range -> Result InferError Type
     , exposed : Dict String ExposedElement
     , used : Set ElementIdentifier
     , elementsNotToReport : Set ( String, Realm )
@@ -558,7 +561,7 @@ initialProjectContext =
 fromProjectToModule : Rule.ContextCreator ProjectContext ModuleContext
 fromProjectToModule =
     Rule.initContextCreator
-        (\lookupTable ast moduleDocumentation projectContext ->
+        (\lookupTable getType ast moduleDocumentation projectContext ->
             let
                 exposingList : Exposing
                 exposingList =
@@ -601,6 +604,7 @@ fromProjectToModule =
                             collectExposedElements docsReferences explicitlyExposed ast.declarations
             in
             { lookupTable = lookupTable
+            , getType = getType
             , exposed = exposed
             , used = Set.empty
             , elementsNotToReport = Set.empty
@@ -615,6 +619,7 @@ fromProjectToModule =
             }
         )
         |> Rule.withModuleNameLookupTable
+        |> Rule.withTypes
         |> Rule.withFullAst
         |> Rule.withModuleDocumentation
 
@@ -1697,25 +1702,38 @@ testFunctionName : ModuleContext -> Declaration -> Maybe ( String, Realm )
 testFunctionName moduleContext declaration =
     case declaration of
         Declaration.FunctionDeclaration function ->
-            case Maybe.map (\(Node _ value) -> Node.value value.typeAnnotation) function.signature of
-                Just (TypeAnnotation.Typed (Node typeNodeRange ( _, "Test" )) _) ->
-                    if ModuleNameLookupTable.moduleNameAt moduleContext.lookupTable typeNodeRange == Just [ "Test" ] then
-                        ( function.declaration
-                            |> Node.value
-                            |> .name
-                            |> Node.value
-                        , valueRealm
-                        )
-                            |> Just
+            if List.isEmpty (Node.value function.declaration).arguments && isTest moduleContext function then
+                ( function.declaration
+                    |> Node.value
+                    |> .name
+                    |> Node.value
+                , valueRealm
+                )
+                    |> Just
 
-                    else
-                        Nothing
-
-                _ ->
-                    Nothing
+            else
+                Nothing
 
         _ ->
             Nothing
+
+
+isTest : ModuleContext -> Expression.Function -> Bool
+isTest moduleContext function =
+    case Maybe.map (\(Node _ value) -> Node.value value.typeAnnotation) function.signature of
+        Just (TypeAnnotation.Typed (Node typeNodeRange ( _, "Test" )) _) ->
+            ModuleNameLookupTable.moduleNameAt moduleContext.lookupTable typeNodeRange == Just [ "Test" ]
+
+        Nothing ->
+            case moduleContext.getType (Node.range function.declaration) of
+                Ok (Type.Named ref) ->
+                    ref.name == "Test" && ref.moduleName == [ "Test" ]
+
+                _ ->
+                    False
+
+        Just _ ->
+            False
 
 
 typesUsedInDeclaration : ModuleContext -> Declaration -> ( List ElementIdentifier, Bool )
