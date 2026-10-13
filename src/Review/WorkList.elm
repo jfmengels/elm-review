@@ -116,10 +116,12 @@ recomputeModulesHelp graph modules touchedModules acc =
         mod :: rest ->
             let
                 ( newTouchedModules, newAcc ) =
-                    if
-                        Set.member mod.node.label touchedModules
-                            || moduleImportsTouchedModule graph mod touchedModules
-                    then
+                    if Set.member mod.node.label touchedModules then
+                        ( touchedModules
+                        , mod.node.label :: acc
+                        )
+
+                    else if moduleImportsTouchedModule graph mod touchedModules then
                         ( Set.insert mod.node.label touchedModules
                         , mod.node.label :: acc
                         )
