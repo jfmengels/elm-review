@@ -7845,11 +7845,10 @@ withImportedModuleDocs params (ContextCreator fn requestedData) =
 
 {-| Request the full [AST](https://en.wikipedia.org/wiki/Abstract_syntax_tree) for the current module.
 
-This can be useful if you wish to avoid initializing the module context with dummy data future node visits can replace them.
+This can be useful if you wish to access information about the AST ahead of visitors running,
+or to avoid initializing the module context with dummy data before a visitor would run.
 
-For instance, if you wish to know what is exposed from a module, you may need to visit the module definition and then
-the list of declarations. If you need this information earlier on, you will have to provide dummy data at context
-initialization and store some intermediary data.
+For instance, if you wish to know the list of declared types early, you can visit the list of declarations.
 
 Using the full AST, you can simplify the implementation by computing the data in the context creator, without the use of visitors.
 
@@ -7857,7 +7856,7 @@ Using the full AST, you can simplify the implementation by computing the data in
     contextCreator =
         Rule.initContextCreator
             (\ast () ->
-                { exposed = collectExposed ast.moduleDefinition ast.declarations
+                { typeNames = collectTypeNames ast.declarations
 
                 -- ...other fields
                 }
