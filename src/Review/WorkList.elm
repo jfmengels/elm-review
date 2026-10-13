@@ -114,26 +114,26 @@ recomputeModulesHelp graph modules touchedModules acc =
             List.reverse acc
 
         mod :: rest ->
-            let
-                ( newTouchedModules, newAcc ) =
-                    if Set.member mod.node.label touchedModules then
-                        ( touchedModules
-                        , mod.node.label :: acc
-                        )
+            if Set.member mod.node.label touchedModules then
+                recomputeModulesHelp
+                    graph
+                    rest
+                    touchedModules
+                    (mod.node.label :: acc)
 
-                    else if moduleImportsTouchedModule graph mod touchedModules then
-                        ( Set.insert mod.node.label touchedModules
-                        , mod.node.label :: acc
-                        )
+            else if moduleImportsTouchedModule graph mod touchedModules then
+                recomputeModulesHelp
+                    graph
+                    rest
+                    (Set.insert mod.node.label touchedModules)
+                    (mod.node.label :: acc)
 
-                    else
-                        ( touchedModules, acc )
-            in
-            recomputeModulesHelp
-                graph
-                rest
-                newTouchedModules
-                newAcc
+            else
+                recomputeModulesHelp
+                    graph
+                    rest
+                    touchedModules
+                    acc
 
 
 moduleImportsTouchedModule : Graph FilePath -> Graph.NodeContext FilePath -> Set FilePath -> Bool
