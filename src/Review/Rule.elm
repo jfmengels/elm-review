@@ -5716,16 +5716,25 @@ type alias DataToComputeSingleModule =
 computeModule : DataToComputeSingleModule -> DataToComputeSingleModule
 computeModule params =
     let
+        { moduleDocs, project } =
+            Review.ModuleNameLookupTable.Compute.computeJustModuleDocs
+                (ProjectModule.moduleName params.module_)
+                params.module_
+                params.project
+
         ( inputRuleModuleVisitors, requestedData, rulesNotToRun ) =
-            computeWhatsRequiredToAnalyze params.project params.module_ params.ruleProjectVisitors
+            computeWhatsRequiredToAnalyze
+                project
+                params.module_
+                params.ruleProjectVisitors
     in
     if List.isEmpty inputRuleModuleVisitors then
-        params
+        { params | project = project }
 
     else
         let
             ( newProject, newRules ) =
-                computeModuleWithRuleVisitors params.project params.module_ inputRuleModuleVisitors requestedData
+                computeModuleWithRuleVisitors project params.module_ inputRuleModuleVisitors requestedData
         in
         { params
             | project = newProject
