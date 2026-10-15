@@ -1226,14 +1226,14 @@ registerImportAlias import_ innerContext =
                 Nothing ->
                     joinModuleName moduleName
 
-        toInsert : List ModuleName
+        toInsert : NonEmpty ModuleName
         toInsert =
             case Dict.get qualifier innerContext.importAliases of
                 Just previousValue ->
-                    moduleName :: previousValue
+                    NonEmpty.cons moduleName previousValue
 
                 Nothing ->
-                    [ moduleName ]
+                    NonEmpty.fromElement moduleName
     in
     { innerContext | importAliases = Dict.insert qualifier toInsert innerContext.importAliases }
 
@@ -1821,12 +1821,9 @@ moduleNameForValue context valueName moduleName =
 
         moduleNameOrAlias :: [] ->
             case Dict.get moduleNameOrAlias context.importAliases of
-                Just [ aliasedModuleName ] ->
-                    aliasedModuleName
-
                 Just aliases ->
                     case
-                        ListExtra.find
+                        NonEmpty.find
                             (\aliasedModuleName ->
                                 case Dict.get aliasedModuleName context.modules of
                                     Just module_ ->
@@ -1841,8 +1838,7 @@ moduleNameForValue context valueName moduleName =
                             aliasedModuleName
 
                         Nothing ->
-                            List.head aliases
-                                |> Maybe.withDefault moduleName
+                            NonEmpty.head aliases
 
                 Nothing ->
                     moduleName
@@ -1881,12 +1877,9 @@ moduleNameForType context typeName moduleName =
 
         _ :: [] ->
             case Dict.get (joinModuleName moduleName) context.importAliases of
-                Just [ aliasedModuleName ] ->
-                    aliasedModuleName
-
                 Just aliases ->
                     case
-                        ListExtra.find
+                        NonEmpty.find
                             (\aliasedModuleName ->
                                 case Dict.get aliasedModuleName context.modules of
                                     Just module_ ->
@@ -1901,8 +1894,7 @@ moduleNameForType context typeName moduleName =
                             aliasedModuleName
 
                         Nothing ->
-                            List.head aliases
-                                |> Maybe.withDefault moduleName
+                            NonEmpty.head aliases
 
                 Nothing ->
                     moduleName
