@@ -2,7 +2,7 @@ module Vendor.IntSet exposing
     ( IntSet
     , empty, insert
     , remove
-    , member
+    , member, any
     , getSharedKey
     , keys
     , foldl
@@ -52,7 +52,7 @@ Dictionary equality with `(==)` is unreliable and should not be used.
 
 # Query
 
-@docs member
+@docs member, any
 
 
 # Combine
@@ -391,6 +391,23 @@ foldl f acc dict =
 
         Inner i ->
             foldl f (foldl f acc i.left) i.right
+
+
+any : (Int -> Bool) -> IntSet -> Bool
+any f dict =
+    case dict of
+        Empty () ->
+            False
+
+        Leaf key ->
+            f key
+
+        Inner i ->
+            if any f i.left then
+                True
+
+            else
+                any f i.right
 
 
 {-| Fold over the keys pairs in a dictionary, in order from highest
