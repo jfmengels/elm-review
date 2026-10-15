@@ -138,18 +138,15 @@ recomputeModulesHelp graph modules touchedModules acc =
 
 moduleImportsTouchedModule : Graph FilePath -> Graph.NodeContext FilePath -> Set FilePath -> Bool
 moduleImportsTouchedModule graph mod touchedModules =
-    IntSet.foldl
-        (\key isMember ->
-            isMember
-                || (case Graph.get key graph of
-                        Just importedModule ->
-                            Set.member importedModule.node.label touchedModules
+    IntSet.any
+        (\key ->
+            case Graph.get key graph of
+                Just importedModule ->
+                    Set.member importedModule.node.label touchedModules
 
-                        Nothing ->
-                            False
-                   )
+                Nothing ->
+                    False
         )
-        False
         mod.incoming
 
 
