@@ -51,7 +51,7 @@ import Review.Project.Dependency as Dependency exposing (Dependency)
 import Review.Project.Internal as Internal exposing (Project(..))
 import Review.Project.InvalidProjectError as InvalidProjectError exposing (InvalidProjectError)
 import Review.Project.ModuleIds as ModuleIds exposing (ModuleId, ModuleIds)
-import Review.Project.ProjectCache exposing (ProjectCache)
+import Review.Project.ProjectCache as ProjectCache exposing (ProjectCache)
 import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModule)
 import Review.WorkList as WorkList exposing (WorkList)
 import Set exposing (Set)
@@ -101,7 +101,7 @@ toRegularProject (ValidProject validProject) =
         , dependencyFiles = validProject.dependencyFiles
         , moduleGraph = validProject.moduleGraph
         , sourceDirectories = validProject.sourceDirectories
-        , cache = validProject.projectCache
+        , cache = Just validProject.projectCache
         , sortedModules = Internal.ComputedSortedModules validProject.sortedModules
         , workList = validProject.workList
         , typeInferenceProject = validProject.typeInferenceProject
@@ -279,7 +279,7 @@ fromProjectAndGraph moduleGraph sortedModules typeInferenceProject_ (Project pro
         , directDependencies = project.directDependencies
         , sourceDirectories = project.sourceDirectories
         , dependencyFiles = project.dependencyFiles
-        , projectCache = project.cache
+        , projectCache = Maybe.withDefault ProjectCache.empty project.cache
         , moduleGraph = moduleGraph
         , sortedModules = sortedModules
         , edgeChanges = Dict.empty
