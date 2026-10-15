@@ -5,6 +5,7 @@ module Review.Project.Internal exposing
     , SortedModules(..)
     , addFileToTypeInferenceProject
     , addModuleToGraph
+    , clearElmDocsModuleFromProjectCacheTEST
     , removeModuleFromGraph
     , sourceDirectoriesForProject
     )
@@ -50,7 +51,7 @@ type alias ProjectInternals =
     , dependencyFiles : Dict String (List Elm.Syntax.File.File)
     , moduleGraph : Graph FilePath
     , sourceDirectories : List String
-    , cache : Maybe ProjectCache
+    , projectCache : Maybe ProjectCache
     , sortedModules : SortedModules
     , workList : WorkList
     , typeInferenceProject : Maybe TypeInference.Project
@@ -241,3 +242,8 @@ importedModulesSet ast =
         )
         Set.empty
         ast.imports
+
+
+clearElmDocsModuleFromProjectCacheTEST : Project -> Project
+clearElmDocsModuleFromProjectCacheTEST (Project project) =
+    Project { project | projectCache = Nothing }
