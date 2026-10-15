@@ -5996,7 +5996,7 @@ computeModuleNameLookupTable requestedData project module_ =
         , project = computeResult.project
         }
 
-    else if requestedData.exposed || requestedData.moduleDocs then
+    else if requestedData.exposed then
         let
             computeResult : { moduleDocs : Elm.Docs.Module, project : ValidProject }
             computeResult =
@@ -7990,10 +7990,10 @@ withImportedModuleDocs :
     { implicitImports : Bool, dependencies : Bool }
     -> ContextCreator (Dict ModuleName Elm.Docs.Module) (from -> to)
     -> ContextCreator from to
-withImportedModuleDocs params (ContextCreator fn (RequestedData requestedData)) =
+withImportedModuleDocs params (ContextCreator fn requestedData) =
     ContextCreator
         (\data isFileIgnored isFileFixable -> fn data isFileIgnored isFileFixable (data.importedModuleDocs params))
-        (RequestedData { requestedData | moduleDocs = True })
+        requestedData
 
 
 {-| Request the full [AST](https://en.wikipedia.org/wiki/Abstract_syntax_tree) for the current module.
