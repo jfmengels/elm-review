@@ -392,6 +392,7 @@ import Review.ModuleNameLookupTable.Internal as ModuleNameLookupTableInternal
 import Review.Options as ReviewOptions exposing (ReviewOptions)
 import Review.Options.Internal as InternalOptions exposing (ReviewOptionsData, ReviewOptionsInternal(..))
 import Review.Project.Dependency
+import Review.Project.DocsModule as DocsModule exposing (DocsModule)
 import Review.Project.Internal exposing (Project)
 import Review.Project.InvalidProjectError as InvalidProjectError
 import Review.Project.ModuleIds exposing (ModuleId)
@@ -5887,7 +5888,7 @@ filterModuleDocs params imports projectCache =
             in
             case Dict.get moduleName projectCache.modules of
                 Just doc ->
-                    Dict.insert moduleName doc dict
+                    Dict.insert moduleName (DocsModule.mod doc) dict
 
                 Nothing ->
                     case Dict.get moduleName dependencies of
