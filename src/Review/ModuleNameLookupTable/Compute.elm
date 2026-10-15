@@ -26,6 +26,7 @@ import Review.ModuleNameLookupTable.Builder as Builder exposing (ModuleNameLooku
 import Review.ModuleNameLookupTable.ComputeContext exposing (Context, Scope)
 import Review.ModuleNameLookupTable.Internal exposing (ModuleNameLookupTable)
 import Review.Project.Dependency
+import Review.Project.DocsModule as DocsModule exposing (DocsModule)
 import Review.Project.ProjectCache as ProjectCache exposing (ProjectCache)
 import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModule)
 import Review.Project.Valid as ValidProject exposing (ValidProject)
@@ -74,7 +75,7 @@ compute moduleName module_ project =
                     if cache.key.contentHash == ProjectModule.contentHash module_ && cache.key.implicitImports == implicitImports then
                         Just
                             { moduleNameLookupTable = cache.lookupTable
-                            , moduleDocs = Dict.get moduleName projectCache.modules |> Maybe.withDefault emptyModuleDocs
+                            , moduleDocs = Dict.get moduleName projectCache.modules |> Maybe.map DocsModule.mod |> Maybe.withDefault emptyModuleDocs
                             , project = project
                             }
 
@@ -135,7 +136,7 @@ computeJustModuleDocs moduleName module_ project =
                         (ProjectModule.ast module_).imports
             in
             if cache.key.contentHash == ProjectModule.contentHash module_ && cache.key.implicitImports == implicitImports then
-                { moduleDocs = Dict.get moduleName projectCache.modules |> Maybe.withDefault emptyModuleDocs
+                { moduleDocs = Dict.get moduleName projectCache.modules |> Maybe.map DocsModule.mod |> Maybe.withDefault emptyModuleDocs
                 , project = project
                 }
 
@@ -218,9 +219,9 @@ computeHelp cacheKey moduleName module_ project =
             , binops = moduleContext.exposedBinops
             }
 
-        modules : Dict ModuleName Elm.Docs.Module
+        modules : Dict ModuleName DocsModule
         modules =
-            Dict.insert moduleName moduleDocsForFile projectModules
+            Dict.insert moduleName (DocsModule.create moduleDocsForFile) projectModules
 
         newProjectCache : ProjectCache
         newProjectCache =
@@ -309,9 +310,9 @@ computeJustModuleDocsHelp moduleName module_ project =
             , binops = moduleContext.exposedBinops
             }
 
-        modules : Dict ModuleName Elm.Docs.Module
+        modules : Dict ModuleName DocsModule
         modules =
-            Dict.insert moduleName moduleDocsForFile projectModules
+            Dict.insert moduleName (DocsModule.create moduleDocsForFile) projectModules
 
         newProjectCache : ProjectCache
         newProjectCache =
@@ -350,7 +351,7 @@ emptyModuleDocs =
 
 
 computeImplicitlyImportedElements :
-    Dict ModuleName Elm.Docs.Module
+    Dict ModuleName DocsModule
     -> Node Import
     -> Dict String (List ProjectCache.ImportedElement)
     -> Dict String (List ProjectCache.ImportedElement)
@@ -362,7 +363,7 @@ computeImplicitlyImportedElements modules (Node _ import_) acc =
         Just (Node _ (Exposing.Explicit list)) ->
             case Dict.get (Node.value import_.moduleName) modules of
                 Just moduleDocs ->
-                    collectExplicit moduleDocs list acc
+                    collectExplicit (DocsModule.mod moduleDocs) list acc
 
                 Nothing ->
                     acc
@@ -370,7 +371,7 @@ computeImplicitlyImportedElements modules (Node _ import_) acc =
         Just (Node _ (Exposing.All _)) ->
             case Dict.get (Node.value import_.moduleName) modules of
                 Just moduleDocs ->
-                    collectAllExposed moduleDocs acc
+                    collectAllExposed (DocsModule.mod moduleDocs) acc
 
                 Nothing ->
                     acc
@@ -466,8 +467,8 @@ type alias DataForModuleDocs =
 computeImportedModulesDocs :
     DataForModuleDocs
     -> Node Import
-    -> { imported : Dict ModuleName Elm.Docs.Module, projectModules : Dict ModuleName Elm.Docs.Module, types : Elm.TypeInference.Project }
-    -> { imported : Dict ModuleName Elm.Docs.Module, projectModules : Dict ModuleName Elm.Docs.Module, types : Elm.TypeInference.Project }
+    -> { imported : Dict ModuleName Elm.Docs.Module, projectModules : Dict ModuleName DocsModule, types : Elm.TypeInference.Project }
+    -> { imported : Dict ModuleName Elm.Docs.Module, projectModules : Dict ModuleName DocsModule, types : Elm.TypeInference.Project }
 computeImportedModulesDocs data (Node _ import_) acc =
     let
         importedModuleName : ModuleName
@@ -476,7 +477,7 @@ computeImportedModulesDocs data (Node _ import_) acc =
     in
     case Dict.get importedModuleName acc.projectModules of
         Just importedModule ->
-            { imported = Dict.insert importedModuleName importedModule acc.imported
+            { imported = Dict.insert importedModuleName (DocsModule.mod importedModule) acc.imported
             , projectModules = acc.projectModules
             , types = acc.types
             }
@@ -512,9 +513,9 @@ computeOnlyModuleDocs :
     DataForModuleDocs
     -> ModuleName
     -> OpaqueProjectModule
-    -> Dict ModuleName Elm.Docs.Module
+    -> Dict ModuleName DocsModule
     -> Elm.TypeInference.Project
-    -> { moduleDocs : Elm.Docs.Module, projectModules : Dict ModuleName Elm.Docs.Module, types : Elm.TypeInference.Project }
+    -> { moduleDocs : Elm.Docs.Module, projectModules : Dict ModuleName DocsModule, types : Elm.TypeInference.Project }
 computeOnlyModuleDocs ({ baseModuleContext } as data) moduleName module_ baseProjectModules baseTypes =
     let
         moduleAst : Elm.Syntax.File.File
@@ -543,7 +544,7 @@ computeOnlyModuleDocs ({ baseModuleContext } as data) moduleName module_ basePro
             }
     in
     { moduleDocs = moduleDocs
-    , projectModules = Dict.insert moduleName moduleDocs projectModules
+    , projectModules = Dict.insert moduleName (DocsModule.create moduleDocs) projectModules
     , types = moduleContext.types
     }
 

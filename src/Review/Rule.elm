@@ -392,6 +392,7 @@ import Review.ModuleNameLookupTable.Internal as ModuleNameLookupTableInternal
 import Review.Options as ReviewOptions exposing (ReviewOptions)
 import Review.Options.Internal as InternalOptions exposing (ReviewOptionsData, ReviewOptionsInternal(..))
 import Review.Project.Dependency
+import Review.Project.DocsModule as DocsModule exposing (DocsModule)
 import Review.Project.Internal exposing (Project)
 import Review.Project.InvalidProjectError as InvalidProjectError
 import Review.Project.ModuleIds exposing (ModuleId)
@@ -5778,7 +5779,7 @@ computeModuleWithRuleVisitors initialProject module_ inputRuleModuleVisitors (Re
         typeInferenceProject =
             ( ValidProject.typeInferenceProject project, () )
 
-        moduleDocs : Dict ModuleName Elm.Docs.Module
+        moduleDocs : Dict ModuleName DocsModule
         moduleDocs =
             (ValidProject.projectCache project).modules
 
@@ -5817,7 +5818,7 @@ computeModuleWithRuleVisitors initialProject module_ inputRuleModuleVisitors (Re
     )
 
 
-filterModuleDocs : List (Node Import) -> { skipPrelude : Bool } -> Dict ModuleName Elm.Docs.Module -> Dict ModuleName Elm.Docs.Module
+filterModuleDocs : List (Node Import) -> { skipPrelude : Bool } -> Dict ModuleName DocsModule -> Dict ModuleName Elm.Docs.Module
 filterModuleDocs imports params moduleDocs =
     List.foldl
         (\(Node _ import_) dict ->
@@ -5828,7 +5829,7 @@ filterModuleDocs imports params moduleDocs =
             in
             case Dict.get moduleName moduleDocs of
                 Just doc ->
-                    Dict.insert moduleName doc dict
+                    Dict.insert moduleName (DocsModule.mod doc) dict
 
                 Nothing ->
                     dict
