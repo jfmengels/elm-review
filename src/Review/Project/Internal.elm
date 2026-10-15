@@ -50,7 +50,7 @@ type alias ProjectInternals =
     , dependencyFiles : Dict String (List Elm.Syntax.File.File)
     , moduleGraph : Graph FilePath
     , sourceDirectories : List String
-    , cache : ProjectCache
+    , cache : Maybe ProjectCache
     , sortedModules : SortedModules
     , workList : WorkList
     , typeInferenceProject : Maybe TypeInference.Project

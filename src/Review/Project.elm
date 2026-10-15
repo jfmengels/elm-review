@@ -91,7 +91,6 @@ import Review.FilePath exposing (FilePath)
 import Review.Project.Dependency as Dependency exposing (Dependency)
 import Review.Project.Internal as Internal exposing (Project, ProjectInternals)
 import Review.Project.ModuleIds as ModuleIds exposing (ModuleId, ModuleIds)
-import Review.Project.ProjectCache as ProjectCache
 import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModule)
 import Review.WorkList as WorkList
 import Vendor.Graph as Graph
@@ -131,7 +130,7 @@ new =
         , dependencyFiles = Dict.empty
         , moduleGraph = Graph.empty
         , sourceDirectories = [ "src/" ]
-        , cache = ProjectCache.empty
+        , cache = Nothing
         , sortedModules = Internal.NeedsToAddNewEdgesToGraph Dict.empty
         , workList = WorkList.empty
         , typeInferenceProject = Nothing
