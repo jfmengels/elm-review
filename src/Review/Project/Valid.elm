@@ -265,6 +265,14 @@ fromProjectAndGraph moduleGraph sortedModules typeInferenceProject_ (Project pro
 
                 Nothing ->
                     ContentHash.combine project.extraFilesContentHashes
+
+        projectCache_ : ProjectCache
+        projectCache_ =
+            { elmJsonContentHash = Nothing
+            , dependencies = Nothing
+            , modules = Dict.empty
+            , lookupTables = Dict.empty
+            }
     in
     ValidProject
         { modulesByPath = project.modulesByPath
@@ -279,7 +287,7 @@ fromProjectAndGraph moduleGraph sortedModules typeInferenceProject_ (Project pro
         , directDependencies = project.directDependencies
         , sourceDirectories = project.sourceDirectories
         , dependencyFiles = project.dependencyFiles
-        , projectCache = Maybe.withDefault ProjectCache.empty project.cache
+        , projectCache = projectCache_
         , moduleGraph = moduleGraph
         , sortedModules = sortedModules
         , edgeChanges = Dict.empty
