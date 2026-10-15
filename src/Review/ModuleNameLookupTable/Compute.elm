@@ -707,12 +707,12 @@ preludeModuleDocs deps =
 
 
 declarationListVisitor : List (Node Declaration) -> Context -> Context
-declarationListVisitor declarations innerContext =
-    List.foldl (registerDeclaration declarations) innerContext declarations
+declarationListVisitor declarations context =
+    List.foldl (registerDeclaration declarations) context declarations
 
 
 registerDeclaration : List (Node Declaration) -> Node Declaration -> Context -> Context
-registerDeclaration allDeclarations (Node _ declaration) innerContext =
+registerDeclaration allDeclarations (Node _ declaration) context =
     case declaration of
         Declaration.FunctionDeclaration function ->
             let
@@ -723,7 +723,7 @@ registerDeclaration allDeclarations (Node _ declaration) innerContext =
                         |> .name
                         |> Node.value
             in
-            innerContext
+            context
                 |> addToScope name
                 |> ifExposed (\ctx -> registerExposedValue function name ctx) name
 
@@ -742,16 +742,16 @@ registerDeclaration allDeclarations (Node _ declaration) innerContext =
                         _ ->
                             ctx
             in
-            { innerContext | localTypes = Set.insert name innerContext.localTypes }
+            { context | localTypes = Set.insert name context.localTypes }
                 |> registerAlias
                 |> ifExposed (\ctx -> registerExposedTypeAlias alias ctx) name
 
         Declaration.CustomTypeDeclaration customType ->
             List.foldl
-                (\(Node _ constructor) innerContext_ ->
-                    addToScope (Node.value constructor.name) innerContext_
+                (\(Node _ constructor) context_ ->
+                    addToScope (Node.value constructor.name) context_
                 )
-                { innerContext | localTypes = Set.insert (Node.value customType.name) innerContext.localTypes }
+                { context | localTypes = Set.insert (Node.value customType.name) context.localTypes }
                 customType.constructors
                 |> registerExposedCustomType customType
 
@@ -761,7 +761,7 @@ registerDeclaration allDeclarations (Node _ declaration) innerContext =
                 name =
                     Node.value signature.name
             in
-            innerContext
+            context
                 |> addToScope name
                 |> ifExposed
                     (\ctx ->
@@ -775,7 +775,7 @@ registerDeclaration allDeclarations (Node _ declaration) innerContext =
                 name =
                     Node.value infix_.operator
             in
-            innerContext
+            context
                 |> addToScope name
                 |> ifExposed
                     (\ctx ->
@@ -785,61 +785,61 @@ registerDeclaration allDeclarations (Node _ declaration) innerContext =
 
         Declaration.Destructuring _ _ ->
             -- Not possible in 0.19 code
-            innerContext
+            context
 
 
 addToScope : String -> Context -> Context
-addToScope name innerContext =
+addToScope name context =
     let
         newScopes : NonEmpty Scope
         newScopes =
             NonEmpty.mapHead
                 (\scope -> Set.insert name scope)
-                innerContext.scopes
+                context.scopes
     in
-    { innerContext | scopes = newScopes }
+    { context | scopes = newScopes }
 
 
 registerExposedValue : Expression.Function -> String -> Context -> Context
-registerExposedValue function name innerContext =
+registerExposedValue function name context =
     let
         ( type_, types ) =
             case function.signature of
                 Just (Node _ { typeAnnotation }) ->
-                    ( syntaxTypeAnnotationToDocsType innerContext typeAnnotation
-                    , innerContext.types
+                    ( syntaxTypeAnnotationToDocsType context typeAnnotation
+                    , context.types
                     )
 
                 Nothing ->
-                    case Elm.TypeInference.getType innerContext.moduleName (Node.range function.declaration) innerContext.types of
+                    case Elm.TypeInference.getType context.moduleName (Node.range function.declaration) context.types of
                         ( Ok type__, newTypes ) ->
                             ( inferredTypeToDocsType type__, newTypes )
 
                         ( Err _, newTypes ) ->
                             ( Elm.Type.Tuple [], newTypes )
     in
-    { innerContext
+    { context
         | exposedValues =
             { name = name
             , comment = extractDocumentation function.documentation
             , tipe = type_
             }
-                :: innerContext.exposedValues
+                :: context.exposedValues
         , types = types
     }
 
 
 registerPortValue : Node TypeAnnotation -> String -> Context -> Context
-registerPortValue typeAnnotation name innerContext =
-    { innerContext
+registerPortValue typeAnnotation name context =
+    { context
         | exposedValues =
             { name = name
 
             -- TODO Collect documentation for port
             , comment = ""
-            , tipe = syntaxTypeAnnotationToDocsType innerContext typeAnnotation
+            , tipe = syntaxTypeAnnotationToDocsType context typeAnnotation
             }
-                :: innerContext.exposedValues
+                :: context.exposedValues
     }
 
 
@@ -894,16 +894,16 @@ registerExposedTypeAlias alias context =
 
 
 ifExposed : (Context -> Context) -> String -> Context -> Context
-ifExposed registerFn name innerContext =
-    if innerContext.exposesEverything || Dict.member name innerContext.exposedNames then
-        registerFn innerContext
+ifExposed registerFn name context =
+    if context.exposesEverything || Dict.member name context.exposedNames then
+        registerFn context
 
     else
-        innerContext
+        context
 
 
 registerExposedBinop : Infix -> String -> List (Node Declaration) -> Context -> Context
-registerExposedBinop infix_ name allDeclarations innerContext =
+registerExposedBinop infix_ name allDeclarations context =
     let
         functionName : String
         functionName =
@@ -923,7 +923,7 @@ registerExposedBinop infix_ name allDeclarations innerContext =
                                         , tipe =
                                             case function.signature of
                                                 Just (Node _ { typeAnnotation }) ->
-                                                    syntaxTypeAnnotationToDocsType innerContext typeAnnotation
+                                                    syntaxTypeAnnotationToDocsType context typeAnnotation
 
                                                 Nothing ->
                                                     Elm.Type.Var "unknown"
@@ -946,11 +946,11 @@ registerExposedBinop infix_ name allDeclarations innerContext =
                     , tipe = Elm.Type.Var "unknown"
                     }
     in
-    { innerContext | exposedValues = value :: innerContext.exposedValues }
+    { context | exposedValues = value :: context.exposedValues }
 
 
 syntaxTypeAnnotationToDocsType : Context -> Node TypeAnnotation -> Elm.Type.Type
-syntaxTypeAnnotationToDocsType innerContext (Node _ typeAnnotation) =
+syntaxTypeAnnotationToDocsType context (Node _ typeAnnotation) =
     -- IGNORE TCO
     case typeAnnotation of
         TypeAnnotation.GenericType name ->
@@ -960,34 +960,34 @@ syntaxTypeAnnotationToDocsType innerContext (Node _ typeAnnotation) =
             let
                 realModuleName : ModuleName
                 realModuleName =
-                    fullModuleNameForType innerContext typeName moduleName
+                    fullModuleNameForType context typeName moduleName
             in
-            Elm.Type.Type (joinModuleName realModuleName ++ "." ++ typeName) (List.map (\node -> syntaxTypeAnnotationToDocsType innerContext node) typeParameters)
+            Elm.Type.Type (joinModuleName realModuleName ++ "." ++ typeName) (List.map (\node -> syntaxTypeAnnotationToDocsType context node) typeParameters)
 
         TypeAnnotation.Unit ->
             Elm.Type.Tuple []
 
         TypeAnnotation.Tupled list ->
-            Elm.Type.Tuple (List.map (\node -> syntaxTypeAnnotationToDocsType innerContext node) list)
+            Elm.Type.Tuple (List.map (\node -> syntaxTypeAnnotationToDocsType context node) list)
 
         TypeAnnotation.Record updates ->
-            Elm.Type.Record (recordUpdateToDocsType innerContext updates) Nothing
+            Elm.Type.Record (recordUpdateToDocsType context updates) Nothing
 
         TypeAnnotation.GenericRecord (Node _ generic) (Node _ updates) ->
-            Elm.Type.Record (recordUpdateToDocsType innerContext updates) (Just generic)
+            Elm.Type.Record (recordUpdateToDocsType context updates) (Just generic)
 
         TypeAnnotation.FunctionTypeAnnotation left right ->
             Elm.Type.Lambda
-                (syntaxTypeAnnotationToDocsType innerContext left)
-                (syntaxTypeAnnotationToDocsType innerContext right)
+                (syntaxTypeAnnotationToDocsType context left)
+                (syntaxTypeAnnotationToDocsType context right)
 
 
 recordUpdateToDocsType : Context -> List (Node TypeAnnotation.RecordField) -> List ( String, Elm.Type.Type )
-recordUpdateToDocsType innerContext updates =
+recordUpdateToDocsType context updates =
     List.map
         (\(Node _ ( Node _ name, typeAnnotation )) ->
             ( name
-            , syntaxTypeAnnotationToDocsType innerContext typeAnnotation
+            , syntaxTypeAnnotationToDocsType context typeAnnotation
             )
         )
         updates
@@ -1067,13 +1067,13 @@ inferredRecordTypeToDocsType fields =
 
 
 moduleDefinitionVisitor : Node Module -> Context -> Context
-moduleDefinitionVisitor (Node _ node) innerContext =
+moduleDefinitionVisitor (Node _ node) context =
     case Module.exposingList node of
         Exposing.All _ ->
-            { innerContext | exposesEverything = True }
+            { context | exposesEverything = True }
 
         Exposing.Explicit list ->
-            { innerContext | exposedNames = exposedElements list }
+            { context | exposedNames = exposedElements list }
 
 
 exposedElements : List (Node Exposing.TopLevelExpose) -> Dict String Bool
@@ -1102,14 +1102,14 @@ exposedElements nodes =
 
 
 importVisitor : Node Import -> Context -> Context
-importVisitor (Node _ import_) innerContext =
-    innerContext
+importVisitor (Node _ import_) context =
+    context
         |> registerImportAlias import_
         |> registerImportExposed import_
 
 
 registerImportAlias : Import -> Context -> Context
-registerImportAlias import_ innerContext =
+registerImportAlias import_ context =
     let
         moduleName : ModuleName
         moduleName =
@@ -1126,21 +1126,21 @@ registerImportAlias import_ innerContext =
 
         toInsert : NonEmpty ModuleName
         toInsert =
-            case Dict.get qualifier innerContext.importAliases of
+            case Dict.get qualifier context.importAliases of
                 Just previousValue ->
                     NonEmpty.cons moduleName previousValue
 
                 Nothing ->
                     NonEmpty.fromElement moduleName
     in
-    { innerContext | importAliases = Dict.insert qualifier toInsert innerContext.importAliases }
+    { context | importAliases = Dict.insert qualifier toInsert context.importAliases }
 
 
 registerImportExposed : Import -> Context -> Context
-registerImportExposed import_ innerContext =
+registerImportExposed import_ context =
     case import_.exposingList of
         Nothing ->
-            innerContext
+            context
 
         Just (Node _ exposing_) ->
             let
@@ -1150,7 +1150,7 @@ registerImportExposed import_ innerContext =
 
                 module_ : Elm.Docs.Module
                 module_ =
-                    Dict.get moduleName innerContext.modules
+                    Dict.get moduleName context.modules
                         |> Maybe.withDefault
                             { name = joinModuleName moduleName
                             , comment = ""
@@ -1191,7 +1191,7 @@ registerImportExposed import_ innerContext =
 
                         importedFunctions : Dict String ModuleName
                         importedFunctions =
-                            innerContext.importedFunctions
+                            context.importedFunctions
                                 |> foldIntoDict module_.values
                                 |> foldIntoDict module_.binops
                                 |> addRecordAliases module_.aliases
@@ -1199,11 +1199,11 @@ registerImportExposed import_ innerContext =
 
                         importedTypes : Dict String ModuleName
                         importedTypes =
-                            innerContext.importedTypes
+                            context.importedTypes
                                 |> foldIntoDict module_.unions
                                 |> foldIntoDict module_.aliases
                     in
-                    { innerContext
+                    { context
                         | importedFunctions = importedFunctions
                         , importedTypes = importedTypes
                     }
@@ -1216,7 +1216,7 @@ registerImportExposed import_ innerContext =
                                 moduleName
                                 module_
                                 topLevelExposeList
-                                innerContext.importedFunctions
+                                context.importedFunctions
 
                         importedTypes : Dict String ModuleName
                         importedTypes =
@@ -1229,10 +1229,10 @@ registerImportExposed import_ innerContext =
                                         Nothing ->
                                             acc
                                 )
-                                innerContext.importedTypes
+                                context.importedTypes
                                 topLevelExposeList
                     in
-                    { innerContext
+                    { context
                         | importedFunctions = importedFunctions
                         , importedTypes = importedTypes
                     }
