@@ -138,22 +138,17 @@ computeHelp cacheKey moduleName module_ project =
                     in
                     { deps = deps_, baseModuleContext = computeBaseModule moduleName (ValidProject.typeInferenceProject project) (preludeModuleDocs deps_) }
 
-        dataForModuleDocs : DataForModuleDocs
-        dataForModuleDocs =
-            { getModule = ValidProject.getModuleByModuleName project
-            , baseModuleContext = baseModuleContext
-            , deps = deps
-            }
-
-        { imported, projectModules, types } =
-            List.foldl
-                (\node acc -> computeImportedModulesDocs dataForModuleDocs node acc)
-                { imported = baseModuleContext.modules, projectModules = projectCache.modules, types = baseModuleContext.types }
-                moduleAst.imports
-
         moduleContext : Context
         moduleContext =
-            { baseModuleContext | modules = imported, types = types }
+            { baseModuleContext
+                | modules =
+                    Dict.foldl
+                        (\key docs dict ->
+                            Dict.insert key (DocsModule.mod docs) dict
+                        )
+                        deps
+                        projectCache.modules
+            }
                 |> collectModuleDocs moduleAst
                 |> collectLookupTable moduleAst.declarations
 
@@ -171,15 +166,11 @@ computeHelp cacheKey moduleName module_ project =
             , binops = moduleContext.exposedBinops
             }
 
-        modules : Dict ModuleName DocsModule
-        modules =
-            Dict.insert moduleName (DocsModule.create moduleDocsForFile) projectModules
-
         newProjectCache : ProjectCache
         newProjectCache =
             { dependencies = Just depsCache
             , elmJsonContentHash = elmJsonContentHash
-            , modules = modules
+            , modules = projectCache.modules
             , lookupTables =
                 Dict.insert moduleName
                     { key = cacheKey
