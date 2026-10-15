@@ -332,8 +332,7 @@ rule config =
             , fromModuleToProject = fromModuleToProject
             , foldProjectContexts = foldProjectContexts
             }
-        |> Rule.withContextFromImportedModulesIncludingIndirect
-        |> Rule.providesFixesForProjectRule
+        |> Rule.withContextFromImportedModules
         |> Rule.fromProjectRuleSchema
 
 
@@ -755,31 +754,31 @@ exposed by dependencies.
 fromModuleToProject : Rule.ContextCreator ModuleContext ProjectContext
 fromModuleToProject =
     Rule.initContextCreator
-        (\moduleName { exposed } ->
+        (\moduleName ({ exposed } as context) ->
             { aliases =
                 if Dict.isEmpty exposed.aliases then
-                    Dict.empty
+                    Dict.remove moduleName context.aliases
 
                 else
-                    Dict.singleton moduleName exposed.aliases
+                    Dict.insert moduleName exposed.aliases context.aliases
             , canonicalRecords =
                 if Dict.isEmpty exposed.canonicalRecords then
-                    Dict.empty
+                    Dict.remove moduleName context.canonicalRecords
 
                 else
-                    Dict.singleton moduleName exposed.canonicalRecords
+                    Dict.insert moduleName exposed.canonicalRecords context.canonicalRecords
             , constructors =
                 if Dict.isEmpty exposed.constructors then
-                    Dict.empty
+                    Dict.remove moduleName context.constructors
 
                 else
-                    Dict.singleton moduleName exposed.constructors
+                    Dict.insert moduleName exposed.constructors context.constructors
             , functionTypes =
                 if Dict.isEmpty exposed.functionTypes then
-                    Dict.empty
+                    Dict.remove moduleName context.functionTypes
 
                 else
-                    Dict.singleton moduleName exposed.functionTypes
+                    Dict.insert moduleName exposed.functionTypes context.functionTypes
             }
         )
         |> Rule.withModuleName
@@ -1212,7 +1211,7 @@ docTypeToType moduleName ({ constrainedTypeVarsAreRespected, subrecordIsAlsoCano
                 |> ListX.unconsLast
                 |> Maybe.map
                     (\( n, m ) ->
-                        if m == [] then
+                        if List.isEmpty m then
                             ( moduleName, n )
 
                         else
@@ -1394,10 +1393,10 @@ declarationListVisitor (RuleConfig { subrecordTreatment }) context declarations 
         declarations
         |> (\r ->
                 if context.fileIsIgnored then
-                    { aliases = Dict.empty
-                    , canonicalRecords = Dict.empty
-                    , constructors = Dict.empty
-                    , functionTypes = Dict.empty
+                    { aliases = context.aliases
+                    , canonicalRecords = context.canonicalRecords
+                    , constructors = context.constructors
+                    , functionTypes = context.functionTypes
                     , exposed =
                         { aliases =
                             Dict.fromList r.exposedAliases
@@ -1834,7 +1833,7 @@ typeAnnotToType context ({ constrainedTypeVarsAreRespected, subrecordIsAlsoCanon
             moduleNameFor context.lookupTable name
                 |> Maybe.withDefault (Tuple.first <| Node.value name)
                 |> (\moduleName ->
-                        if moduleName == [] then
+                        if List.isEmpty moduleName then
                             -- If the module name is empty, then update to current module name
                             context.moduleName
 
@@ -2589,7 +2588,7 @@ findFunctionType { context, localFunctions } type_ moduleNode name =
     moduleNameFor context.lookupTable moduleNode
         |> Maybe.map
             (\moduleName ->
-                if moduleName == [] then
+                if List.isEmpty moduleName then
                     context.moduleName
 
                 else
