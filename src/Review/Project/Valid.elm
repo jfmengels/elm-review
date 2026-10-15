@@ -6,7 +6,6 @@ module Review.Project.Valid exposing
     , addParsedModule
     , addReadme
     , checkGraph
-    , clearElmDocsModuleFromProjectCacheTEST
     , dependencies
     , dependenciesHash
     , directDependencies
@@ -35,6 +34,7 @@ module Review.Project.Valid exposing
     )
 
 import Dict exposing (Dict)
+import Elm.Docs
 import Elm.Module
 import Elm.Package
 import Elm.Project
@@ -51,7 +51,7 @@ import Review.Project.Dependency as Dependency exposing (Dependency)
 import Review.Project.Internal as Internal exposing (Project(..))
 import Review.Project.InvalidProjectError as InvalidProjectError exposing (InvalidProjectError)
 import Review.Project.ModuleIds as ModuleIds exposing (ModuleId, ModuleIds)
-import Review.Project.ProjectCache as ProjectCache exposing (ProjectCache)
+import Review.Project.ProjectCache exposing (ProjectCache)
 import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModule)
 import Review.WorkList as WorkList exposing (WorkList)
 import Set exposing (Set)
@@ -101,7 +101,7 @@ toRegularProject (ValidProject validProject) =
         , dependencyFiles = validProject.dependencyFiles
         , moduleGraph = validProject.moduleGraph
         , sourceDirectories = validProject.sourceDirectories
-        , cache = Just validProject.projectCache
+        , projectCache = Just validProject.projectCache
         , sortedModules = Internal.ComputedSortedModules validProject.sortedModules
         , workList = validProject.workList
         , typeInferenceProject = validProject.typeInferenceProject
@@ -266,10 +266,20 @@ fromProjectAndGraph moduleGraph sortedModules typeInferenceProject_ (Project pro
                 Nothing ->
                     ContentHash.combine project.extraFilesContentHashes
 
+        previousProjectCache : Maybe ProjectCache
+        previousProjectCache =
+            -- TODO To use
+            project.projectCache
+
+        deps : Dict ModuleName Elm.Docs.Module
+        deps =
+            -- TODO Reuse previous when possible
+            computeDependencies project.directDependencies
+
         projectCache_ : ProjectCache
         projectCache_ =
             { elmJsonContentHash = Nothing
-            , dependencies = Nothing
+            , dependencies = deps
             , modules = Dict.empty
             , lookupTables = Dict.empty
             }
@@ -295,6 +305,21 @@ fromProjectAndGraph moduleGraph sortedModules typeInferenceProject_ (Project pro
         , workList = WorkList.recomputeModules moduleGraph sortedModules project.workList
         , typeInferenceProject = typeInferenceProject_
         }
+
+
+computeDependencies : Dict a Dependency -> Dict ModuleName Elm.Docs.Module
+computeDependencies directDeps =
+    Dict.foldl
+        (\_ dep acc ->
+            List.foldl
+                (\dependencyModule subAcc ->
+                    Dict.insert (String.split "." dependencyModule.name) dependencyModule subAcc
+                )
+                acc
+                (Dependency.modules dep)
+        )
+        Dict.empty
+        directDeps
 
 
 computeExposedModules : Elm.Project.Project -> Maybe (Set String)
@@ -491,19 +516,6 @@ workList (ValidProject project) =
 updateWorkList : (WorkList -> WorkList) -> ValidProject -> ValidProject
 updateWorkList fn (ValidProject project) =
     ValidProject { project | workList = fn project.workList }
-
-
-clearElmDocsModuleFromProjectCacheTEST : ValidProject -> ValidProject
-clearElmDocsModuleFromProjectCacheTEST (ValidProject project) =
-    ValidProject
-        { project
-            | projectCache =
-                { elmJsonContentHash = Nothing
-                , dependencies = Nothing
-                , modules = Dict.empty
-                , lookupTables = Dict.empty
-                }
-        }
 
 
 {-| Add an already parsed module to the project. This module will then be analyzed by the rules.

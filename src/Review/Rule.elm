@@ -5882,8 +5882,7 @@ filterModuleDocs params imports projectCache =
         dependencies : Dict ModuleName Elm.Docs.Module
         dependencies =
             if params.dependencies then
-                Maybe.map .deps projectCache.dependencies
-                    |> Maybe.withDefault Dict.empty
+                projectCache.dependencies
 
             else
                 Dict.empty
