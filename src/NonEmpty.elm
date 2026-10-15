@@ -2,6 +2,7 @@ module NonEmpty exposing
     ( NonEmpty
     , fromElement
     , head
+    , find
     , any
     , cons, pop
     , mapHead
@@ -30,6 +31,7 @@ available.
 # Access
 
 @docs head
+@docs find, findMap
 
 
 # Inspect
@@ -81,6 +83,8 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 -}
+
+import Vendor.ListExtra as ListExtra
 
 
 {-| The Nonempty type. If you have both a head and tail, you can construct a
@@ -138,3 +142,12 @@ pop (Nonempty x xs) =
 mapHead : (a -> a) -> NonEmpty a -> NonEmpty a
 mapHead fn (Nonempty x xs) =
     Nonempty (fn x) xs
+
+
+find : (a -> Bool) -> NonEmpty a -> Maybe a
+find predicate (Nonempty x xs) =
+    if predicate x then
+        Just x
+
+    else
+        ListExtra.find predicate xs
