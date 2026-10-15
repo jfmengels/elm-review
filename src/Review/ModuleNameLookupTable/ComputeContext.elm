@@ -18,7 +18,7 @@ type alias Context =
     , types : Elm.TypeInference.Project
     , moduleName : ModuleName
     , localTypes : Set String
-    , importAliases : Dict String (List ModuleName)
+    , importAliases : Dict String (NonEmpty ModuleName)
     , importedFunctions : Dict String ModuleName
     , importedTypes : Dict String ModuleName
     , modules : Dict ModuleName Elm.Docs.Module
