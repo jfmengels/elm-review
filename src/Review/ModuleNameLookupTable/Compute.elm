@@ -7,7 +7,7 @@ import Elm.Syntax.Exposing as Exposing exposing (Exposing, TopLevelExpose)
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.File
 import Elm.Syntax.Import exposing (Import)
-import Elm.Syntax.Infix as Infix
+import Elm.Syntax.Infix as Infix exposing (Infix)
 import Elm.Syntax.Module as Module exposing (Module)
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node(..))
@@ -15,6 +15,7 @@ import Elm.Syntax.Pattern as Pattern exposing (Pattern)
 import Elm.Syntax.Range as Range exposing (Range)
 import Elm.Syntax.Signature exposing (Signature)
 import Elm.Syntax.Type
+import Elm.Syntax.TypeAlias
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
 import Elm.Type
 import Elm.TypeInference
@@ -210,7 +211,7 @@ computeHelp cacheKey moduleName module_ project =
         moduleDocsForFile : Elm.Docs.Module
         moduleDocsForFile =
             { name = joinModuleName moduleName
-            , comment = findModuleDocumentation moduleAst |> Maybe.map Node.value |> Maybe.withDefault ""
+            , comment = extractModuleDocumentation moduleAst
             , unions = moduleContext.exposedUnions
             , aliases = moduleContext.exposedAliases
             , values = moduleContext.exposedValues
@@ -301,7 +302,7 @@ computeJustModuleDocsHelp moduleName module_ project =
         moduleDocsForFile : Elm.Docs.Module
         moduleDocsForFile =
             { name = joinModuleName moduleName
-            , comment = findModuleDocumentation moduleAst |> Maybe.map Node.value |> Maybe.withDefault ""
+            , comment = extractModuleDocumentation moduleAst
             , unions = moduleContext.exposedUnions
             , aliases = moduleContext.exposedAliases
             , values = moduleContext.exposedValues
@@ -534,7 +535,7 @@ computeOnlyModuleDocs ({ baseModuleContext } as data) moduleName module_ basePro
         moduleDocs : Elm.Docs.Module
         moduleDocs =
             { name = joinModuleName moduleName
-            , comment = findModuleDocumentation moduleAst |> Maybe.map Node.value |> Maybe.withDefault ""
+            , comment = extractModuleDocumentation moduleAst
             , unions = moduleContext.exposedUnions
             , aliases = moduleContext.exposedAliases
             , values = moduleContext.exposedValues
@@ -585,6 +586,22 @@ computeBaseModule moduleName types elmCorePreludeModules =
         , caseToExit = NonEmpty.fromElement Range.empty
         }
         elmCorePrelude
+
+
+extractModuleDocumentation : Elm.Syntax.File.File -> String
+extractModuleDocumentation ast =
+    extractDocumentation (findModuleDocumentation ast)
+
+
+extractDocumentation : Maybe (Node String) -> String
+extractDocumentation maybeDoc =
+    case maybeDoc of
+        Just (Node _ str) ->
+            -- Remove surrounding {-| and -}
+            String.slice 3 -2 str
+
+        Nothing ->
+            ""
 
 
 findModuleDocumentation : Elm.Syntax.File.File -> Maybe (Node String)
@@ -793,11 +810,11 @@ createFakeImport { moduleName, moduleAlias, exposingList } =
 
 declarationListVisitor : List (Node Declaration) -> Context -> Context
 declarationListVisitor declarations innerContext =
-    List.foldl registerDeclaration innerContext declarations
+    List.foldl (registerDeclaration declarations) innerContext declarations
 
 
-registerDeclaration : Node Declaration -> Context -> Context
-registerDeclaration (Node _ declaration) innerContext =
+registerDeclaration : List (Node Declaration) -> Node Declaration -> Context -> Context
+registerDeclaration allDeclarations (Node _ declaration) innerContext =
     case declaration of
         Declaration.FunctionDeclaration function ->
             let
@@ -829,21 +846,16 @@ registerDeclaration (Node _ declaration) innerContext =
             in
             { innerContext | localTypes = Set.insert name innerContext.localTypes }
                 |> registerAlias
-                |> ifExposed (\ctx -> registerExposedTypeAlias name ctx) name
+                |> ifExposed (\ctx -> registerExposedTypeAlias alias ctx) name
 
         Declaration.CustomTypeDeclaration customType ->
-            let
-                name : String
-                name =
-                    Node.value customType.name
-            in
             List.foldl
                 (\(Node _ constructor) innerContext_ ->
                     addToScope (Node.value constructor.name) innerContext_
                 )
-                { innerContext | localTypes = Set.insert name innerContext.localTypes }
+                { innerContext | localTypes = Set.insert (Node.value customType.name) innerContext.localTypes }
                 customType.constructors
-                |> registerExposedCustomType customType.constructors name
+                |> registerExposedCustomType customType
 
         Declaration.PortDeclaration signature ->
             let
@@ -869,7 +881,7 @@ registerDeclaration (Node _ declaration) innerContext =
                 |> addToScope name
                 |> ifExposed
                     (\ctx ->
-                        registerExposedBinop { documentation = Nothing, signature = Nothing } name ctx
+                        registerExposedBinop infix_ name allDeclarations ctx
                     )
                     name
 
@@ -911,13 +923,7 @@ registerExposedValue function name innerContext =
     { innerContext
         | exposedValues =
             { name = name
-            , comment =
-                case function.documentation of
-                    Just (Node _ str) ->
-                        str
-
-                    Nothing ->
-                        ""
+            , comment = extractDocumentation function.documentation
             , tipe = type_
             }
                 :: innerContext.exposedValues
@@ -939,79 +945,53 @@ registerPortValue typeAnnotation name innerContext =
     }
 
 
-registerExposedCustomType : List (Node Elm.Syntax.Type.ValueConstructor) -> String -> Context -> Context
-registerExposedCustomType constructors customTypeName context =
+registerExposedCustomType : Elm.Syntax.Type.Type -> Context -> Context
+registerExposedCustomType union context =
     if context.exposesEverything then
-        registerCustomTypeWithConstructors constructors customTypeName context
+        registerCustomType union union.constructors context
 
     else
-        case Dict.get customTypeName context.exposedNames of
+        case Dict.get (Node.value union.name) context.exposedNames of
             Just True ->
-                registerCustomTypeWithConstructors constructors customTypeName context
+                registerCustomType union union.constructors context
 
             Just False ->
-                registerCustomTypeWithoutConstructors customTypeName context
+                registerCustomType union [] context
 
             Nothing ->
                 context
 
 
-registerCustomTypeWithConstructors : List (Node Elm.Syntax.Type.ValueConstructor) -> String -> Context -> Context
-registerCustomTypeWithConstructors constructors customTypeName context =
+registerCustomType : Elm.Syntax.Type.Type -> List (Node Elm.Syntax.Type.ValueConstructor) -> Context -> Context
+registerCustomType union constructors context =
     { context
         | exposedUnions =
-            { name = customTypeName
-            , comment = ""
-
-            -- TODO Get the args from the type. Not useful now but useful when we will provide type information
-            , args = []
+            { name = Node.value union.name
+            , comment = extractDocumentation union.documentation
+            , args = List.map Node.value union.generics
             , tags =
                 constructors
-                    -- TODO Get the constructor args from the type. Not useful now but useful when we will provide type information
-                    |> List.map (\(Node _ { name }) -> ( Node.value name, [] ))
+                    |> List.map
+                        (\(Node _ { name, arguments }) ->
+                            ( Node.value name
+                            , List.map (syntaxTypeAnnotationToDocsType context) arguments
+                            )
+                        )
             }
                 :: context.exposedUnions
     }
 
 
-registerCustomTypeWithoutConstructors : String -> Context -> Context
-registerCustomTypeWithoutConstructors customTypeName context =
+registerExposedTypeAlias : Elm.Syntax.TypeAlias.TypeAlias -> Context -> Context
+registerExposedTypeAlias alias context =
     { context
-        | exposedUnions =
-            { name = customTypeName
-            , comment = ""
-
-            -- TODO Get the args from the type. Not useful now but useful when we will provide type information
-            , args = []
-            , tags = []
-            }
-                :: context.exposedUnions
-    }
-
-
-registerExposedTypeAlias : String -> Context -> Context
-registerExposedTypeAlias name innerContext =
-    { innerContext
         | exposedAliases =
-            { name = name
-            , comment = ""
-            , args = []
-            , tipe = Elm.Type.Tuple []
+            { name = Node.value alias.name
+            , comment = extractDocumentation alias.documentation
+            , args = List.map Node.value alias.generics
+            , tipe = syntaxTypeAnnotationToDocsType context alias.typeAnnotation
             }
-                :: innerContext.exposedAliases
-    }
-
-
-registerExposedBinop : { a | documentation : Maybe (Node String), signature : Maybe (Node Signature) } -> String -> Context -> Context
-registerExposedBinop function name innerContext =
-    -- TODO Get comment and type from the aliased function?
-    { innerContext
-        | exposedValues =
-            { name = name
-            , comment = ""
-            , tipe = convertTypeSignatureToDocsType innerContext function.signature
-            }
-                :: innerContext.exposedValues
+                :: context.exposedAliases
     }
 
 
@@ -1024,14 +1004,51 @@ ifExposed registerFn name innerContext =
         innerContext
 
 
-convertTypeSignatureToDocsType : Context -> Maybe (Node Signature) -> Elm.Type.Type
-convertTypeSignatureToDocsType innerContext maybeSignature =
-    case maybeSignature of
-        Just (Node _ { typeAnnotation }) ->
-            syntaxTypeAnnotationToDocsType innerContext typeAnnotation
+registerExposedBinop : Infix -> String -> List (Node Declaration) -> Context -> Context
+registerExposedBinop infix_ name allDeclarations innerContext =
+    let
+        functionName : String
+        functionName =
+            Node.value infix_.function
 
-        Nothing ->
-            Elm.Type.Tuple []
+        value : Elm.Docs.Value
+        value =
+            case
+                ListExtra.findMap
+                    (\(Node _ decl) ->
+                        case decl of
+                            Declaration.FunctionDeclaration function ->
+                                if Node.value (Node.value function.declaration).name == functionName then
+                                    Just
+                                        { name = name
+                                        , comment = extractDocumentation function.documentation
+                                        , tipe =
+                                            case function.signature of
+                                                Just (Node _ { typeAnnotation }) ->
+                                                    syntaxTypeAnnotationToDocsType innerContext typeAnnotation
+
+                                                Nothing ->
+                                                    Elm.Type.Var "unknown"
+                                        }
+
+                                else
+                                    Nothing
+
+                            _ ->
+                                Nothing
+                    )
+                    allDeclarations
+            of
+                Just valueWithDetails ->
+                    valueWithDetails
+
+                Nothing ->
+                    { name = name
+                    , comment = ""
+                    , tipe = Elm.Type.Var "unknown"
+                    }
+    in
+    { innerContext | exposedValues = value :: innerContext.exposedValues }
 
 
 syntaxTypeAnnotationToDocsType : Context -> Node TypeAnnotation -> Elm.Type.Type
@@ -1045,7 +1062,7 @@ syntaxTypeAnnotationToDocsType innerContext (Node _ typeAnnotation) =
             let
                 realModuleName : ModuleName
                 realModuleName =
-                    moduleNameForType innerContext typeName moduleName
+                    fullModuleNameForType innerContext typeName moduleName
             in
             Elm.Type.Type (joinModuleName realModuleName ++ "." ++ typeName) (List.map (\node -> syntaxTypeAnnotationToDocsType innerContext node) typeParameters)
 
@@ -1836,6 +1853,16 @@ moduleNameForValue context valueName moduleName =
 
         _ ->
             moduleName
+
+
+fullModuleNameForType : Context -> String -> ModuleName -> ModuleName
+fullModuleNameForType context typeName moduleName =
+    case moduleNameForType context typeName moduleName of
+        [] ->
+            context.moduleName
+
+        foundModuleName ->
+            foundModuleName
 
 
 {-| Get the name of the module where a type was defined.
