@@ -1113,30 +1113,26 @@ registerImportAlias import_ innerContext =
         moduleName : ModuleName
         moduleName =
             Node.value import_.moduleName
+
+        qualifier : String
+        qualifier =
+            case import_.moduleAlias of
+                Just (Node _ alias) ->
+                    joinModuleName alias
+
+                Nothing ->
+                    joinModuleName moduleName
+
+        toInsert : List ModuleName
+        toInsert =
+            case Dict.get qualifier innerContext.importAliases of
+                Just previousValue ->
+                    moduleName :: previousValue
+
+                Nothing ->
+                    [ moduleName ]
     in
-    case import_.moduleAlias of
-        Nothing ->
-            case moduleName of
-                singleSegmentModuleName :: [] ->
-                    { innerContext
-                        | importAliases =
-                            Dict.update
-                                singleSegmentModuleName
-                                (\previousValue -> Just <| moduleName :: Maybe.withDefault [] previousValue)
-                                innerContext.importAliases
-                    }
-
-                _ ->
-                    innerContext
-
-        Just (Node _ alias) ->
-            { innerContext
-                | importAliases =
-                    Dict.update
-                        (joinModuleName alias)
-                        (\previousValue -> Just (moduleName :: Maybe.withDefault [] previousValue))
-                        innerContext.importAliases
-            }
+    { innerContext | importAliases = Dict.insert qualifier toInsert innerContext.importAliases }
 
 
 registerImportExposed : Import -> Context -> Context
