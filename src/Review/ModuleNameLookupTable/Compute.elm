@@ -1,4 +1,4 @@
-module Review.ModuleNameLookupTable.Compute exposing (compute, computeJustModuleDocs, findModuleDocumentation)
+module Review.ModuleNameLookupTable.Compute exposing (compute, computeDependencies, computeJustModuleDocs, findModuleDocumentation)
 
 import Dict exposing (Dict)
 import Elm.Docs
