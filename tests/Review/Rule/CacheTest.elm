@@ -65,8 +65,8 @@ a = value
 
                             Ok valid ->
                                 valid
-                                    |> Valid.clearElmDocsModuleFromProjectCacheTEST
                                     |> Valid.toRegularProject
+                                    |> Review.Project.Internal.clearElmDocsModuleFromProjectCacheTEST
 
                     rule : Rule
                     rule =
