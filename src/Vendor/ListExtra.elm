@@ -1,5 +1,6 @@
 module Vendor.ListExtra exposing
-    ( find, last
+    ( find, findMap
+    , last
     , orderIndependentMapAppend
     )
 
@@ -13,7 +14,8 @@ This also includes a few custom functions
 
 # List functions
 
-@docs find, last
+@docs find, findMap
+@docs last
 
 @docs orderIndependentMapAppend
 
@@ -36,6 +38,21 @@ find predicate list =
 
             else
                 find predicate rest
+
+
+findMap : (a -> Maybe b) -> List a -> Maybe b
+findMap fn list =
+    case list of
+        [] ->
+            Nothing
+
+        first :: rest ->
+            case fn first of
+                Nothing ->
+                    findMap fn rest
+
+                justB ->
+                    justB
 
 
 last : List a -> Maybe a
