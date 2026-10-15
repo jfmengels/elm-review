@@ -31,7 +31,6 @@ type alias Data =
     { moduleNameLookupTable : Bool
     , types : Bool
     , sourceCodeExtractor : Bool
-    , moduleDocs : Bool
     , exposed : Bool
     , ignoredFiles : Bool
     , ignoredFixes : Bool
@@ -45,7 +44,6 @@ none =
         { moduleNameLookupTable = False
         , types = False
         , sourceCodeExtractor = False
-        , moduleDocs = False
         , exposed = False
         , ignoredFiles = False
         , ignoredFixes = False
@@ -94,7 +92,6 @@ combineJust (RequestedData a) (RequestedData b) =
         { moduleNameLookupTable = a.moduleNameLookupTable || b.moduleNameLookupTable
         , types = a.types || b.types
         , sourceCodeExtractor = a.sourceCodeExtractor || b.sourceCodeExtractor
-        , moduleDocs = a.moduleDocs || b.moduleDocs
         , exposed = a.exposed || b.exposed
         , ignoredFiles = a.ignoredFiles || b.ignoredFiles
         , ignoredFixes = a.ignoredFixes || b.ignoredFixes
