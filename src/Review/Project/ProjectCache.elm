@@ -5,13 +5,12 @@ import Elm.Docs
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Review.Cache.ContentHash exposing (ContentHash)
 import Review.ModuleNameLookupTable exposing (ModuleNameLookupTable)
-import Review.ModuleNameLookupTable.ComputeContext as ComputeContext
 import Review.Project.DocsModule exposing (DocsModule)
 
 
 type alias ProjectCache =
     { elmJsonContentHash : Maybe ContentHash
-    , dependencies : Maybe { deps : Dict ModuleName Elm.Docs.Module, baseModuleContext : ComputeContext.Context }
+    , dependencies : Dict ModuleName Elm.Docs.Module
     , modules : Dict ModuleName DocsModule
     , lookupTables : Dict ModuleName { key : ModuleCacheKey, lookupTable : ModuleNameLookupTable }
     }

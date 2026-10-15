@@ -1,4 +1,4 @@
-module Review.ModuleNameLookupTable.Compute exposing (compute, computeDependencies, computeJustModuleDocs, findModuleDocumentation)
+module Review.ModuleNameLookupTable.Compute exposing (compute, computeJustModuleDocs, findModuleDocumentation)
 
 import Dict exposing (Dict)
 import Elm.Docs
@@ -25,7 +25,6 @@ import Review.Cache.ContentHash exposing (ContentHash)
 import Review.ModuleNameLookupTable.Builder as Builder exposing (ModuleNameLookupTableBuilder)
 import Review.ModuleNameLookupTable.ComputeContext exposing (Context, Scope)
 import Review.ModuleNameLookupTable.Internal exposing (ModuleNameLookupTable)
-import Review.Project.Dependency
 import Review.Project.DocsModule as DocsModule exposing (DocsModule)
 import Review.Project.ProjectCache as ProjectCache exposing (ProjectCache)
 import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModule)
@@ -124,30 +123,23 @@ computeHelp cacheKey moduleName module_ project =
         elmJsonContentHash =
             ValidProject.elmJsonHash project
 
-        ({ deps, baseModuleContext } as depsCache) =
-            -- TODO Only invalidate the lookup tables if the dependencies in elm.json have changed?
-            -- i.e. if only the description has changed but not the dependencies
-            case reuseMaybe (elmJsonContentHash == projectCache.elmJsonContentHash) projectCache.dependencies of
-                Just cache ->
-                    cache
-
-                Nothing ->
-                    let
-                        deps_ : Dict ModuleName Elm.Docs.Module
-                        deps_ =
-                            computeDependencies project
-                    in
-                    { deps = deps_, baseModuleContext = computeBaseModule moduleName (ValidProject.typeInferenceProject project) (preludeModuleDocs deps_) }
+        baseModuleContext : Context
+        baseModuleContext =
+            computeBaseModule
+                moduleName
+                (ValidProject.typeInferenceProject project)
+                projectCache.dependencies
 
         moduleContext : Context
         moduleContext =
+            -- TODO Modules is being set twice?
             { baseModuleContext
                 | modules =
                     Dict.foldl
                         (\key docs dict ->
                             Dict.insert key (DocsModule.mod docs) dict
                         )
-                        deps
+                        projectCache.dependencies
                         projectCache.modules
             }
                 |> collectModuleDocs moduleAst
@@ -169,7 +161,7 @@ computeHelp cacheKey moduleName module_ project =
 
         newProjectCache : ProjectCache
         newProjectCache =
-            { dependencies = Just depsCache
+            { dependencies = projectCache.dependencies
             , elmJsonContentHash = elmJsonContentHash
             , modules = projectCache.modules
             , lookupTables =
@@ -259,26 +251,18 @@ computeJustModuleDocsHelp moduleName module_ project =
         elmJsonContentHash =
             ValidProject.elmJsonHash project
 
-        ({ deps, baseModuleContext } as depsCache) =
-            -- TODO Only invalidate the lookup tables if the dependencies in elm.json have changed?
-            -- i.e. if only the description has changed but not the dependencies
-            case reuseMaybe (elmJsonContentHash == projectCache.elmJsonContentHash) projectCache.dependencies of
-                Just cache ->
-                    cache
-
-                Nothing ->
-                    let
-                        deps_ : Dict ModuleName Elm.Docs.Module
-                        deps_ =
-                            computeDependencies project
-                    in
-                    { deps = deps_, baseModuleContext = computeBaseModule moduleName (ValidProject.typeInferenceProject project) (preludeModuleDocs deps_) }
+        baseModuleContext : Context
+        baseModuleContext =
+            computeBaseModule
+                moduleName
+                (ValidProject.typeInferenceProject project)
+                projectCache.dependencies
 
         dataForModuleDocs : DataForModuleDocs
         dataForModuleDocs =
             { getModule = ValidProject.getModuleByModuleName project
             , baseModuleContext = baseModuleContext
-            , deps = deps
+            , deps = projectCache.dependencies
             }
 
         { imported, projectModules, types } =
@@ -308,7 +292,7 @@ computeJustModuleDocsHelp moduleName module_ project =
 
         newProjectCache : ProjectCache
         newProjectCache =
-            { dependencies = Just depsCache
+            { dependencies = projectCache.dependencies
             , elmJsonContentHash = elmJsonContentHash
             , modules = modules
             , lookupTables = projectCache.lookupTables
@@ -320,15 +304,6 @@ computeJustModuleDocsHelp moduleName module_ project =
             |> ValidProject.updateProjectCache newProjectCache
             |> ValidProject.setTypeInferenceProject moduleContext.types
     }
-
-
-reuseMaybe : Bool -> Maybe a -> Maybe a
-reuseMaybe check maybe =
-    if check then
-        maybe
-
-    else
-        Nothing
 
 
 emptyModuleDocs : Elm.Docs.Module
@@ -541,22 +516,6 @@ computeOnlyModuleDocs ({ baseModuleContext } as data) moduleName module_ basePro
     }
 
 
-computeDependencies : ValidProject -> Dict ModuleName Elm.Docs.Module
-computeDependencies project =
-    project
-        |> ValidProject.directDependencies
-        |> Dict.foldl
-            (\_ dep acc ->
-                List.foldl
-                    (\dependencyModule subAcc ->
-                        Dict.insert (String.split "." dependencyModule.name) dependencyModule subAcc
-                    )
-                    acc
-                    (Review.Project.Dependency.modules dep)
-            )
-            Dict.empty
-
-
 computeBaseModule : ModuleName -> Elm.TypeInference.Project -> Dict ModuleName Elm.Docs.Module -> Context
 computeBaseModule moduleName types elmCorePreludeModules =
     List.foldl importVisitor
@@ -675,26 +634,6 @@ visitExpressions node context =
         newContext
         (expressionChildren node)
         |> popScopeExit node
-
-
-preludeModuleDocs : Dict ModuleName Elm.Docs.Module -> Dict ModuleName Elm.Docs.Module
-preludeModuleDocs deps =
-    List.foldl
-        (\(Node _ import_) acc ->
-            let
-                importedModuleName : ModuleName
-                importedModuleName =
-                    Node.value import_.moduleName
-            in
-            case Dict.get importedModuleName deps of
-                Just importedModule ->
-                    Dict.insert importedModuleName importedModule acc
-
-                Nothing ->
-                    acc
-        )
-        Dict.empty
-        Review.Resources.ElmCorePrelude.elmCorePrelude
 
 
 declarationListVisitor : List (Node Declaration) -> Context -> Context
