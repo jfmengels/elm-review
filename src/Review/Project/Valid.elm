@@ -278,11 +278,20 @@ fromProjectAndGraph moduleGraph sortedModules typeInferenceProject_ (Project pro
 
         projectCache_ : ProjectCache
         projectCache_ =
-            { elmJsonContentHash = Nothing
-            , dependencies = deps
-            , modules = Dict.empty
-            , lookupTables = Dict.empty
-            }
+            case project.projectCache of
+                Just previous ->
+                    { elmJsonContentHash = Nothing
+                    , dependencies = deps
+                    , modules = previous.modules
+                    , lookupTables = Dict.empty
+                    }
+
+                Nothing ->
+                    { elmJsonContentHash = Nothing
+                    , dependencies = deps
+                    , modules = Dict.empty
+                    , lookupTables = Dict.empty
+                    }
     in
     ValidProject
         { modulesByPath = project.modulesByPath
