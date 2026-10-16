@@ -268,27 +268,26 @@ fromProjectAndGraph moduleGraph sortedModules typeInferenceProject_ (Project pro
 
         previousProjectCache : Maybe ProjectCache
         previousProjectCache =
-            -- TODO To use
-            project.projectCache
+            case project.projectCache of
+                Just previous ->
+                    if previous.elmJsonContentHash == Maybe.map Tuple.second project.elmJson then
+                        Just previous
 
-        deps : Dict ModuleName Elm.Docs.Module
-        deps =
-            -- TODO Reuse previous when possible
-            computeDependencies project.directDependencies
+                    else
+                        Nothing
+
+                Nothing ->
+                    Nothing
 
         projectCache_ : ProjectCache
         projectCache_ =
-            case project.projectCache of
+            case previousProjectCache of
                 Just previous ->
-                    { elmJsonContentHash = Nothing
-                    , dependencies = deps
-                    , modules = previous.modules
-                    , lookupTables = Dict.empty
-                    }
+                    previous
 
                 Nothing ->
                     { elmJsonContentHash = Nothing
-                    , dependencies = deps
+                    , dependencies = computeDependencies project.directDependencies
                     , modules = Dict.empty
                     , lookupTables = Dict.empty
                     }
