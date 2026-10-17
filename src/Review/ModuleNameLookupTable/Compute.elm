@@ -265,11 +265,10 @@ computeJustModuleDocsHelp moduleName module_ project =
             , deps = projectCache.dependencies
             }
 
-        { imported, hashes, projectModules, types } =
+        { hashes, projectModules, types } =
             List.foldl
                 (\node acc -> computeImportedModulesDocs dataForModuleDocs node acc)
-                { imported = baseModuleContext.modules
-                , hashes = []
+                { hashes = []
                 , projectModules = projectCache.modules
                 , types = baseModuleContext.types
                 }
@@ -277,7 +276,16 @@ computeJustModuleDocsHelp moduleName module_ project =
 
         moduleContext : Context
         moduleContext =
-            { baseModuleContext | modules = imported, types = types }
+            { baseModuleContext
+                | modules =
+                    Dict.foldl
+                        (\key docs dict ->
+                            Dict.insert key (DocsModule.mod docs) dict
+                        )
+                        projectCache.dependencies
+                        projectCache.modules
+                , types = types
+            }
                 |> collectModuleDocs moduleAst
 
         moduleDocsForFile : Elm.Docs.Module
@@ -438,8 +446,8 @@ type alias DataForModuleDocs =
 computeImportedModulesDocs :
     DataForModuleDocs
     -> Node Import
-    -> { imported : Dict ModuleName Elm.Docs.Module, hashes : List (ContextHash Elm.Docs.Module), projectModules : Dict ModuleName DocsModule, types : Elm.TypeInference.Project }
-    -> { imported : Dict ModuleName Elm.Docs.Module, hashes : List (ContextHash Elm.Docs.Module), projectModules : Dict ModuleName DocsModule, types : Elm.TypeInference.Project }
+    -> { hashes : List (ContextHash Elm.Docs.Module), projectModules : Dict ModuleName DocsModule, types : Elm.TypeInference.Project }
+    -> { hashes : List (ContextHash Elm.Docs.Module), projectModules : Dict ModuleName DocsModule, types : Elm.TypeInference.Project }
 computeImportedModulesDocs data (Node _ import_) acc =
     let
         importedModuleName : ModuleName
@@ -448,8 +456,7 @@ computeImportedModulesDocs data (Node _ import_) acc =
     in
     case Dict.get importedModuleName acc.projectModules of
         Just importedModule ->
-            { imported = Dict.insert importedModuleName (DocsModule.mod importedModule) acc.imported
-            , hashes = DocsModule.hash importedModule :: acc.hashes
+            { hashes = DocsModule.hash importedModule :: acc.hashes
             , projectModules = acc.projectModules
             , types = acc.types
             }
@@ -464,8 +471,7 @@ computeImportedModulesDocs data (Node _ import_) acc =
                         { moduleDocs, projectModules, types } =
                             computeOnlyModuleDocs data importedModuleName importedModule acc.projectModules acc.types
                     in
-                    { imported = Dict.insert importedModuleName (DocsModule.mod moduleDocs) acc.imported
-                    , hashes = DocsModule.hash moduleDocs :: acc.hashes
+                    { hashes = DocsModule.hash moduleDocs :: acc.hashes
                     , projectModules = projectModules
                     , types = types
                     }
@@ -473,8 +479,7 @@ computeImportedModulesDocs data (Node _ import_) acc =
                 Nothing ->
                     case Dict.get importedModuleName data.deps of
                         Just importedModule ->
-                            { imported = Dict.insert importedModuleName importedModule acc.imported
-                            , hashes = acc.hashes
+                            { hashes = acc.hashes
                             , projectModules = acc.projectModules
                             , types = acc.types
                             }
@@ -496,11 +501,10 @@ computeOnlyModuleDocs ({ baseModuleContext } as data) moduleName module_ basePro
         moduleAst =
             ProjectModule.ast module_
 
-        { imported, hashes, projectModules, types } =
+        { hashes, projectModules, types } =
             List.foldl
                 (\node acc -> computeImportedModulesDocs data node acc)
-                { imported = baseModuleContext.modules
-                , hashes = []
+                { hashes = []
                 , projectModules = baseProjectModules
                 , types = baseTypes
                 }
@@ -508,7 +512,7 @@ computeOnlyModuleDocs ({ baseModuleContext } as data) moduleName module_ basePro
 
         moduleContext : Context
         moduleContext =
-            { baseModuleContext | modules = imported, types = types }
+            { baseModuleContext | modules = Dict.map (\_ m -> DocsModule.mod m) projectModules, types = types }
                 |> collectModuleDocs moduleAst
 
         moduleDocs : DocsModule
