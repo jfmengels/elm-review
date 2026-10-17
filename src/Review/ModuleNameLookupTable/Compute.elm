@@ -262,7 +262,6 @@ computeJustModuleDocsHelp moduleName module_ project =
         dataForModuleDocs =
             { getModule = ValidProject.getModuleByModuleName project
             , baseModuleContext = baseModuleContext
-            , deps = projectCache.dependencies
             }
 
         { hashes, projectModules, types } =
@@ -439,7 +438,6 @@ insertConstructors tags acc =
 type alias DataForModuleDocs =
     { getModule : ModuleName -> Maybe OpaqueProjectModule
     , baseModuleContext : Context
-    , deps : Dict ModuleName Elm.Docs.Module
     }
 
 
@@ -477,15 +475,7 @@ computeImportedModulesDocs data (Node _ import_) acc =
                     }
 
                 Nothing ->
-                    case Dict.get importedModuleName data.deps of
-                        Just importedModule ->
-                            { hashes = acc.hashes
-                            , projectModules = acc.projectModules
-                            , types = acc.types
-                            }
-
-                        Nothing ->
-                            acc
+                    acc
 
 
 computeOnlyModuleDocs :
