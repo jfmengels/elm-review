@@ -1087,8 +1087,11 @@ registerImportExposed import_ context =
 
                 module_ : Elm.Docs.Module
                 module_ =
-                    Dict.get moduleName context.modules
-                        |> Maybe.withDefault
+                    case Dict.get moduleName context.modules of
+                        Just mod ->
+                            mod
+
+                        Nothing ->
                             { name = joinModuleName moduleName
                             , comment = ""
                             , unions = []
