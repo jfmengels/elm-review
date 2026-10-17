@@ -500,7 +500,7 @@ computeOnlyModuleDocs ({ baseModuleContext } as data) moduleName module_ basePro
         { imported, hashes, projectModules, types } =
             List.foldl
                 (\node acc -> computeImportedModulesDocs data node acc)
-                { imported = data.baseModuleContext.modules
+                { imported = baseModuleContext.modules
                 , hashes = []
                 , projectModules = baseProjectModules
                 , types = baseTypes
