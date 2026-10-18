@@ -1205,16 +1205,12 @@ valuesFromExposingList moduleName module_ topLevelExposeList acc =
                             let
                                 newAcc : Dict String ModuleName
                                 newAcc =
-                                    List.foldl
-                                        (\union subAcc ->
-                                            if union.name == name then
-                                                List.foldl (\( tag, _ ) subSubAcc -> Dict.insert tag moduleName subSubAcc) subAcc union.tags
+                                    case ListExtra.find (\union -> union.name == name) module_.unions of
+                                        Just union ->
+                                            List.foldl (\( tag, _ ) dict -> Dict.insert tag moduleName dict) acc union.tags
 
-                                            else
-                                                subAcc
-                                        )
-                                        acc
-                                        module_.unions
+                                        Nothing ->
+                                            acc
                             in
                             valuesFromExposingList moduleName module_ rest newAcc
 
