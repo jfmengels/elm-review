@@ -195,35 +195,19 @@ computeJustModuleDocs moduleName module_ project =
         projectCache =
             ValidProject.projectCache project
     in
-    case Dict.get moduleName projectCache.lookupTables of
-        Just cache ->
-            let
-                {- This will be used as the cache key in terms of the imports.
-                   Since we assume that the code will be compiling at every stage, the only thing that causes the
-                   lookup table for a given module to be recomputed, are:
-                   1) Whether the module itself has changed (because the position of elements might have changed)
-                   2) Whether the dependencies have changed, in which case we in practice nuke the cache because that's easier and it's a rare case.
-                   3) If the exposed elements of the module's imports have changed.
-
-                   This data is about 3). In practice and because of how this algorithm is computed,
-                   if we have `import A exposing (a, b, C, D(..))`, then only a change to D's constructors
-                   can cause the lookup table to be different. So we only need to store the names of the elements that were
-                   imported "implicitly", through `exposing (..)` or `exposing (D(..))`.
-                -}
-                implicitImports : Dict String (List ProjectCache.ImportedElement)
-                implicitImports =
-                    List.foldl
-                        (\node acc -> computeImplicitlyImportedElements projectCache.modules node acc)
-                        Dict.empty
-                        (ProjectModule.ast module_).imports
-            in
-            if cache.key.contentHash == ProjectModule.contentHash module_ && cache.key.implicitImports == implicitImports then
-                { moduleDocs = Dict.get moduleName projectCache.modules |> Maybe.map DocsModule.mod |> Maybe.withDefault emptyModuleDocs
-                , project = project
-                }
-
-            else
-                computeJustModuleDocsHelp moduleName module_ project
+    case
+        Dict.get moduleName projectCache.modules
+            |> Maybe.andThen
+                (DocsModule.extract
+                    -- TODO Get hashes
+                    []
+                    (ProjectModule.contentHash module_)
+                )
+    of
+        Just mod ->
+            { moduleDocs = mod
+            , project = project
+            }
 
         Nothing ->
             computeJustModuleDocsHelp moduleName module_ project
