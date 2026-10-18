@@ -1,4 +1,4 @@
-module Review.ModuleNameLookupTable.Internal exposing (ModuleNameLookupTable(..), empty, fromList, toRangeLike)
+module Review.Resources.Internal exposing (ModuleNameLookupTable(..), empty, fromList, toRangeLike)
 
 import Bitwise
 import Dict exposing (Dict)

@@ -54,7 +54,6 @@ type alias ProjectInternals =
     , projectCache : Maybe ProjectCache
     , sortedModules : SortedModules
     , workList : WorkList
-    , typeInferenceProject : Maybe TypeInference.Project
     }
 
 
