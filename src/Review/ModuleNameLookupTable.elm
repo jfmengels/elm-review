@@ -33,7 +33,7 @@ import Dict
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node exposing (Node(..))
 import Elm.Syntax.Range exposing (Range)
-import Review.ModuleNameLookupTable.Internal as Internal
+import Review.Resources.Internal as Internal
 
 
 {-| Associates positions in the AST of a module to the name of the module that the contained variable or type originates

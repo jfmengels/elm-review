@@ -1,5 +1,5 @@
-module Review.ModuleNameLookupTable.Builder exposing
-    ( ModuleNameLookupTableBuilder(..)
+module Review.Resources.ModuleNameLookupTableBuilder exposing
+    ( ModuleNameLookupTableBuilder
     , add
     , empty
     , finalize
@@ -8,7 +8,7 @@ module Review.ModuleNameLookupTable.Builder exposing
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Range exposing (Range)
 import Review.ModuleNameLookupTable exposing (ModuleNameLookupTable)
-import Review.ModuleNameLookupTable.Internal as Internal
+import Review.Resources.Internal as Internal
 
 
 type ModuleNameLookupTableBuilder
