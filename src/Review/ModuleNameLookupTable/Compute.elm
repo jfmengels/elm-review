@@ -235,11 +235,15 @@ computeJustModuleDocsHelp moduleName module_ project =
         elmJsonContentHash =
             ValidProject.elmJsonHash project
 
+        baseTypes : Elm.TypeInference.Project
+        baseTypes =
+            ValidProject.typeInferenceProject project
+
         baseModuleContext : Context
         baseModuleContext =
             computeBaseModule
                 moduleName
-                (ValidProject.typeInferenceProject project)
+                baseTypes
                 projectCache.dependencies
 
         dataForModuleDocs : DataForModuleDocs
@@ -253,7 +257,7 @@ computeJustModuleDocsHelp moduleName module_ project =
                 (\node acc -> computeImportedModulesDocs dataForModuleDocs node acc)
                 { hashes = []
                 , projectModules = projectCache.modules
-                , types = baseModuleContext.types
+                , types = baseTypes
                 }
                 moduleAst.imports
 
