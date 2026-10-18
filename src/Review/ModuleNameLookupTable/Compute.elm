@@ -299,7 +299,13 @@ computeJustModuleDocsHelp moduleName module_ project =
 
         modules : Dict ModuleName DocsModule
         modules =
-            Dict.insert moduleName (DocsModule.create hashes moduleDocsForFile) projectModules
+            Dict.insert moduleName
+                (DocsModule.create
+                    hashes
+                    (ProjectModule.contentHash module_)
+                    moduleDocsForFile
+                )
+                projectModules
 
         newProjectCache : ProjectCache
         newProjectCache =
@@ -508,6 +514,7 @@ computeOnlyModuleDocs ({ baseModuleContext } as data) moduleName module_ basePro
         moduleDocs : DocsModule
         moduleDocs =
             DocsModule.create hashes
+                (ProjectModule.contentHash module_)
                 { name = joinModuleName moduleName
                 , comment = extractModuleDocumentation moduleAst
                 , unions = moduleContext.exposedUnions
