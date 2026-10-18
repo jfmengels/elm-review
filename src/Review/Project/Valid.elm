@@ -25,7 +25,6 @@ module Review.Project.Valid exposing
     , readmeHash
     , removeExtraFile
     , removeModule
-    , setTypeInferenceProject
     , toRegularProject
     , typeInferenceProject
     , updateProjectCache
@@ -51,7 +50,7 @@ import Review.Project.Dependency as Dependency exposing (Dependency)
 import Review.Project.Internal as Internal exposing (Project(..))
 import Review.Project.InvalidProjectError as InvalidProjectError exposing (InvalidProjectError)
 import Review.Project.ModuleIds as ModuleIds exposing (ModuleId, ModuleIds)
-import Review.Project.ProjectCache exposing (ProjectCache)
+import Review.Project.ProjectCache as ProjectCache exposing (ProjectCache)
 import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModule)
 import Review.WorkList as WorkList exposing (WorkList)
 import Set exposing (Set)
@@ -81,7 +80,6 @@ type alias ValidProjectData =
     , edgeChanges : Dict ModuleId (List Internal.EdgeChange)
     , moduleIds : ModuleIds
     , workList : WorkList
-    , typeInferenceProject : Maybe TypeInference.Project
     }
 
 
@@ -104,7 +102,6 @@ toRegularProject (ValidProject validProject) =
         , projectCache = Just validProject.projectCache
         , sortedModules = Internal.ComputedSortedModules validProject.sortedModules
         , workList = validProject.workList
-        , typeInferenceProject = validProject.typeInferenceProject
         }
 
 
@@ -161,8 +158,13 @@ parse requestsTypeInformation ((Project p) as project) =
                             |> Err
 
                     Ok ( moduleGraph, sortedModules ) ->
+                        let
+                            maybeTypeInferenceProject : Maybe TypeInference.Project
+                            maybeTypeInferenceProject =
+                                Maybe.andThen .types p.projectCache
+                        in
                         if requestsTypeInformation then
-                            case p.typeInferenceProject of
+                            case maybeTypeInferenceProject of
                                 Just typeInferenceProject_ ->
                                     fromProjectAndGraph moduleGraph sortedModules (Just typeInferenceProject_) project
                                         |> Ok
@@ -184,7 +186,7 @@ parse requestsTypeInformation ((Project p) as project) =
                                             Err invalidProjectError
 
                         else
-                            fromProjectAndGraph moduleGraph sortedModules p.typeInferenceProject project
+                            fromProjectAndGraph moduleGraph sortedModules maybeTypeInferenceProject project
                                 |> Ok
 
 
@@ -288,6 +290,7 @@ fromProjectAndGraph moduleGraph sortedModules typeInferenceProject_ (Project pro
                 Nothing ->
                     { elmJsonContentHash = Nothing
                     , dependencies = computeDependencies project.directDependencies
+                    , types = typeInferenceProject_
                     , modules = Dict.empty
                     , lookupTables = Dict.empty
                     }
@@ -311,7 +314,6 @@ fromProjectAndGraph moduleGraph sortedModules typeInferenceProject_ (Project pro
         , edgeChanges = Dict.empty
         , moduleIds = project.moduleIds
         , workList = WorkList.recomputeModules moduleGraph sortedModules project.workList
-        , typeInferenceProject = typeInferenceProject_
         }
 
 
@@ -507,13 +509,8 @@ updateProjectCache projectCache_ (ValidProject project) =
 
 typeInferenceProject : ValidProject -> TypeInference.Project
 typeInferenceProject (ValidProject validProject) =
-    validProject.typeInferenceProject
+    validProject.projectCache.types
         |> Maybe.withDefault TypeInference.empty
-
-
-setTypeInferenceProject : TypeInference.Project -> ValidProject -> ValidProject
-setTypeInferenceProject typeInferenceProject_ (ValidProject project) =
-    ValidProject { project | typeInferenceProject = Just typeInferenceProject_ }
 
 
 workList : ValidProject -> WorkList
@@ -568,7 +565,7 @@ addParsedModule { path, source, ast } (ValidProject project) =
                         , moduleIds = moduleIds
                         , modulesByPath = modulesByPath
                         , workList = WorkList.touchedModule path project.workList
-                        , typeInferenceProject = Maybe.map (Internal.addFileToTypeInferenceProject ast) project.typeInferenceProject
+                        , projectCache = ProjectCache.mapTypes (Internal.addFileToTypeInferenceProject ast) project.projectCache
                     }
                 )
 
@@ -652,7 +649,7 @@ removeModule path (ValidProject project) =
                     | modulesByPath = modulesByPath
                     , moduleGraph = Graph.removeNode moduleId project.moduleGraph
                     , edgeChanges = edgeChanges
-                    , typeInferenceProject = Maybe.map (TypeInference.removeFile (ProjectModule.moduleName module_)) project.typeInferenceProject
+                    , projectCache = ProjectCache.mapTypes (TypeInference.removeFile (ProjectModule.moduleName module_)) project.projectCache
                 }
                 |> Ok
 
@@ -714,9 +711,14 @@ removeExtraFile path (ValidProject project) =
 
 addElmJson : { path : FilePath, raw : String, project : Elm.Project.Project } -> ValidProject -> ValidProject
 addElmJson elmJson_ (ValidProject project) =
+    let
+        projectCache_ : ProjectCache
+        projectCache_ =
+            project.projectCache
+    in
     ValidProject
         { project
             | elmJson = Just ( elmJson_, ContentHash.hash elmJson_.raw )
             , workList = WorkList.touchedElmJson project.workList
-            , typeInferenceProject = Nothing
+            , projectCache = { projectCache_ | types = Nothing }
         }

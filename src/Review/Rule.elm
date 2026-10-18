@@ -387,8 +387,6 @@ import Review.Fix.Internal as InternalFix
 import Review.ImportCycle as ImportCycle
 import Review.Logger as Logger
 import Review.ModuleNameLookupTable exposing (ModuleNameLookupTable)
-import Review.ModuleNameLookupTable.Compute
-import Review.ModuleNameLookupTable.Internal as ModuleNameLookupTableInternal
 import Review.Options as ReviewOptions exposing (ReviewOptions)
 import Review.Options.Internal as InternalOptions exposing (ReviewOptionsData, ReviewOptionsInternal(..))
 import Review.Project.Dependency
@@ -396,11 +394,14 @@ import Review.Project.DocsModule as DocsModule exposing (DocsModule)
 import Review.Project.Internal exposing (Project)
 import Review.Project.InvalidProjectError as InvalidProjectError
 import Review.Project.ModuleIds exposing (ModuleId)
-import Review.Project.ProjectCache exposing (ProjectCache)
+import Review.Project.ProjectCache as ProjectCache exposing (ProjectCache)
 import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModule)
 import Review.Project.Valid as ValidProject exposing (ValidProject)
 import Review.RequestedData as RequestedData exposing (RequestedData(..))
+import Review.Resources.DocsModules
 import Review.Resources.ElmCorePrelude
+import Review.Resources.Internal as ModuleNameLookupTableInternal
+import Review.Resources.ModuleNameLookupTable
 import Review.WorkList as WorkList
 import Unicode
 import Vendor.Graph as Graph
@@ -5758,11 +5759,25 @@ type alias DataToComputeSingleModule =
 computeModule : DataToComputeSingleModule -> DataToComputeSingleModule
 computeModule params =
     let
+        moduleName : ModuleName
+        moduleName =
+            ProjectModule.moduleName params.module_
+
         { moduleDocs, project } =
-            Review.ModuleNameLookupTable.Compute.computeJustModuleDocs
-                (ProjectModule.moduleName params.module_)
-                params.module_
-                params.project
+            if List.any (\(RuleProjectVisitor r) -> RequestedData.moduleDocsDerivatives r.requestedData) params.ruleProjectVisitors then
+                let
+                    res : { moduleDocs : DocsModule, projectCache : ProjectCache }
+                    res =
+                        Review.Resources.DocsModules.compute moduleName params.module_ params.project { checkCacheKey = True }
+                in
+                { moduleDocs = DocsModule.mod res.moduleDocs
+                , project = ValidProject.updateProjectCache res.projectCache params.project
+                }
+
+            else
+                { moduleDocs = Review.Resources.DocsModules.dummyModuleDocs moduleName
+                , project = params.project
+                }
 
         ( inputRuleModuleVisitors, requestedData, rulesNotToRun ) =
             computeWhatsRequiredToAnalyze
@@ -5776,7 +5791,12 @@ computeModule params =
     else
         let
             ( newProject, newRules ) =
-                computeModuleWithRuleVisitors project params.module_ inputRuleModuleVisitors requestedData
+                computeModuleWithRuleVisitors
+                    project
+                    moduleDocs
+                    params.module_
+                    inputRuleModuleVisitors
+                    requestedData
         in
         { params
             | project = newProject
@@ -5805,27 +5825,16 @@ computeWhatsRequiredToAnalyze project module_ ruleProjectVisitors =
         ruleProjectVisitors
 
 
-computeModuleWithRuleVisitors : ValidProject -> OpaqueProjectModule -> List (AvailableData -> RuleModuleVisitor) -> RequestedData -> ( ValidProject, List RuleProjectVisitor )
-computeModuleWithRuleVisitors initialProject module_ inputRuleModuleVisitors (RequestedData requestedData) =
+computeModuleWithRuleVisitors : ValidProject -> Elm.Docs.Module -> OpaqueProjectModule -> List (AvailableData -> RuleModuleVisitor) -> RequestedData -> ( ValidProject, List RuleProjectVisitor )
+computeModuleWithRuleVisitors project docsModule module_ inputRuleModuleVisitors (RequestedData requestedData) =
     let
-        { moduleNameLookupTable, exposed, project } =
-            computeModuleNameLookupTable requestedData initialProject module_
+        moduleName : ModuleName
+        moduleName =
+            ProjectModule.moduleName module_
 
         ast : File
         ast =
             ProjectModule.ast module_
-
-        filePath : FilePath
-        filePath =
-            ProjectModule.path module_
-
-        moduleNameNode_ : Node ModuleName
-        moduleNameNode_ =
-            moduleNameNode ast.moduleDefinition
-
-        moduleName : ModuleName
-        moduleName =
-            ProjectModule.moduleName module_
 
         typeInferenceProject : ( TypeInference.Project, () )
         typeInferenceProject =
@@ -5835,14 +5844,28 @@ computeModuleWithRuleVisitors initialProject module_ inputRuleModuleVisitors (Re
         projectCache =
             ValidProject.projectCache project
 
+        ( moduleNameLookupTable, newProjectCache ) =
+            if requestedData.moduleNameLookupTable then
+                Review.Resources.ModuleNameLookupTable.compute moduleName module_ projectCache
+
+            else
+                ( ModuleNameLookupTableInternal.empty moduleName, projectCache )
+
         availableData : AvailableData
         availableData =
             { ast = ast
             , moduleNameLookupTable = moduleNameLookupTable
             , getType = \range -> TypeInference.getType moduleName range (Tuple.first typeInferenceProject) |> getTypeMarker typeInferenceProject
-            , moduleDocumentation = Review.ModuleNameLookupTable.Compute.findModuleDocumentation ast
-            , isModuleExposed = ValidProject.isModuleExposed initialProject (Node.value moduleNameNode_)
-            , exposed = exposed
+            , moduleDocumentation = Review.Resources.DocsModules.findModuleDocumentation ast
+            , isModuleExposed = ValidProject.isModuleExposed project moduleName
+            , exposed =
+                if requestedData.exposed then
+                    { exposesAll = exposesAll ast
+                    , exposed = collectExposed docsModule
+                    }
+
+                else
+                    dummyExposed
             , importedModuleDocs = \params -> filterModuleDocs params ast.imports projectCache
             , extractSourceCode =
                 if requestedData.sourceCodeExtractor then
@@ -5855,7 +5878,7 @@ computeModuleWithRuleVisitors initialProject module_ inputRuleModuleVisitors (Re
 
                 else
                     always ""
-            , filePath = filePath
+            , filePath = ProjectModule.path module_
             , isInSourceDirectories = ProjectModule.isInSourceDirectories module_
             }
 
@@ -5871,7 +5894,9 @@ computeModuleWithRuleVisitors initialProject module_ inputRuleModuleVisitors (Re
                 )
                 inputRuleModuleVisitors
     in
-    ( ValidProject.setTypeInferenceProject (Tuple.first typeInferenceProject) project
+    ( ValidProject.updateProjectCache
+        (ProjectCache.setTypes (Tuple.first typeInferenceProject) newProjectCache)
+        project
     , outputRuleProjectVisitors
     )
 
@@ -5959,65 +5984,6 @@ addUnions list initial =
         (\union dict -> Dict.insert union.name (not (List.isEmpty union.tags)) dict)
         initial
         list
-
-
-computeModuleNameLookupTable :
-    RequestedData.Data
-    -> ValidProject
-    -> OpaqueProjectModule
-    ->
-        { moduleNameLookupTable : ModuleNameLookupTable
-        , exposed : Exposed
-        , project : ValidProject
-        }
-computeModuleNameLookupTable requestedData project module_ =
-    let
-        moduleName : ModuleName
-        moduleName =
-            ProjectModule.moduleName module_
-    in
-    -- TODO If the file has changed, then compute the module docs anyway.
-    if requestedData.moduleNameLookupTable then
-        let
-            computeResult : { moduleNameLookupTable : ModuleNameLookupTable, moduleDocs : Elm.Docs.Module, project : ValidProject }
-            computeResult =
-                Review.ModuleNameLookupTable.Compute.compute moduleName module_ project
-
-            exposesAll_ : Bool
-            exposesAll_ =
-                exposesAll (ProjectModule.ast module_)
-        in
-        { moduleNameLookupTable = computeResult.moduleNameLookupTable
-        , exposed =
-            { exposesAll = exposesAll_
-            , exposed = collectExposed computeResult.moduleDocs
-            }
-        , project = computeResult.project
-        }
-
-    else if requestedData.exposed then
-        let
-            computeResult : { moduleDocs : Elm.Docs.Module, project : ValidProject }
-            computeResult =
-                Review.ModuleNameLookupTable.Compute.computeJustModuleDocs moduleName module_ project
-
-            exposesAll_ : Bool
-            exposesAll_ =
-                exposesAll (ProjectModule.ast module_)
-        in
-        { moduleNameLookupTable = ModuleNameLookupTableInternal.empty moduleName
-        , exposed =
-            { exposesAll = exposesAll_
-            , exposed = collectExposed computeResult.moduleDocs
-            }
-        , project = computeResult.project
-        }
-
-    else
-        { moduleNameLookupTable = ModuleNameLookupTableInternal.empty moduleName
-        , exposed = dummyExposed
-        , project = project
-        }
 
 
 dummyExposed : Exposed
@@ -6225,9 +6191,14 @@ computeModules :
     -> AnalysisAccumulator
     -> AnalysisAccumulator
 computeModules reviewOptions filePath acc =
+    let
+        project : ValidProject
+        project =
+            ValidProject.updateWorkList WorkList.visitedNextModule acc.project
+    in
     case ValidProject.getModuleByPath filePath acc.project of
         Nothing ->
-            { project = ValidProject.updateWorkList WorkList.visitedNextModule acc.project
+            { project = project
             , ruleProjectVisitors = acc.ruleProjectVisitors
             , fixedErrors = acc.fixedErrors
             }
@@ -6240,7 +6211,7 @@ computeModules reviewOptions filePath acc =
                         { reviewOptions = reviewOptions
                         , ruleProjectVisitors = acc.ruleProjectVisitors
                         , module_ = module_
-                        , project = ValidProject.updateWorkList WorkList.visitedNextModule acc.project
+                        , project = project
                         , fixedErrors = acc.fixedErrors
                         }
             in
@@ -7989,10 +7960,10 @@ withImportedModuleDocs :
     { implicitImports : Bool, dependencies : Bool }
     -> ContextCreator (Dict ModuleName Elm.Docs.Module) (from -> to)
     -> ContextCreator from to
-withImportedModuleDocs params (ContextCreator fn requestedData) =
+withImportedModuleDocs params (ContextCreator fn (RequestedData requested)) =
     ContextCreator
         (\data isFileIgnored isFileFixable -> fn data isFileIgnored isFileFixable (data.importedModuleDocs params))
-        requestedData
+        (RequestedData { requested | moduleDocs = True })
 
 
 {-| Request the full [AST](https://en.wikipedia.org/wiki/Abstract_syntax_tree) for the current module.

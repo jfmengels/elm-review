@@ -5,7 +5,6 @@ import Elm.Docs
 import Elm.License
 import Elm.Package
 import Elm.Project
-import Elm.Syntax.Range exposing (Range)
 import Elm.Type
 import Elm.Version
 import Json.Encode as Encode
