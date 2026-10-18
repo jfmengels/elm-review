@@ -10,19 +10,27 @@ import Review.Cache.ContextHash as ContextHash exposing (ContextHash)
 
 
 type DocsModule
-    = DocsModule (List (ContextHash Elm.Docs.Module)) (ContextHash Elm.Docs.Module) Elm.Docs.Module
+    = DocsModule
+        { docsModule : Elm.Docs.Module
+        , docsModuleHash : ContextHash Elm.Docs.Module
+        , importDocsModuleHashes : List (ContextHash Elm.Docs.Module)
+        }
 
 
 create : List (ContextHash Elm.Docs.Module) -> Elm.Docs.Module -> DocsModule
-create inputHashes mod_ =
-    DocsModule inputHashes (ContextHash.create mod_) mod_
+create importDocsModuleHashes docsModule =
+    DocsModule
+        { docsModule = docsModule
+        , docsModuleHash = ContextHash.create docsModule
+        , importDocsModuleHashes = importDocsModuleHashes
+        }
 
 
 mod : DocsModule -> Elm.Docs.Module
-mod (DocsModule _ _ mod_) =
-    mod_
+mod (DocsModule d) =
+    d.docsModule
 
 
 hash : DocsModule -> ContextHash Elm.Docs.Module
-hash (DocsModule _ contextHash _) =
-    contextHash
+hash (DocsModule d) =
+    d.docsModuleHash
