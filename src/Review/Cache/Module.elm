@@ -15,7 +15,7 @@ module Review.Cache.Module exposing
 -}
 
 import Review.Cache.ContentHash exposing (ContentHash)
-import Review.Cache.ContextHash as ContextHash exposing (ComparableContextHash, ContextHash)
+import Review.Cache.ContextHash exposing (ComparableContextHash, ContextHash)
 import Review.RequestedData exposing (RequestedData(..))
 
 

@@ -91,6 +91,7 @@ import Review.FilePath exposing (FilePath)
 import Review.Project.Dependency as Dependency exposing (Dependency)
 import Review.Project.Internal as Internal exposing (Project, ProjectInternals)
 import Review.Project.ModuleIds as ModuleIds exposing (ModuleId, ModuleIds)
+import Review.Project.ProjectCache as ProjectCache
 import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModule)
 import Review.WorkList as WorkList
 import Vendor.Graph as Graph
@@ -133,7 +134,6 @@ new =
         , projectCache = Nothing
         , sortedModules = Internal.NeedsToAddNewEdgesToGraph Dict.empty
         , workList = WorkList.empty
-        , typeInferenceProject = Nothing
         }
 
 
@@ -226,7 +226,7 @@ addParsedModule { path, source, ast } (Internal.Project project) =
                 else
                     Internal.NeedsToAddNewEdgesToGraph result.edgeChanges
             , workList = WorkList.touchedModule path project.workList
-            , typeInferenceProject = Maybe.map (Internal.addFileToTypeInferenceProject ast) project.typeInferenceProject
+            , projectCache = Maybe.map (ProjectCache.mapTypes (Internal.addFileToTypeInferenceProject ast)) project.projectCache
         }
 
 
@@ -265,7 +265,7 @@ removeModule path (Internal.Project project) =
 
                         else
                             Internal.NeedsToAddNewEdgesToGraph edgeChanges
-                    , typeInferenceProject = Maybe.map (TypeInference.removeFile (ProjectModule.moduleName module_)) project.typeInferenceProject
+                    , projectCache = Maybe.map (ProjectCache.mapTypes (TypeInference.removeFile (ProjectModule.moduleName module_))) project.projectCache
                 }
 
         Nothing ->
