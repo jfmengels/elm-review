@@ -6,21 +6,24 @@ module Review.Project.DocsModule exposing
     )
 
 import Elm.Docs
+import Review.Cache.ContentHash exposing (ContentHash)
 import Review.Cache.ContextHash as ContextHash exposing (ContextHash)
 
 
 type DocsModule
     = DocsModule
         { docsModule : Elm.Docs.Module
+        , sourceHash : ContentHash
         , docsModuleHash : ContextHash Elm.Docs.Module
         , importDocsModuleHashes : List (ContextHash Elm.Docs.Module)
         }
 
 
-create : List (ContextHash Elm.Docs.Module) -> Elm.Docs.Module -> DocsModule
-create importDocsModuleHashes docsModule =
+create : List (ContextHash Elm.Docs.Module) -> ContentHash -> Elm.Docs.Module -> DocsModule
+create importDocsModuleHashes sourceHash docsModule =
     DocsModule
         { docsModule = docsModule
+        , sourceHash = sourceHash
         , docsModuleHash = ContextHash.create docsModule
         , importDocsModuleHashes = importDocsModuleHashes
         }
