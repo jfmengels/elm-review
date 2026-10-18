@@ -1,6 +1,7 @@
 module Review.Project.DocsModule exposing
     ( DocsModule
     , create
+    , extract
     , hash
     , mod
     )
@@ -37,3 +38,12 @@ mod (DocsModule d) =
 hash : DocsModule -> ContextHash Elm.Docs.Module
 hash (DocsModule d) =
     d.docsModuleHash
+
+
+extract : List (ContextHash Elm.Docs.Module) -> ContentHash -> DocsModule -> Maybe Elm.Docs.Module
+extract importDocsModuleHashes sourceHash (DocsModule d) =
+    if sourceHash == d.sourceHash && importDocsModuleHashes == d.importDocsModuleHashes then
+        Just d.docsModule
+
+    else
+        Nothing
