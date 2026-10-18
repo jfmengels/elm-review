@@ -1291,7 +1291,11 @@ valuesFromExposingList moduleName module_ topLevelExposeList acc =
                     valuesFromExposingList moduleName module_ rest (Dict.insert function moduleName acc)
 
                 Exposing.TypeOrAliasExpose name ->
-                    if List.any (\alias -> alias.name == name && isPlainRecordType alias.tipe) module_.aliases then
+                    if
+                        ListExtra.find (\alias -> alias.name == name) module_.aliases
+                            |> Maybe.map (\alias -> isPlainRecordType alias.tipe)
+                            |> Maybe.withDefault False
+                    then
                         valuesFromExposingList moduleName module_ rest (Dict.insert name moduleName acc)
 
                     else
