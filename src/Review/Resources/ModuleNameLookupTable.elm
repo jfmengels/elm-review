@@ -1,54 +1,51 @@
-module Review.ModuleNameLookupTable.Compute exposing (compute, computeJustModuleDocs, findModuleDocumentation)
+module Review.Resources.ModuleNameLookupTable exposing (compute)
 
 import Dict exposing (Dict)
 import Elm.Docs
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
-import Elm.Syntax.Exposing as Exposing exposing (Exposing, TopLevelExpose)
+import Elm.Syntax.Exposing as Exposing exposing (TopLevelExpose)
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.File
 import Elm.Syntax.Import exposing (Import)
-import Elm.Syntax.Infix as Infix exposing (Infix)
-import Elm.Syntax.Module as Module exposing (Module)
+import Elm.Syntax.Infix as Infix
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern as Pattern exposing (Pattern)
 import Elm.Syntax.Range as Range exposing (Range)
-import Elm.Syntax.Signature exposing (Signature)
-import Elm.Syntax.Type
-import Elm.Syntax.TypeAlias
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
 import Elm.Type
-import Elm.TypeInference
-import Elm.TypeInference.Type
 import NonEmpty exposing (NonEmpty)
-import Review.Cache.ContentHash exposing (ContentHash)
-import Review.Cache.ContextHash exposing (ContextHash)
-import Review.ModuleNameLookupTable.Builder as Builder exposing (ModuleNameLookupTableBuilder)
-import Review.ModuleNameLookupTable.ComputeContext exposing (Context, Scope)
-import Review.ModuleNameLookupTable.Internal exposing (ModuleNameLookupTable)
 import Review.Project.DocsModule as DocsModule exposing (DocsModule)
-import Review.Project.ProjectCache as ProjectCache exposing (ProjectCache)
+import Review.Project.ProjectCache as ProjectCache exposing (ModuleCacheKey, ProjectCache)
 import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModule)
-import Review.Project.Valid as ValidProject exposing (ValidProject)
-import Set
+import Review.Resources.ElmCorePrelude exposing (elmCorePrelude)
+import Review.Resources.Internal exposing (ModuleNameLookupTable)
+import Review.Resources.ModuleNameLookupTableBuilder as Builder exposing (ModuleNameLookupTableBuilder)
+import Set exposing (Set)
 import Vendor.ListExtra as ListExtra
 
 
-compute :
-    ModuleName
-    -> OpaqueProjectModule
-    -> ValidProject
-    ->
-        { moduleNameLookupTable : ModuleNameLookupTable
-        , moduleDocs : Elm.Docs.Module
-        , project : ValidProject
-        }
-compute moduleName module_ project =
-    let
-        projectCache : ProjectCache
-        projectCache =
-            ValidProject.projectCache project
+type alias Context =
+    { scopes : NonEmpty Scope
+    , localTypes : Set String
+    , importAliases : Dict String (NonEmpty ModuleName)
+    , importedFunctions : Dict String ModuleName
+    , importedTypes : Dict String ModuleName
+    , modules : Dict ModuleName Elm.Docs.Module
+    , lookupTable : ModuleNameLookupTableBuilder
+    , branches : NonEmpty ( Range, Scope )
+    , caseToExit : NonEmpty Range
+    }
 
+
+type alias Scope =
+    Set String
+
+
+compute : ModuleName -> OpaqueProjectModule -> ProjectCache -> ( ModuleNameLookupTable, ProjectCache )
+compute moduleName module_ projectCache =
+    -- Caching layer. Real computation is in computeHelp
+    let
         {- This will be used as the cache key in terms of the imports.
            Since we assume that the code will be compiling at every stage, the only thing that causes the
            lookup table for a given module to be recomputed, are:
@@ -68,258 +65,69 @@ compute moduleName module_ project =
                 Dict.empty
                 (ProjectModule.ast module_).imports
 
-        cacheToReuse : Maybe { moduleNameLookupTable : ModuleNameLookupTable, moduleDocs : Elm.Docs.Module, project : ValidProject }
-        cacheToReuse =
-            case Dict.get moduleName projectCache.lookupTables of
-                Just cache ->
-                    if cache.key.contentHash == ProjectModule.contentHash module_ && cache.key.implicitImports == implicitImports then
-                        Just
-                            { moduleNameLookupTable = cache.lookupTable
-                            , moduleDocs = Dict.get moduleName projectCache.modules |> Maybe.map DocsModule.mod |> Maybe.withDefault emptyModuleDocs
-                            , project = project
-                            }
-
-                    else
-                        Nothing
-
-                Nothing ->
-                    Nothing
+        cacheKey : ModuleCacheKey
+        cacheKey =
+            { implicitImports = implicitImports
+            , contentHash = ProjectModule.contentHash module_
+            }
     in
-    case cacheToReuse of
-        Just cache ->
-            cache
+    case reuseFromCache cacheKey moduleName projectCache.lookupTables of
+        Just lookupTable ->
+            ( lookupTable, projectCache )
 
         Nothing ->
-            computeHelp
-                { implicitImports = implicitImports
-                , contentHash = ProjectModule.contentHash module_
-                }
-                moduleName
-                module_
-                project
+            let
+                lookupTable : ModuleNameLookupTable
+                lookupTable =
+                    computeHelp moduleName module_ projectCache
+            in
+            ( lookupTable
+            , { projectCache | lookupTables = Dict.insert moduleName { key = cacheKey, lookupTable = lookupTable } projectCache.lookupTables }
+            )
 
 
-computeHelp :
-    ProjectCache.ModuleCacheKey
+reuseFromCache :
+    ModuleCacheKey
     -> ModuleName
-    -> OpaqueProjectModule
-    -> ValidProject
-    ->
-        { moduleNameLookupTable : ModuleNameLookupTable
-        , moduleDocs : Elm.Docs.Module
-        , project : ValidProject
-        }
-computeHelp cacheKey moduleName module_ project =
-    let
-        projectCache : ProjectCache
-        projectCache =
-            ValidProject.projectCache project
+    -> Dict ModuleName { key : ModuleCacheKey, lookupTable : ModuleNameLookupTable }
+    -> Maybe ModuleNameLookupTable
+reuseFromCache cacheKey moduleName lookupTables =
+    case Dict.get moduleName lookupTables of
+        Just cache ->
+            if cache.key.contentHash == cacheKey.contentHash && cache.key.implicitImports == cacheKey.implicitImports then
+                Just cache.lookupTable
 
-        moduleAst : Elm.Syntax.File.File
-        moduleAst =
-            ProjectModule.ast module_
-
-        elmJsonContentHash : Maybe ContentHash
-        elmJsonContentHash =
-            ValidProject.elmJsonHash project
-
-        baseModuleContext : Context
-        baseModuleContext =
-            computeBaseModule
-                moduleName
-                (ValidProject.typeInferenceProject project)
-                projectCache.dependencies
-
-        moduleContext : Context
-        moduleContext =
-            -- TODO Modules is being set twice?
-            { baseModuleContext
-                | modules =
-                    Dict.foldl
-                        (\key docs dict ->
-                            Dict.insert key (DocsModule.mod docs) dict
-                        )
-                        projectCache.dependencies
-                        projectCache.modules
-            }
-                |> collectModuleDocs moduleAst
-                |> collectLookupTable moduleAst.declarations
-
-        lookupTable : ModuleNameLookupTable
-        lookupTable =
-            Builder.finalize moduleName moduleContext.lookupTable
-
-        moduleDocsForFile : Elm.Docs.Module
-        moduleDocsForFile =
-            { name = joinModuleName moduleName
-            , comment = extractModuleDocumentation moduleAst
-            , unions = moduleContext.exposedUnions
-            , aliases = moduleContext.exposedAliases
-            , values = moduleContext.exposedValues
-            , binops = moduleContext.exposedBinops
-            }
-
-        newProjectCache : ProjectCache
-        newProjectCache =
-            { dependencies = projectCache.dependencies
-            , elmJsonContentHash = elmJsonContentHash
-            , modules = projectCache.modules
-            , lookupTables =
-                Dict.insert moduleName
-                    { key = cacheKey
-                    , lookupTable = lookupTable
-                    }
-                    projectCache.lookupTables
-            }
-    in
-    { moduleNameLookupTable = lookupTable
-    , moduleDocs = moduleDocsForFile
-    , project =
-        project
-            |> ValidProject.updateProjectCache newProjectCache
-            |> ValidProject.setTypeInferenceProject moduleContext.types
-    }
-
-
-computeJustModuleDocs :
-    ModuleName
-    -> OpaqueProjectModule
-    -> ValidProject
-    ->
-        { moduleDocs : Elm.Docs.Module
-        , project : ValidProject
-        }
-computeJustModuleDocs moduleName module_ project =
-    let
-        projectCache : ProjectCache
-        projectCache =
-            ValidProject.projectCache project
-    in
-    case
-        Dict.get moduleName projectCache.modules
-            |> Maybe.andThen
-                (DocsModule.extract
-                    -- TODO Get hashes
-                    []
-                    (ProjectModule.contentHash module_)
-                )
-    of
-        Just mod ->
-            { moduleDocs = mod
-            , project = project
-            }
+            else
+                Nothing
 
         Nothing ->
-            computeJustModuleDocsHelp moduleName module_ project
+            Nothing
 
 
-computeJustModuleDocsHelp :
-    ModuleName
-    -> OpaqueProjectModule
-    -> ValidProject
-    ->
-        { moduleDocs : Elm.Docs.Module
-        , project : ValidProject
-        }
-computeJustModuleDocsHelp moduleName module_ project =
+computeHelp : ModuleName -> OpaqueProjectModule -> ProjectCache -> ModuleNameLookupTable
+computeHelp moduleName module_ projectCache =
     let
-        projectCache : ProjectCache
-        projectCache =
-            ValidProject.projectCache project
-
         moduleAst : Elm.Syntax.File.File
         moduleAst =
             ProjectModule.ast module_
 
-        elmJsonContentHash : Maybe ContentHash
-        elmJsonContentHash =
-            ValidProject.elmJsonHash project
-
-        baseTypes : Elm.TypeInference.Project
-        baseTypes =
-            ValidProject.typeInferenceProject project
-
         baseModuleContext : Context
         baseModuleContext =
-            computeBaseModule
-                moduleName
-                baseTypes
+            Dict.foldl
+                (\key docs dict ->
+                    Dict.insert key (DocsModule.mod docs) dict
+                )
                 projectCache.dependencies
-
-        dataForModuleDocs : DataForModuleDocs
-        dataForModuleDocs =
-            { getModule = ValidProject.getModuleByModuleName project
-            , baseModuleContext = baseModuleContext
-            }
-
-        { hashes, projectModules, types } =
-            List.foldl
-                (\node acc -> computeImportedModulesDocs dataForModuleDocs node acc)
-                { hashes = []
-                , projectModules = projectCache.modules
-                , types = baseTypes
-                }
-                moduleAst.imports
+                projectCache.modules
+                |> computeBaseModule
 
         moduleContext : Context
         moduleContext =
-            { baseModuleContext
-                | modules =
-                    Dict.foldl
-                        (\key docs dict ->
-                            Dict.insert key (DocsModule.mod docs) dict
-                        )
-                        projectCache.dependencies
-                        projectCache.modules
-                , types = types
-            }
-                |> collectModuleDocs moduleAst
-
-        moduleDocsForFile : Elm.Docs.Module
-        moduleDocsForFile =
-            { name = joinModuleName moduleName
-            , comment = extractModuleDocumentation moduleAst
-            , unions = moduleContext.exposedUnions
-            , aliases = moduleContext.exposedAliases
-            , values = moduleContext.exposedValues
-            , binops = moduleContext.exposedBinops
-            }
-
-        modules : Dict ModuleName DocsModule
-        modules =
-            Dict.insert moduleName
-                (DocsModule.create
-                    hashes
-                    (ProjectModule.contentHash module_)
-                    moduleDocsForFile
-                )
-                projectModules
-
-        newProjectCache : ProjectCache
-        newProjectCache =
-            { dependencies = projectCache.dependencies
-            , elmJsonContentHash = elmJsonContentHash
-            , modules = modules
-            , lookupTables = projectCache.lookupTables
-            }
+            List.foldl importVisitor baseModuleContext moduleAst.imports
+                |> declarationListVisitor moduleAst.declarations
+                |> collectLookupTable moduleAst.declarations
     in
-    { moduleDocs = moduleDocsForFile
-    , project =
-        project
-            |> ValidProject.updateProjectCache newProjectCache
-            |> ValidProject.setTypeInferenceProject moduleContext.types
-    }
-
-
-emptyModuleDocs : Elm.Docs.Module
-emptyModuleDocs =
-    { name = ""
-    , comment = ""
-    , unions = []
-    , aliases = []
-    , values = []
-    , binops = []
-    }
+    Builder.finalize moduleName moduleContext.lookupTable
 
 
 computeImplicitlyImportedElements :
@@ -429,177 +237,20 @@ insertConstructors tags acc =
         tags
 
 
-type alias DataForModuleDocs =
-    { getModule : ModuleName -> Maybe OpaqueProjectModule
-    , baseModuleContext : Context
-    }
-
-
-computeImportedModulesDocs :
-    DataForModuleDocs
-    -> Node Import
-    -> { hashes : List (ContextHash Elm.Docs.Module), projectModules : Dict ModuleName DocsModule, types : Elm.TypeInference.Project }
-    -> { hashes : List (ContextHash Elm.Docs.Module), projectModules : Dict ModuleName DocsModule, types : Elm.TypeInference.Project }
-computeImportedModulesDocs data (Node _ import_) acc =
-    let
-        importedModuleName : ModuleName
-        importedModuleName =
-            Node.value import_.moduleName
-    in
-    case Dict.get importedModuleName acc.projectModules of
-        Just importedModule ->
-            { hashes = DocsModule.hash importedModule :: acc.hashes
-            , projectModules = acc.projectModules
-            , types = acc.types
-            }
-
-        Nothing ->
-            case data.getModule importedModuleName of
-                Just importedModule ->
-                    let
-                        -- This occurs when an imported file hasn't been reviewed
-                        -- (and therefore its module docs computation was skipped)
-                        -- because it used its result cache.
-                        { moduleDocs, projectModules, types } =
-                            computeOnlyModuleDocs data importedModuleName importedModule acc.projectModules acc.types
-                    in
-                    { hashes = DocsModule.hash moduleDocs :: acc.hashes
-                    , projectModules = projectModules
-                    , types = types
-                    }
-
-                Nothing ->
-                    acc
-
-
-computeOnlyModuleDocs :
-    DataForModuleDocs
-    -> ModuleName
-    -> OpaqueProjectModule
-    -> Dict ModuleName DocsModule
-    -> Elm.TypeInference.Project
-    -> { moduleDocs : DocsModule, projectModules : Dict ModuleName DocsModule, types : Elm.TypeInference.Project }
-computeOnlyModuleDocs ({ baseModuleContext } as data) moduleName module_ baseProjectModules baseTypes =
-    let
-        moduleAst : Elm.Syntax.File.File
-        moduleAst =
-            ProjectModule.ast module_
-
-        { hashes, projectModules, types } =
-            List.foldl
-                (\node acc -> computeImportedModulesDocs data node acc)
-                { hashes = []
-                , projectModules = baseProjectModules
-                , types = baseTypes
-                }
-                moduleAst.imports
-
-        moduleContext : Context
-        moduleContext =
-            { baseModuleContext | modules = Dict.map (\_ m -> DocsModule.mod m) projectModules, types = types }
-                |> collectModuleDocs moduleAst
-
-        moduleDocs : DocsModule
-        moduleDocs =
-            DocsModule.create hashes
-                (ProjectModule.contentHash module_)
-                { name = joinModuleName moduleName
-                , comment = extractModuleDocumentation moduleAst
-                , unions = moduleContext.exposedUnions
-                , aliases = moduleContext.exposedAliases
-                , values = moduleContext.exposedValues
-                , binops = moduleContext.exposedBinops
-                }
-    in
-    { moduleDocs = moduleDocs
-    , projectModules = Dict.insert moduleName moduleDocs projectModules
-    , types = moduleContext.types
-    }
-
-
-computeBaseModule : ModuleName -> Elm.TypeInference.Project -> Dict ModuleName Elm.Docs.Module -> Context
-computeBaseModule moduleName types elmCorePreludeModules =
+computeBaseModule : Dict ModuleName Elm.Docs.Module -> Context
+computeBaseModule elmCorePreludeModules =
     List.foldl importVisitor
         { scopes = NonEmpty.fromElement Set.empty
-        , types = types
-        , moduleName = moduleName
         , localTypes = Set.empty
         , importAliases = Dict.empty
         , importedFunctions = Dict.empty
         , importedTypes = Dict.empty
         , modules = elmCorePreludeModules
-        , exposesEverything = False
-        , exposedNames = Dict.empty
-        , exposedUnions = []
-        , exposedAliases = []
-        , exposedValues = []
-        , exposedBinops = []
         , lookupTable = Builder.empty
         , branches = NonEmpty.fromElement ( Range.empty, Set.empty )
         , caseToExit = NonEmpty.fromElement Range.empty
         }
         elmCorePrelude
-
-
-extractModuleDocumentation : Elm.Syntax.File.File -> String
-extractModuleDocumentation ast =
-    extractDocumentation (findModuleDocumentation ast)
-
-
-extractDocumentation : Maybe (Node String) -> String
-extractDocumentation maybeDoc =
-    case maybeDoc of
-        Just (Node _ str) ->
-            -- Remove surrounding {-| and -}
-            String.slice 3 -2 str
-
-        Nothing ->
-            ""
-
-
-findModuleDocumentation : Elm.Syntax.File.File -> Maybe (Node String)
-findModuleDocumentation ast =
-    let
-        cutOffLine : Int
-        cutOffLine =
-            case ast.imports of
-                firstImport :: _ ->
-                    (Node.range firstImport).start.row
-
-                [] ->
-                    case ast.declarations of
-                        firstDeclaration :: _ ->
-                            (Node.range firstDeclaration).start.row
-
-                        [] ->
-                            -- Should not happen, as every module should have at least one declaration
-                            0
-    in
-    findModuleDocumentationBeforeCutOffLine cutOffLine ast.comments
-
-
-findModuleDocumentationBeforeCutOffLine : Int -> List (Node String) -> Maybe (Node String)
-findModuleDocumentationBeforeCutOffLine cutOffLine comments =
-    case comments of
-        [] ->
-            Nothing
-
-        ((Node range content) as comment) :: restOfComments ->
-            if range.start.row > cutOffLine then
-                Nothing
-
-            else if String.startsWith "{-|" content then
-                Just comment
-
-            else
-                findModuleDocumentationBeforeCutOffLine cutOffLine restOfComments
-
-
-collectModuleDocs : Elm.Syntax.File.File -> Context -> Context
-collectModuleDocs ast context =
-    List.foldl importVisitor context ast.imports
-        |> moduleDefinitionVisitor ast.moduleDefinition
-        |> declarationListVisitor ast.declarations
 
 
 collectLookupTable : List (Node Declaration) -> Context -> Context
@@ -637,117 +288,13 @@ visitExpressions node context =
         |> popScopeExit node
 
 
-elmCorePrelude : List (Node Import)
-elmCorePrelude =
-    let
-        explicit : List Exposing.TopLevelExpose -> Maybe Exposing
-        explicit exposed =
-            exposed
-                |> List.map (Node Range.emptyRange)
-                |> Exposing.Explicit
-                |> Just
-    in
-    -- These are the default imports implicitly added by the Elm compiler
-    -- https://package.elm-lang.org/packages/elm/core/latest
-    [ createFakeImport
-        { moduleName = [ "Basics" ]
-        , moduleAlias = Nothing
-        , exposingList = Just <| Exposing.All Range.emptyRange
-        }
-    , createFakeImport
-        { moduleName = [ "List" ]
-        , moduleAlias = Nothing
-        , exposingList =
-            explicit
-                [ Exposing.TypeExpose { name = "List", open = Nothing }
-                , Exposing.InfixExpose "::"
-                ]
-        }
-    , createFakeImport
-        { moduleName = [ "Maybe" ]
-        , moduleAlias = Nothing
-        , exposingList =
-            explicit
-                [ Exposing.TypeExpose { name = "Maybe", open = Just Range.emptyRange }
-                ]
-        }
-    , createFakeImport
-        { moduleName = [ "Result" ]
-        , moduleAlias = Nothing
-        , exposingList =
-            explicit
-                [ Exposing.TypeExpose { name = "Result", open = Just Range.emptyRange }
-                ]
-        }
-    , createFakeImport
-        { moduleName = [ "String" ]
-        , moduleAlias = Nothing
-        , exposingList =
-            explicit
-                [ Exposing.TypeExpose { name = "String", open = Nothing }
-                ]
-        }
-    , createFakeImport
-        { moduleName = [ "Char" ]
-        , moduleAlias = Nothing
-        , exposingList =
-            explicit
-                [ Exposing.TypeExpose { name = "Char", open = Nothing }
-                ]
-        }
-    , createFakeImport
-        { moduleName = [ "Tuple" ]
-        , moduleAlias = Nothing
-        , exposingList = Nothing
-        }
-    , createFakeImport
-        { moduleName = [ "Debug" ]
-        , moduleAlias = Nothing
-        , exposingList = Nothing
-        }
-    , createFakeImport
-        { moduleName = [ "Platform" ]
-        , moduleAlias = Nothing
-        , exposingList =
-            explicit
-                [ Exposing.TypeExpose { name = "Program", open = Nothing }
-                ]
-        }
-    , createFakeImport
-        { moduleName = [ "Platform", "Cmd" ]
-        , moduleAlias = Just "Cmd"
-        , exposingList =
-            explicit
-                [ Exposing.TypeExpose { name = "Cmd", open = Nothing }
-                ]
-        }
-    , createFakeImport
-        { moduleName = [ "Platform", "Sub" ]
-        , moduleAlias = Just "Sub"
-        , exposingList =
-            explicit
-                [ Exposing.TypeExpose { name = "Sub", open = Nothing }
-                ]
-        }
-    ]
-
-
-createFakeImport : { moduleName : ModuleName, exposingList : Maybe Exposing, moduleAlias : Maybe String } -> Node Import
-createFakeImport { moduleName, moduleAlias, exposingList } =
-    Node Range.emptyRange
-        { moduleName = Node Range.emptyRange moduleName
-        , moduleAlias = moduleAlias |> Maybe.map (List.singleton >> Node Range.emptyRange)
-        , exposingList = exposingList |> Maybe.map (Node Range.emptyRange)
-        }
-
-
 declarationListVisitor : List (Node Declaration) -> Context -> Context
 declarationListVisitor declarations context =
-    List.foldl (registerDeclaration declarations) context declarations
+    List.foldl registerDeclaration context declarations
 
 
-registerDeclaration : List (Node Declaration) -> Node Declaration -> Context -> Context
-registerDeclaration allDeclarations (Node _ declaration) context =
+registerDeclaration : Node Declaration -> Context -> Context
+registerDeclaration (Node _ declaration) context =
     case declaration of
         Declaration.FunctionDeclaration function ->
             let
@@ -758,9 +305,7 @@ registerDeclaration allDeclarations (Node _ declaration) context =
                         |> .name
                         |> Node.value
             in
-            context
-                |> addToScope name
-                |> ifExposed (\ctx -> registerExposedValue function name ctx) name
+            addToScope name context
 
         Declaration.AliasDeclaration alias ->
             let
@@ -779,7 +324,6 @@ registerDeclaration allDeclarations (Node _ declaration) context =
             in
             { context | localTypes = Set.insert name context.localTypes }
                 |> registerAlias
-                |> ifExposed (\ctx -> registerExposedTypeAlias alias ctx) name
 
         Declaration.CustomTypeDeclaration customType ->
             List.foldl
@@ -788,7 +332,6 @@ registerDeclaration allDeclarations (Node _ declaration) context =
                 )
                 { context | localTypes = Set.insert (Node.value customType.name) context.localTypes }
                 customType.constructors
-                |> registerExposedCustomType customType
 
         Declaration.PortDeclaration signature ->
             let
@@ -796,13 +339,7 @@ registerDeclaration allDeclarations (Node _ declaration) context =
                 name =
                     Node.value signature.name
             in
-            context
-                |> addToScope name
-                |> ifExposed
-                    (\ctx ->
-                        registerPortValue signature.typeAnnotation name ctx
-                    )
-                    name
+            addToScope name context
 
         Declaration.InfixDeclaration infix_ ->
             let
@@ -810,13 +347,7 @@ registerDeclaration allDeclarations (Node _ declaration) context =
                 name =
                     Node.value infix_.operator
             in
-            context
-                |> addToScope name
-                |> ifExposed
-                    (\ctx ->
-                        registerExposedBinop infix_ name allDeclarations ctx
-                    )
-                    name
+            addToScope name context
 
         Declaration.Destructuring _ _ ->
             -- Not possible in 0.19 code
@@ -835,316 +366,23 @@ addToScope name context =
     { context | scopes = newScopes }
 
 
-registerExposedValue : Expression.Function -> String -> Context -> Context
-registerExposedValue function name context =
-    let
-        ( type_, types ) =
-            case function.signature of
-                Just (Node _ { typeAnnotation }) ->
-                    ( syntaxTypeAnnotationToDocsType context typeAnnotation
-                    , context.types
-                    )
-
-                Nothing ->
-                    case Elm.TypeInference.getType context.moduleName (Node.range function.declaration) context.types of
-                        ( Ok type__, newTypes ) ->
-                            ( inferredTypeToDocsType type__, newTypes )
-
-                        ( Err _, newTypes ) ->
-                            ( Elm.Type.Tuple [], newTypes )
-    in
-    { context
-        | exposedValues =
-            { name = name
-            , comment = extractDocumentation function.documentation
-            , tipe = type_
-            }
-                :: context.exposedValues
-        , types = types
-    }
-
-
-registerPortValue : Node TypeAnnotation -> String -> Context -> Context
-registerPortValue typeAnnotation name context =
-    { context
-        | exposedValues =
-            { name = name
-
-            -- TODO Collect documentation for port
-            , comment = ""
-            , tipe = syntaxTypeAnnotationToDocsType context typeAnnotation
-            }
-                :: context.exposedValues
-    }
-
-
-registerExposedCustomType : Elm.Syntax.Type.Type -> Context -> Context
-registerExposedCustomType union context =
-    if context.exposesEverything then
-        registerCustomType union union.constructors context
-
-    else
-        case Dict.get (Node.value union.name) context.exposedNames of
-            Just True ->
-                registerCustomType union union.constructors context
-
-            Just False ->
-                registerCustomType union [] context
-
-            Nothing ->
-                context
-
-
-registerCustomType : Elm.Syntax.Type.Type -> List (Node Elm.Syntax.Type.ValueConstructor) -> Context -> Context
-registerCustomType union constructors context =
-    { context
-        | exposedUnions =
-            { name = Node.value union.name
-            , comment = extractDocumentation union.documentation
-            , args = List.map Node.value union.generics
-            , tags =
-                constructors
-                    |> List.map
-                        (\(Node _ { name, arguments }) ->
-                            ( Node.value name
-                            , List.map (syntaxTypeAnnotationToDocsType context) arguments
-                            )
-                        )
-            }
-                :: context.exposedUnions
-    }
-
-
-registerExposedTypeAlias : Elm.Syntax.TypeAlias.TypeAlias -> Context -> Context
-registerExposedTypeAlias alias context =
-    { context
-        | exposedAliases =
-            { name = Node.value alias.name
-            , comment = extractDocumentation alias.documentation
-            , args = List.map Node.value alias.generics
-            , tipe = syntaxTypeAnnotationToDocsType context alias.typeAnnotation
-            }
-                :: context.exposedAliases
-    }
-
-
-ifExposed : (Context -> Context) -> String -> Context -> Context
-ifExposed registerFn name context =
-    if context.exposesEverything || Dict.member name context.exposedNames then
-        registerFn context
-
-    else
-        context
-
-
-registerExposedBinop : Infix -> String -> List (Node Declaration) -> Context -> Context
-registerExposedBinop infix_ name allDeclarations context =
-    let
-        functionName : String
-        functionName =
-            Node.value infix_.function
-
-        value : Elm.Docs.Value
-        value =
-            case
-                ListExtra.findMap
-                    (\(Node _ decl) ->
-                        case decl of
-                            Declaration.FunctionDeclaration function ->
-                                if Node.value (Node.value function.declaration).name == functionName then
-                                    Just
-                                        { name = name
-                                        , comment = extractDocumentation function.documentation
-                                        , tipe =
-                                            case function.signature of
-                                                Just (Node _ { typeAnnotation }) ->
-                                                    syntaxTypeAnnotationToDocsType context typeAnnotation
-
-                                                Nothing ->
-                                                    Elm.Type.Var "unknown"
-                                        }
-
-                                else
-                                    Nothing
-
-                            _ ->
-                                Nothing
-                    )
-                    allDeclarations
-            of
-                Just valueWithDetails ->
-                    valueWithDetails
-
-                Nothing ->
-                    { name = name
-                    , comment = ""
-                    , tipe = Elm.Type.Var "unknown"
-                    }
-    in
-    { context | exposedValues = value :: context.exposedValues }
-
-
-syntaxTypeAnnotationToDocsType : Context -> Node TypeAnnotation -> Elm.Type.Type
-syntaxTypeAnnotationToDocsType context (Node _ typeAnnotation) =
-    -- IGNORE TCO
-    case typeAnnotation of
-        TypeAnnotation.GenericType name ->
-            Elm.Type.Var name
-
-        TypeAnnotation.Typed (Node _ ( moduleName, typeName )) typeParameters ->
-            let
-                realModuleName : ModuleName
-                realModuleName =
-                    fullModuleNameForType context typeName moduleName
-            in
-            Elm.Type.Type (joinModuleName realModuleName ++ "." ++ typeName) (List.map (\node -> syntaxTypeAnnotationToDocsType context node) typeParameters)
-
-        TypeAnnotation.Unit ->
-            Elm.Type.Tuple []
-
-        TypeAnnotation.Tupled list ->
-            Elm.Type.Tuple (List.map (\node -> syntaxTypeAnnotationToDocsType context node) list)
-
-        TypeAnnotation.Record updates ->
-            Elm.Type.Record (recordUpdateToDocsType context updates) Nothing
-
-        TypeAnnotation.GenericRecord (Node _ generic) (Node _ updates) ->
-            Elm.Type.Record (recordUpdateToDocsType context updates) (Just generic)
-
-        TypeAnnotation.FunctionTypeAnnotation left right ->
-            Elm.Type.Lambda
-                (syntaxTypeAnnotationToDocsType context left)
-                (syntaxTypeAnnotationToDocsType context right)
-
-
-recordUpdateToDocsType : Context -> List (Node TypeAnnotation.RecordField) -> List ( String, Elm.Type.Type )
-recordUpdateToDocsType context updates =
-    List.map
-        (\(Node _ ( Node _ name, typeAnnotation )) ->
-            ( name
-            , syntaxTypeAnnotationToDocsType context typeAnnotation
-            )
-        )
-        updates
-
-
-inferredTypeToDocsType : Elm.TypeInference.Type.Type -> Elm.Type.Type
-inferredTypeToDocsType type_ =
-    -- IGNORE TCO
-    case type_ of
-        Elm.TypeInference.Type.TypeVar name ->
-            Elm.Type.Var name
-
-        Elm.TypeInference.Type.Named { moduleName, name, arguments } ->
-            Elm.Type.Type (joinModuleName moduleName ++ "." ++ name) (List.map inferredTypeToDocsType arguments)
-
-        Elm.TypeInference.Type.Unit ->
-            Elm.Type.Tuple []
-
-        Elm.TypeInference.Type.Tuple2 a b ->
-            Elm.Type.Tuple [ inferredTypeToDocsType a, inferredTypeToDocsType b ]
-
-        Elm.TypeInference.Type.Tuple3 a b c ->
-            Elm.Type.Tuple [ inferredTypeToDocsType a, inferredTypeToDocsType b, inferredTypeToDocsType c ]
-
-        Elm.TypeInference.Type.List subType ->
-            Elm.Type.Type "List" [ inferredTypeToDocsType subType ]
-
-        Elm.TypeInference.Type.Record { fields } ->
-            Elm.Type.Record (inferredRecordTypeToDocsType fields) Nothing
-
-        Elm.TypeInference.Type.ExtensibleRecord { fields, extensionTypevar } ->
-            Elm.Type.Record (inferredRecordTypeToDocsType fields) (Just extensionTypevar)
-
-        Elm.TypeInference.Type.Function { from, to } ->
-            Elm.Type.Lambda
-                (inferredTypeToDocsType from)
-                (inferredTypeToDocsType to)
-
-        Elm.TypeInference.Type.Int ->
-            Elm.Type.Type "Basics.Int" []
-
-        Elm.TypeInference.Type.Float ->
-            Elm.Type.Type "Basics.Float" []
-
-        Elm.TypeInference.Type.Char ->
-            Elm.Type.Type "Char.Char" []
-
-        Elm.TypeInference.Type.String ->
-            Elm.Type.Type "String.String" []
-
-        Elm.TypeInference.Type.Bool ->
-            Elm.Type.Type "Basics.Bool" []
-
-        Elm.TypeInference.Type.WebGLShader r ->
-            Elm.Type.Type "WebGL.Shader"
-                [ inferredTypeToDocsType r.attributes
-                , inferredTypeToDocsType r.uniforms
-                , inferredTypeToDocsType r.varyings
-                ]
-
-
-inferredRecordTypeToDocsType : Dict String Elm.TypeInference.Type.Type -> List ( String, Elm.Type.Type )
-inferredRecordTypeToDocsType fields =
-    Dict.foldr
-        (\name typeAnnotation acc ->
-            ( name
-            , inferredTypeToDocsType typeAnnotation
-            )
-                :: acc
-        )
-        []
-        fields
-
-
 
 -- MODULE DEFINITION VISITOR
-
-
-moduleDefinitionVisitor : Node Module -> Context -> Context
-moduleDefinitionVisitor (Node _ node) context =
-    case Module.exposingList node of
-        Exposing.All _ ->
-            { context | exposesEverything = True }
-
-        Exposing.Explicit list ->
-            { context | exposedNames = exposedElements list }
-
-
-exposedElements : List (Node Exposing.TopLevelExpose) -> Dict String Bool
-exposedElements nodes =
-    List.foldl
-        (\(Node _ node) acc ->
-            case node of
-                Exposing.FunctionExpose name ->
-                    Dict.insert name False acc
-
-                Exposing.TypeOrAliasExpose name ->
-                    Dict.insert name False acc
-
-                Exposing.TypeExpose { name, open } ->
-                    Dict.insert name (open /= Nothing) acc
-
-                Exposing.InfixExpose name ->
-                    Dict.insert name False acc
-        )
-        Dict.empty
-        nodes
-
-
-
 -- IMPORT VISITOR
 
 
 importVisitor : Node Import -> Context -> Context
 importVisitor (Node _ import_) context =
-    context
-        |> registerImportAlias import_
-        |> registerImportExposed import_
+    let
+        importAliases : Dict String (NonEmpty ModuleName)
+        importAliases =
+            registerImportAlias import_ context.importAliases
+    in
+    registerImportedFunctionsAndTypes import_ { context | importAliases = importAliases }
 
 
-registerImportAlias : Import -> Context -> Context
-registerImportAlias import_ context =
+registerImportAlias : Import -> Dict String (NonEmpty ModuleName) -> Dict String (NonEmpty ModuleName)
+registerImportAlias import_ importAliases =
     let
         moduleName : ModuleName
         moduleName =
@@ -1161,18 +399,18 @@ registerImportAlias import_ context =
 
         toInsert : NonEmpty ModuleName
         toInsert =
-            case Dict.get qualifier context.importAliases of
+            case Dict.get qualifier importAliases of
                 Just previousValue ->
                     NonEmpty.cons moduleName previousValue
 
                 Nothing ->
                     NonEmpty.fromElement moduleName
     in
-    { context | importAliases = Dict.insert qualifier toInsert context.importAliases }
+    Dict.insert qualifier toInsert importAliases
 
 
-registerImportExposed : Import -> Context -> Context
-registerImportExposed import_ context =
+registerImportedFunctionsAndTypes : Import -> Context -> Context
+registerImportedFunctionsAndTypes import_ context =
     case import_.exposingList of
         Nothing ->
             context
@@ -1774,16 +1012,6 @@ moduleNameForValue context valueName moduleName =
 
         _ ->
             moduleName
-
-
-fullModuleNameForType : Context -> String -> ModuleName -> ModuleName
-fullModuleNameForType context typeName moduleName =
-    case moduleNameForType context typeName moduleName of
-        [] ->
-            context.moduleName
-
-        foundModuleName ->
-            foundModuleName
 
 
 {-| Get the name of the module where a type was defined.

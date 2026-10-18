@@ -1,7 +1,7 @@
 module Review.Project.DocsModule exposing
     ( DocsModule
+    , checkCacheKeysMatch
     , create
-    , extract
     , hash
     , mod
     )
@@ -40,10 +40,15 @@ hash (DocsModule d) =
     d.docsModuleHash
 
 
-extract : List (ContextHash Elm.Docs.Module) -> ContentHash -> DocsModule -> Maybe Elm.Docs.Module
-extract importDocsModuleHashes sourceHash (DocsModule d) =
-    if sourceHash == d.sourceHash && importDocsModuleHashes == d.importDocsModuleHashes then
-        Just d.docsModule
+{-| Set to nothing if the cache keys don't match.
+-}
+checkCacheKeysMatch : Bool -> List (ContextHash Elm.Docs.Module) -> ContentHash -> DocsModule -> Maybe DocsModule
+checkCacheKeysMatch checkCacheKey importDocsModuleHashes sourceHash ((DocsModule d) as docsModule) =
+    if
+        checkCacheKey
+            || (sourceHash == d.sourceHash && importDocsModuleHashes == d.importDocsModuleHashes)
+    then
+        Just docsModule
 
     else
         Nothing
