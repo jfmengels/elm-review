@@ -2,7 +2,7 @@ module NonEmpty exposing
     ( NonEmpty
     , fromElement
     , head
-    , find
+    , findWithHeadAsDefault
     , any
     , cons, pop
     , mapHead
@@ -31,7 +31,7 @@ available.
 # Access
 
 @docs head
-@docs find, findMap
+@docs findWithHeadAsDefault
 
 
 # Inspect
@@ -144,10 +144,13 @@ mapHead fn (Nonempty x xs) =
     Nonempty (fn x) xs
 
 
-find : (a -> Bool) -> NonEmpty a -> Maybe a
-find predicate (Nonempty x xs) =
-    if predicate x then
-        Just x
+{-| Find the first element that satisfies the predicate, and defaults to the first one.
+-}
+findWithHeadAsDefault : (a -> Bool) -> NonEmpty a -> a
+findWithHeadAsDefault predicate (Nonempty x xs) =
+    if List.isEmpty xs then
+        x
 
     else
-        ListExtra.find predicate xs
+        ListExtra.find predicate (x :: xs)
+            |> Maybe.withDefault x
