@@ -1655,23 +1655,16 @@ moduleNameForValue context valueName moduleName =
         moduleNameOrAlias :: [] ->
             case Dict.get moduleNameOrAlias context.importAliases of
                 Just aliases ->
-                    case
-                        NonEmpty.find
-                            (\aliasedModuleName ->
-                                case Dict.get aliasedModuleName context.modules of
-                                    Just module_ ->
-                                        isValueDeclaredInModule valueName module_
+                    NonEmpty.findWithHeadAsDefault
+                        (\aliasedModuleName ->
+                            case Dict.get aliasedModuleName context.modules of
+                                Just module_ ->
+                                    isValueDeclaredInModule valueName module_
 
-                                    Nothing ->
-                                        False
-                            )
-                            aliases
-                    of
-                        Just aliasedModuleName ->
-                            aliasedModuleName
-
-                        Nothing ->
-                            NonEmpty.head aliases
+                                Nothing ->
+                                    False
+                        )
+                        aliases
 
                 Nothing ->
                     moduleName
@@ -1711,23 +1704,16 @@ moduleNameForType context typeName moduleName =
         _ :: [] ->
             case Dict.get (joinModuleName moduleName) context.importAliases of
                 Just aliases ->
-                    case
-                        NonEmpty.find
-                            (\aliasedModuleName ->
-                                case Dict.get aliasedModuleName context.modules of
-                                    Just module_ ->
-                                        isTypeDeclaredInModule typeName module_
+                    NonEmpty.findWithHeadAsDefault
+                        (\aliasedModuleName ->
+                            case Dict.get aliasedModuleName context.modules of
+                                Just module_ ->
+                                    isTypeDeclaredInModule typeName module_
 
-                                    Nothing ->
-                                        False
-                            )
-                            aliases
-                    of
-                        Just aliasedModuleName ->
-                            aliasedModuleName
-
-                        Nothing ->
-                            NonEmpty.head aliases
+                                Nothing ->
+                                    False
+                        )
+                        aliases
 
                 Nothing ->
                     moduleName
