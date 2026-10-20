@@ -111,20 +111,16 @@ exceptionsToSet exceptions =
 
 
 importVisitor : Set ModuleName -> Node Import -> Context -> ( List (Error nothing), Context )
-importVisitor exceptions node context =
+importVisitor exceptions ((Node _ import_) as node) context =
     let
-        moduleName : ModuleName
-        moduleName =
-            node
-                |> Node.value
-                |> .moduleName
-                |> Node.value
+        (Node _ moduleName) =
+            import_.moduleName
     in
     if Set.member moduleName exceptions then
         ( [], context )
 
     else
-        case (Node.value node).exposingList of
+        case import_.exposingList of
             Just (Node _ (Exposing.All allRange)) ->
                 ( []
                 , { context
@@ -143,8 +139,8 @@ importVisitor exceptions node context =
 
 
 declarationVisitor : Node Declaration -> Context -> ( List empty, Context )
-declarationVisitor node context =
-    case Node.value node of
+declarationVisitor (Node _ decl) context =
+    case decl of
         Declaration.FunctionDeclaration { signature, declaration } ->
             ( []
             , (case signature of
@@ -183,8 +179,8 @@ visitTypeAnnotation typeAnnotations context =
         [] ->
             context
 
-        typeAnnotation :: rest ->
-            case Node.value typeAnnotation of
+        (Node _ typeAnnotation) :: rest ->
+            case typeAnnotation of
                 TypeAnnotation.Typed (Node range ( [], name )) subTypes ->
                     let
                         newContext : Context
@@ -205,10 +201,10 @@ visitTypeAnnotation typeAnnotations context =
                     visitTypeAnnotation (subTypes ++ rest) context
 
                 TypeAnnotation.Record fields ->
-                    visitTypeAnnotation (mapAndAppend (Node.value >> Tuple.second) fields rest) context
+                    visitTypeAnnotation (mapAndAppend (\(Node _ ( _, value )) -> value) fields rest) context
 
                 TypeAnnotation.GenericRecord _ (Node _ fields) ->
-                    visitTypeAnnotation (mapAndAppend (Node.value >> Tuple.second) fields rest) context
+                    visitTypeAnnotation (mapAndAppend (\(Node _ ( _, value )) -> value) fields rest) context
 
                 TypeAnnotation.FunctionTypeAnnotation fn arg ->
                     visitTypeAnnotation (fn :: arg :: rest) context
@@ -228,13 +224,13 @@ constructorsInPattern lookupTable nodes acc =
         [] ->
             acc
 
-        node :: restOfNodes ->
-            case Node.value node of
+        (Node range pattern) :: restOfNodes ->
+            case pattern of
                 Pattern.NamedPattern qualifiedNameRef patterns ->
                     constructorsInPattern
                         lookupTable
                         (patterns ++ restOfNodes)
-                        (addNamedPattern lookupTable node qualifiedNameRef acc)
+                        (addNamedPattern lookupTable range qualifiedNameRef acc)
 
                 Pattern.TuplePattern patterns ->
                     constructorsInPattern lookupTable (patterns ++ restOfNodes) acc
@@ -245,20 +241,20 @@ constructorsInPattern lookupTable nodes acc =
                 Pattern.ListPattern patterns ->
                     constructorsInPattern lookupTable (patterns ++ restOfNodes) acc
 
-                Pattern.AsPattern pattern _ ->
-                    constructorsInPattern lookupTable (pattern :: restOfNodes) acc
+                Pattern.AsPattern subPattern _ ->
+                    constructorsInPattern lookupTable (subPattern :: restOfNodes) acc
 
-                Pattern.ParenthesizedPattern pattern ->
-                    constructorsInPattern lookupTable (pattern :: restOfNodes) acc
+                Pattern.ParenthesizedPattern subPattern ->
+                    constructorsInPattern lookupTable (subPattern :: restOfNodes) acc
 
                 _ ->
                     constructorsInPattern lookupTable restOfNodes acc
 
 
-addNamedPattern : ModuleNameLookupTable -> Node a -> QualifiedNameRef -> Set ( ModuleName, String ) -> Set ( ModuleName, String )
-addNamedPattern lookupTable node qualifiedNameRef acc =
+addNamedPattern : ModuleNameLookupTable -> Range -> QualifiedNameRef -> Set ( ModuleName, String ) -> Set ( ModuleName, String )
+addNamedPattern lookupTable range qualifiedNameRef acc =
     if List.isEmpty qualifiedNameRef.moduleName then
-        case ModuleNameLookupTable.fullModuleNameFor lookupTable node of
+        case ModuleNameLookupTable.fullModuleNameAt lookupTable range of
             Just realModuleName ->
                 Set.insert ( realModuleName, qualifiedNameRef.name ) acc
 
@@ -270,10 +266,10 @@ addNamedPattern lookupTable node qualifiedNameRef acc =
 
 
 expressionVisitor : Node Expression -> Context -> Context
-expressionVisitor node context =
-    case Node.value node of
+expressionVisitor (Node range expr) context =
+    case expr of
         Expression.FunctionOrValue [] name ->
-            useImportedValue name (Node.range node) context
+            useImportedValue name range context
 
         Expression.RecordUpdateExpression (Node nameRange name) _ ->
             useImportedValue name nameRange context
@@ -303,10 +299,10 @@ expressionVisitor node context =
             { context | importsExposingAll = newImportsExposingAll }
 
         Expression.OperatorApplication op _ _ _ ->
-            useImportedValue ("(" ++ op ++ ")") (Node.range node) context
+            useImportedValue ("(" ++ op ++ ")") range context
 
         Expression.PrefixOperator op ->
-            useImportedValue ("(" ++ op ++ ")") (Node.range node) context
+            useImportedValue ("(" ++ op ++ ")") range context
 
         _ ->
             context
