@@ -7,12 +7,10 @@ module NoImportingEverything exposing (rule)
 -}
 
 import Dict exposing (Dict)
-import Elm.Docs
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Exposing as Exposing
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Import exposing (Import)
-import Elm.Syntax.Module as Module exposing (Module)
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern as Pattern exposing (Pattern, QualifiedNameRef)
@@ -20,7 +18,6 @@ import Elm.Syntax.Range exposing (Range)
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
 import Review.Fix as Fix exposing (Fix)
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
-import Review.Project.Dependency as Dependency exposing (Dependency)
 import Review.Rule as Rule exposing (Error, Rule)
 import Set exposing (Set)
 
@@ -70,34 +67,19 @@ elm-review --template jfmengels/elm-review-common/example --rules NoImportingEve
 -}
 rule : List String -> Rule
 rule exceptions =
-    Rule.newProjectRuleSchema "NoImportingEverything" initialContext
-        |> Rule.withDirectDependenciesProjectVisitor (\dependencies _ -> ( [], dependenciesVisitor dependencies ))
-        |> Rule.withModuleVisitor (moduleVisitor exceptions)
-        |> Rule.withModuleContextUsingContextCreator
-            { fromProjectToModule = fromProjectToModule
-            , fromModuleToProject = fromModuleToProject
-            , foldProjectContexts = foldProjectContexts
-            }
-        |> Rule.withContextFromImportedModules
-        |> Rule.fromProjectRuleSchema
+    Rule.newModuleRuleSchemaUsingContextCreator "NoImportingEverything" initialContext
+        |> Rule.withImportVisitor (importVisitor <| exceptionsToSet exceptions)
+        |> Rule.withDeclarationEnterVisitor declarationVisitor
+        |> Rule.withExpressionEnterVisitor (\node context -> ( [], expressionVisitor node context ))
+        |> Rule.withFinalModuleEvaluation finalEvaluation
+        |> Rule.fromModuleRuleSchema
 
 
-type alias ProjectContext =
-    Dict ModuleName (Dict String String)
-
-
-type alias ModuleContext =
+type alias Context =
     { lookupTable : ModuleNameLookupTable
-    , importsExposingAll : Dict ModuleName ImportExposingAll
-    , exposedTypes : ExposedTypes
     , constructorToType : Dict ModuleName (Dict String String)
-    , localConstructorToType : Dict String String
+    , importsExposingAll : Dict ModuleName ImportExposingAll
     }
-
-
-type ExposedTypes
-    = ExposesAll
-    | ExposesConstructorsOf (Set String)
 
 
 type alias ImportExposingAll =
@@ -107,111 +89,17 @@ type alias ImportExposingAll =
     }
 
 
-initialContext : ProjectContext
+initialContext : Rule.ContextCreator () Context
 initialContext =
-    Dict.empty
-
-
-fromProjectToModule : Rule.ContextCreator ProjectContext ModuleContext
-fromProjectToModule =
     Rule.initContextCreator
-        (\lookupTable constructorToType ->
+        (\lookupTable constructorToType _ ->
             { lookupTable = lookupTable
-            , importsExposingAll = Dict.empty
-            , exposedTypes = ExposesAll
             , constructorToType = constructorToType
-            , localConstructorToType = Dict.empty
+            , importsExposingAll = Dict.empty
             }
         )
         |> Rule.withModuleNameLookupTable
-
-
-fromModuleToProject : Rule.ContextCreator ModuleContext ProjectContext
-fromModuleToProject =
-    Rule.initContextCreator
-        (\moduleName moduleContext ->
-            if Dict.isEmpty moduleContext.localConstructorToType then
-                Dict.empty
-
-            else
-                Dict.singleton moduleName moduleContext.localConstructorToType
-        )
-        |> Rule.withModuleName
-
-
-foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext
-foldProjectContexts =
-    Dict.union
-
-
-dependenciesVisitor : Dict String Dependency -> ProjectContext
-dependenciesVisitor dependencies =
-    Dict.foldl
-        (\_ dep acc -> List.foldl findConstructorsInModule acc (Dependency.modules dep))
-        Dict.empty
-        dependencies
-
-
-findConstructorsInModule : Elm.Docs.Module -> Dict ModuleName (Dict String String) -> Dict ModuleName (Dict String String)
-findConstructorsInModule mod dict =
-    let
-        newConstructors : Dict String String
-        newConstructors =
-            List.foldl
-                (\union acc ->
-                    List.foldl
-                        (\( constructorName, _ ) subAcc ->
-                            Dict.insert constructorName union.name subAcc
-                        )
-                        acc
-                        union.tags
-                )
-                Dict.empty
-                mod.unions
-    in
-    if Dict.isEmpty newConstructors then
-        dict
-
-    else
-        Dict.insert (String.split "." mod.name) newConstructors dict
-
-
-moduleVisitor :
-    List String
-    -> Rule.ModuleRuleSchema schemaState ModuleContext
-    -> Rule.ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } ModuleContext
-moduleVisitor exceptions schema =
-    schema
-        |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
-        |> Rule.withImportVisitor (importVisitor <| exceptionsToSet exceptions)
-        |> Rule.withDeclarationEnterVisitor declarationVisitor
-        |> Rule.withExpressionEnterVisitor (\node context -> ( [], expressionVisitor node context ))
-        |> Rule.withFinalModuleEvaluation finalEvaluation
-
-
-moduleDefinitionVisitor : Node Module -> ModuleContext -> ( List empty, ModuleContext )
-moduleDefinitionVisitor (Node _ module_) context =
-    case Module.exposingList module_ of
-        Exposing.All _ ->
-            ( [], { context | exposedTypes = ExposesAll } )
-
-        Exposing.Explicit list ->
-            let
-                constructors : Set String
-                constructors =
-                    List.foldl
-                        (\(Node _ item) acc ->
-                            case item of
-                                Exposing.TypeExpose { name } ->
-                                    Set.insert name acc
-
-                                _ ->
-                                    acc
-                        )
-                        Set.empty
-                        list
-            in
-            ( [], { context | exposedTypes = ExposesConstructorsOf constructors } )
+        |> Rule.withConstructorToType
 
 
 exceptionsToSet : List String -> Set ModuleName
@@ -222,7 +110,7 @@ exceptionsToSet exceptions =
         exceptions
 
 
-importVisitor : Set ModuleName -> Node Import -> ModuleContext -> ( List (Error nothing), ModuleContext )
+importVisitor : Set ModuleName -> Node Import -> Context -> ( List (Error nothing), Context )
 importVisitor exceptions node context =
     let
         moduleName : ModuleName
@@ -254,15 +142,14 @@ importVisitor exceptions node context =
                 ( [], context )
 
 
-declarationVisitor : Node Declaration -> ModuleContext -> ( List empty, ModuleContext )
+declarationVisitor : Node Declaration -> Context -> ( List empty, Context )
 declarationVisitor node context =
     case Node.value node of
         Declaration.FunctionDeclaration { signature, declaration } ->
             ( []
             , (case signature of
                 Just (Node _ { typeAnnotation }) ->
-                    context
-                        |> visitTypeAnnotation [ typeAnnotation ]
+                    visitTypeAnnotation [ typeAnnotation ] context
 
                 Nothing ->
                     context
@@ -272,25 +159,11 @@ declarationVisitor node context =
 
         Declaration.CustomTypeDeclaration type_ ->
             let
-                typeName : String
-                typeName =
-                    Node.value type_.name
-
-                isConstructorsExposed_ : Bool
-                isConstructorsExposed_ =
-                    isConstructorsExposed typeName context
-
-                newContext : ModuleContext
+                newContext : Context
                 newContext =
                     List.foldl
                         (\(Node _ constructor) ctx ->
-                            visitTypeAnnotation constructor.arguments
-                                (if isConstructorsExposed_ then
-                                    { ctx | localConstructorToType = Dict.insert (Node.value constructor.name) typeName ctx.localConstructorToType }
-
-                                 else
-                                    ctx
-                                )
+                            visitTypeAnnotation constructor.arguments ctx
                         )
                         context
                         type_.constructors
@@ -304,7 +177,7 @@ declarationVisitor node context =
             ( [], context )
 
 
-visitTypeAnnotation : List (Node TypeAnnotation) -> ModuleContext -> ModuleContext
+visitTypeAnnotation : List (Node TypeAnnotation) -> Context -> Context
 visitTypeAnnotation typeAnnotations context =
     case typeAnnotations of
         [] ->
@@ -314,7 +187,7 @@ visitTypeAnnotation typeAnnotations context =
             case Node.value typeAnnotation of
                 TypeAnnotation.Typed (Node range ( [], name )) subTypes ->
                     let
-                        newContext : ModuleContext
+                        newContext : Context
                         newContext =
                             case ModuleNameLookupTable.moduleNameAt context.lookupTable range of
                                 Just moduleName ->
@@ -396,17 +269,7 @@ addNamedPattern lookupTable node qualifiedNameRef acc =
         acc
 
 
-isConstructorsExposed : String -> { context | exposedTypes : ExposedTypes } -> Bool
-isConstructorsExposed name context =
-    case context.exposedTypes of
-        ExposesAll ->
-            True
-
-        ExposesConstructorsOf set ->
-            Set.member name set
-
-
-expressionVisitor : Node Expression -> ModuleContext -> ModuleContext
+expressionVisitor : Node Expression -> Context -> Context
 expressionVisitor node context =
     case Node.value node of
         Expression.FunctionOrValue [] name ->
@@ -449,7 +312,7 @@ expressionVisitor node context =
             context
 
 
-visitLetExpression : List (Node Expression.LetDeclaration) -> ModuleContext -> ModuleContext
+visitLetExpression : List (Node Expression.LetDeclaration) -> Context -> Context
 visitLetExpression declarations context =
     List.foldl
         (\(Node _ letDeclaration) ctx ->
@@ -472,7 +335,7 @@ visitLetExpression declarations context =
         declarations
 
 
-visitFunctionArgumentPatterns : List (Node Pattern) -> ModuleContext -> ModuleContext
+visitFunctionArgumentPatterns : List (Node Pattern) -> Context -> Context
 visitFunctionArgumentPatterns patterns context =
     List.foldl
         (\pattern importsExposingAll ->
@@ -488,7 +351,7 @@ visitFunctionArgumentPatterns patterns context =
         |> (\importsExposingAll -> { context | importsExposingAll = importsExposingAll })
 
 
-useImportedValue : String -> Range -> ModuleContext -> ModuleContext
+useImportedValue : String -> Range -> Context -> Context
 useImportedValue name range context =
     case ModuleNameLookupTable.moduleNameAt context.lookupTable range of
         Nothing ->
@@ -538,7 +401,7 @@ useImportedTypeConstructor moduleName constructorName constructorToType importsE
                     importsExposingAll
 
 
-useImportedType : ModuleName -> String -> ModuleContext -> ModuleContext
+useImportedType : ModuleName -> String -> Context -> Context
 useImportedType moduleName typeName context =
     case Dict.get moduleName context.importsExposingAll of
         Nothing ->
@@ -556,7 +419,7 @@ useImportedType moduleName typeName context =
             { context | importsExposingAll = importsExposingAll }
 
 
-finalEvaluation : ModuleContext -> List (Error {})
+finalEvaluation : Context -> List (Error {})
 finalEvaluation context =
     Dict.foldr
         (\_ value valueList -> importError value :: valueList)
