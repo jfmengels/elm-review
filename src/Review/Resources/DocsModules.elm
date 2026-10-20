@@ -1,4 +1,9 @@
-module Review.Resources.DocsModules exposing (compute, dummyModuleDocs, findModuleDocumentation)
+module Review.Resources.DocsModules exposing
+    ( compute
+    , dummyModuleDocs
+    , findModuleDocumentation
+    , importedDocsHash
+    )
 
 import Dict exposing (Dict)
 import Elm.Docs
@@ -18,14 +23,40 @@ import Elm.Type
 import Elm.TypeInference
 import Elm.TypeInference.Type
 import NonEmpty exposing (NonEmpty)
-import Review.Cache.ContextHash exposing (ContextHash)
+import Review.Cache.ContextHash as ContextHash exposing (ComparableContextHash, ContextHash)
 import Review.Project.DocsModule as DocsModule exposing (DocsModule)
 import Review.Project.ProjectCache as ProjectCache exposing (ProjectCache)
 import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModule)
 import Review.Project.Valid as ValidProject exposing (ValidProject)
 import Review.Resources.ElmCorePrelude exposing (elmCorePrelude)
 import Set exposing (Set)
+import Vendor.IntSet as IntSet exposing (IntSet)
 import Vendor.ListExtra as ListExtra
+
+
+importedDocsHash : ValidProject -> IntSet -> ComparableContextHash Elm.Docs.Module
+importedDocsHash project incoming =
+    let
+        modules : Dict ModuleName DocsModule
+        modules =
+            (ValidProject.projectCache project).modules
+    in
+    IntSet.foldl
+        (\key acc ->
+            case
+                ValidProject.getGraphNode key project
+                    |> Maybe.andThen (\graphModule -> ValidProject.getModuleByPath graphModule.node.label project)
+                    |> Maybe.andThen (\module_ -> Dict.get (ProjectModule.moduleName module_) modules)
+            of
+                Just docsModule ->
+                    DocsModule.hash docsModule :: acc
+
+                Nothing ->
+                    acc
+        )
+        []
+        incoming
+        |> ContextHash.toComparable
 
 
 compute :

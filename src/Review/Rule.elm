@@ -7240,6 +7240,17 @@ createModuleVisitorFromProjectVisitorHelp schema raise hidden howToCreateModuleC
             inputContextHashes =
                 computeProjectContextHashes howToCreateModuleContext project hidden.cache.moduleContexts incoming initialProjectContextHash
 
+            (RequestedData requestedData) =
+                hidden.requestedData
+
+            docsModuleHashes : ComparableContextHash Elm.Docs.Module
+            docsModuleHashes =
+                if requestedData.moduleDocs then
+                    Review.Resources.DocsModules.importedDocsHash project incoming
+
+                else
+                    ContextHash.toComparable []
+
             isFileIgnored : Bool
             isFileIgnored =
                 not (Exceptions.isFileWeWantReportsFor hidden.ruleData.exceptions filePath)
@@ -7253,6 +7264,7 @@ createModuleVisitorFromProjectVisitorHelp schema raise hidden howToCreateModuleC
                 ModuleCache.match
                     moduleContentHash
                     inputContextHashes
+                    docsModuleHashes
                     cacheEntry
                     { isFileIgnored = isFileIgnored
                     , isFileFixable = isFileFixable
@@ -7301,6 +7313,7 @@ createModuleVisitorFromProjectVisitorHelp schema raise hidden howToCreateModuleC
                                             { contentHash = moduleContentHash
                                             , errors = qualifyErrors ruleData fromModuleToProjectErrors errors
                                             , inputContextHashes = inputContextHashes
+                                            , docsModuleHashes = docsModuleHashes
                                             , isFileIgnored = isFileIgnored
                                             , isFileFixable = isFileFixable
                                             , outputContext = outputProjectContext
