@@ -14,6 +14,7 @@ module Review.Cache.Module exposing
 
 -}
 
+import Elm.Docs
 import Review.Cache.ContentHash exposing (ContentHash)
 import Review.Cache.ContextHash exposing (ComparableContextHash, ContextHash)
 import Review.RequestedData exposing (RequestedData(..))
@@ -23,6 +24,7 @@ type Entry error context
     = Entry
         { contentHash : ContentHash
         , inputContextHashes : ComparableContextHash context
+        , docsModuleHashes : ComparableContextHash Elm.Docs.Module
         , isFileIgnored : Bool
         , isFileFixable : Bool
         , errors : List error
@@ -34,6 +36,7 @@ type Entry error context
 create :
     { contentHash : ContentHash
     , inputContextHashes : ComparableContextHash context
+    , docsModuleHashes : ComparableContextHash Elm.Docs.Module
     , isFileIgnored : Bool
     , isFileFixable : Bool
     , errors : List error
@@ -45,15 +48,16 @@ create =
     Entry
 
 
-match : ContentHash -> ComparableContextHash context -> Entry error context -> { isFileIgnored : Bool, isFileFixable : Bool, requestedData : RequestedData } -> Bool
-match contentHash inputContexts (Entry entry) { isFileIgnored, isFileFixable, requestedData } =
+match : ContentHash -> ComparableContextHash context -> ComparableContextHash Elm.Docs.Module -> Entry error context -> { isFileIgnored : Bool, isFileFixable : Bool, requestedData : RequestedData } -> Bool
+match contentHash inputContextHashes docsModuleHashes (Entry entry) { isFileIgnored, isFileFixable, requestedData } =
     let
         (RequestedData r) =
             requestedData
     in
     not r.types
         && (contentHash == entry.contentHash)
-        && (inputContexts == entry.inputContextHashes)
+        && (inputContextHashes == entry.inputContextHashes)
+        && (docsModuleHashes == entry.docsModuleHashes)
         && (isFileIgnored == entry.isFileIgnored || not r.ignoredFiles)
         && (isFileFixable == entry.isFileFixable || not r.ignoredFixes)
 
