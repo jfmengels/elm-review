@@ -7767,7 +7767,7 @@ withIsFileFixable (ContextCreator fn (RequestedData requested)) =
         (RequestedData { requested | ignoredFixes = True })
 
 
-{-| Requests the module name lookup table for the types and functions inside a module.
+{-| Request the module name lookup table for the types and functions inside a module.
 
 When encountering a `Expression.FunctionOrValue ModuleName String` (among other nodes where we refer to a function or value),
 the module name available represents the module name that is in the source code. But that module name can be an alias to
@@ -7842,7 +7842,7 @@ withTypes (ContextCreator fn (RequestedData requested)) =
         (RequestedData { requested | types = True })
 
 
-{-| Requests the `docs.json` for every module imported by the current module,
+{-| Request the `docs.json` for every module imported by the current module,
 including those from modules of the project.
 
 This is mostly useful to avoid collecting information manually, potentially bypassing the need to use a project rule.
@@ -8086,7 +8086,7 @@ withFilePath (ContextCreator fn requestedData) =
         requestedData
 
 
-{-| Requests access to a function that gives you the source code at a given range.
+{-| Request access to a function that gives you the source code at a given range.
 
     rule : Rule
     rule =
