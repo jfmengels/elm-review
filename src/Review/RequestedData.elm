@@ -1,7 +1,7 @@
 module Review.RequestedData exposing
     ( RequestedData(..), Data
     , none, withFiles
-    , types, informationFromImportedModules, moduleDocsDerivatives
+    , types, moduleDocsDerivatives
     , combine, combineJust
     )
 
@@ -17,7 +17,7 @@ module Review.RequestedData exposing
 
 ## Inspect
 
-@docs types, informationFromImportedModules, moduleDocsDerivatives
+@docs types, moduleDocsDerivatives
 @docs combine, combineJust
 
 -}
@@ -65,12 +65,6 @@ withFiles files ((RequestedData requested) as untouched) =
 types : RequestedData -> Bool
 types (RequestedData requestedData) =
     requestedData.types
-
-
-informationFromImportedModules : RequestedData -> Bool
-informationFromImportedModules (RequestedData requestedData) =
-    requestedData.moduleNameLookupTable
-        || requestedData.types
 
 
 moduleDocsDerivatives : RequestedData -> Bool
