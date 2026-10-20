@@ -24,7 +24,7 @@ module Review.Rule exposing
     , withModuleName, withModuleNameNode
     , withIsInSourceDirectories, withFilePath
     , withIsFileIgnored, withIsFileFixable
-    , withModuleNameLookupTable, withTypes, withImportedModuleDocs, withModuleKey
+    , withModuleNameLookupTable, withTypes, withImportedModuleDocs, withConstructorToType, withModuleKey
     , withFullAst, withModuleDocumentation, withIsModuleExposed, withExposed
     , withSourceCodeExtractor
     , Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix
@@ -257,7 +257,7 @@ first, as they are in practice a simpler version of project rules.
 @docs withModuleName, withModuleNameNode
 @docs withIsInSourceDirectories, withFilePath
 @docs withIsFileIgnored, withIsFileFixable
-@docs withModuleNameLookupTable, withTypes, withImportedModuleDocs, withModuleKey
+@docs withModuleNameLookupTable, withTypes, withImportedModuleDocs, withConstructorToType, withModuleKey
 @docs withFullAst, withModuleDocumentation, withIsModuleExposed, withExposed
 @docs withSourceCodeExtractor
 
@@ -360,6 +360,8 @@ import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern exposing (Pattern)
 import Elm.Syntax.Range as Range exposing (Range)
+import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
+import Elm.Type
 import Elm.TypeInference as TypeInference
 import Elm.TypeInference.InferError exposing (InferError)
 import Elm.TypeInference.Type exposing (PackageName)
@@ -1643,6 +1645,7 @@ mergeModuleVisitorsHelp ruleName_ initialProjectContext moduleContextCreator vis
             , isModuleExposed = Nothing
             , exposed = { exposesAll = True, exposed = Dict.empty }
             , importedModuleDocs = always Dict.empty
+            , constructorToType = always Dict.empty
             , moduleNameLookupTable = ModuleNameLookupTableInternal.empty []
             , getType = \_ -> Ok Elm.TypeInference.Type.Unit
             , extractSourceCode = always "dummy"
@@ -5874,6 +5877,7 @@ computeModuleWithRuleVisitors project docsModule module_ inputRuleModuleVisitors
                 else
                     dummyExposed
             , importedModuleDocs = \params -> filterModuleDocs params ast.imports projectCache
+            , constructorToType = \params -> computeConstructorToType params requestedData.constructorToType moduleName ast projectCache
             , extractSourceCode =
                 if requestedData.sourceCodeExtractor then
                     let
@@ -5939,6 +5943,116 @@ filterModuleDocs params imports projectCache =
          else
             imports
         )
+
+
+computeConstructorToType : { implicitImports : Bool, dependencies : Bool } -> Bool -> ModuleName -> Elm.Syntax.File.File -> ProjectCache -> Dict ModuleName (Dict String String)
+computeConstructorToType params isRequested currentModuleName ast projectCache =
+    if isRequested then
+        let
+            localConstructors : Dict String String
+            localConstructors =
+                List.foldl (\node acc -> collectLocalConstructors node acc) Dict.empty ast.declarations
+        in
+        Dict.foldl
+            (\moduleName docs dict -> Dict.insert moduleName (collectConstructors docs) dict)
+            (Dict.empty
+                |> Dict.insert [] localConstructors
+                |> Dict.insert currentModuleName localConstructors
+            )
+            (filterModuleDocs params ast.imports projectCache)
+
+    else
+        Dict.empty
+
+
+collectLocalConstructors : Node Declaration -> Dict String String -> Dict String String
+collectLocalConstructors (Node _ declaration) acc =
+    case declaration of
+        Declaration.AliasDeclaration alias ->
+            if isPlainRecordTypeAnnotation alias.typeAnnotation then
+                let
+                    (Node _ name) =
+                        alias.name
+                in
+                Dict.insert name name acc
+
+            else
+                acc
+
+        Declaration.CustomTypeDeclaration customType ->
+            let
+                typeName : String
+                typeName =
+                    Node.value customType.name
+            in
+            List.foldl
+                (\(Node _ constructor) subAcc ->
+                    let
+                        (Node _ name) =
+                            constructor.name
+                    in
+                    Dict.insert name typeName subAcc
+                )
+                acc
+                customType.constructors
+
+        _ ->
+            acc
+
+
+collectConstructors : Elm.Docs.Module -> Dict String String
+collectConstructors module_ =
+    let
+        addRecordAliases : List Elm.Docs.Alias -> Dict String String -> Dict String String
+        addRecordAliases list dict =
+            List.foldl
+                (\{ name, tipe } acc ->
+                    if isPlainRecordType tipe then
+                        Dict.insert name name acc
+
+                    else
+                        acc
+                )
+                dict
+                list
+
+        foldCustomTypesIntoDict : List Elm.Docs.Union -> Dict String String -> Dict String String
+        foldCustomTypesIntoDict unions dict =
+            List.foldl
+                (\union acc ->
+                    List.foldl
+                        (\( name, _ ) subAcc ->
+                            Dict.insert name union.name subAcc
+                        )
+                        acc
+                        union.tags
+                )
+                dict
+                unions
+    in
+    Dict.empty
+        |> addRecordAliases module_.aliases
+        |> foldCustomTypesIntoDict module_.unions
+
+
+isPlainRecordType : Elm.Type.Type -> Bool
+isPlainRecordType type_ =
+    case type_ of
+        Elm.Type.Record _ Nothing ->
+            True
+
+        _ ->
+            False
+
+
+isPlainRecordTypeAnnotation : Node TypeAnnotation -> Bool
+isPlainRecordTypeAnnotation (Node _ type_) =
+    case type_ of
+        TypeAnnotation.Record _ ->
+            True
+
+        _ ->
+            False
 
 
 {-| This function will be patched by the CLI to mutate the tuple.
@@ -7989,6 +8103,59 @@ withImportedModuleDocs params (ContextCreator fn (RequestedData requested)) =
         (RequestedData { requested | moduleDocs = True })
 
 
+{-| Request a dictionary that—for the current module and for each imported module—maps a constructor name to its type name.
+
+This is mostly useful to avoid collecting information manually, potentially bypassing the need to use a project rule.
+
+    contextCreator : Rule.ContextCreator () Context
+    contextCreator =
+        Rule.initContextCreator
+            (\lookupTable constructorToType () ->
+                { lookupTable = lookupTable
+                , constructorToType = constructorToType
+
+                -- ...other fields
+                }
+            )
+            |> Rule.withModuleNameLookupTable
+            |> Rule.withConstructorToType
+
+Only the current module and imported modules will be present in the outer `Dict`.
+
+The module name used as the outer `Dict` key is the full module name,
+and not the import alias that may have been used.
+For instance, given `import A.B as Alias`, there will be an entry for `[ "A", "B" ]`
+but no entry for `[ "Alias" ]`.
+You may therefore want to use this in combination with [`withModuleNameLookupTable`](#withModuleNameLookupTable)
+to get the real module name.
+
+For convenience, the current module's constructors are available under both the full name and `[]`.
+
+The inner `Dict` includes constructors from custom types (`type CustomType = Constructor | ...`)
+as well as record type alias constructors (`type alias Record = { field : String }`).
+
+Imported types whose constructors are not exposed will not be present,
+though all constructors from types defined in the current module will be present.
+
+    -- In module `A.B.C` where `type CustomType = Constructor`
+    Dict.get [ "A", "B", "C" ] constructorToType |> Maybe.andThen (Dict.get "Constructor")
+    --> Just "CustomType"
+
+    -- If the current module is `A.B.C`
+    Dict.get [] constructorToType |> Maybe.andThen (Dict.get "Constructor")
+    --> Just "CustomType"
+
+-}
+withConstructorToType :
+    { implicitImports : Bool, dependencies : Bool }
+    -> ContextCreator (Dict ModuleName (Dict String String)) (from -> to)
+    -> ContextCreator from to
+withConstructorToType params (ContextCreator fn (RequestedData requested)) =
+    ContextCreator
+        (\data isFileIgnored isFileFixable -> fn data isFileIgnored isFileFixable (data.constructorToType params))
+        (RequestedData { requested | constructorToType = True })
+
+
 {-| Request the full [AST](https://en.wikipedia.org/wiki/Abstract_syntax_tree) for the current module.
 
 This can be useful if you wish to access information about the AST ahead of visitors running,
@@ -8235,6 +8402,7 @@ type alias AvailableData =
     , isModuleExposed : Maybe Bool
     , exposed : Exposed
     , importedModuleDocs : { implicitImports : Bool, dependencies : Bool } -> Dict ModuleName Elm.Docs.Module
+    , constructorToType : { implicitImports : Bool, dependencies : Bool } -> Dict ModuleName (Dict String String)
     , moduleNameLookupTable : ModuleNameLookupTable
     , getType : Range -> Result InferError Elm.TypeInference.Type.Type
     , extractSourceCode : Range -> String
