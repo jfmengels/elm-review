@@ -33,6 +33,7 @@ type alias Data =
     , sourceCodeExtractor : Bool
     , exposed : Bool
     , moduleDocs : Bool
+    , constructorToType : Bool
     , ignoredFiles : Bool
     , ignoredFixes : Bool
     , files : List { files : List { pattern : String, included : Bool }, excludedDirectories : List String }
@@ -47,6 +48,7 @@ none =
         , sourceCodeExtractor = False
         , exposed = False
         , moduleDocs = False
+        , constructorToType = False
         , ignoredFiles = False
         , ignoredFixes = False
         , files = []
@@ -72,6 +74,7 @@ moduleDocsDerivatives (RequestedData requestedData) =
     requestedData.moduleNameLookupTable
         || requestedData.exposed
         || requestedData.moduleDocs
+        || requestedData.constructorToType
 
 
 combine : Maybe RequestedData -> Maybe RequestedData -> RequestedData
@@ -97,6 +100,7 @@ combineJust (RequestedData a) (RequestedData b) =
         , sourceCodeExtractor = a.sourceCodeExtractor || b.sourceCodeExtractor
         , exposed = a.exposed || b.exposed
         , moduleDocs = a.moduleDocs || b.moduleDocs
+        , constructorToType = a.constructorToType || b.constructorToType
         , ignoredFiles = a.ignoredFiles || b.ignoredFiles
         , ignoredFixes = a.ignoredFixes || b.ignoredFixes
         , files = a.files ++ b.files
