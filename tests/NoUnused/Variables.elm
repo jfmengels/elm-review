@@ -137,7 +137,7 @@ type alias ModuleContext =
     { lookupTable : ModuleNameLookupTable
     , scopes : Nonempty Scope
     , inTheDeclarationOf : List String
-    , exposesEverything : Bool
+    , exposed : Set String
     , isApplication : Bool
     , constructorNameToTypeName : Dict ModuleName (Dict String String)
     , declaredModules : List DeclaredModule
@@ -225,13 +225,13 @@ initialContext =
 fromProjectToModule : Rule.ContextCreator ProjectIsApplication ModuleContext
 fromProjectToModule =
     Rule.initContextCreator
-        (\lookupTable { exposesAll, exposed } moduleDocs constructorToType isApplication ->
+        (\lookupTable { exposed } moduleDocs constructorToType isApplication ->
             Dict.foldl
                 (\name _ ctx -> markAsUsed name ctx)
                 { lookupTable = lookupTable
                 , scopes = NonemptyList.fromElement emptyScope
                 , inTheDeclarationOf = []
-                , exposesEverything = exposesAll
+                , exposed = exposed |> Dict.keys |> Set.fromList
                 , isApplication = isApplication
                 , constructorNameToTypeName = constructorToType
                 , declaredModules = []
@@ -1143,7 +1143,7 @@ registerTypeAlias : Range -> TypeAlias -> ModuleContext -> ModuleContext
 registerTypeAlias range { name, typeAnnotation } context =
     case Node.value typeAnnotation of
         TypeAnnotation.Record _ ->
-            if context.exposesEverything then
+            if Set.member (Node.value name) context.exposed then
                 context
 
             else
@@ -1205,7 +1205,7 @@ declarationEnterVisitor node context =
                 newContextWhereFunctionIsRegistered : ModuleContext
                 newContextWhereFunctionIsRegistered =
                     if
-                        context.exposesEverything
+                        Set.member functionName context.exposed
                             -- The main function is "exposed" by default for applications
                             || (context.isApplication && functionName == "main")
                     then
@@ -1267,7 +1267,7 @@ declarationEnterVisitor node context =
                     collectNamesFromTypeAnnotation Nothing [ typeAnnotation ] context
             in
             ( []
-            , if context.exposesEverything then
+            , if Set.member (Node.value name) context.exposed then
                 contextWithUsedElements
 
               else
@@ -1434,15 +1434,11 @@ finalEvaluation context =
 
         addCustomTypeErrors : List (Error {}) -> List (Error {})
         addCustomTypeErrors acc =
-            if context.exposesEverything then
+            List.Extra.dictToListFilterAndMap
+                (\name -> not <| Set.member name usedLocally)
+                errorForLocalType
+                context.localTypes
                 acc
-
-            else
-                List.Extra.dictToListFilterAndMap
-                    (\name -> not <| Set.member name usedLocally)
-                    errorForLocalType
-                    context.localTypes
-                    acc
     in
     List.filterMap Tuple.first moduleThatExposeEverythingErrors
         |> List.append (makeReportHelp rootScope |> Tuple.first)
