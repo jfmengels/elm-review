@@ -773,28 +773,13 @@ expressionEnterVisitor (Node range value) context =
                     context
 
         Expression.OperatorApplication name _ _ _ ->
-            case ModuleNameLookupTable.moduleNameAt context.lookupTable range of
-                Just moduleName ->
-                    markValueAsUsed moduleName name context
-
-                Nothing ->
-                    context
+            markAsUsed name context
 
         Expression.PrefixOperator name ->
-            case ModuleNameLookupTable.moduleNameAt context.lookupTable range of
-                Just moduleName ->
-                    markValueAsUsed moduleName name context
+            markAsUsed name context
 
-                Nothing ->
-                    context
-
-        Expression.RecordUpdateExpression (Node updateRange expr) _ ->
-            case ModuleNameLookupTable.moduleNameAt context.lookupTable updateRange of
-                Just moduleName ->
-                    markValueAsUsed moduleName expr context
-
-                Nothing ->
-                    context
+        Expression.RecordUpdateExpression (Node _ expr) _ ->
+            markAsUsed expr context
 
         Expression.LambdaExpression { args } ->
             markValuesFromPatternsAsUsed args
@@ -1100,7 +1085,7 @@ markValuesFromPatternsAsUsed nodes context =
                     case ModuleNameLookupTable.moduleNameFor context.lookupTable node of
                         Just realModuleName ->
                             context
-                                |> markLocalConstructorAsUsed qualifiedNameRef
+                                |> markLocalConstructorAsUsed realModuleName qualifiedNameRef
                                 |> markModuleAsUsed ( realModuleName, qualifiedNameRef.moduleName )
                                 |> markValuesFromPatternsAsUsed (patterns ++ restOfNodes)
 
@@ -1353,7 +1338,7 @@ declarationEnterVisitor node context =
         Declaration.InfixDeclaration { operator, function } ->
             ( []
             , context
-                |> markValueAsUsed [] (Node.value function)
+                |> markAsUsed (Node.value function)
                 |> registerVariable
                     { typeName = "Declared operator"
                     , under = Node.range operator
@@ -1684,12 +1669,19 @@ markAllAsUsed names context =
 
 markValueAsUsed : ModuleName -> String -> ModuleContext -> ModuleContext
 markValueAsUsed moduleName name context =
-    case Dict.get name context.importedCustomTypeLookup of
-        Just customTypeName ->
-            { context | unusedImportedCustomTypes = Dict.remove customTypeName context.unusedImportedCustomTypes }
+    if List.isEmpty moduleName then
+        markAsUsed name context
 
-        Nothing ->
-            markAsUsed name context
+    else
+        case
+            Dict.get moduleName context.constructorNameToTypeName
+                |> Maybe.andThen (Dict.get name)
+        of
+            Just customTypeName ->
+                { context | unusedImportedCustomTypes = Dict.remove customTypeName context.unusedImportedCustomTypes }
+
+            Nothing ->
+                markAsUsed name context
 
 
 markAsUsed : String -> ModuleContext -> ModuleContext
@@ -1720,8 +1712,8 @@ markAsUsed name context =
         { context | scopes = scopes }
 
 
-markLocalConstructorAsUsed : Pattern.QualifiedNameRef -> ModuleContext -> ModuleContext
-markLocalConstructorAsUsed qualifiedNameRef context =
+markLocalConstructorAsUsed : ModuleName -> Pattern.QualifiedNameRef -> ModuleContext -> ModuleContext
+markLocalConstructorAsUsed realModuleName qualifiedNameRef context =
     case qualifiedNameRef.moduleName of
         [] ->
             case
@@ -1729,10 +1721,10 @@ markLocalConstructorAsUsed qualifiedNameRef context =
                     |> Maybe.andThen (Dict.get qualifiedNameRef.name)
             of
                 Just typeName ->
-                    markValueAsUsed [] typeName context
+                    markValueAsUsed realModuleName typeName context
 
                 Nothing ->
-                    markValueAsUsed [] qualifiedNameRef.name context
+                    markValueAsUsed realModuleName qualifiedNameRef.name context
 
         _ ->
             context
