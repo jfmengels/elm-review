@@ -144,7 +144,7 @@ type alias ModuleContext =
     , inTheDeclarationOf : List String
     , exposesEverything : Bool
     , isApplication : Bool
-    , constructorNameToTypeName : Dict String String
+    , constructorNameToTypeName : Dict ModuleName (Dict String String)
     , declaredModules : List DeclaredModule
     , exposingAllModules : List ModuleThatExposesEverything
     , usedModules : Set ( ModuleName, ModuleName )
@@ -233,7 +233,7 @@ initialContext =
 fromProjectToModule : Rule.ContextCreator ProjectContext ModuleContext
 fromProjectToModule =
     Rule.initContextCreator
-        (\lookupTable { exposesAll, exposed } { isApplication, customTypes } ->
+        (\lookupTable { exposesAll, exposed } constructorToType { isApplication, customTypes } ->
             Dict.foldl
                 (\name _ ctx -> markAsUsed name ctx)
                 { lookupTable = lookupTable
@@ -241,7 +241,7 @@ fromProjectToModule =
                 , inTheDeclarationOf = []
                 , exposesEverything = exposesAll
                 , isApplication = isApplication
-                , constructorNameToTypeName = Dict.empty
+                , constructorNameToTypeName = constructorToType
                 , declaredModules = []
                 , exposingAllModules = []
                 , usedModules = Set.empty
@@ -254,6 +254,7 @@ fromProjectToModule =
         )
         |> Rule.withModuleNameLookupTable
         |> Rule.withExposed
+        |> Rule.withConstructorToType
 
 
 fromModuleToProject : Rule.ContextCreator ModuleContext ProjectContext
@@ -749,24 +750,32 @@ expressionEnterVisitor : Node Expression -> ModuleContext -> ModuleContext
 expressionEnterVisitor (Node range value) context =
     case value of
         Expression.FunctionOrValue [] name ->
-            case Dict.get name context.constructorNameToTypeName of
-                Just typeName ->
-                    markValueAsUsed typeName context
+            case ModuleNameLookupTable.moduleNameAt context.lookupTable range of
+                Just [] ->
+                    case Dict.get [] context.constructorNameToTypeName |> Maybe.andThen (Dict.get name) of
+                        Just typeName ->
+                            markValueAsUsed typeName context
 
-                Nothing ->
+                        Nothing ->
+                            case Dict.get name context.importedCustomTypeLookup of
+                                Just customTypeName ->
+                                    { context | unusedImportedCustomTypes = Dict.remove customTypeName context.unusedImportedCustomTypes }
+
+                                Nothing ->
+                                    markValueAsUsed name context
+
+                Just realModuleName ->
                     case Dict.get name context.importedCustomTypeLookup of
                         Just customTypeName ->
                             { context | unusedImportedCustomTypes = Dict.remove customTypeName context.unusedImportedCustomTypes }
 
                         Nothing ->
-                            case ModuleNameLookupTable.moduleNameAt context.lookupTable range of
-                                Just realModuleName ->
-                                    context
-                                        |> markValueAsUsed name
-                                        |> markModuleAsUsed ( realModuleName, [] )
+                            context
+                                |> markValueAsUsed name
+                                |> markModuleAsUsed ( realModuleName, [] )
 
-                                Nothing ->
-                                    markValueAsUsed name context
+                Nothing ->
+                    markValueAsUsed name context
 
         Expression.FunctionOrValue moduleName _ ->
             case ModuleNameLookupTable.moduleNameAt context.lookupTable range of
@@ -1094,7 +1103,8 @@ markValuesFromPatternsAsUsed nodes context =
                                     let
                                         name : String
                                         name =
-                                            Dict.get qualifiedNameRef.name context.constructorNameToTypeName
+                                            Dict.get [] context.constructorNameToTypeName
+                                                |> Maybe.andThen (Dict.get qualifiedNameRef.name)
                                                 |> Maybe.withDefault qualifiedNameRef.name
                                     in
                                     markValueAsUsed name context
@@ -1190,19 +1200,9 @@ registerTypes node context =
 registerCustomType : Range -> Elm.Syntax.Type.Type -> ModuleContext -> ModuleContext
 registerCustomType range { name, constructors } context =
     let
-        typeName : String
-        typeName =
-            Node.value name
-
         constructorNames : List String
         constructorNames =
             List.map (Node.value >> .name >> Node.value) constructors
-
-        constructorNameToTypeName : Dict String String
-        constructorNameToTypeName =
-            List.foldl (\constructorName acc -> Dict.insert constructorName typeName acc)
-                context.constructorNameToTypeName
-                constructorNames
 
         customType : TypeData
         customType =
@@ -1218,7 +1218,6 @@ registerCustomType range { name, constructors } context =
                 (Node.value name)
                 customType
                 context.localTypes
-        , constructorNameToTypeName = constructorNameToTypeName
     }
 
 
@@ -1703,16 +1702,12 @@ markAllAsUsed names context =
 
 markValueAsUsed : String -> ModuleContext -> ModuleContext
 markValueAsUsed name context =
-    if Dict.member name context.constructorNameToTypeName then
-        markAsUsed name context
+    case Dict.get name context.importedCustomTypeLookup of
+        Just customTypeName ->
+            { context | unusedImportedCustomTypes = Dict.remove customTypeName context.unusedImportedCustomTypes }
 
-    else
-        case Dict.get name context.importedCustomTypeLookup of
-            Just customTypeName ->
-                { context | unusedImportedCustomTypes = Dict.remove customTypeName context.unusedImportedCustomTypes }
-
-            _ ->
-                markAsUsed name context
+        _ ->
+            markAsUsed name context
 
 
 markAsUsed : String -> ModuleContext -> ModuleContext
