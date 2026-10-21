@@ -804,13 +804,8 @@ dependencyVisitor ((RuleConfig config) as c) deps context =
                                             Nothing
 
                                         else
-                                            Just ts
+                                            Just ( String.split "." name, ts )
                                    )
-                                |> Maybe.map
-                                    (Tuple.pair
-                                        -- Convert to a `ModuleName`
-                                        (String.split "." name)
-                                    )
                         )
                     |> Dict.fromList
                     |> (\types -> { acc | customTypes = Dict.union types acc.customTypes })
