@@ -793,7 +793,7 @@ dependencyVisitor : RuleConfig -> Dict String Dependency -> ProjectContext -> Pr
 dependencyVisitor ((RuleConfig config) as c) deps context =
     if config.sortTypesFromDependencies /= DoNotSort then
         Dict.foldl
-            (\_ dep acc ->
+            (\_ dep customTypes ->
                 Dependency.modules dep
                     |> List.filterMap
                         (\{ name, unions } ->
@@ -808,10 +808,11 @@ dependencyVisitor ((RuleConfig config) as c) deps context =
                                    )
                         )
                     |> Dict.fromList
-                    |> (\types -> { acc | customTypes = Dict.union types acc.customTypes })
+                    |> (\types -> Dict.union types customTypes)
             )
-            context
+            context.customTypes
             deps
+            |> (\types -> { context | customTypes = types })
 
     else
         context
