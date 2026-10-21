@@ -794,21 +794,20 @@ dependencyVisitor ((RuleConfig config) as c) deps context =
     if config.sortTypesFromDependencies /= DoNotSort then
         Dict.foldl
             (\_ dep customTypes ->
-                Dependency.modules dep
-                    |> List.filterMap
-                        (\{ name, unions } ->
-                            List.filterMap (docToEntry c name) unions
-                                |> Dict.fromList
-                                |> (\ts ->
-                                        if Dict.isEmpty ts then
-                                            Nothing
+                List.foldl
+                    (\{ name, unions } acc ->
+                        List.filterMap (docToEntry c name) unions
+                            |> Dict.fromList
+                            |> (\ts ->
+                                    if Dict.isEmpty ts then
+                                        acc
 
-                                        else
-                                            Just ( String.split "." name, ts )
-                                   )
-                        )
-                    |> Dict.fromList
-                    |> (\types -> Dict.union types customTypes)
+                                    else
+                                        Dict.insert (String.split "." name) ts acc
+                               )
+                    )
+                    customTypes
+                    (Dependency.modules dep)
             )
             context.customTypes
             deps
