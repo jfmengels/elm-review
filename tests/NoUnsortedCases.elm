@@ -21,9 +21,7 @@ import Dict exposing (Dict)
 import Dict.Extra as DictX
 import Elm.Docs
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
-import Elm.Syntax.Exposing exposing (Exposing(..), TopLevelExpose(..))
 import Elm.Syntax.Expression as Expression exposing (Expression)
-import Elm.Syntax.Module as Module exposing (Module)
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Pattern as Pattern exposing (Pattern)
@@ -751,13 +749,13 @@ fromModuleToProject =
 fromProjectToModule : RuleConfig -> Rule.ContextCreator ProjectContext ModuleContext
 fromProjectToModule config =
     Rule.initContextCreator
-        (\lookupTable extractSource moduleName fileIsIgnored { declarations, moduleDefinition } projectContext ->
+        (\lookupTable extractSource moduleName fileIsIgnored { declarations, moduleDefinition } { exposed } projectContext ->
             let
                 { exposedCustomTypes, customTypes } =
                     declarationListVisitor config
                         declarations
                         { moduleName = String.join "." moduleName
-                        , exposedTypes = getExposedTypes <| Node.value moduleDefinition
+                        , exposedTypes = exposed
                         , customTypes = projectContext.customTypes
                         }
             in
@@ -773,34 +771,7 @@ fromProjectToModule config =
         |> Rule.withModuleName
         |> Rule.withIsFileIgnored
         |> Rule.withFullAst
-
-
-{-| Get a set of all types with exposed constructors or `Nothing` if everything
-is exposed.
--}
-getExposedTypes : Module -> Maybe (Set String)
-getExposedTypes =
-    let
-        keepTypesWithExposedConstructors : Node TopLevelExpose -> Maybe String
-        keepTypesWithExposedConstructors e =
-            case Node.value e of
-                TypeExpose { name } ->
-                    Just name
-
-                _ ->
-                    Nothing
-    in
-    Module.exposingList
-        >> (\l ->
-                case l of
-                    All _ ->
-                        Nothing
-
-                    Explicit es ->
-                        List.filterMap keepTypesWithExposedConstructors es
-                            |> Set.fromList
-                            |> Just
-           )
+        |> Rule.withExposed
 
 
 {-| Combine `ProjectContext`s by taking the union of known type orders.
@@ -886,7 +857,7 @@ declarationListVisitor :
     -> List (Node Declaration)
     ->
         { moduleName : String
-        , exposedTypes : Maybe (Set String)
+        , exposedTypes : Dict String a
         , customTypes :
             Dict
                 ModuleName
@@ -955,7 +926,7 @@ declarationListVisitor (RuleConfig config) declarations { moduleName, exposedTyp
                         Dict.fromList ts
                             |> (\v -> Dict.insert [] v customTypes)
                     , exposedCustomTypes =
-                        List.filter (\( typeName, _ ) -> MaybeX.unwrap True (Set.member typeName) exposedTypes) ts
+                        List.filter (\( typeName, _ ) -> Dict.member typeName exposedTypes) ts
                             |> Dict.fromList
                     }
            )
