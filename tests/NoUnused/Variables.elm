@@ -1673,7 +1673,7 @@ markValueAsUsed name context =
         Just customTypeName ->
             { context | unusedImportedCustomTypes = Dict.remove customTypeName context.unusedImportedCustomTypes }
 
-        _ ->
+        Nothing ->
             markAsUsed name context
 
 
