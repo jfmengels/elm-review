@@ -1408,36 +1408,16 @@ finalEvaluation context =
         rootScope =
             NonemptyList.head context.scopes
 
-        namesOfCustomTypesUsedByCallingAConstructor : Set String
-        namesOfCustomTypesUsedByCallingAConstructor =
-            context.constructorNameToTypeName
-                |> Dict.filter (\usedName _ -> Set.member usedName (Dict.get [] rootScope.used |> Maybe.withDefault Set.empty))
-                |> Dict.values
-                |> Set.fromList
-
-        newRootScope : Scope
-        newRootScope =
-            { rootScope
-                | used =
-                    Dict.update []
-                        (\set ->
-                            set
-                                |> Maybe.withDefault Set.empty
-                                |> Set.union namesOfCustomTypesUsedByCallingAConstructor
-                                |> Just
-                        )
-                        rootScope.used
-            }
+        usedLocally : Set String
+        usedLocally =
+            Dict.get [] rootScope.used
+                |> Maybe.withDefault Set.empty
 
         moduleNamesInUse : Set String
         moduleNamesInUse =
             context.declaredModules
                 |> List.map (\mod -> getModuleName mod.moduleNameInUse)
                 |> Set.fromList
-
-        usedLocally : Set String
-        usedLocally =
-            Dict.get [] rootScope.used |> Maybe.withDefault Set.empty
 
         addImportedTypeErrors : List (Error {}) -> List (Error {})
         addImportedTypeErrors acc =
@@ -1550,7 +1530,7 @@ finalEvaluation context =
                     acc
     in
     List.filterMap Tuple.first moduleThatExposeEverythingErrors
-        |> List.append (makeReportHelp newRootScope |> Tuple.first)
+        |> List.append (makeReportHelp rootScope |> Tuple.first)
         |> addImportedTypeErrors
         |> addCustomTypeErrors
         |> addModuleErrors
