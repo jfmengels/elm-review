@@ -754,22 +754,12 @@ expressionEnterVisitor (Node range value) context =
                             markValueAsUsed typeName context
 
                         Nothing ->
-                            case Dict.get name context.importedCustomTypeLookup of
-                                Just customTypeName ->
-                                    { context | unusedImportedCustomTypes = Dict.remove customTypeName context.unusedImportedCustomTypes }
-
-                                Nothing ->
-                                    markValueAsUsed name context
+                            markValueAsUsed name context
 
                 Just realModuleName ->
-                    case Dict.get name context.importedCustomTypeLookup of
-                        Just customTypeName ->
-                            { context | unusedImportedCustomTypes = Dict.remove customTypeName context.unusedImportedCustomTypes }
-
-                        Nothing ->
-                            context
-                                |> markValueAsUsed name
-                                |> markModuleAsUsed ( realModuleName, [] )
+                    context
+                        |> markValueAsUsed name
+                        |> markModuleAsUsed ( realModuleName, [] )
 
                 Nothing ->
                     markValueAsUsed name context
