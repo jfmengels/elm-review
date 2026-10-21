@@ -796,15 +796,12 @@ dependencyVisitor ((RuleConfig config) as c) deps context =
             (\_ dep customTypes ->
                 List.foldl
                     (\{ name, unions } acc ->
-                        List.filterMap (docToEntry c name) unions
-                            |> Dict.fromList
-                            |> (\ts ->
-                                    if Dict.isEmpty ts then
-                                        acc
+                        case List.filterMap (docToEntry c name) unions of
+                            [] ->
+                                acc
 
-                                    else
-                                        Dict.insert (String.split "." name) ts acc
-                               )
+                            ts ->
+                                Dict.insert (String.split "." name) (Dict.fromList ts) acc
                     )
                     customTypes
                     (Dependency.modules dep)
