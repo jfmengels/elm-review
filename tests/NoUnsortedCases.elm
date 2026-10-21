@@ -794,30 +794,31 @@ dependencyVisitor (RuleConfig config) deps context =
     let
         docToEntry : String -> Elm.Docs.Union -> Maybe ( String, { constructors : Set String, declarationOrder : List String } )
         docToEntry moduleName { name, tags } =
-            let
-                constructors : List String
-                constructors =
-                    List.map Tuple.first tags
-            in
-            case ( config.sortablePredicate moduleName name, config.sortTypesFromDependencies ) of
-                ( True, AlphabeticalOrder ) ->
-                    Just
-                        ( name
-                        , { constructors = Set.fromList constructors
-                          , declarationOrder = ListX.stableSortWith compare constructors
-                          }
-                        )
+            if config.sortablePredicate moduleName name then
+                let
+                    constructors : List String
+                    constructors =
+                        List.map Tuple.first tags
+                in
+                case config.sortTypesFromDependencies of
+                    AlphabeticalOrder ->
+                        Just
+                            ( name
+                            , { constructors = Set.fromList constructors
+                              , declarationOrder = ListX.stableSortWith compare constructors
+                              }
+                            )
 
-                ( True, _ ) ->
-                    Just
-                        ( name
-                        , { constructors = Set.fromList constructors
-                          , declarationOrder = constructors
-                          }
-                        )
+                    _ ->
+                        Just
+                            ( name
+                            , { constructors = Set.fromList constructors
+                              , declarationOrder = constructors
+                              }
+                            )
 
-                ( False, _ ) ->
-                    Nothing
+            else
+                Nothing
     in
     if config.sortTypesFromDependencies /= DoNotSort then
         Dict.foldl
