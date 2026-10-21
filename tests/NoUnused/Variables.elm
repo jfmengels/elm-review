@@ -754,14 +754,14 @@ expressionEnterVisitor (Node range value) context =
                 Just [] ->
                     case Dict.get [] context.constructorNameToTypeName |> Maybe.andThen (Dict.get name) of
                         Just typeName ->
-                            markValueAsUsed typeName context
+                            markValueAsUsed [] typeName context
 
                         Nothing ->
-                            markValueAsUsed name context
+                            markValueAsUsed [] name context
 
                 Just realModuleName ->
                     context
-                        |> markValueAsUsed name
+                        |> markValueAsUsed realModuleName name
                         |> markModuleAsUsed ( realModuleName, [] )
 
                 Nothing ->
@@ -776,13 +776,28 @@ expressionEnterVisitor (Node range value) context =
                     context
 
         Expression.OperatorApplication name _ _ _ ->
-            markValueAsUsed name context
+            case ModuleNameLookupTable.moduleNameAt context.lookupTable range of
+                Just moduleName ->
+                    markValueAsUsed moduleName name context
+
+                Nothing ->
+                    context
 
         Expression.PrefixOperator name ->
-            markValueAsUsed name context
+            case ModuleNameLookupTable.moduleNameAt context.lookupTable range of
+                Just moduleName ->
+                    markValueAsUsed moduleName name context
 
-        Expression.RecordUpdateExpression expr _ ->
-            markValueAsUsed (Node.value expr) context
+                Nothing ->
+                    context
+
+        Expression.RecordUpdateExpression (Node updateRange expr) _ ->
+            case ModuleNameLookupTable.moduleNameAt context.lookupTable updateRange of
+                Just moduleName ->
+                    markValueAsUsed moduleName expr context
+
+                Nothing ->
+                    context
 
         Expression.LambdaExpression { args } ->
             markValuesFromPatternsAsUsed args
@@ -1341,7 +1356,7 @@ declarationEnterVisitor node context =
         Declaration.InfixDeclaration { operator, function } ->
             ( []
             , context
-                |> markValueAsUsed (Node.value function)
+                |> markValueAsUsed [] (Node.value function)
                 |> registerVariable
                     { typeName = "Declared operator"
                     , under = Node.range operator
@@ -1670,8 +1685,8 @@ markAllAsUsed names context =
     List.foldl markAsUsed context names
 
 
-markValueAsUsed : String -> ModuleContext -> ModuleContext
-markValueAsUsed name context =
+markValueAsUsed : ModuleName -> String -> ModuleContext -> ModuleContext
+markValueAsUsed moduleName name context =
     case Dict.get name context.importedCustomTypeLookup of
         Just customTypeName ->
             { context | unusedImportedCustomTypes = Dict.remove customTypeName context.unusedImportedCustomTypes }
@@ -1717,10 +1732,10 @@ markLocalConstructorAsUsed qualifiedNameRef context =
                     |> Maybe.andThen (Dict.get qualifiedNameRef.name)
             of
                 Just typeName ->
-                    markValueAsUsed typeName context
+                    markValueAsUsed [] typeName context
 
                 Nothing ->
-                    markValueAsUsed qualifiedNameRef.name context
+                    markValueAsUsed [] qualifiedNameRef.name context
 
         _ ->
             context
