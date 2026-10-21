@@ -30,7 +30,6 @@ import Elm.Syntax.Type exposing (Type)
 import List.Extra as ListX
 import Maybe.Extra as MaybeX
 import Review.ModuleNameLookupTable exposing (ModuleNameLookupTable, moduleNameFor)
-import Review.Project.Dependency as Dependency exposing (Dependency)
 import Review.Rule as Rule exposing (Error, Rule)
 import Set exposing (Set)
 import Util exposing (checkSorting, fallbackCompareFor, fallbackCompareWithUnsortableFor)
@@ -209,7 +208,6 @@ elm-review --template SiriusStarr/elm-review-no-unsorted/example --rules NoUnsor
 rule : RuleConfig -> Rule
 rule config =
     Rule.newProjectRuleSchema "NoUnsortedCases" initialProjectContext
-        |> Rule.withDependenciesProjectVisitor (\d c -> ( [], dependencyVisitor config d c ))
         |> Rule.withModuleVisitor (moduleVisitor config)
         |> Rule.withModuleContextUsingContextCreator
             { fromProjectToModule = fromProjectToModule config
@@ -749,14 +747,14 @@ fromModuleToProject =
 fromProjectToModule : RuleConfig -> Rule.ContextCreator ProjectContext ModuleContext
 fromProjectToModule config =
     Rule.initContextCreator
-        (\lookupTable extractSource moduleName fileIsIgnored { declarations, moduleDefinition } { exposed } projectContext ->
+        (\lookupTable extractSource moduleName fileIsIgnored { declarations, moduleDefinition } { exposed } moduleDocs _ ->
             let
                 { exposedCustomTypes, customTypes } =
                     declarationListVisitor config
                         declarations
                         { moduleName = String.join "." moduleName
                         , exposedTypes = exposed
-                        , customTypes = projectContext.customTypes
+                        , customTypes = dependencyVisitor config moduleDocs
                         }
             in
             { customTypes = customTypes
@@ -772,6 +770,7 @@ fromProjectToModule config =
         |> Rule.withIsFileIgnored
         |> Rule.withFullAst
         |> Rule.withExposed
+        |> Rule.withImportedModuleDocs { implicitImports = True, dependencies = True }
 
 
 {-| Combine `ProjectContext`s by taking the union of known type orders.
@@ -789,24 +788,26 @@ foldProjectContexts newContext prevContext =
 
 {-| Visit all dependencies and store type order from them.
 -}
-dependencyVisitor : RuleConfig -> Dict String Dependency -> ProjectContext -> ProjectContext
-dependencyVisitor ((RuleConfig config) as c) deps context =
+dependencyVisitor :
+    RuleConfig
+    -> Dict ModuleName Elm.Docs.Module
+    -> Dict ModuleName (Dict String { constructors : Set String, declarationOrder : List String })
+dependencyVisitor ((RuleConfig config) as c) docsModules =
     if config.sortTypesFromDependencies /= DoNotSort then
-        List.foldl
-            (\{ name, unions } acc ->
+        Dict.foldl
+            (\moduleName { name, unions } acc ->
                 case List.filterMap (docToEntry c name) unions of
                     [] ->
                         acc
 
                     ts ->
-                        Dict.insert (String.split "." name) (Dict.fromList ts) acc
+                        Dict.insert moduleName (Dict.fromList ts) acc
             )
-            context.customTypes
-            (deps |> Dict.values |> List.concatMap Dependency.modules)
-            |> (\types -> { context | customTypes = types })
+            Dict.empty
+            docsModules
 
     else
-        context
+        Dict.empty
 
 
 docToEntry : RuleConfig -> String -> Elm.Docs.Union -> Maybe ( String, { constructors : Set String, declarationOrder : List String } )
