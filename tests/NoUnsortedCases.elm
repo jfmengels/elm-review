@@ -792,22 +792,17 @@ foldProjectContexts newContext prevContext =
 dependencyVisitor : RuleConfig -> Dict String Dependency -> ProjectContext -> ProjectContext
 dependencyVisitor ((RuleConfig config) as c) deps context =
     if config.sortTypesFromDependencies /= DoNotSort then
-        Dict.foldl
-            (\_ dep customTypes ->
-                List.foldl
-                    (\{ name, unions } acc ->
-                        case List.filterMap (docToEntry c name) unions of
-                            [] ->
-                                acc
+        List.foldl
+            (\{ name, unions } acc ->
+                case List.filterMap (docToEntry c name) unions of
+                    [] ->
+                        acc
 
-                            ts ->
-                                Dict.insert (String.split "." name) (Dict.fromList ts) acc
-                    )
-                    customTypes
-                    (Dependency.modules dep)
+                    ts ->
+                        Dict.insert (String.split "." name) (Dict.fromList ts) acc
             )
             context.customTypes
-            deps
+            (deps |> Dict.values |> List.concatMap Dependency.modules)
             |> (\types -> { context | customTypes = types })
 
     else
