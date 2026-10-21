@@ -790,43 +790,14 @@ foldProjectContexts newContext prevContext =
 {-| Visit all dependencies and store type order from them.
 -}
 dependencyVisitor : RuleConfig -> Dict String Dependency -> ProjectContext -> ProjectContext
-dependencyVisitor (RuleConfig config) deps context =
-    let
-        docToEntry : String -> Elm.Docs.Union -> Maybe ( String, { constructors : Set String, declarationOrder : List String } )
-        docToEntry moduleName { name, tags } =
-            if config.sortablePredicate moduleName name then
-                let
-                    constructors : List String
-                    constructors =
-                        List.map Tuple.first tags
-                in
-                case config.sortTypesFromDependencies of
-                    AlphabeticalOrder ->
-                        Just
-                            ( name
-                            , { constructors = Set.fromList constructors
-                              , declarationOrder = ListX.stableSortWith compare constructors
-                              }
-                            )
-
-                    _ ->
-                        Just
-                            ( name
-                            , { constructors = Set.fromList constructors
-                              , declarationOrder = constructors
-                              }
-                            )
-
-            else
-                Nothing
-    in
+dependencyVisitor ((RuleConfig config) as c) deps context =
     if config.sortTypesFromDependencies /= DoNotSort then
         Dict.foldl
             (\_ dep acc ->
                 Dependency.modules dep
                     |> List.filterMap
                         (\{ name, unions } ->
-                            List.filterMap (docToEntry name) unions
+                            List.filterMap (docToEntry c name) unions
                                 |> Dict.fromList
                                 |> (\ts ->
                                         if Dict.isEmpty ts then
@@ -849,6 +820,35 @@ dependencyVisitor (RuleConfig config) deps context =
 
     else
         context
+
+
+docToEntry : RuleConfig -> String -> Elm.Docs.Union -> Maybe ( String, { constructors : Set String, declarationOrder : List String } )
+docToEntry (RuleConfig config) moduleName { name, tags } =
+    if config.sortablePredicate moduleName name then
+        let
+            constructors : List String
+            constructors =
+                List.map Tuple.first tags
+        in
+        case config.sortTypesFromDependencies of
+            AlphabeticalOrder ->
+                Just
+                    ( name
+                    , { constructors = Set.fromList constructors
+                      , declarationOrder = ListX.stableSortWith compare constructors
+                      }
+                    )
+
+            _ ->
+                Just
+                    ( name
+                    , { constructors = Set.fromList constructors
+                      , declarationOrder = constructors
+                      }
+                    )
+
+    else
+        Nothing
 
 
 {-| Visit declarations, storing custom type orders.
