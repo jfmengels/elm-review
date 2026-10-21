@@ -149,7 +149,6 @@ type alias ModuleContext =
     , exposingAllModules : List ModuleThatExposesEverything
     , usedModules : Set ( ModuleName, ModuleName )
     , unusedImportedCustomTypes : Dict String ImportedCustomType
-    , importedCustomTypeLookup : Dict String String
     , localTypes : Dict String TypeData
     , customTypes : Dict ModuleName (Dict String (List String))
     }
@@ -244,7 +243,6 @@ fromProjectToModule =
             , exposingAllModules = []
             , usedModules = Set.empty
             , unusedImportedCustomTypes = Dict.empty
-            , importedCustomTypeLookup = Dict.empty
             , localTypes = Dict.empty
             , customTypes = customTypes
             }
@@ -580,19 +578,11 @@ registerExposedElements : Dict String (List String) -> ExposedElement -> ModuleC
 registerExposedElements customTypesFromModule { name, kind } context =
     case kind of
         CustomType variableInfo ->
-            case Dict.get name customTypesFromModule of
-                Just constructorNames ->
-                    { context
-                        | unusedImportedCustomTypes = Dict.insert name variableInfo context.unusedImportedCustomTypes
-                        , importedCustomTypeLookup =
-                            List.foldl
-                                (\constructorName acc -> Dict.insert constructorName name acc)
-                                context.importedCustomTypeLookup
-                                constructorNames
-                    }
+            if Dict.member name customTypesFromModule then
+                { context | unusedImportedCustomTypes = Dict.insert name variableInfo context.unusedImportedCustomTypes }
 
-                Nothing ->
-                    context
+            else
+                context
 
         TypeOrValue variableInfo ->
             registerVariable variableInfo name context
@@ -1192,13 +1182,8 @@ registerTypeAlias : Range -> TypeAlias -> ModuleContext -> ModuleContext
 registerTypeAlias range { name, typeAnnotation } context =
     case Node.value typeAnnotation of
         TypeAnnotation.Record _ ->
-            let
-                newContext : ModuleContext
-                newContext =
-                    { context | importedCustomTypeLookup = Dict.remove (Node.value name) context.importedCustomTypeLookup }
-            in
             if context.exposesEverything then
-                newContext
+                context
 
             else
                 registerVariable
@@ -1208,7 +1193,7 @@ registerTypeAlias range { name, typeAnnotation } context =
                     , warning = ""
                     }
                     (Node.value name)
-                    newContext
+                    context
 
         _ ->
             let
