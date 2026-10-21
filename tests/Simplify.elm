@@ -21408,14 +21408,14 @@ caseVariantOfWithUnreachableCasesChecks config checkInfo =
                                 Nothing ->
                                     Nothing
 
-                                Just customTypeWithVariant ->
+                                Just variantNames ->
                                     Maybe.map
                                         (\cases ->
                                             { cased =
                                                 { moduleName = valueModule.name
                                                 , name = valueOrCall.fnName
                                                 , attachments = valueOrCall.args
-                                                , customTypeVariantNames = customTypeWithVariant.variantNames
+                                                , customTypeVariantNames = variantNames
                                                 }
                                             , cases = cases
                                             }
@@ -21636,22 +21636,18 @@ getVariantCase ( patternNode, expressionNode ) =
 getCustomTypeWithVariant :
     String
     -> Dict String { variantNames : Set String, allParametersAreUsedInVariants : Bool }
-    -> Maybe { name : String, variantNames : Set String, allParametersAreUsedInVariants : Bool }
+    -> Maybe (Set String)
 getCustomTypeWithVariant variantName customTypes =
     customTypes
         |> Dict.foldl
-            (\customTypeName customTypeInfo soFar ->
+            (\_ customTypeInfo soFar ->
                 case soFar of
                     Just _ ->
                         soFar
 
                     Nothing ->
                         if Set.member variantName customTypeInfo.variantNames then
-                            Just
-                                { name = customTypeName
-                                , variantNames = customTypeInfo.variantNames
-                                , allParametersAreUsedInVariants = customTypeInfo.allParametersAreUsedInVariants
-                                }
+                            Just customTypeInfo.variantNames
 
                         else
                             Nothing
