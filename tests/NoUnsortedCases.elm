@@ -207,15 +207,16 @@ elm-review --template SiriusStarr/elm-review-no-unsorted/example --rules NoUnsor
 -}
 rule : RuleConfig -> Rule
 rule config =
-    Rule.newProjectRuleSchema "NoUnsortedCases" initialProjectContext
-        |> Rule.withModuleVisitor (moduleVisitor config)
-        |> Rule.withModuleContextUsingContextCreator
-            { fromProjectToModule = fromProjectToModule config
-            , fromModuleToProject = fromModuleToProject
-            , foldProjectContexts = foldProjectContexts
-            }
-        |> Rule.withContextFromImportedModules
-        |> Rule.fromProjectRuleSchema
+    Rule.newModuleRuleSchemaUsingContextCreator "NoUnsortedCases" (fromProjectToModule config)
+        |> Rule.withExpressionEnterVisitor
+            (\e c ->
+                if c.fileIsIgnored then
+                    ( [], c )
+
+                else
+                    ( expressionVisitor config e c, c )
+            )
+        |> Rule.fromModuleRuleSchema
 
 
 {-| Configuration for this rule. Create a new one with `defaults` and use
@@ -571,22 +572,6 @@ doNotLookPastUnsortable (RuleConfig c) =
 -- * Types
 
 
-{-| The project context, consisting of a map from module names to a map of type
-names to orders.
--}
-type alias ProjectContext =
-    { customTypes :
-        Dict
-            ModuleName
-            (Dict
-                String
-                { constructors : Set String
-                , declarationOrder : List String
-                }
-            )
-    }
-
-
 {-| The module context, consisting of a map from module names to a map of type
 names to orders.
 
@@ -598,7 +583,7 @@ names to orders.
   - `extractSourceCode` -- Source extractor for fixes
 
 -}
-type alias ModuleContext =
+type alias Context =
     { customTypes :
         Dict
             ModuleName
@@ -697,57 +682,12 @@ type LiteralPattern
     | FloatLiteral Float
 
 
-
--- * MODULE VISITOR
-
-
-{-| Visit each module, first getting types from all declarations and then
-checking all expressions for `case`s.
+{-| Create a `Context`.
 -}
-moduleVisitor : RuleConfig -> Rule.ModuleRuleSchema schemaState ModuleContext -> Rule.ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } ModuleContext
-moduleVisitor config schema =
-    schema
-        |> Rule.withExpressionEnterVisitor
-            (\e c ->
-                if c.fileIsIgnored then
-                    ( [], c )
-
-                else
-                    ( expressionVisitor config e c, c )
-            )
-
-
-{-| The initial project context knows of no types.
--}
-initialProjectContext : ProjectContext
-initialProjectContext =
-    { customTypes = Dict.empty
-    }
-
-
-{-| Create a `ProjectContext` from a `ModuleContext`.
--}
-fromModuleToProject : Rule.ContextCreator ModuleContext ProjectContext
-fromModuleToProject =
-    Rule.initContextCreator
-        (\moduleName { exposedCustomTypes } ->
-            { customTypes =
-                if Dict.isEmpty exposedCustomTypes then
-                    Dict.empty
-
-                else
-                    Dict.singleton moduleName exposedCustomTypes
-            }
-        )
-        |> Rule.withModuleName
-
-
-{-| Create a `ModuleContext` from a `ProjectContext`.
--}
-fromProjectToModule : RuleConfig -> Rule.ContextCreator ProjectContext ModuleContext
+fromProjectToModule : RuleConfig -> Rule.ContextCreator () Context
 fromProjectToModule config =
     Rule.initContextCreator
-        (\lookupTable extractSource moduleName fileIsIgnored { declarations, moduleDefinition } { exposed } moduleDocs _ ->
+        (\lookupTable extractSource moduleName fileIsIgnored { declarations, moduleDefinition } { exposed } moduleDocs () ->
             let
                 { exposedCustomTypes, customTypes } =
                     declarationListVisitor config
@@ -771,15 +711,6 @@ fromProjectToModule config =
         |> Rule.withFullAst
         |> Rule.withExposed
         |> Rule.withImportedModuleDocs { implicitImports = True, dependencies = True }
-
-
-{-| Combine `ProjectContext`s by taking the union of known type orders.
--}
-foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext
-foldProjectContexts newContext prevContext =
-    { customTypes =
-        Dict.union newContext.customTypes prevContext.customTypes
-    }
 
 
 
@@ -924,7 +855,7 @@ declarationListVisitor (RuleConfig config) declarations { moduleName, exposedTyp
 {-| Visit all expressions in a module, checking for `case`s and ensuring those
 are sorted properly.
 -}
-expressionVisitor : RuleConfig -> Node Expression -> ModuleContext -> List (Error {})
+expressionVisitor : RuleConfig -> Node Expression -> Context -> List (Error {})
 expressionVisitor config node context =
     case Node.value node of
         Expression.CaseExpression { cases } ->
@@ -979,7 +910,7 @@ expressionVisitor config node context =
 {-| Given config, context, and a pattern, convert it into a pattern we know
 how to sort, if possible.
 -}
-getSortablePattern : RuleConfig -> ModuleContext -> Node Pattern -> Maybe SortablePattern
+getSortablePattern : RuleConfig -> Context -> Node Pattern -> Maybe SortablePattern
 getSortablePattern ((RuleConfig config) as ruleConfig) context node =
     let
         go : Node Pattern -> Maybe SortablePattern
