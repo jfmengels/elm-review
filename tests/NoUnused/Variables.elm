@@ -762,7 +762,7 @@ expressionEnterVisitor (Node range value) context =
                         |> markModuleAsUsed ( realModuleName, [] )
 
                 Nothing ->
-                    markValueAsUsed name context
+                    context
 
         Expression.FunctionOrValue moduleName _ ->
             case ModuleNameLookupTable.moduleNameAt context.lookupTable range of
