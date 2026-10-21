@@ -207,12 +207,12 @@ elm-review --template SiriusStarr/elm-review-no-unsorted/example --rules NoUnsor
 -}
 rule : RuleConfig -> Rule
 rule config =
-    Rule.newProjectRuleSchema "NoUnsortedCases" initialProjectContext
+    Rule.newProjectRuleSchema "NoUnsortedCases" ()
         |> Rule.withModuleVisitor (moduleVisitor config)
         |> Rule.withModuleContextUsingContextCreator
             { fromProjectToModule = fromProjectToModule config
             , fromModuleToProject = fromModuleToProject
-            , foldProjectContexts = foldProjectContexts
+            , foldProjectContexts = always
             }
         |> Rule.withContextFromImportedModules
         |> Rule.fromProjectRuleSchema
@@ -575,16 +575,7 @@ doNotLookPastUnsortable (RuleConfig c) =
 names to orders.
 -}
 type alias ProjectContext =
-    { customTypes :
-        Dict
-            ModuleName
-            (Dict
-                String
-                { constructors : Set String
-                , declarationOrder : List String
-                }
-            )
-    }
+    ()
 
 
 {-| The module context, consisting of a map from module names to a map of type
@@ -717,29 +708,14 @@ moduleVisitor config schema =
             )
 
 
-{-| The initial project context knows of no types.
--}
-initialProjectContext : ProjectContext
-initialProjectContext =
-    { customTypes = Dict.empty
-    }
-
-
 {-| Create a `ProjectContext` from a `ModuleContext`.
 -}
 fromModuleToProject : Rule.ContextCreator ModuleContext ProjectContext
 fromModuleToProject =
     Rule.initContextCreator
-        (\moduleName { exposedCustomTypes } ->
-            { customTypes =
-                if Dict.isEmpty exposedCustomTypes then
-                    Dict.empty
-
-                else
-                    Dict.singleton moduleName exposedCustomTypes
-            }
+        (\_ ->
+            ()
         )
-        |> Rule.withModuleName
 
 
 {-| Create a `ModuleContext` from a `ProjectContext`.
@@ -771,15 +747,6 @@ fromProjectToModule config =
         |> Rule.withFullAst
         |> Rule.withExposed
         |> Rule.withImportedModuleDocs { implicitImports = True, dependencies = True }
-
-
-{-| Combine `ProjectContext`s by taking the union of known type orders.
--}
-foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext
-foldProjectContexts newContext prevContext =
-    { customTypes =
-        Dict.union newContext.customTypes prevContext.customTypes
-    }
 
 
 
