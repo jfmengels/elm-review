@@ -25,7 +25,6 @@ import NoUnused.NonemptyList as NonemptyList exposing (Nonempty)
 import NoUnused.Variables.ElmPrelude as ElmPrelude
 import Review.Fix as Fix exposing (Fix)
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
-import Review.Project.Dependency as Dependency exposing (Dependency)
 import Review.Rule as Rule exposing (Error, Rule)
 import Set exposing (Set)
 
@@ -103,15 +102,13 @@ elm-review --template jfmengels/elm-review-unused/example --rules NoUnused.Varia
 rule : Rule
 rule =
     Rule.newProjectRuleSchema "NoUnused.Variables" initialContext
-        |> Rule.withElmJsonProjectVisitor (\project context -> ( [], elmJsonVisitor project context ))
-        |> Rule.withDirectDependenciesProjectVisitor dependenciesVisitor
+        |> Rule.withElmJsonProjectVisitor (\project _ -> ( [], elmJsonVisitor project ))
         |> Rule.withModuleVisitor moduleVisitor
         |> Rule.withModuleContextUsingContextCreator
             { fromProjectToModule = fromProjectToModule
             , fromModuleToProject = fromModuleToProject
             , foldProjectContexts = foldProjectContexts
             }
-        |> Rule.withContextFromImportedModules
         |> Rule.providesFixesForProjectRule
         |> Rule.fromProjectRuleSchema
 
@@ -132,10 +129,8 @@ moduleVisitor schema =
         |> Rule.withFinalModuleEvaluation finalEvaluation
 
 
-type alias ProjectContext =
-    { isApplication : Bool
-    , customTypes : Dict ModuleName (Dict String (List String))
-    }
+type alias ProjectIsApplication =
+    Bool
 
 
 type alias ModuleContext =
@@ -150,7 +145,7 @@ type alias ModuleContext =
     , usedModules : Set ( ModuleName, ModuleName )
     , unusedImportedCustomTypes : Dict String ImportedCustomType
     , localTypes : Dict String TypeData
-    , customTypes : Dict ModuleName (Dict String (List String))
+    , customTypes : Dict ModuleName (Set String)
     }
 
 
@@ -222,17 +217,15 @@ type LetBlockContext
     | HasNoOtherDeclarations Range
 
 
-initialContext : ProjectContext
+initialContext : ProjectIsApplication
 initialContext =
-    { isApplication = True
-    , customTypes = Dict.empty
-    }
+    True
 
 
-fromProjectToModule : Rule.ContextCreator ProjectContext ModuleContext
+fromProjectToModule : Rule.ContextCreator ProjectIsApplication ModuleContext
 fromProjectToModule =
     Rule.initContextCreator
-        (\lookupTable { exposesAll, exposed } constructorToType { isApplication, customTypes } ->
+        (\lookupTable { exposesAll, exposed } moduleDocs constructorToType isApplication ->
             Dict.foldl
                 (\name _ ctx -> markAsUsed name ctx)
                 { lookupTable = lookupTable
@@ -246,36 +239,36 @@ fromProjectToModule =
                 , usedModules = Set.empty
                 , unusedImportedCustomTypes = Dict.empty
                 , localTypes = Dict.empty
-                , customTypes = customTypes
+                , customTypes = buildCustomTypesWithConstructors moduleDocs
                 }
                 exposed
         )
         |> Rule.withModuleNameLookupTable
         |> Rule.withExposed
+        |> Rule.withImportedModuleDocs { implicitImports = False, dependencies = True }
         |> Rule.withConstructorToType
 
 
-fromModuleToProject : Rule.ContextCreator ModuleContext ProjectContext
-fromModuleToProject =
-    Rule.initContextCreator
-        (\moduleName moduleContext ->
-            { customTypes =
-                moduleContext.localTypes
-                    |> Dict.map (\_ customType -> customType.variants)
-                    |> Dict.singleton moduleName
-
-            -- Will be ignored in foldProjectContexts
-            , isApplication = True
-            }
+buildCustomTypesWithConstructors : Dict ModuleName Elm.Docs.Module -> Dict ModuleName (Set String)
+buildCustomTypesWithConstructors moduleDocs =
+    Dict.map
+        (\_ docs ->
+            List.foldl
+                (\union dict -> Set.insert union.name dict)
+                Set.empty
+                docs.unions
         )
-        |> Rule.withModuleName
+        moduleDocs
 
 
-foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext
-foldProjectContexts newProjectContext previousProjectContext =
-    { isApplication = previousProjectContext.isApplication
-    , customTypes = Dict.union newProjectContext.customTypes previousProjectContext.customTypes
-    }
+fromModuleToProject : Rule.ContextCreator ModuleContext ProjectIsApplication
+fromModuleToProject =
+    Rule.initContextCreator (\_ -> True)
+
+
+foldProjectContexts : ProjectIsApplication -> ProjectIsApplication -> ProjectIsApplication
+foldProjectContexts _ previousProjectContext =
+    previousProjectContext
 
 
 emptyScope : Scope
@@ -312,53 +305,18 @@ details =
 -- ELM.JSON VISITOR
 
 
-elmJsonVisitor : Maybe { a | project : Elm.Project.Project } -> ProjectContext -> ProjectContext
-elmJsonVisitor maybeElmJson projectContext =
+elmJsonVisitor : Maybe { a | project : Elm.Project.Project } -> ProjectIsApplication
+elmJsonVisitor maybeElmJson =
     case Maybe.map .project maybeElmJson of
         Just (Elm.Project.Application _) ->
-            { projectContext | isApplication = True }
+            True
 
         Just (Elm.Project.Package _) ->
-            { projectContext | isApplication = False }
+            False
 
         Nothing ->
             -- Sensible default, because now `main` won't be reported.
-            { projectContext | isApplication = True }
-
-
-
--- DEPENDENCIES VISITOR
-
-
-dependenciesVisitor : Dict String Dependency -> ProjectContext -> ( List (Error nothing), ProjectContext )
-dependenciesVisitor dependencies projectContext =
-    let
-        customTypes : Dict ModuleName (Dict String (List String))
-        customTypes =
-            Dict.foldl
-                (\_ dep acc ->
-                    List.foldl
-                        (\module_ subAcc ->
-                            Dict.insert
-                                (String.split "." module_.name)
-                                (unionsToDict module_.unions)
-                                subAcc
-                        )
-                        acc
-                        (Dependency.modules dep)
-                )
-                Dict.empty
-                dependencies
-    in
-    ( [], { projectContext | customTypes = customTypes } )
-
-
-unionsToDict : List Elm.Docs.Union -> Dict String (List String)
-unionsToDict unions =
-    List.foldl
-        (\{ name, tags } acc -> Dict.insert name (List.map Tuple.first tags) acc)
-        Dict.empty
-        unions
+            True
 
 
 importVisitor : Node Import -> ModuleContext -> ( List (Error {}), ModuleContext )
@@ -515,11 +473,11 @@ collectExplicitExposingAll context exposingRange (Node importRange import_) =
 collectExplicitImports : ModuleContext -> Node Import -> Range -> List String -> List (Node TopLevelExpose) -> ( List (Error {}), ModuleContext )
 collectExplicitImports context (Node _ import_) exposingRange exposedFromPrelude list =
     let
-        customTypesFromModule : Dict String (List String)
+        customTypesFromModule : Set String
         customTypesFromModule =
             context.customTypes
                 |> Dict.get (Node.value import_.moduleName)
-                |> Maybe.withDefault Dict.empty
+                |> Maybe.withDefault Set.empty
     in
     collectExplicitlyExposedElements
         (handleExposedElements (NonemptyList.head context.scopes).declared customTypesFromModule exposedFromPrelude)
@@ -528,7 +486,7 @@ collectExplicitImports context (Node _ import_) exposingRange exposedFromPrelude
         ( [], context )
 
 
-handleExposedElements : Dict String VariableInfo -> Dict String (List String) -> List String -> ExposedElement -> ( List (Rule.Error {}), ModuleContext ) -> ( List (Rule.Error {}), ModuleContext )
+handleExposedElements : Dict String VariableInfo -> Set String -> List String -> ExposedElement -> ( List (Rule.Error {}), ModuleContext ) -> ( List (Rule.Error {}), ModuleContext )
 handleExposedElements declared customTypesFromModule exposedFromPrelude =
     \importedElement ( errors, context ) ->
         let
@@ -577,11 +535,11 @@ importPreludeElementError importedElement =
         )
 
 
-registerExposedElements : Dict String (List String) -> ExposedElement -> ModuleContext -> ModuleContext
+registerExposedElements : Set String -> ExposedElement -> ModuleContext -> ModuleContext
 registerExposedElements customTypesFromModule { name, kind } context =
     case kind of
         CustomType variableInfo ->
-            if Dict.member name customTypesFromModule then
+            if Set.member name customTypesFromModule then
                 { context | unusedImportedCustomTypes = Dict.insert name variableInfo context.unusedImportedCustomTypes }
 
             else
