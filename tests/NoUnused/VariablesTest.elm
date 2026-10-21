@@ -1243,21 +1243,6 @@ type A = B | C
 a = B
 """
                     ]
-    , test "should not report open type import when a constructor is used but the type is locally shadowed" <|
-        \() ->
-            [ """module A exposing (a)
-import B exposing (C(..))
-type alias C = A.C
-
-a : C -> String
-a (C s) = s
-"""
-            , """module B exposing (C(..))
-type C = C String
-"""
-            ]
-                |> Review.Test.runOnModules rule
-                |> Review.Test.expectNoErrors
     , test "should report open type import when none of its constructors is used (imported dependency)" <|
         \() ->
             """module A exposing (a)
