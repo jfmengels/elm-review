@@ -1092,35 +1092,15 @@ markValuesFromPatternsAsUsed nodes context =
                     markValuesFromPatternsAsUsed (patterns ++ restOfNodes) context
 
                 Pattern.NamedPattern qualifiedNameRef patterns ->
-                    let
-                        contextAfterTypeUsage : ModuleContext
-                        contextAfterTypeUsage =
-                            case qualifiedNameRef.moduleName of
-                                [] ->
-                                    let
-                                        name : String
-                                        name =
-                                            Dict.get [] context.constructorNameToTypeName
-                                                |> Maybe.andThen (Dict.get qualifiedNameRef.name)
-                                                |> Maybe.withDefault qualifiedNameRef.name
-                                    in
-                                    markValueAsUsed name context
+                    case ModuleNameLookupTable.moduleNameFor context.lookupTable node of
+                        Just realModuleName ->
+                            context
+                                |> markLocalConstructorAsUsed qualifiedNameRef
+                                |> markModuleAsUsed ( realModuleName, qualifiedNameRef.moduleName )
+                                |> markValuesFromPatternsAsUsed (patterns ++ restOfNodes)
 
-                                _ ->
-                                    context
-
-                        contextAfterModuleUsage : ModuleContext
-                        contextAfterModuleUsage =
-                            case ModuleNameLookupTable.moduleNameFor context.lookupTable node of
-                                Just realModuleName ->
-                                    markModuleAsUsed ( realModuleName, qualifiedNameRef.moduleName ) contextAfterTypeUsage
-
-                                Nothing ->
-                                    contextAfterTypeUsage
-                    in
-                    markValuesFromPatternsAsUsed
-                        (patterns ++ restOfNodes)
-                        contextAfterModuleUsage
+                        Nothing ->
+                            context
 
                 Pattern.AsPattern pattern _ ->
                     markValuesFromPatternsAsUsed (pattern :: restOfNodes) context
@@ -1735,28 +1715,50 @@ markAsUsed name context =
         { context | scopes = scopes }
 
 
+markLocalConstructorAsUsed : Pattern.QualifiedNameRef -> ModuleContext -> ModuleContext
+markLocalConstructorAsUsed qualifiedNameRef context =
+    case qualifiedNameRef.moduleName of
+        [] ->
+            case
+                Dict.get [] context.constructorNameToTypeName
+                    |> Maybe.andThen (Dict.get qualifiedNameRef.name)
+            of
+                Just typeName ->
+                    markValueAsUsed typeName context
+
+                Nothing ->
+                    markValueAsUsed qualifiedNameRef.name context
+
+        _ ->
+            context
+
+
 markModuleAsUsed : ( ModuleName, ModuleName ) -> ModuleContext -> ModuleContext
 markModuleAsUsed (( realModuleName, aliasName ) as realAndAliasModuleNames) context =
-    { context
-        | usedModules = Set.insert realAndAliasModuleNames context.usedModules
-        , exposingAllModules =
-            List.map
-                (\module_ ->
-                    if module_.name == realModuleName then
-                        if module_.name == aliasName || Just (String.join "." aliasName) == module_.alias then
-                            { module_ | wasUsedWithModuleName = True }
+    if List.isEmpty realModuleName then
+        context
 
-                        else if List.isEmpty aliasName then
-                            { module_ | wasUsedImplicitly = True }
+    else
+        { context
+            | usedModules = Set.insert realAndAliasModuleNames context.usedModules
+            , exposingAllModules =
+                List.map
+                    (\module_ ->
+                        if module_.name == realModuleName then
+                            if module_.name == aliasName || Just (String.join "." aliasName) == module_.alias then
+                                { module_ | wasUsedWithModuleName = True }
+
+                            else if List.isEmpty aliasName then
+                                { module_ | wasUsedImplicitly = True }
+
+                            else
+                                module_
 
                         else
                             module_
-
-                    else
-                        module_
-                )
-                context.exposingAllModules
-    }
+                    )
+                    context.exposingAllModules
+        }
 
 
 getModuleName : List String -> String
