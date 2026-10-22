@@ -587,15 +587,16 @@ type alias Context =
     { customTypes :
         Dict
             ModuleName
-            (Dict
-                String
-                { constructors : Set String
-                , declarationOrder : List String
-                }
-            )
+            (Dict String ConstructorsAndOrder)
     , fileIsIgnored : Bool
     , lookupTable : ModuleNameLookupTable
     , extractSource : Range -> String
+    }
+
+
+type alias ConstructorsAndOrder =
+    { constructors : Set String
+    , declarationOrder : List String
     }
 
 
@@ -715,7 +716,7 @@ fromProjectToModule config =
 dependencyVisitor :
     RuleConfig
     -> Dict ModuleName Elm.Docs.Module
-    -> Dict ModuleName (Dict String { constructors : Set String, declarationOrder : List String })
+    -> Dict ModuleName (Dict String ConstructorsAndOrder)
 dependencyVisitor ((RuleConfig config) as c) docsModules =
     if config.sortTypesFromDependencies /= DoNotSort then
         Dict.foldl
@@ -734,7 +735,7 @@ dependencyVisitor ((RuleConfig config) as c) docsModules =
         Dict.empty
 
 
-docToEntry : RuleConfig -> String -> Elm.Docs.Union -> Maybe ( String, { constructors : Set String, declarationOrder : List String } )
+docToEntry : RuleConfig -> String -> Elm.Docs.Union -> Maybe ( String, ConstructorsAndOrder )
 docToEntry (RuleConfig config) moduleName { name, tags } =
     if config.sortablePredicate moduleName name then
         let
@@ -771,28 +772,12 @@ declarationListVisitor :
     ->
         { moduleName : String
         , exposedTypes : Dict String a
-        , customTypes :
-            Dict
-                ModuleName
-                (Dict
-                    String
-                    { constructors : Set String
-                    , declarationOrder : List String
-                    }
-                )
+        , customTypes : Dict ModuleName (Dict String ConstructorsAndOrder)
         }
-    ->
-        Dict
-            ModuleName
-            (Dict
-                String
-                { constructors : Set String
-                , declarationOrder : List String
-                }
-            )
+    -> Dict ModuleName (Dict String ConstructorsAndOrder)
 declarationListVisitor (RuleConfig config) declarations { moduleName, exposedTypes, customTypes } =
     let
-        getCustomType : Node Declaration -> Maybe ( String, { constructors : Set String, declarationOrder : List String } )
+        getCustomType : Node Declaration -> Maybe ( String, ConstructorsAndOrder )
         getCustomType node =
             case Node.value node of
                 Declaration.CustomTypeDeclaration ({ name } as type_) ->
@@ -808,7 +793,7 @@ declarationListVisitor (RuleConfig config) declarations { moduleName, exposedTyp
                 _ ->
                     Nothing
 
-        typeConstructors : Type -> { constructors : Set String, declarationOrder : List String }
+        typeConstructors : Type -> ConstructorsAndOrder
         typeConstructors type_ =
             type_.constructors
                 |> List.map (Node.value >> .name >> Node.value)
