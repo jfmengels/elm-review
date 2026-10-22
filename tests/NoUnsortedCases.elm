@@ -1235,12 +1235,13 @@ compareNonemptyListPatterns ((RuleConfig { sortLists }) as config) ( r1, p1, p1s
                 ltOrGtOrNothing ->
                     ltOrGtOrNothing
     in
-    if sortLists == LengthFirst then
-        checkSubs
-            |> fallbackCompareWithUnsortableFor (Just <| comparePatternListLengths r1 r2)
+    case sortLists of
+        Elementwise ->
+            checkSubs ()
 
-    else
-        checkSubs ()
+        LengthFirst ->
+            checkSubs
+                |> fallbackCompareWithUnsortableFor (Just <| comparePatternListLengths r1 r2)
 
 
 {-| Compare the list lengths of two lists of `SortablePattern`, with the caveat
