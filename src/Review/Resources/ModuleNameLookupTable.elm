@@ -21,7 +21,7 @@ import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModu
 import Review.Resources.ElmCorePrelude
 import Review.Resources.Internal exposing (ModuleNameLookupTable)
 import Review.Resources.ModuleNameLookupTableBuilder as Builder exposing (ModuleNameLookupTableBuilder)
-import Review.Resources.ScopeInternal as ScopeProvider exposing (Bindings, ScopeInfo)
+import Review.Resources.ScopeInternal as ScopeProvider exposing (Bindings, ScopeId, ScopeInfo)
 import Review.ScopeProvider exposing (ScopeProvider)
 import Set exposing (Set)
 import Vendor.ListExtra as ListExtra
@@ -29,8 +29,8 @@ import Vendor.ListExtra as ListExtra
 
 type alias Context =
     { scopeStack : NonEmpty ScopeInfo
-    , scopeIdCounter : Int
-    , scopes : Dict Int ScopeInfo
+    , scopeIdCounter : ScopeId
+    , scopes : Dict ScopeId ScopeInfo
     , localTypes : Set String
     , importAliases : Dict String (NonEmpty ModuleName)
     , importedFunctions : Dict String ModuleName
@@ -139,7 +139,7 @@ computeHelp moduleName module_ projectCache =
         topLevelScope =
             NonEmpty.head moduleContext.scopeStack
 
-        scopes : Dict Int ScopeInfo
+        scopes : Dict ScopeId ScopeInfo
         scopes =
             Dict.insert topLevelScope.id topLevelScope moduleContext.scopes
     in
@@ -283,7 +283,7 @@ computeBaseModule modules =
         Review.Resources.ElmCorePrelude.elmCorePrelude
 
 
-createScope : { id : Int, parentId : Int, range : Range, bindings : Bindings } -> ScopeInfo
+createScope : { id : ScopeId, parentId : ScopeId, range : Range, bindings : Bindings } -> ScopeInfo
 createScope { id, parentId, range, bindings } =
     { id = id
     , parentId = Just parentId
@@ -839,11 +839,11 @@ expressionEnterVisitor (Node nodeRange node) context =
     case node of
         Expression.LetExpression letExpression ->
             let
-                letScopeId : Int
+                letScopeId : ScopeId
                 letScopeId =
                     context.scopeIdCounter
 
-                let_ : { names : Bindings, branches : NonEmpty ( Range, ScopeInfo ), scopeIdCounter : Int }
+                let_ : { names : Bindings, branches : NonEmpty ( Range, ScopeInfo ), scopeIdCounter : ScopeId }
                 let_ =
                     List.foldr
                         (\(Node declRange declaration) { names, branches, scopeIdCounter } ->
@@ -930,7 +930,7 @@ expressionEnterVisitor (Node nodeRange node) context =
 
         Expression.CaseExpression caseBlock ->
             let
-                parentId : Int
+                parentId : ScopeId
                 parentId =
                     (NonEmpty.head context.scopeStack).id
 

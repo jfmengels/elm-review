@@ -1,6 +1,7 @@
 module Review.Resources.ScopeInternal exposing
     ( Bindings
     , Scope(..)
+    , ScopeId
     , ScopeInfo
     , ScopeProvider(..)
     , empty
@@ -24,12 +25,16 @@ type Scope
     = Scope ScopeInfo
 
 
+type alias ScopeId =
+    Int
+
+
 type alias ScopeInfo =
-    { id : Int
-    , parentId : Maybe Int
+    { id : ScopeId
+    , parentId : Maybe ScopeId
     , range : Range
     , bindings : Bindings
-    , children : List Int
+    , children : List ScopeId
     }
 
 
