@@ -784,11 +784,19 @@ popScopeEnter (Node range _) context =
     let
         ( branchRange, scope ) =
             NonEmpty.head context.branches
+
+        parent : ScopeInfo
+        parent =
+            NonEmpty.head context.scopeStack
     in
     if range == branchRange then
         { context
             | scopeIdCounter = context.scopeIdCounter + 1
-            , scopeStack = NonEmpty.cons scope context.scopeStack
+            , scopeStack =
+                context.scopeStack
+                    |> NonEmpty.pop
+                    |> NonEmpty.cons { parent | children = scope.id :: parent.children }
+                    |> NonEmpty.cons scope
             , caseToExit = NonEmpty.cons range context.caseToExit
             , branches = NonEmpty.pop context.branches
         }
