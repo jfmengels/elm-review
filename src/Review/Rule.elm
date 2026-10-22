@@ -41,6 +41,7 @@ module Review.Rule exposing
     , Required, Forbidden
     , errorFixes, errorFixFailure
     , Metadata, withMetadata, moduleNameFromMetadata, moduleNameNodeFromMetadata, isInSourceDirectories
+    , withScopes
     )
 
 {-| This module contains functions that are used for writing rules.
@@ -405,6 +406,7 @@ import Review.Resources.ElmCorePrelude
 import Review.Resources.Internal as ModuleNameLookupTableInternal
 import Review.Resources.ModuleNameLookupTable
 import Review.Resources.ScopeInternal as ScopeInternal
+import Review.ScopeProvider exposing (ScopeProvider)
 import Review.WorkList as WorkList
 import Unicode
 import Vendor.Graph as Graph
@@ -1649,6 +1651,7 @@ mergeModuleVisitorsHelp ruleName_ initialProjectContext moduleContextCreator vis
             , constructorToType = always Dict.empty
             , moduleNameLookupTable = ModuleNameLookupTableInternal.empty []
             , getType = \_ -> Ok Elm.TypeInference.Type.Unit
+            , scopeProvider = ScopeInternal.empty []
             , extractSourceCode = always "dummy"
             , filePath = "dummy file path"
             , isInSourceDirectories = True
@@ -5870,6 +5873,7 @@ computeModuleWithRuleVisitors project docsModule module_ inputRuleModuleVisitors
             { ast = ast
             , moduleNameLookupTable = moduleNameLookupTable
             , getType = \range -> TypeInference.getType moduleName range (Tuple.first typeInferenceProject) |> getTypeMarker typeInferenceProject
+            , scopeProvider = scopeProvider
             , moduleDocumentation = Review.Resources.DocsModules.findModuleDocumentation ast
             , isModuleExposed = ValidProject.isModuleExposed project moduleName
             , exposed =
@@ -8071,6 +8075,19 @@ withTypes (ContextCreator fn (RequestedData requested)) =
         (RequestedData { requested | types = True })
 
 
+{-| REPLACEME
+-}
+withScopes :
+    ContextCreator
+        ScopeProvider
+        (from -> to)
+    -> ContextCreator from to
+withScopes (ContextCreator fn (RequestedData requested)) =
+    ContextCreator
+        (\data isFileIgnored isFileFixable -> fn data isFileIgnored isFileFixable data.scopeProvider)
+        (RequestedData { requested | moduleNameLookupTable = True })
+
+
 {-| Request the `docs.json` for every module imported by the current module,
 including those from modules of the project.
 
@@ -8409,6 +8426,7 @@ type alias AvailableData =
     , constructorToType : { implicitImports : Bool, dependencies : Bool } -> Dict ModuleName (Dict String String)
     , moduleNameLookupTable : ModuleNameLookupTable
     , getType : Range -> Result InferError Elm.TypeInference.Type.Type
+    , scopeProvider : ScopeProvider
     , extractSourceCode : Range -> String
     , filePath : FilePath
     , isInSourceDirectories : Bool
