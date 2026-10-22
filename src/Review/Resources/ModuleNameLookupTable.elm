@@ -277,6 +277,7 @@ createScope { id, range, names } =
     { id = id
     , range = range
     , names = names
+    , children = []
     }
 
 
