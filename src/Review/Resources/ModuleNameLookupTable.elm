@@ -28,8 +28,7 @@ import Vendor.ListExtra as ListExtra
 
 
 type alias Context =
-    { namesInScope : NonEmpty ScopeNames
-    , scopeIdStack : NonEmpty Int
+    { scopeStack : NonEmpty ScopeInfo
     , scopeIdCounter : Int
     , scopes : Dict Int ScopeInfo
     , localTypes : Set String
@@ -38,7 +37,7 @@ type alias Context =
     , importedTypes : Dict String ModuleName
     , modules : Dict ModuleName Elm.Docs.Module
     , lookupTable : ModuleNameLookupTableBuilder
-    , branches : NonEmpty ( Range, ScopeNames )
+    , branches : NonEmpty ( Range, ScopeInfo )
     , caseToExit : NonEmpty Range
     }
 
@@ -130,10 +129,7 @@ computeHelp moduleName module_ projectCache =
 
         topLevelScope : ScopeInfo
         topLevelScope =
-            { id = NonEmpty.head moduleContext.scopeIdStack
-            , range = Range.empty -- TODO Use full range
-            , names = NonEmpty.head moduleContext.namesInScope
-            }
+            NonEmpty.head moduleContext.scopeStack
 
         scopes : Dict Int ScopeInfo
         scopes =
@@ -251,10 +247,17 @@ insertConstructors tags acc =
 
 computeBaseModule : Dict ModuleName Elm.Docs.Module -> Context
 computeBaseModule modules =
+    let
+        topLevelScope : ScopeInfo
+        topLevelScope =
+            { id = 0
+            , range = Range.empty -- TODO Use full range
+            , names = Set.empty
+            }
+    in
     List.foldl importVisitor
-        { namesInScope = NonEmpty.fromElement Set.empty
+        { scopeStack = NonEmpty.fromElement topLevelScope
         , scopeIdCounter = 1
-        , scopeIdStack = NonEmpty.fromElement 0
         , scopes = Dict.empty
         , localTypes = Set.empty
         , importAliases = Dict.empty
@@ -262,7 +265,7 @@ computeBaseModule modules =
         , importedTypes = Dict.empty
         , modules = modules
         , lookupTable = Builder.empty
-        , branches = NonEmpty.fromElement ( Range.empty, Set.empty )
+        , branches = NonEmpty.fromElement ( Range.empty, topLevelScope )
         , caseToExit = NonEmpty.fromElement Range.empty
         }
         Review.Resources.ElmCorePrelude.elmCorePrelude
@@ -372,13 +375,13 @@ registerDeclaration (Node _ declaration) context =
 addToScope : String -> Context -> Context
 addToScope name context =
     let
-        newScopes : NonEmpty ScopeNames
+        newScopes : NonEmpty ScopeInfo
         newScopes =
             NonEmpty.mapHead
-                (\scope -> Set.insert name scope)
-                context.namesInScope
+                (\scope -> { scope | names = Set.insert name scope.names })
+                context.scopeStack
     in
-    { context | namesInScope = newScopes }
+    { context | scopeStack = newScopes }
 
 
 
@@ -604,19 +607,21 @@ declarationEnterVisitor (Node _ node) context =
     case node of
         Declaration.FunctionDeclaration function ->
             let
-                (Node _ functionDeclaration) =
+                (Node functionRange functionDeclaration) =
                     function.declaration
 
-                newScope : ScopeNames
+                newScope : ScopeInfo
                 newScope =
-                    parameters functionDeclaration.arguments
+                    { id = context.scopeIdCounter
+                    , range = functionRange
+                    , names = parameters functionDeclaration.arguments
+                    }
 
                 newContext : Context
                 newContext =
                     { context
                         | scopeIdCounter = context.scopeIdCounter + 1
-                        , scopeIdStack = NonEmpty.cons context.scopeIdCounter context.scopeIdStack
-                        , namesInScope = NonEmpty.cons newScope context.namesInScope
+                        , scopeStack = NonEmpty.cons newScope context.scopeStack
                     }
 
                 lookupTableAfterArguments : ModuleNameLookupTableBuilder
@@ -665,14 +670,10 @@ declarationExitVisitor (Node range node) context =
             let
                 scope : ScopeInfo
                 scope =
-                    { id = NonEmpty.head context.scopeIdStack
-                    , range = range
-                    , names = NonEmpty.head context.namesInScope
-                    }
+                    NonEmpty.head context.scopeStack
             in
             { context
-                | scopeIdStack = NonEmpty.pop context.scopeIdStack
-                , namesInScope = NonEmpty.pop context.namesInScope
+                | scopeStack = NonEmpty.pop context.scopeStack
                 , caseToExit = NonEmpty.pop context.caseToExit
                 , scopes = Dict.insert scope.id scope context.scopes
             }
@@ -776,8 +777,7 @@ popScopeEnter (Node range _) context =
     if range == branchRange then
         { context
             | scopeIdCounter = context.scopeIdCounter + 1
-            , scopeIdStack = NonEmpty.cons context.scopeIdCounter context.scopeIdStack
-            , namesInScope = NonEmpty.cons scope context.namesInScope
+            , scopeStack = NonEmpty.cons scope context.scopeStack
             , caseToExit = NonEmpty.cons range context.caseToExit
             , branches = NonEmpty.pop context.branches
         }
@@ -792,14 +792,10 @@ popScopeExit (Node range _) context =
         let
             scope : ScopeInfo
             scope =
-                { id = NonEmpty.head context.scopeIdStack
-                , range = range
-                , names = NonEmpty.head context.namesInScope
-                }
+                NonEmpty.head context.scopeStack
         in
         { context
-            | scopeIdStack = NonEmpty.pop context.scopeIdStack
-            , namesInScope = NonEmpty.pop context.namesInScope
+            | scopeStack = NonEmpty.pop context.scopeStack
             , caseToExit = NonEmpty.pop context.caseToExit
             , scopes = Dict.insert scope.id scope context.scopes
         }
@@ -813,41 +809,57 @@ expressionEnterVisitor (Node nodeRange node) context =
     case node of
         Expression.LetExpression letExpression ->
             let
-                let_ : { scope : ScopeNames, branches : NonEmpty ( Range, ScopeNames ) }
+                letScopeId : Int
+                letScopeId =
+                    context.scopeIdCounter
+
+                let_ : { names : ScopeNames, branches : NonEmpty ( Range, ScopeInfo ), scopeIdCounter : Int }
                 let_ =
                     List.foldr
-                        (\(Node _ declaration) { scope, branches } ->
+                        (\(Node declRange declaration) { names, branches, scopeIdCounter } ->
                             case declaration of
                                 Expression.LetFunction function ->
                                     let
                                         { name, expression, arguments } =
                                             Node.value function.declaration
-
-                                        newScope : ScopeNames
-                                        newScope =
-                                            Set.insert (Node.value name) scope
-
-                                        namesInBranch : ScopeNames
-                                        namesInBranch =
-                                            collectNamesFromPattern arguments Set.empty
                                     in
-                                    { scope = newScope
-                                    , branches = NonEmpty.cons ( Node.range expression, namesInBranch ) branches
+                                    { names = Set.insert (Node.value name) names
+                                    , branches =
+                                        NonEmpty.cons
+                                            ( Node.range expression
+                                            , { id = scopeIdCounter
+                                              , range = declRange
+                                              , names = collectNamesFromPattern arguments Set.empty
+                                              }
+                                            )
+                                            branches
+                                    , scopeIdCounter = scopeIdCounter + 1
                                     }
 
                                 Expression.LetDestructuring pattern _ ->
-                                    { scope = collectNamesFromPattern [ pattern ] scope
+                                    { names = collectNamesFromPattern [ pattern ] names
                                     , branches = branches
+                                    , scopeIdCounter = scopeIdCounter
                                     }
                         )
-                        { scope = Set.empty, branches = context.branches }
+                        { names = Set.empty
+                        , branches = context.branches
+                        , scopeIdCounter = context.scopeIdCounter + 1
+                        }
                         letExpression.declarations
 
                 newContext : Context
                 newContext =
                     { context
-                        | namesInScope = NonEmpty.cons let_.scope context.namesInScope
+                        | scopeStack =
+                            NonEmpty.cons
+                                { id = letScopeId
+                                , range = nodeRange
+                                , names = let_.names
+                                }
+                                context.scopeStack
                         , branches = let_.branches
+                        , scopeIdCounter = let_.scopeIdCounter
                     }
 
                 lookupTable : ModuleNameLookupTableBuilder
@@ -883,23 +895,28 @@ expressionEnterVisitor (Node nodeRange node) context =
 
         Expression.CaseExpression caseBlock ->
             let
-                ( branches, lookupTable ) =
+                ( branches, lookupTable, scopeIdCounter ) =
                     List.foldr
-                        (\( pattern, Node expressionRange _ ) ( branchesAcc, lookupTableAcc ) ->
+                        (\( pattern, Node expressionRange _ ) ( branchesAcc, lookupTableAcc, counter ) ->
                             ( NonEmpty.cons
                                 ( expressionRange
-                                , collectNamesFromPattern [ pattern ] Set.empty
+                                , { id = counter
+                                  , range = expressionRange
+                                  , names = collectNamesFromPattern [ pattern ] Set.empty
+                                  }
                                 )
                                 branchesAcc
                             , collectModuleNamesFromPattern context [ pattern ] lookupTableAcc
+                            , counter + 1
                             )
                         )
-                        ( context.branches, context.lookupTable )
+                        ( context.branches, context.lookupTable, context.scopeIdCounter )
                         caseBlock.cases
             in
             { context
                 | branches = branches
                 , lookupTable = lookupTable
+                , scopeIdCounter = scopeIdCounter
             }
 
         Expression.FunctionOrValue moduleName name ->
@@ -932,7 +949,16 @@ expressionEnterVisitor (Node nodeRange node) context =
             in
             { context
                 | lookupTable = collectModuleNamesFromPattern context args context.lookupTable
-                , branches = NonEmpty.cons ( range, names ) context.branches
+                , scopeIdCounter = context.scopeIdCounter + 1
+                , branches =
+                    NonEmpty.cons
+                        ( range
+                        , { id = context.scopeIdCounter
+                          , range = range
+                          , names = names
+                          }
+                        )
+                        context.branches
                 , caseToExit = NonEmpty.cons range context.caseToExit
             }
 
@@ -1029,7 +1055,7 @@ moduleNameForValue : Context -> String -> ModuleName -> ModuleName
 moduleNameForValue context valueName moduleName =
     case moduleName of
         [] ->
-            if isInScope valueName context.namesInScope then
+            if isInScope valueName context.scopeStack then
                 []
 
             else
@@ -1111,9 +1137,9 @@ isTypeDeclaredInModule typeName module_ =
         || List.any (.name >> (==) typeName) module_.unions
 
 
-isInScope : String -> NonEmpty ScopeNames -> Bool
+isInScope : String -> NonEmpty ScopeInfo -> Bool
 isInScope name scopes =
-    NonEmpty.any (Set.member name) scopes
+    NonEmpty.any (\{ names } -> Set.member name names) scopes
 
 
 joinModuleName : ModuleName -> String
