@@ -136,6 +136,15 @@ computeHelp moduleName module_ projectCache =
             List.foldl importVisitor baseModuleContext moduleAst.imports
                 |> declarationListVisitor moduleAst.declarations
                 |> collectLookupTable moduleAst.declarations
+
+        scopes : List Scope
+        scopes =
+            -- Top-level scope
+            { id = NonEmpty.head moduleContext.scopeIdStack
+            , range = Range.empty -- TODO Use full range
+            , names = NonEmpty.head moduleContext.namesInScope
+            }
+                :: moduleContext.scopes
     in
     Builder.finalize moduleName moduleContext.lookupTable
 
