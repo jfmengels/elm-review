@@ -27,7 +27,8 @@ import Vendor.ListExtra as ListExtra
 
 type alias Context =
     { namesInScope : NonEmpty ScopeNames
-    , scopeIdCounter : ScopeId
+    , scopeIdStack : NonEmpty Int
+    , scopeIdCounter : Int
     , scopes : List Scope
     , localTypes : Set String
     , importAliases : Dict String (NonEmpty ModuleName)
@@ -45,14 +46,10 @@ type alias ScopeNames =
 
 
 type alias Scope =
-    { id : ScopeId
+    { id : Int
     , range : Range
     , names : ScopeNames
     }
-
-
-type ScopeId
-    = ScopeId Int
 
 
 compute : ModuleName -> OpaqueProjectModule -> ProjectCache -> ( ModuleNameLookupTable, ProjectCache )
@@ -254,7 +251,8 @@ computeBaseModule : Dict ModuleName Elm.Docs.Module -> Context
 computeBaseModule modules =
     List.foldl importVisitor
         { namesInScope = NonEmpty.fromElement Set.empty
-        , scopeIdCounter = ScopeId 0
+        , scopeIdCounter = 0
+        , scopeIdStack = NonEmpty.fromElement 0
         , scopes = []
         , localTypes = Set.empty
         , importAliases = Dict.empty
@@ -758,7 +756,9 @@ popScopeEnter (Node range _) context =
     in
     if range == branchRange then
         { context
-            | namesInScope = NonEmpty.cons scope context.namesInScope
+            | scopeIdCounter = context.scopeIdCounter + 1
+            , scopeIdStack = NonEmpty.cons context.scopeIdCounter context.scopeIdStack
+            , namesInScope = NonEmpty.cons scope context.namesInScope
             , caseToExit = NonEmpty.cons range context.caseToExit
             , branches = NonEmpty.pop context.branches
         }
@@ -771,11 +771,11 @@ popScopeExit : Node Expression -> Context -> Context
 popScopeExit (Node range _) context =
     if range == NonEmpty.head context.caseToExit then
         { context
-            | scopeIdCounter = incrementScopeIdCounter context.scopeIdCounter
+            | scopeIdStack = NonEmpty.pop context.scopeIdStack
             , namesInScope = NonEmpty.pop context.namesInScope
             , caseToExit = NonEmpty.pop context.caseToExit
             , scopes =
-                { id = context.scopeIdCounter
+                { id = NonEmpty.head context.scopeIdStack
                 , range = range
                 , names = NonEmpty.head context.namesInScope
                 }
@@ -784,11 +784,6 @@ popScopeExit (Node range _) context =
 
     else
         context
-
-
-incrementScopeIdCounter : ScopeId -> ScopeId
-incrementScopeIdCounter (ScopeId id) =
-    ScopeId (id + 1)
 
 
 expressionEnterVisitor : Node Expression -> Context -> Context
