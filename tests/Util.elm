@@ -5,7 +5,6 @@ module Util exposing
     , checkSortingWithGlue
     , countUsesIn
     , fallbackCompareFor
-    , fallbackCompareWithUnsortableFor
     , findAllNamesIn
     , findDependencies
     , makeAccessFunc
@@ -209,19 +208,6 @@ findAllNamesIn expr =
         _ ->
             subexpressions expr
                 |> List.foldl (\e -> Set.union (findAllNamesIn e)) Set.empty
-
-
-{-| Use the first order, or use the second order if the first is `Just EQ`. This
-is lazy in the second comparison and written for use in pipeline-style code.
--}
-fallbackCompareWithUnsortableFor : Maybe Order -> (() -> Maybe Order) -> Maybe Order
-fallbackCompareWithUnsortableFor comp fallback =
-    case comp of
-        Just EQ ->
-            fallback ()
-
-        ltOrGtOrNothing ->
-            ltOrGtOrNothing
 
 
 {-| Use the first order, or use the second order if the first is `EQ`. This is
