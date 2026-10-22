@@ -747,21 +747,21 @@ docToEntry (RuleConfig config) moduleName { name, tags } =
             AlphabeticalOrder ->
                 Just
                     ( name
-                    , { constructors = Set.fromList constructors
-                      , declarationOrder = ListX.stableSortWith compare constructors
-                      }
+                    , constructorsAndOrderFromList (ListX.stableSortWith compare constructors)
                     )
 
             _ ->
-                Just
-                    ( name
-                    , { constructors = Set.fromList constructors
-                      , declarationOrder = constructors
-                      }
-                    )
+                Just ( name, constructorsAndOrderFromList constructors )
 
     else
         Nothing
+
+
+constructorsAndOrderFromList : List String -> ConstructorsAndOrder
+constructorsAndOrderFromList constructors =
+    { constructors = Set.fromList constructors
+    , declarationOrder = constructors
+    }
 
 
 {-| Visit declarations, storing custom type orders.
@@ -784,7 +784,9 @@ declarationListVisitor (RuleConfig config) declarations { moduleName, exposedTyp
                     if config.sortablePredicate moduleName (Node.value name) then
                         Just
                             ( Node.value type_.name
-                            , typeConstructors type_
+                            , type_.constructors
+                                |> List.map (Node.value >> .name >> Node.value)
+                                |> constructorsAndOrderFromList
                             )
 
                     else
@@ -792,16 +794,6 @@ declarationListVisitor (RuleConfig config) declarations { moduleName, exposedTyp
 
                 _ ->
                     Nothing
-
-        typeConstructors : Type -> ConstructorsAndOrder
-        typeConstructors type_ =
-            type_.constructors
-                |> List.map (Node.value >> .name >> Node.value)
-                |> (\cs ->
-                        { constructors = Set.fromList cs
-                        , declarationOrder = cs
-                        }
-                   )
     in
     -- Find custom types that were defined in the module
     List.filterMap getCustomType declarations
