@@ -26,7 +26,7 @@ type Scope
 
 type alias ScopeInfo =
     { id : Int
-    , parentId : Int
+    , parentId : Maybe Int
     , range : Range
     , names : ScopeNames
     , children : List Int
@@ -42,7 +42,7 @@ empty moduleName =
     ScopeProvider
         { topLevel =
             { id = 0
-            , parentId = 0
+            , parentId = Nothing
             , range = Range.empty
             , names = Set.empty
             , children = []
