@@ -9,6 +9,7 @@ module Review.Scope exposing
 
 -}
 
+import Dict
 import Review.Resources.ScopeInternal as Internal
 import Set exposing (Set)
 
@@ -19,4 +20,4 @@ type alias Scope =
 
 names : Scope -> Set String
 names (Internal.Scope scope) =
-    scope.bindings
+    Dict.foldl (\name _ set -> Set.insert name set) Set.empty scope.bindings

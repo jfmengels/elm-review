@@ -1,5 +1,6 @@
 module Review.Resources.ScopeInternal exposing
-    ( Bindings
+    ( Binding
+    , Bindings
     , Scope(..)
     , ScopeId
     , ScopeInfo
@@ -9,9 +10,11 @@ module Review.Resources.ScopeInternal exposing
     )
 
 import Dict exposing (Dict)
+import Elm.Syntax.Declaration exposing (Declaration)
+import Elm.Syntax.Expression as Expression
 import Elm.Syntax.ModuleName exposing (ModuleName)
+import Elm.Syntax.Node exposing (Node)
 import Elm.Syntax.Range as Range exposing (Range)
-import Set exposing (Set)
 
 
 type ScopeProvider
@@ -39,7 +42,14 @@ type alias ScopeInfo =
 
 
 type alias Bindings =
-    Set String
+    Dict String Binding
+
+
+type alias Binding =
+    { name : String
+    , range : Range
+    , references : List Range
+    }
 
 
 empty : ModuleName -> ScopeProvider
@@ -49,7 +59,7 @@ empty moduleName =
             { id = 0
             , parentId = Nothing
             , range = Range.empty
-            , bindings = Set.empty
+            , bindings = Dict.empty
             , children = []
             }
         , scopes = Dict.empty
