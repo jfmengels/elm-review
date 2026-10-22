@@ -251,7 +251,7 @@ computeBaseModule : Dict ModuleName Elm.Docs.Module -> Context
 computeBaseModule modules =
     List.foldl importVisitor
         { namesInScope = NonEmpty.fromElement Set.empty
-        , scopeIdCounter = 0
+        , scopeIdCounter = 1
         , scopeIdStack = NonEmpty.fromElement 0
         , scopes = []
         , localTypes = Set.empty
