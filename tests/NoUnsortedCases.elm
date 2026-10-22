@@ -593,12 +593,6 @@ type alias Context =
                 , declarationOrder : List String
                 }
             )
-    , exposedCustomTypes :
-        Dict
-            String
-            { constructors : Set String
-            , declarationOrder : List String
-            }
     , fileIsIgnored : Bool
     , lookupTable : ModuleNameLookupTable
     , extractSource : Range -> String
@@ -689,7 +683,7 @@ fromProjectToModule config =
     Rule.initContextCreator
         (\lookupTable extractSource moduleName fileIsIgnored { declarations, moduleDefinition } { exposed } moduleDocs () ->
             let
-                { exposedCustomTypes, customTypes } =
+                customTypes =
                     declarationListVisitor config
                         declarations
                         { moduleName = String.join "." moduleName
@@ -699,7 +693,6 @@ fromProjectToModule config =
             in
             { customTypes = customTypes
             , fileIsIgnored = fileIsIgnored
-            , exposedCustomTypes = exposedCustomTypes
             , lookupTable = lookupTable
             , extractSource = extractSource
             }
@@ -789,22 +782,14 @@ declarationListVisitor :
                 )
         }
     ->
-        { customTypes :
-            Dict
-                ModuleName
-                (Dict
-                    String
-                    { constructors : Set String
-                    , declarationOrder : List String
-                    }
-                )
-        , exposedCustomTypes :
-            Dict
+        Dict
+            ModuleName
+            (Dict
                 String
                 { constructors : Set String
                 , declarationOrder : List String
                 }
-        }
+            )
 declarationListVisitor (RuleConfig config) declarations { moduleName, exposedTypes, customTypes } =
     let
         getCustomType : Node Declaration -> Maybe ( String, { constructors : Set String, declarationOrder : List String } )
@@ -837,18 +822,11 @@ declarationListVisitor (RuleConfig config) declarations { moduleName, exposedTyp
     List.filterMap getCustomType declarations
         |> (\ts ->
                 if List.isEmpty ts then
-                    { customTypes = customTypes
-                    , exposedCustomTypes = Dict.empty
-                    }
+                    customTypes
 
                 else
-                    { customTypes =
-                        Dict.fromList ts
-                            |> (\v -> Dict.insert [] v customTypes)
-                    , exposedCustomTypes =
-                        List.filter (\( typeName, _ ) -> Dict.member typeName exposedTypes) ts
-                            |> Dict.fromList
-                    }
+                    Dict.fromList ts
+                        |> (\v -> Dict.insert [] v customTypes)
            )
 
 
