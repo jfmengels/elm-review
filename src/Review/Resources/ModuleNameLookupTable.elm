@@ -252,6 +252,7 @@ computeBaseModule modules =
         topLevelScope =
             createScope
                 { id = 0
+                , parentId = 0
                 , range = Range.empty -- TODO Use full range
                 , names = Set.empty
                 }
@@ -272,9 +273,10 @@ computeBaseModule modules =
         Review.Resources.ElmCorePrelude.elmCorePrelude
 
 
-createScope : { id : Int, range : Range, names : ScopeNames } -> ScopeInfo
-createScope { id, range, names } =
+createScope : { id : Int, parentId : Int, range : Range, names : ScopeNames } -> ScopeInfo
+createScope { id, parentId, range, names } =
     { id = id
+    , parentId = parentId
     , range = range
     , names = names
     , children = []
@@ -624,6 +626,7 @@ declarationEnterVisitor (Node _ node) context =
                 newScope =
                     createScope
                         { id = context.scopeIdCounter
+                        , parentId = (NonEmpty.head context.scopeStack).id
                         , range = functionRange
                         , names = parameters functionDeclaration.arguments
                         }
@@ -632,7 +635,10 @@ declarationEnterVisitor (Node _ node) context =
                 newContext =
                     { context
                         | scopeIdCounter = context.scopeIdCounter + 1
-                        , scopeStack = NonEmpty.cons newScope context.scopeStack
+                        , scopeStack =
+                            context.scopeStack
+                                |> NonEmpty.mapHead (\parent -> { parent | children = newScope.id :: parent.children })
+                                |> NonEmpty.cons newScope
                     }
 
                 lookupTableAfterArguments : ModuleNameLookupTableBuilder
@@ -784,18 +790,13 @@ popScopeEnter (Node range _) context =
     let
         ( branchRange, scope ) =
             NonEmpty.head context.branches
-
-        parent : ScopeInfo
-        parent =
-            NonEmpty.head context.scopeStack
     in
     if range == branchRange then
         { context
             | scopeIdCounter = context.scopeIdCounter + 1
             , scopeStack =
                 context.scopeStack
-                    |> NonEmpty.pop
-                    |> NonEmpty.cons { parent | children = scope.id :: parent.children }
+                    |> NonEmpty.mapHead (\parent -> { parent | children = scope.id :: parent.children })
                     |> NonEmpty.cons scope
             , caseToExit = NonEmpty.cons range context.caseToExit
             , branches = NonEmpty.pop context.branches
@@ -848,6 +849,7 @@ expressionEnterVisitor (Node nodeRange node) context =
                                             ( Node.range expression
                                             , createScope
                                                 { id = scopeIdCounter
+                                                , parentId = letScopeId
                                                 , range = declRange
                                                 , names = collectNamesFromPattern arguments Set.empty
                                                 }
@@ -875,6 +877,7 @@ expressionEnterVisitor (Node nodeRange node) context =
                             NonEmpty.cons
                                 (createScope
                                     { id = letScopeId
+                                    , parentId = (NonEmpty.head context.scopeStack).id
                                     , range = nodeRange
                                     , names = let_.names
                                     }
@@ -917,6 +920,10 @@ expressionEnterVisitor (Node nodeRange node) context =
 
         Expression.CaseExpression caseBlock ->
             let
+                parentId : Int
+                parentId =
+                    (NonEmpty.head context.scopeStack).id
+
                 ( branches, lookupTable, scopeIdCounter ) =
                     List.foldr
                         (\( pattern, Node expressionRange _ ) ( branchesAcc, lookupTableAcc, counter ) ->
@@ -924,6 +931,7 @@ expressionEnterVisitor (Node nodeRange node) context =
                                 ( expressionRange
                                 , createScope
                                     { id = counter
+                                    , parentId = parentId
                                     , range = expressionRange
                                     , names = collectNamesFromPattern [ pattern ] Set.empty
                                     }
@@ -978,6 +986,7 @@ expressionEnterVisitor (Node nodeRange node) context =
                         ( range
                         , createScope
                             { id = context.scopeIdCounter
+                            , parentId = (NonEmpty.head context.scopeStack).id
                             , range = range
                             , names = names
                             }
