@@ -19,4 +19,4 @@ type alias Scope =
 
 names : Scope -> Set String
 names (Internal.Scope scope) =
-    scope.names
+    scope.bindings
