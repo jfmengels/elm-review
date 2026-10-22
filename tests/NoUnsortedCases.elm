@@ -26,7 +26,6 @@ import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern as Pattern exposing (Pattern)
 import Elm.Syntax.Range as Range exposing (Range)
-import Elm.Syntax.Type exposing (Type)
 import List.Extra as ListX
 import Maybe.Extra as MaybeX
 import Review.ModuleNameLookupTable exposing (ModuleNameLookupTable, moduleNameAt)
@@ -682,13 +681,12 @@ type LiteralPattern
 fromProjectToModule : RuleConfig -> Rule.ContextCreator () Context
 fromProjectToModule config =
     Rule.initContextCreator
-        (\lookupTable extractSource moduleName fileIsIgnored { declarations, moduleDefinition } { exposed } moduleDocs () ->
+        (\lookupTable extractSource moduleName fileIsIgnored { declarations } moduleDocs () ->
             let
                 customTypes =
                     declarationListVisitor config
                         declarations
                         { moduleName = String.join "." moduleName
-                        , exposedTypes = exposed
                         , customTypes = dependencyVisitor config moduleDocs
                         }
             in
@@ -703,7 +701,6 @@ fromProjectToModule config =
         |> Rule.withModuleName
         |> Rule.withIsFileIgnored
         |> Rule.withFullAst
-        |> Rule.withExposed
         |> Rule.withImportedModuleDocs { implicitImports = True, dependencies = True }
 
 
@@ -771,11 +768,10 @@ declarationListVisitor :
     -> List (Node Declaration)
     ->
         { moduleName : String
-        , exposedTypes : Dict String a
         , customTypes : Dict ModuleName (Dict String ConstructorsAndOrder)
         }
     -> Dict ModuleName (Dict String ConstructorsAndOrder)
-declarationListVisitor (RuleConfig config) declarations { moduleName, exposedTypes, customTypes } =
+declarationListVisitor (RuleConfig config) declarations { moduleName, customTypes } =
     let
         getCustomType : Node Declaration -> Dict String ConstructorsAndOrder -> Dict String ConstructorsAndOrder
         getCustomType (Node _ decl) dict =
