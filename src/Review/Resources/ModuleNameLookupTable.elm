@@ -26,19 +26,19 @@ import Vendor.ListExtra as ListExtra
 
 
 type alias Context =
-    { scopes : NonEmpty Scope
+    { namesInScope : NonEmpty ScopeNames
     , localTypes : Set String
     , importAliases : Dict String (NonEmpty ModuleName)
     , importedFunctions : Dict String ModuleName
     , importedTypes : Dict String ModuleName
     , modules : Dict ModuleName Elm.Docs.Module
     , lookupTable : ModuleNameLookupTableBuilder
-    , branches : NonEmpty ( Range, Scope )
+    , branches : NonEmpty ( Range, ScopeNames )
     , caseToExit : NonEmpty Range
     }
 
 
-type alias Scope =
+type alias ScopeNames =
     Set String
 
 
@@ -240,7 +240,7 @@ insertConstructors tags acc =
 computeBaseModule : Dict ModuleName Elm.Docs.Module -> Context
 computeBaseModule modules =
     List.foldl importVisitor
-        { scopes = NonEmpty.fromElement Set.empty
+        { namesInScope = NonEmpty.fromElement Set.empty
         , localTypes = Set.empty
         , importAliases = Dict.empty
         , importedFunctions = Dict.empty
@@ -357,13 +357,13 @@ registerDeclaration (Node _ declaration) context =
 addToScope : String -> Context -> Context
 addToScope name context =
     let
-        newScopes : NonEmpty Scope
+        newScopes : NonEmpty ScopeNames
         newScopes =
             NonEmpty.mapHead
                 (\scope -> Set.insert name scope)
-                context.scopes
+                context.namesInScope
     in
-    { context | scopes = newScopes }
+    { context | namesInScope = newScopes }
 
 
 
@@ -592,13 +592,13 @@ declarationEnterVisitor (Node _ node) context =
                 (Node _ functionDeclaration) =
                     function.declaration
 
-                newScope : Scope
+                newScope : ScopeNames
                 newScope =
                     parameters functionDeclaration.arguments
 
                 newContext : Context
                 newContext =
-                    { context | scopes = NonEmpty.cons newScope context.scopes }
+                    { context | namesInScope = NonEmpty.cons newScope context.namesInScope }
 
                 lookupTableAfterArguments : ModuleNameLookupTableBuilder
                 lookupTableAfterArguments =
@@ -643,18 +643,18 @@ declarationExitVisitor : Node Declaration -> Context -> Context
 declarationExitVisitor (Node _ node) context =
     case node of
         Declaration.FunctionDeclaration _ ->
-            { context | scopes = NonEmpty.pop context.scopes }
+            { context | namesInScope = NonEmpty.pop context.namesInScope }
 
         _ ->
             context
 
 
-parameters : List (Node Pattern) -> Scope
+parameters : List (Node Pattern) -> ScopeNames
 parameters patterns =
     collectNamesFromPattern patterns Set.empty
 
 
-collectNamesFromPattern : List (Node Pattern) -> Scope -> Scope
+collectNamesFromPattern : List (Node Pattern) -> ScopeNames -> ScopeNames
 collectNamesFromPattern patternsToVisit acc =
     case patternsToVisit of
         (Node _ pattern) :: restOfPatternsToVisit ->
@@ -743,7 +743,7 @@ popScopeEnter (Node range _) context =
     in
     if range == branchRange then
         { context
-            | scopes = NonEmpty.cons scope context.scopes
+            | namesInScope = NonEmpty.cons scope context.namesInScope
             , caseToExit = NonEmpty.cons range context.caseToExit
             , branches = NonEmpty.pop context.branches
         }
@@ -756,7 +756,7 @@ popScopeExit : Node Expression -> Context -> Context
 popScopeExit (Node range _) context =
     if range == NonEmpty.head context.caseToExit then
         { context
-            | scopes = NonEmpty.pop context.scopes
+            | namesInScope = NonEmpty.pop context.namesInScope
             , caseToExit = NonEmpty.pop context.caseToExit
         }
 
@@ -769,7 +769,7 @@ expressionEnterVisitor (Node nodeRange node) context =
     case node of
         Expression.LetExpression letExpression ->
             let
-                let_ : { scope : Scope, branches : NonEmpty ( Range, Scope ) }
+                let_ : { scope : ScopeNames, branches : NonEmpty ( Range, ScopeNames ) }
                 let_ =
                     List.foldr
                         (\(Node _ declaration) { scope, branches } ->
@@ -779,11 +779,11 @@ expressionEnterVisitor (Node nodeRange node) context =
                                         { name, expression, arguments } =
                                             Node.value function.declaration
 
-                                        newScope : Scope
+                                        newScope : ScopeNames
                                         newScope =
                                             Set.insert (Node.value name) scope
 
-                                        namesInBranch : Scope
+                                        namesInBranch : ScopeNames
                                         namesInBranch =
                                             collectNamesFromPattern arguments Set.empty
                                     in
@@ -802,7 +802,7 @@ expressionEnterVisitor (Node nodeRange node) context =
                 newContext : Context
                 newContext =
                     { context
-                        | scopes = NonEmpty.cons let_.scope context.scopes
+                        | namesInScope = NonEmpty.cons let_.scope context.namesInScope
                         , branches = let_.branches
                     }
 
@@ -882,7 +882,7 @@ expressionEnterVisitor (Node nodeRange node) context =
                 range =
                     Node.range expression
 
-                names : Scope
+                names : ScopeNames
                 names =
                     collectNamesFromPattern args Set.empty
             in
@@ -985,7 +985,7 @@ moduleNameForValue : Context -> String -> ModuleName -> ModuleName
 moduleNameForValue context valueName moduleName =
     case moduleName of
         [] ->
-            if isInScope valueName context.scopes then
+            if isInScope valueName context.namesInScope then
                 []
 
             else
@@ -1067,7 +1067,7 @@ isTypeDeclaredInModule typeName module_ =
         || List.any (.name >> (==) typeName) module_.unions
 
 
-isInScope : String -> NonEmpty Scope -> Bool
+isInScope : String -> NonEmpty ScopeNames -> Bool
 isInScope name scopes =
     NonEmpty.any (Set.member name) scopes
 
