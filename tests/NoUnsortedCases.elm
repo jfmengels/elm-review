@@ -1135,11 +1135,6 @@ safelySortableListPatterns config r1 r2 =
 -}
 comparePatterns : RuleConfig -> SortablePattern -> SortablePattern -> Maybe Order
 comparePatterns ((RuleConfig { lookPastUnsortable }) as ruleConfig) pat1 pat2 =
-    let
-        go : SortablePattern -> SortablePattern -> Maybe Order
-        go p1 p2 =
-            comparePatterns ruleConfig p1 p2
-    in
     case ( pat1, pat2 ) of
         -- Wildcards can be sorted past if both are wild
         ( Wildcard, Wildcard ) ->
@@ -1163,7 +1158,7 @@ comparePatterns ((RuleConfig { lookPastUnsortable }) as ruleConfig) pat1 pat2 =
                 goSubs pat1s pat2s =
                     case ( pat1s, pat2s, lookPastUnsortable ) of
                         ( (Just p1) :: p1s, (Just p2) :: p2s, _ ) ->
-                            case go p1 p2 of
+                            case comparePatterns ruleConfig p1 p2 of
                                 Just EQ ->
                                     goSubs p1s p2s
 
