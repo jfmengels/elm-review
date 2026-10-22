@@ -21,7 +21,7 @@ import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModu
 import Review.Resources.ElmCorePrelude
 import Review.Resources.Internal exposing (ModuleNameLookupTable)
 import Review.Resources.ModuleNameLookupTableBuilder as Builder exposing (ModuleNameLookupTableBuilder)
-import Review.Resources.ScopeInternal as ScopeProvider exposing (ScopeInfo, ScopeNames)
+import Review.Resources.ScopeInternal as ScopeProvider exposing (Bindings, ScopeInfo)
 import Review.ScopeProvider exposing (ScopeProvider)
 import Set exposing (Set)
 import Vendor.ListExtra as ListExtra
@@ -263,7 +263,7 @@ computeBaseModule modules =
             { id = 0
             , parentId = Nothing
             , range = Range.empty -- TODO Use full range
-            , names = Set.empty
+            , bindings = Set.empty
             , children = []
             }
     in
@@ -283,12 +283,12 @@ computeBaseModule modules =
         Review.Resources.ElmCorePrelude.elmCorePrelude
 
 
-createScope : { id : Int, parentId : Int, range : Range, names : ScopeNames } -> ScopeInfo
-createScope { id, parentId, range, names } =
+createScope : { id : Int, parentId : Int, range : Range, bindings : Bindings } -> ScopeInfo
+createScope { id, parentId, range, bindings } =
     { id = id
     , parentId = Just parentId
     , range = range
-    , names = names
+    , bindings = bindings
     , children = []
     }
 
@@ -400,7 +400,7 @@ addToScope name context =
         newScopes : NonEmpty ScopeInfo
         newScopes =
             NonEmpty.mapHead
-                (\scope -> { scope | names = Set.insert name scope.names })
+                (\scope -> { scope | bindings = Set.insert name scope.bindings })
                 context.scopeStack
     in
     { context | scopeStack = newScopes }
@@ -638,7 +638,7 @@ declarationEnterVisitor (Node _ node) context =
                         { id = context.scopeIdCounter
                         , parentId = (NonEmpty.head context.scopeStack).id
                         , range = functionRange
-                        , names = parameters functionDeclaration.arguments
+                        , bindings = parameters functionDeclaration.arguments
                         }
 
                 newContext : Context
@@ -709,12 +709,12 @@ declarationExitVisitor (Node range node) context =
             context
 
 
-parameters : List (Node Pattern) -> ScopeNames
+parameters : List (Node Pattern) -> Bindings
 parameters patterns =
     collectNamesFromPattern patterns Set.empty
 
 
-collectNamesFromPattern : List (Node Pattern) -> ScopeNames -> ScopeNames
+collectNamesFromPattern : List (Node Pattern) -> Bindings -> Bindings
 collectNamesFromPattern patternsToVisit acc =
     case patternsToVisit of
         (Node _ pattern) :: restOfPatternsToVisit ->
@@ -843,7 +843,7 @@ expressionEnterVisitor (Node nodeRange node) context =
                 letScopeId =
                     context.scopeIdCounter
 
-                let_ : { names : ScopeNames, branches : NonEmpty ( Range, ScopeInfo ), scopeIdCounter : Int }
+                let_ : { names : Bindings, branches : NonEmpty ( Range, ScopeInfo ), scopeIdCounter : Int }
                 let_ =
                     List.foldr
                         (\(Node declRange declaration) { names, branches, scopeIdCounter } ->
@@ -861,7 +861,7 @@ expressionEnterVisitor (Node nodeRange node) context =
                                                 { id = scopeIdCounter
                                                 , parentId = letScopeId
                                                 , range = declRange
-                                                , names = collectNamesFromPattern arguments Set.empty
+                                                , bindings = collectNamesFromPattern arguments Set.empty
                                                 }
                                             )
                                             branches
@@ -889,7 +889,7 @@ expressionEnterVisitor (Node nodeRange node) context =
                                     { id = letScopeId
                                     , parentId = (NonEmpty.head context.scopeStack).id
                                     , range = nodeRange
-                                    , names = let_.names
+                                    , bindings = let_.names
                                     }
                                 )
                                 context.scopeStack
@@ -943,7 +943,7 @@ expressionEnterVisitor (Node nodeRange node) context =
                                     { id = counter
                                     , parentId = parentId
                                     , range = expressionRange
-                                    , names = collectNamesFromPattern [ pattern ] Set.empty
+                                    , bindings = collectNamesFromPattern [ pattern ] Set.empty
                                     }
                                 )
                                 branchesAcc
@@ -984,7 +984,7 @@ expressionEnterVisitor (Node nodeRange node) context =
                 range =
                     Node.range expression
 
-                names : ScopeNames
+                names : Bindings
                 names =
                     collectNamesFromPattern args Set.empty
             in
@@ -998,7 +998,7 @@ expressionEnterVisitor (Node nodeRange node) context =
                             { id = context.scopeIdCounter
                             , parentId = (NonEmpty.head context.scopeStack).id
                             , range = range
-                            , names = names
+                            , bindings = names
                             }
                         )
                         context.branches
@@ -1182,7 +1182,7 @@ isTypeDeclaredInModule typeName module_ =
 
 isInScope : String -> NonEmpty ScopeInfo -> Bool
 isInScope name scopes =
-    NonEmpty.any (\{ names } -> Set.member name names) scopes
+    NonEmpty.any (\{ bindings } -> Set.member name bindings) scopes
 
 
 joinModuleName : ModuleName -> String

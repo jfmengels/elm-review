@@ -1,7 +1,7 @@
 module Review.Resources.ScopeInternal exposing
-    ( Scope(..)
+    ( Bindings
+    , Scope(..)
     , ScopeInfo
-    , ScopeNames
     , ScopeProvider(..)
     , empty
     , fromScopes
@@ -28,12 +28,12 @@ type alias ScopeInfo =
     { id : Int
     , parentId : Maybe Int
     , range : Range
-    , names : ScopeNames
+    , bindings : Bindings
     , children : List Int
     }
 
 
-type alias ScopeNames =
+type alias Bindings =
     Set String
 
 
@@ -44,7 +44,7 @@ empty moduleName =
             { id = 0
             , parentId = Nothing
             , range = Range.empty
-            , names = Set.empty
+            , bindings = Set.empty
             , children = []
             }
         , scopes = Dict.empty
