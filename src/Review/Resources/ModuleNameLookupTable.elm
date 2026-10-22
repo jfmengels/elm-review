@@ -367,7 +367,6 @@ addToScope name context =
 
 
 
--- MODULE DEFINITION VISITOR
 -- IMPORT VISITOR
 
 
