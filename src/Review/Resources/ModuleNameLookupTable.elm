@@ -21,6 +21,8 @@ import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModu
 import Review.Resources.ElmCorePrelude
 import Review.Resources.Internal exposing (ModuleNameLookupTable)
 import Review.Resources.ModuleNameLookupTableBuilder as Builder exposing (ModuleNameLookupTableBuilder)
+import Review.Resources.ScopeInternal as ScopeProvider exposing (ScopeInfo, ScopeNames)
+import Review.ScopeProvider exposing (ScopeProvider)
 import Set exposing (Set)
 import Vendor.ListExtra as ListExtra
 
@@ -29,7 +31,7 @@ type alias Context =
     { namesInScope : NonEmpty ScopeNames
     , scopeIdStack : NonEmpty Int
     , scopeIdCounter : Int
-    , scopes : List Scope
+    , scopes : List ScopeInfo
     , localTypes : Set String
     , importAliases : Dict String (NonEmpty ModuleName)
     , importedFunctions : Dict String ModuleName
@@ -38,17 +40,6 @@ type alias Context =
     , lookupTable : ModuleNameLookupTableBuilder
     , branches : NonEmpty ( Range, ScopeNames )
     , caseToExit : NonEmpty Range
-    }
-
-
-type alias ScopeNames =
-    Set String
-
-
-type alias Scope =
-    { id : Int
-    , range : Range
-    , names : ScopeNames
     }
 
 
@@ -137,7 +128,14 @@ computeHelp moduleName module_ projectCache =
                 |> declarationListVisitor moduleAst.declarations
                 |> collectLookupTable moduleAst.declarations
 
-        scopes : List Scope
+        topLevelScope : ScopeInfo
+        topLevelScope =
+            { id = NonEmpty.head moduleContext.scopeIdStack
+            , range = Range.empty -- TODO Use full range
+            , names = NonEmpty.head moduleContext.namesInScope
+            }
+
+        scopes : List ScopeInfo
         scopes =
             -- Top-level scope
             { id = NonEmpty.head moduleContext.scopeIdStack
@@ -145,6 +143,10 @@ computeHelp moduleName module_ projectCache =
             , names = NonEmpty.head moduleContext.namesInScope
             }
                 :: moduleContext.scopes
+
+        scopeProvider : ScopeProvider
+        scopeProvider =
+            ScopeProvider.fromScopes moduleName topLevelScope scopes
     in
     Builder.finalize moduleName moduleContext.lookupTable
 
