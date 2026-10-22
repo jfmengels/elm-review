@@ -1,6 +1,5 @@
 module List.Extra exposing
     ( dictToListFilterAndMap
-    , dictToListMap
     , elemIndex
     , find
     , findMap
@@ -304,11 +303,6 @@ listFilterThenMapInto predicate mapper list acc =
 
             else
                 listFilterThenMapInto predicate mapper xs acc
-
-
-dictToListMap : (k -> v -> a) -> Dict k v -> List a -> List a
-dictToListMap mapper dict baseAcc =
-    Dict.foldr (\k v acc -> mapper k v :: acc) baseAcc dict
 
 
 dictToListFilterAndMap : (k -> Bool) -> (k -> v -> a) -> Dict k v -> List a -> List a
