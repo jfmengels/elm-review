@@ -1273,17 +1273,15 @@ comparePatternListLengths :
         }
     -> Order
 comparePatternListLengths p1s p2s =
-    case ( p1s.terminates, p2s.terminates ) of
-        ( False, False ) ->
-            -- Flip comparison if both end in wildcards
-            compare (List.length p2s.subpatterns) (List.length p1s.subpatterns)
+    if p1s.terminates then
+        if p2s.terminates then
+            compare (List.length p1s.subpatterns) (List.length p2s.subpatterns)
 
-        ( False, True ) ->
-            GT
-
-        ( True, False ) ->
+        else
             LT
 
-        ( True, True ) ->
-            -- Compare normally if neither does
-            compare (List.length p1s.subpatterns) (List.length p2s.subpatterns)
+    else if p2s.terminates then
+        GT
+
+    else
+        compare (List.length p2s.subpatterns) (List.length p1s.subpatterns)
