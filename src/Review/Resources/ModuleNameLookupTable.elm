@@ -21,7 +21,7 @@ import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModu
 import Review.Resources.ElmCorePrelude
 import Review.Resources.Internal exposing (ModuleNameLookupTable)
 import Review.Resources.ModuleNameLookupTableBuilder as Builder exposing (ModuleNameLookupTableBuilder)
-import Review.Resources.ScopeInternal as ScopeProvider exposing (Bindings, ScopeId, ScopeInfo)
+import Review.Resources.ScopeInternal as ScopeProvider exposing (Binding, Bindings, ScopeId, ScopeInfo)
 import Review.ScopeProvider exposing (ScopeProvider)
 import Set exposing (Set)
 import Vendor.ListExtra as ListExtra
@@ -263,7 +263,7 @@ computeBaseModule modules =
             { id = 0
             , parentId = Nothing
             , range = Range.empty -- TODO Use full range
-            , bindings = Set.empty
+            , bindings = Dict.empty
             , children = []
             }
     in
@@ -338,26 +338,31 @@ registerDeclaration (Node _ declaration) context =
     case declaration of
         Declaration.FunctionDeclaration function ->
             let
-                name : String
-                name =
-                    function.declaration
-                        |> Node.value
-                        |> .name
-                        |> Node.value
+                (Node nameRange name) =
+                    (Node.value function.declaration).name
             in
-            addToScope name context
+            addToScope
+                { name = name
+                , range = nameRange
+                , references = []
+                }
+                context
 
         Declaration.AliasDeclaration alias ->
             let
-                name : String
-                name =
-                    Node.value alias.name
+                (Node nameRange name) =
+                    alias.name
 
                 registerAlias : Context -> Context
                 registerAlias ctx =
                     case Node.value alias.typeAnnotation of
                         TypeAnnotation.Record _ ->
-                            addToScope name ctx
+                            addToScope
+                                { name = name
+                                , range = nameRange
+                                , references = []
+                                }
+                                ctx
 
                         _ ->
                             ctx
@@ -368,39 +373,56 @@ registerDeclaration (Node _ declaration) context =
         Declaration.CustomTypeDeclaration customType ->
             List.foldl
                 (\(Node _ constructor) context_ ->
-                    addToScope (Node.value constructor.name) context_
+                    let
+                        (Node nameRange name) =
+                            constructor.name
+                    in
+                    addToScope
+                        { name = name
+                        , range = nameRange
+                        , references = []
+                        }
+                        context_
                 )
                 { context | localTypes = Set.insert (Node.value customType.name) context.localTypes }
                 customType.constructors
 
         Declaration.PortDeclaration signature ->
             let
-                name : String
-                name =
-                    Node.value signature.name
+                (Node nameRange name) =
+                    signature.name
             in
-            addToScope name context
+            addToScope
+                { name = name
+                , range = nameRange
+                , references = []
+                }
+                context
 
         Declaration.InfixDeclaration infix_ ->
             let
-                name : String
-                name =
-                    Node.value infix_.operator
+                (Node nameRange name) =
+                    infix_.operator
             in
-            addToScope name context
+            addToScope
+                { name = name
+                , range = nameRange
+                , references = []
+                }
+                context
 
         Declaration.Destructuring _ _ ->
             -- Not possible in 0.19 code
             context
 
 
-addToScope : String -> Context -> Context
-addToScope name context =
+addToScope : Binding -> Context -> Context
+addToScope binding context =
     let
         newScopes : NonEmpty ScopeInfo
         newScopes =
             NonEmpty.mapHead
-                (\scope -> { scope | bindings = Set.insert name scope.bindings })
+                (\scope -> { scope | bindings = Dict.insert binding.name binding scope.bindings })
                 context.scopeStack
     in
     { context | scopeStack = newScopes }
@@ -711,18 +733,24 @@ declarationExitVisitor (Node range node) context =
 
 parameters : List (Node Pattern) -> Bindings
 parameters patterns =
-    collectNamesFromPattern patterns Set.empty
+    collectNamesFromPattern patterns Dict.empty
 
 
 collectNamesFromPattern : List (Node Pattern) -> Bindings -> Bindings
 collectNamesFromPattern patternsToVisit acc =
     case patternsToVisit of
-        (Node _ pattern) :: restOfPatternsToVisit ->
+        (Node patternRange pattern) :: restOfPatternsToVisit ->
             case pattern of
                 Pattern.VarPattern name ->
                     collectNamesFromPattern
                         restOfPatternsToVisit
-                        (Set.insert name acc)
+                        (Dict.insert name
+                            { name = name
+                            , range = patternRange
+                            , references = []
+                            }
+                            acc
+                        )
 
                 Pattern.NamedPattern _ subPatterns ->
                     collectNamesFromPattern (List.append subPatterns restOfPatternsToVisit) acc
@@ -731,8 +759,13 @@ collectNamesFromPattern patternsToVisit acc =
                     collectNamesFromPattern
                         restOfPatternsToVisit
                         (List.foldl
-                            (\(Node _ name) subAcc ->
-                                Set.insert name subAcc
+                            (\(Node nameRange name) subAcc ->
+                                Dict.insert name
+                                    { name = name
+                                    , range = nameRange
+                                    , references = []
+                                    }
+                                    subAcc
                             )
                             acc
                             names
@@ -741,10 +774,16 @@ collectNamesFromPattern patternsToVisit acc =
                 Pattern.ParenthesizedPattern subPattern ->
                     collectNamesFromPattern (subPattern :: restOfPatternsToVisit) acc
 
-                Pattern.AsPattern subPattern (Node _ aliasName) ->
+                Pattern.AsPattern subPattern (Node aliasRange aliasName) ->
                     collectNamesFromPattern
                         (subPattern :: restOfPatternsToVisit)
-                        (Set.insert aliasName acc)
+                        (Dict.insert aliasName
+                            { name = aliasName
+                            , range = aliasRange
+                            , references = []
+                            }
+                            acc
+                        )
 
                 Pattern.TuplePattern subPatterns ->
                     collectNamesFromPattern (List.append subPatterns restOfPatternsToVisit) acc
@@ -853,7 +892,13 @@ expressionEnterVisitor (Node nodeRange node) context =
                                         { name, expression, arguments } =
                                             Node.value function.declaration
                                     in
-                                    { names = Set.insert (Node.value name) names
+                                    { names =
+                                        Dict.insert (Node.value name)
+                                            { name = Node.value name
+                                            , range = Node.range name
+                                            , references = []
+                                            }
+                                            names
                                     , branches =
                                         NonEmpty.cons
                                             ( Node.range expression
@@ -861,7 +906,7 @@ expressionEnterVisitor (Node nodeRange node) context =
                                                 { id = scopeIdCounter
                                                 , parentId = letScopeId
                                                 , range = declRange
-                                                , bindings = collectNamesFromPattern arguments Set.empty
+                                                , bindings = collectNamesFromPattern arguments Dict.empty
                                                 }
                                             )
                                             branches
@@ -874,7 +919,7 @@ expressionEnterVisitor (Node nodeRange node) context =
                                     , scopeIdCounter = scopeIdCounter
                                     }
                         )
-                        { names = Set.empty
+                        { names = Dict.empty
                         , branches = context.branches
                         , scopeIdCounter = context.scopeIdCounter + 1
                         }
@@ -943,7 +988,7 @@ expressionEnterVisitor (Node nodeRange node) context =
                                     { id = counter
                                     , parentId = parentId
                                     , range = expressionRange
-                                    , bindings = collectNamesFromPattern [ pattern ] Set.empty
+                                    , bindings = collectNamesFromPattern [ pattern ] Dict.empty
                                     }
                                 )
                                 branchesAcc
@@ -986,7 +1031,7 @@ expressionEnterVisitor (Node nodeRange node) context =
 
                 names : Bindings
                 names =
-                    collectNamesFromPattern args Set.empty
+                    collectNamesFromPattern args Dict.empty
             in
             { context
                 | lookupTable = collectModuleNamesFromPattern context args context.lookupTable
@@ -1182,7 +1227,7 @@ isTypeDeclaredInModule typeName module_ =
 
 isInScope : String -> NonEmpty ScopeInfo -> Bool
 isInScope name scopes =
-    NonEmpty.any (\{ bindings } -> Set.member name bindings) scopes
+    NonEmpty.any (\{ bindings } -> Dict.member name bindings) scopes
 
 
 joinModuleName : ModuleName -> String
