@@ -250,10 +250,11 @@ computeBaseModule modules =
     let
         topLevelScope : ScopeInfo
         topLevelScope =
-            { id = 0
-            , range = Range.empty -- TODO Use full range
-            , names = Set.empty
-            }
+            createScope
+                { id = 0
+                , range = Range.empty -- TODO Use full range
+                , names = Set.empty
+                }
     in
     List.foldl importVisitor
         { scopeStack = NonEmpty.fromElement topLevelScope
@@ -269,6 +270,14 @@ computeBaseModule modules =
         , caseToExit = NonEmpty.fromElement Range.empty
         }
         Review.Resources.ElmCorePrelude.elmCorePrelude
+
+
+createScope : { id : Int, range : Range, names : ScopeNames } -> ScopeInfo
+createScope { id, range, names } =
+    { id = id
+    , range = range
+    , names = names
+    }
 
 
 collectLookupTable : List (Node Declaration) -> Context -> Context
@@ -612,10 +621,11 @@ declarationEnterVisitor (Node _ node) context =
 
                 newScope : ScopeInfo
                 newScope =
-                    { id = context.scopeIdCounter
-                    , range = functionRange
-                    , names = parameters functionDeclaration.arguments
-                    }
+                    createScope
+                        { id = context.scopeIdCounter
+                        , range = functionRange
+                        , names = parameters functionDeclaration.arguments
+                        }
 
                 newContext : Context
                 newContext =
@@ -827,10 +837,11 @@ expressionEnterVisitor (Node nodeRange node) context =
                                     , branches =
                                         NonEmpty.cons
                                             ( Node.range expression
-                                            , { id = scopeIdCounter
-                                              , range = declRange
-                                              , names = collectNamesFromPattern arguments Set.empty
-                                              }
+                                            , createScope
+                                                { id = scopeIdCounter
+                                                , range = declRange
+                                                , names = collectNamesFromPattern arguments Set.empty
+                                                }
                                             )
                                             branches
                                     , scopeIdCounter = scopeIdCounter + 1
@@ -853,10 +864,12 @@ expressionEnterVisitor (Node nodeRange node) context =
                     { context
                         | scopeStack =
                             NonEmpty.cons
-                                { id = letScopeId
-                                , range = nodeRange
-                                , names = let_.names
-                                }
+                                (createScope
+                                    { id = letScopeId
+                                    , range = nodeRange
+                                    , names = let_.names
+                                    }
+                                )
                                 context.scopeStack
                         , branches = let_.branches
                         , scopeIdCounter = let_.scopeIdCounter
@@ -900,10 +913,11 @@ expressionEnterVisitor (Node nodeRange node) context =
                         (\( pattern, Node expressionRange _ ) ( branchesAcc, lookupTableAcc, counter ) ->
                             ( NonEmpty.cons
                                 ( expressionRange
-                                , { id = counter
-                                  , range = expressionRange
-                                  , names = collectNamesFromPattern [ pattern ] Set.empty
-                                  }
+                                , createScope
+                                    { id = counter
+                                    , range = expressionRange
+                                    , names = collectNamesFromPattern [ pattern ] Set.empty
+                                    }
                                 )
                                 branchesAcc
                             , collectModuleNamesFromPattern context [ pattern ] lookupTableAcc
@@ -953,10 +967,11 @@ expressionEnterVisitor (Node nodeRange node) context =
                 , branches =
                     NonEmpty.cons
                         ( range
-                        , { id = context.scopeIdCounter
-                          , range = range
-                          , names = names
-                          }
+                        , createScope
+                            { id = context.scopeIdCounter
+                            , range = range
+                            , names = names
+                            }
                         )
                         context.branches
                 , caseToExit = NonEmpty.cons range context.caseToExit
