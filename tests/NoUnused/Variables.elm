@@ -8,7 +8,6 @@ module NoUnused.Variables exposing (rule)
 
 import Dict exposing (Dict)
 import Elm.Docs
-import Elm.Project
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Exposing as Exposing exposing (TopLevelExpose)
 import Elm.Syntax.Expression as Expression exposing (Expression, Function, FunctionImplementation)
@@ -16,7 +15,7 @@ import Elm.Syntax.Import exposing (Import)
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern as Pattern exposing (Pattern)
-import Elm.Syntax.Range exposing (Range)
+import Elm.Syntax.Range exposing (Location, Range)
 import Elm.Syntax.Type
 import Elm.Syntax.TypeAlias exposing (TypeAlias)
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
@@ -25,6 +24,12 @@ import NoUnused.NonemptyList as NonemptyList exposing (Nonempty)
 import NoUnused.Variables.ElmPrelude as ElmPrelude
 import Review.Fix as Fix exposing (Fix)
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
+import Review.Resources.Binding as Binding exposing (Binding)
+import Review.Resources.ImportBinding as ImportBinding
+import Review.Resources.Reference as Reference exposing (Reference)
+import Review.Resources.Scope as Scope exposing (Scope)
+import Review.Resources.ScopeProvider as ScopeProvider exposing (ScopeProvider)
+import Review.Resources.Target as Target
 import Review.Rule as Rule exposing (Error, Rule)
 import Set exposing (Set)
 
@@ -115,42 +120,27 @@ rule =
 moduleVisitor : Rule.ModuleRuleSchema schemaState ModuleContext -> Rule.ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } ModuleContext
 moduleVisitor schema =
     schema
-        |> Rule.withImportVisitor importVisitor
+        |> Rule.withImportVisitor (\node context -> ( importVisitor node context, context ))
         |> Rule.withDeclarationListVisitor (\nodes context -> ( [], declarationListVisitor nodes context ))
         |> Rule.withDeclarationEnterVisitor declarationEnterVisitor
         |> Rule.withDeclarationExitVisitor declarationExitVisitor
         |> Rule.withExpressionEnterVisitor (\node context -> ( [], expressionEnterVisitor node context ))
-        |> Rule.withExpressionExitVisitor expressionExitVisitor
         |> Rule.withLetDeclarationEnterVisitor letDeclarationEnterVisitor
-        |> Rule.withLetDeclarationExitVisitor letDeclarationExitVisitor
         |> Rule.withCaseBranchEnterVisitor (\_ casePattern context -> ( [], caseBranchEnterVisitor casePattern context ))
-        |> Rule.withCaseBranchExitVisitor caseBranchExitVisitor
         |> Rule.withFinalModuleEvaluation finalEvaluation
 
 
 type alias ModuleContext =
     { lookupTable : ModuleNameLookupTable
+    , scopeProvider : ScopeProvider
     , scopes : Nonempty Scope
     , inTheDeclarationOf : List String
     , exposed : Dict String Bool
     , isApplication : Bool
     , constructorNameToTypeName : Dict ModuleName (Dict String String)
-    , declaredModules : List DeclaredModule
-    , exposingAllModules : List ModuleThatExposesEverything
-    , usedModules : Set ( ModuleName, ModuleName )
-    , unusedImportedCustomTypes : Dict String ImportedCustomType
+    , moduleNamesInUse : Set String
     , localTypes : Dict String TypeData
-    , customTypes : Dict ModuleName (Set String)
-    }
-
-
-type alias DeclaredModule =
-    { moduleName : ModuleName
-    , moduleNameInUse : ModuleName
-    , typeName : String
-    , variableType : DeclaredModuleType
-    , under : Range
-    , rangeToRemove : Range
+    , moduleDocs : Dict ModuleName Elm.Docs.Module
     }
 
 
@@ -165,23 +155,6 @@ type alias TypeData =
 type TypeKind
     = CustomTypeKind
     | TypeAliasKind
-
-
-type alias ModuleThatExposesEverything =
-    { name : ModuleName
-    , alias : Maybe String
-    , moduleNameRange : Range
-    , exposingRange : Range
-    , exposingRangeToRemove : Range
-    , importRange : Range
-    , wasUsedImplicitly : Bool
-    , wasUsedWithModuleName : Bool
-    }
-
-
-type DeclaredModuleType
-    = ImportedModule
-    | ModuleAlias { alias : String, originalNameOfTheImport : String, exposesSomething : Bool }
 
 
 type alias Scope =
@@ -200,9 +173,7 @@ type alias VariableInfo =
 
 
 type alias ImportedCustomType =
-    { typeName : String
-    , under : Range
-    , rangeToRemove : Range
+    { rangeToRemove : Range
     , openRange : Range
     }
 
@@ -215,38 +186,45 @@ type LetBlockContext
 fromProjectToModule : Rule.ContextCreator () ModuleContext
 fromProjectToModule =
     Rule.initContextCreator
-        (\lookupTable { exposed } isModuleExposed moduleDocs constructorToType () ->
+        (\lookupTable scopeProvider { exposed } isModuleExposed ast moduleDocs constructorToType () ->
             { lookupTable = lookupTable
+            , scopeProvider = scopeProvider
             , scopes = NonemptyList.fromElement (scopeWithUsedExports exposed)
             , inTheDeclarationOf = []
             , exposed = exposed
             , isApplication = isModuleExposed == Nothing
             , constructorNameToTypeName = constructorToType
-            , declaredModules = []
-            , exposingAllModules = []
-            , usedModules = Set.empty
-            , unusedImportedCustomTypes = Dict.empty
+            , moduleNamesInUse = collectModuleNamesInUse ast.imports Set.empty
             , localTypes = Dict.empty
-            , customTypes = buildCustomTypesWithConstructors moduleDocs
+            , moduleDocs = moduleDocs
             }
         )
         |> Rule.withModuleNameLookupTable
+        |> Rule.withScopes
         |> Rule.withExposed
         |> Rule.withIsModuleExposed
+        |> Rule.withFullAst
         |> Rule.withImportedModuleDocs { implicitImports = False, dependencies = True }
         |> Rule.withConstructorToType { implicitImports = False, dependencies = True }
 
 
-buildCustomTypesWithConstructors : Dict ModuleName Elm.Docs.Module -> Dict ModuleName (Set String)
-buildCustomTypesWithConstructors moduleDocs =
-    Dict.map
-        (\_ docs ->
-            List.foldl
-                (\union dict -> Set.insert union.name dict)
-                Set.empty
-                docs.unions
-        )
-        moduleDocs
+collectModuleNamesInUse : List (Node Import) -> Set String -> Set String
+collectModuleNamesInUse nodes set =
+    case nodes of
+        [] ->
+            set
+
+        (Node _ import_) :: rest ->
+            let
+                (Node _ effectiveName) =
+                    case import_.moduleAlias of
+                        Just moduleAlias ->
+                            moduleAlias
+
+                        Nothing ->
+                            import_.moduleName
+            in
+            collectModuleNamesInUse rest (Set.insert (String.join "." effectiveName) set)
 
 
 fromModuleToProject : Rule.ContextCreator ModuleContext ()
@@ -289,12 +267,11 @@ details =
     ]
 
 
-importVisitor : Node Import -> ModuleContext -> ( List (Error {}), ModuleContext )
+importVisitor : Node Import -> ModuleContext -> List (Error {})
 importVisitor ((Node _ import_) as node) context =
     let
-        moduleName : ModuleName
-        moduleName =
-            Node.value import_.moduleName
+        (Node moduleNameRange moduleName) =
+            import_.moduleName
 
         errors : List (Error {})
         errors =
@@ -306,7 +283,7 @@ importVisitor ((Node _ import_) as node) context =
                             , details = [ "The alias is the same as the module name, and brings no useful value" ]
                             }
                             moduleAliasRange
-                            [ Fix.removeRange <| endOfModuleNameUntilModuleAliasEnd node moduleAliasRange ]
+                            [ Fix.removeRange { start = moduleNameRange.end, end = moduleAliasRange.end } ]
                         ]
 
                     else
@@ -314,350 +291,373 @@ importVisitor ((Node _ import_) as node) context =
 
                 Nothing ->
                     []
-
-        contextWithAlias : ModuleContext
-        contextWithAlias =
-            case import_.moduleAlias of
-                Just moduleAlias ->
-                    registerModuleAlias node moduleAlias context
-
-                Nothing ->
-                    context
-
-        ( exposingErrors, newContext ) =
-            if moduleName == [ "Basics" ] then
-                ( reportBasicsImport node, contextWithAlias )
-
-            else
-                reportImport node contextWithAlias
     in
-    ( exposingErrors ++ errors, newContext )
+    if moduleName == [ "Basics" ] then
+        reportBasicsImport node errors
+
+    else
+        reportImport node context errors
 
 
-reportImport : Node { moduleName : Node ModuleName, moduleAlias : Maybe (Node ModuleName), exposingList : Maybe (Node Exposing.Exposing) } -> ModuleContext -> ( List (Error {}), ModuleContext )
-reportImport ((Node _ import_) as node) context =
+reportImport : Node { moduleName : Node ModuleName, moduleAlias : Maybe (Node ModuleName), exposingList : Maybe (Node Exposing.Exposing) } -> ModuleContext -> List (Error {}) -> List (Error {})
+reportImport ((Node _ import_) as node) context errors =
     let
-        moduleName : ModuleName
-        moduleName =
-            Node.value import_.moduleName
+        (Node _ moduleName) =
+            import_.moduleName
     in
     case import_.exposingList of
         Nothing ->
-            ( case Dict.get moduleName ElmPrelude.elmPrelude of
+            case Dict.get moduleName ElmPrelude.elmPreludeAliases of
                 Nothing ->
-                    []
+                    case import_.moduleAlias of
+                        Just _ ->
+                            reportUnusedModuleAlias node import_.moduleAlias context errors
 
-                Just { alias } ->
+                        Nothing ->
+                            reportUnusedModule node context errors
+
+                Just preludeModuleReference ->
                     let
-                        preludeModuleReference : ModuleName
-                        preludeModuleReference =
-                            Maybe.withDefault moduleName alias
-
                         importedModuleReference : ModuleName
                         importedModuleReference =
                             Maybe.withDefault moduleName (Maybe.map Node.value import_.moduleAlias)
                     in
                     if preludeModuleReference == importedModuleReference then
-                        [ importPreludeModuleError node ]
+                        importPreludeModuleError node :: errors
 
                     else
-                        []
-            , registerModuleNameOrAlias node context
-            )
+                        errors
 
         Just (Node exposingRange (Exposing.All _)) ->
-            ( [], collectExplicitExposingAll context exposingRange node )
+            explicitExposingAllErrors context exposingRange node errors
 
         Just (Node exposingRange (Exposing.Explicit list)) ->
-            collectExplicitImports
-                context
-                node
-                exposingRange
-                (Dict.get moduleName ElmPrelude.elmPrelude
-                    |> Maybe.map .exposes
-                    |> Maybe.withDefault []
-                )
-                list
+            errors
+                |> collectExplicitlyExposedElements
+                    context
+                    moduleName
+                    (Dict.get moduleName ElmPrelude.elmPreludeExposing
+                        |> Maybe.withDefault []
+                    )
+                    exposingRange
+                    list
+                    Nothing
+                |> reportUnusedModuleAlias node import_.moduleAlias context
 
 
-reportBasicsImport : Node Import -> List (Error {})
-reportBasicsImport ((Node _ import_) as node) =
+reportBasicsImport : Node Import -> List (Error {}) -> List (Error {})
+reportBasicsImport ((Node _ import_) as node) errors =
     case import_.moduleAlias of
         Nothing ->
-            [ importPreludeModuleError node ]
+            importPreludeModuleError node :: errors
 
         Just (Node aliasRange _) ->
             case Maybe.map Node.range import_.exposingList of
                 Just exposingRange ->
-                    [ Rule.errorWithFix
+                    Rule.errorWithFix
                         { message = "Unnecessary import to elements from `Basics`"
                         , details = [ "These are already imported by default in all Elm modules, you can therefore safely remove them." ]
                         }
                         (Node.range import_.moduleName)
                         [ Fix.removeRange { start = aliasRange.end, end = exposingRange.end } ]
-                    ]
+                        :: errors
 
                 Nothing ->
-                    []
+                    errors
 
 
 importPreludeModuleError : Node Import -> Error {}
 importPreludeModuleError (Node importRange import_) =
-    Rule.errorWithFix
-        { message = "Unnecessary import to implicitly imported `" ++ String.join "." (Node.value import_.moduleName) ++ "`"
-        , details = [ "This module is already imported by default in all Elm modules, you can therefore safely remove it." ]
-        }
-        (Node.range import_.moduleName)
-        [ Fix.removeRange (untilStartOfNextLine importRange) ]
-
-
-collectExplicitExposingAll : ModuleContext -> Range -> Node Import -> ModuleContext
-collectExplicitExposingAll context exposingRange (Node importRange import_) =
     let
         (Node moduleNameRange moduleName) =
             import_.moduleName
     in
-    if Dict.member moduleName context.customTypes then
-        { context
-            | exposingAllModules =
-                { name = moduleName
-                , alias = Maybe.map (Node.value >> String.join ".") import_.moduleAlias
-                , moduleNameRange = moduleNameRange
-                , exposingRange = exposingRange
-                , exposingRangeToRemove = exposingRange
-                , importRange = importRange
-                , wasUsedImplicitly = False
-                , wasUsedWithModuleName = False
-                }
-                    :: context.exposingAllModules
+    Rule.errorWithFix
+        { message = "Unnecessary import to implicitly imported `" ++ String.join "." moduleName ++ "`"
+        , details = [ "This module is already imported by default in all Elm modules, you can therefore safely remove it." ]
         }
+        moduleNameRange
+        [ Fix.removeRange (untilStartOfNextLine importRange) ]
+
+
+explicitExposingAllErrors : ModuleContext -> Range -> Node Import -> List (Rule.Error {}) -> List (Rule.Error {})
+explicitExposingAllErrors context exposingRange ((Node _ import_) as node) errors =
+    let
+        (Node _ moduleName) =
+            import_.moduleName
+    in
+    case Dict.get moduleName context.moduleDocs of
+        Nothing ->
+            -- We somehow don't know the contents of the module, so we presume the `exposing (..)` is useful
+            -- to avoid reporting a false positive.
+            errors
+
+        Just _ ->
+            case ScopeProvider.moduleReferences context.scopeProvider moduleName of
+                [] ->
+                    -- The entire import is unused
+                    unusedImportError node :: errors
+
+                refs ->
+                    if List.any (\ref -> List.isEmpty (Reference.qualifier ref)) refs then
+                        -- Something from the `exposing (..)` was used.
+                        -- We still want to report a unused module alias if there is one
+                        reportUnusedModuleAlias node import_.moduleAlias context errors
+
+                    else
+                        -- There are references to the module, but they're all through qualified imports (`A.b`)
+                        -- so the module name (or its alias) is used, but the `exposing (..)` is unused.
+                        Rule.errorWithFix
+                            { message = "No imported elements from `" ++ String.join "." moduleName ++ "` are used"
+                            , details = details
+                            }
+                            exposingRange
+                            [ Fix.removeRange exposingRange ]
+                            :: errors
+
+
+reportPreludeElement : List String -> String -> Range -> Range -> List (Error {}) -> List (Error {})
+reportPreludeElement exposedFromPrelude name under rangeToRemove errors =
+    if List.member name exposedFromPrelude then
+        importPreludeElementError name under rangeToRemove :: errors
 
     else
-        context
+        errors
 
 
-collectExplicitImports : ModuleContext -> Node Import -> Range -> List String -> List (Node TopLevelExpose) -> ( List (Error {}), ModuleContext )
-collectExplicitImports context (Node _ import_) exposingRange exposedFromPrelude list =
-    let
-        customTypesFromModule : Set String
-        customTypesFromModule =
-            context.customTypes
-                |> Dict.get (Node.value import_.moduleName)
-                |> Maybe.withDefault Set.empty
-    in
-    collectExplicitlyExposedElements
-        (handleExposedElements (NonemptyList.head context.scopes).declared customTypesFromModule exposedFromPrelude)
-        exposingRange
-        list
-        ( [], context )
-
-
-handleExposedElements : Dict String VariableInfo -> Set String -> List String -> ExposedElement -> ( List (Rule.Error {}), ModuleContext ) -> ( List (Rule.Error {}), ModuleContext )
-handleExposedElements declared customTypesFromModule exposedFromPrelude =
-    \importedElement ( errors, context ) ->
-        let
-            newErrors : List (Rule.Error {})
-            newErrors =
-                if List.member importedElement.name exposedFromPrelude then
-                    importPreludeElementError importedElement :: errors
-
-                else
-                    case Dict.get importedElement.name declared of
-                        Just variableInfo ->
-                            error variableInfo importedElement.name :: errors
-
-                        Nothing ->
-                            errors
-        in
-        ( newErrors, registerExposedElements customTypesFromModule importedElement context )
-
-
-importPreludeElementError : ExposedElement -> Error {}
-importPreludeElementError importedElement =
-    let
-        { under, rangeToRemove } =
-            case importedElement.kind of
-                CustomType type_ ->
-                    { under = type_.under
-                    , rangeToRemove = Just type_.rangeToRemove
-                    }
-
-                TypeOrValue type_ ->
-                    { under = type_.under
-                    , rangeToRemove = type_.rangeToRemove
-                    }
-    in
+importPreludeElementError : String -> Range -> Range -> Error {}
+importPreludeElementError name under rangeToRemove =
     Rule.errorWithFix
-        { message = "Unnecessary import to implicitly imported `" ++ importedElement.name ++ "`"
+        { message = "Unnecessary import to implicitly imported `" ++ name ++ "`"
         , details = [ "This element is already imported by default in all Elm modules, you can therefore safely remove it." ]
         }
         under
-        (case rangeToRemove of
-            Just range ->
-                [ Fix.removeRange range ]
-
-            Nothing ->
-                []
-        )
+        [ Fix.removeRange rangeToRemove ]
 
 
-registerExposedElements : Set String -> ExposedElement -> ModuleContext -> ModuleContext
-registerExposedElements customTypesFromModule { name, kind } context =
-    case kind of
-        CustomType variableInfo ->
-            if Set.member name customTypesFromModule then
-                { context | unusedImportedCustomTypes = Dict.insert name variableInfo context.unusedImportedCustomTypes }
+reportImportedCustomType :
+    ModuleContext
+    -> ModuleName
+    -> String
+    -> Range
+    -> ImportedCustomType
+    -> List (Error {})
+    -> List (Error {})
+reportImportedCustomType context moduleName name under variableInfo errors =
+    case
+        Dict.get moduleName context.moduleDocs
+            |> Maybe.andThen (\docs -> List.Extra.find (\union -> union.name == name) docs.unions)
+    of
+        Just { tags } ->
+            let
+                areConstructorsUsed : Bool
+                areConstructorsUsed =
+                    -- TODO Only if it's done in an unqualified manner
+                    List.any (\( tagName, _ ) -> isImportedValueReferenced context.scopeProvider tagName) tags
+            in
+            if areConstructorsUsed then
+                errors
+
+            else if isImportedTypeReferenced context.scopeProvider name then
+                Rule.errorWithFix
+                    { message = "Imported constructors for `" ++ name ++ "` are not used"
+                    , details = details
+                    }
+                    under
+                    -- If the constructors are not used but the type itself is, then only remove the `(..)`
+                    [ Fix.removeRange variableInfo.openRange ]
+                    :: errors
 
             else
-                context
+                Rule.errorWithFix
+                    { message = "Imported type `" ++ name ++ "` is not used"
+                    , details = details
+                    }
+                    under
+                    [ Fix.removeRange variableInfo.rangeToRemove ]
+                    :: errors
 
-        TypeOrValue variableInfo ->
-            registerVariable variableInfo name context
+        Nothing ->
+            errors
 
 
-collectExplicitlyExposedElements : (ExposedElement -> a -> a) -> Range -> List (Node Exposing.TopLevelExpose) -> a -> a
-collectExplicitlyExposedElements fold exposingNodeRange list acc =
-    collectExplicitlyExposedElementsHelp fold exposingNodeRange list Nothing acc
+reportImportedTypeOrValue : ModuleContext -> String -> VariableInfo -> List (Error {}) -> List (Error {})
+reportImportedTypeOrValue context name variableInfo errors =
+    if
+        isImportedValueReferenced context.scopeProvider name
+            || isImportedTypeReferenced context.scopeProvider name
+    then
+        errors
+
+    else
+        error variableInfo name :: errors
 
 
-collectExplicitlyExposedElementsHelp : (ExposedElement -> a -> a) -> Range -> List (Node Exposing.TopLevelExpose) -> Maybe Range -> a -> a
-collectExplicitlyExposedElementsHelp fold exposingNodeRange list maybePreviousRange acc =
+collectExplicitlyExposedElements :
+    ModuleContext
+    -> ModuleName
+    -> List String
+    -> Range
+    -> List (Node Exposing.TopLevelExpose)
+    -> Maybe Range
+    -> List (Rule.Error {})
+    -> List (Rule.Error {})
+collectExplicitlyExposedElements context moduleName exposedFromPrelude exposingNodeRange list maybePreviousRange errors =
     case list of
         [] ->
-            acc
+            errors
 
         (Node range value) :: rest ->
             let
-                rangeToRemove : Range -> Range
-                rangeToRemove r =
+                rangeToRemove : Range
+                rangeToRemove =
                     case maybePreviousRange of
                         Nothing ->
                             case rest of
                                 (Node nextRange _) :: _ ->
-                                    { r | end = nextRange.start }
+                                    { range | end = nextRange.start }
 
                                 [] ->
                                     exposingNodeRange
 
                         Just previousRange ->
-                            { r | start = previousRange.end }
+                            { range | start = previousRange.end }
 
-                newAcc : a
+                newAcc : List (Error {})
                 newAcc =
-                    case topLevelExposeToExposedElement rangeToRemove (Node range value) of
-                        Just v ->
-                            fold v acc
+                    case value of
+                        Exposing.FunctionExpose name ->
+                            let
+                                under : Range
+                                under =
+                                    untilEndOfVariable name range
+                            in
+                            errors
+                                |> reportPreludeElement exposedFromPrelude name under rangeToRemove
+                                |> reportImportedTypeOrValue context
+                                    name
+                                    { typeName = "Imported variable"
+                                    , under = under
+                                    , rangeToRemove = Just rangeToRemove
+                                    , warning = ""
+                                    }
 
-                        Nothing ->
-                            acc
+                        Exposing.InfixExpose name ->
+                            let
+                                under : Range
+                                under =
+                                    untilEndOfVariable name range
+                            in
+                            errors
+                                |> reportPreludeElement exposedFromPrelude name under rangeToRemove
+                                |> reportImportedTypeOrValue context
+                                    name
+                                    { typeName = "Imported operator"
+                                    , under = under
+                                    , rangeToRemove = Just rangeToRemove
+                                    , warning = ""
+                                    }
+
+                        Exposing.TypeOrAliasExpose name ->
+                            let
+                                under : Range
+                                under =
+                                    untilEndOfVariable name range
+                            in
+                            errors
+                                |> reportPreludeElement exposedFromPrelude name under rangeToRemove
+                                |> reportImportedTypeOrValue context
+                                    name
+                                    { typeName = "Imported type"
+                                    , under = under
+                                    , rangeToRemove = Just rangeToRemove
+                                    , warning = ""
+                                    }
+
+                        Exposing.TypeExpose { name, open } ->
+                            case open of
+                                Just openRange ->
+                                    errors
+                                        |> reportPreludeElement exposedFromPrelude name range rangeToRemove
+                                        |> reportImportedCustomType context moduleName name range { rangeToRemove = rangeToRemove, openRange = openRange }
+
+                                Nothing ->
+                                    -- Can't happen with `elm-syntax`. If open is Nothing, then this we'll have a
+                                    -- `Exposing.TypeOrAliasExpose`, not a `Exposing.TypeExpose`.
+                                    errors
             in
-            collectExplicitlyExposedElementsHelp fold exposingNodeRange rest (Just range) newAcc
+            collectExplicitlyExposedElements context moduleName exposedFromPrelude exposingNodeRange rest (Just range) newAcc
 
 
-topLevelExposeToExposedElement : (Range -> Range) -> Node Exposing.TopLevelExpose -> Maybe ExposedElement
-topLevelExposeToExposedElement rangeToRemove (Node range value) =
-    case value of
-        Exposing.FunctionExpose name ->
-            { name = name
-            , kind =
-                TypeOrValue
-                    { typeName = "Imported variable"
-                    , under = untilEndOfVariable name range
-                    , rangeToRemove = Just (rangeToRemove range)
-                    , warning = ""
-                    }
-            }
-                |> Just
-
-        Exposing.InfixExpose name ->
-            { name = name
-            , kind =
-                TypeOrValue
-                    { typeName = "Imported operator"
-                    , under = untilEndOfVariable name range
-                    , rangeToRemove = Just (rangeToRemove range)
-                    , warning = ""
-                    }
-            }
-                |> Just
-
-        Exposing.TypeOrAliasExpose name ->
-            { name = name
-            , kind =
-                TypeOrValue
-                    { typeName = "Imported type"
-                    , under = untilEndOfVariable name range
-                    , rangeToRemove = Just (rangeToRemove range)
-                    , warning = ""
-                    }
-            }
-                |> Just
-
-        Exposing.TypeExpose { name, open } ->
-            case open of
-                Just openRange ->
-                    { name = name
-                    , kind =
-                        CustomType
-                            { typeName = "Imported type"
-                            , under = range
-                            , rangeToRemove = rangeToRemove range
-                            , openRange = openRange
-                            }
-                    }
-                        |> Just
-
-                Nothing ->
-                    -- Can't happen with `elm-syntax`. If open is Nothing, then this we'll have a
-                    -- `Exposing.TypeOrAliasExpose`, not a `Exposing.TypeExpose`.
-                    Nothing
-
-
-registerModuleNameOrAlias : Node Import -> ModuleContext -> ModuleContext
-registerModuleNameOrAlias ((Node range { moduleAlias, moduleName }) as node) context =
-    case moduleAlias of
-        Just moduleAlias_ ->
-            registerModuleAlias node moduleAlias_ context
+isImportedValueReferenced : ScopeProvider -> String -> Bool
+isImportedValueReferenced scopeProvider name =
+    case ScopeProvider.importValueBinding scopeProvider name of
+        Just importBinding ->
+            not <| List.isEmpty (ScopeProvider.valueReferences scopeProvider (ImportBinding.id importBinding))
 
         Nothing ->
-            registerModule
-                { moduleName = Node.value moduleName
-                , moduleNameInUse = Node.value moduleName
-                , typeName = "Imported module"
-                , variableType = ImportedModule
-                , under = Node.range moduleName
-                , rangeToRemove = untilStartOfNextLine range
-                }
-                context
+            False
 
 
-registerModuleAlias : Node Import -> Node ModuleName -> ModuleContext -> ModuleContext
-registerModuleAlias ((Node range { exposingList, moduleName }) as node) moduleAlias context =
-    registerModule
-        { moduleName = Node.value moduleName
-        , moduleNameInUse = Node.value moduleAlias
-        , variableType =
-            ModuleAlias
-                { alias = getModuleName (Node.value moduleAlias)
-                , originalNameOfTheImport = getModuleName <| Node.value moduleName
-                , exposesSomething = exposingList /= Nothing
-                }
-        , typeName = "Module alias"
-        , under = Node.range moduleAlias
-        , rangeToRemove =
-            case exposingList of
-                Nothing ->
-                    untilStartOfNextLine range
+isImportedTypeReferenced : ScopeProvider -> String -> Bool
+isImportedTypeReferenced scopeProvider name =
+    case ScopeProvider.importTypeBinding scopeProvider name of
+        Just importBinding ->
+            not <| List.isEmpty (ScopeProvider.typeReferences scopeProvider (ImportBinding.id importBinding))
 
-                Just _ ->
-                    endOfModuleNameUntilModuleAliasEnd node (Node.range moduleAlias)
-        }
-        context
+        Nothing ->
+            False
 
 
-endOfModuleNameUntilModuleAliasEnd : Node Import -> Range -> Range
-endOfModuleNameUntilModuleAliasEnd (Node _ { moduleName }) range =
-    { range | start = (Node.range moduleName).end }
+targets : ModuleName -> Reference -> Bool
+targets moduleName ref =
+    case Reference.target ref of
+        Target.ImportBinding_ importBinding ->
+            ImportBinding.moduleName importBinding == moduleName
+
+        Target.QualifiedReference r ->
+            r.moduleName == moduleName
+
+        Target.LocalBinding _ ->
+            False
+
+
+reportUnusedModuleAlias : Node Import -> Maybe (Node ModuleName) -> ModuleContext -> List (Rule.Error {}) -> List (Rule.Error {})
+reportUnusedModuleAlias (Node range import_) maybeModuleAlias context errors =
+    case maybeModuleAlias of
+        Just (Node aliasRange alias) ->
+            let
+                (Node moduleNameRange moduleName) =
+                    import_.moduleName
+            in
+            if
+                ScopeProvider.qualifiedReferences context.scopeProvider alias
+                    |> List.any (targets moduleName)
+            then
+                errors
+
+            else
+                Rule.errorWithFix
+                    { message = "Module alias `" ++ getModuleName alias ++ "` is not used"
+                    , details = details
+                    }
+                    aliasRange
+                    (case import_.exposingList of
+                        Nothing ->
+                            [ Fix.removeRange (untilStartOfNextLine range) ]
+
+                        Just _ ->
+                            -- Don't remove module alias if there are other imports aliased to the original name
+                            if Set.member (getModuleName moduleName) context.moduleNamesInUse then
+                                []
+
+                            else
+                                [ Fix.removeRange { start = moduleNameRange.end, end = aliasRange.end } ]
+                    )
+                    :: errors
+
+        Nothing ->
+            errors
 
 
 expressionEnterVisitor : Node Expression -> ModuleContext -> ModuleContext
@@ -676,15 +676,6 @@ expressionEnterVisitor (Node range value) context =
                 Just realModuleName ->
                     context
                         |> markValueAsUsed realModuleName name
-                        |> markModuleAsUsed ( realModuleName, [] )
-
-                Nothing ->
-                    context
-
-        Expression.FunctionOrValue moduleName _ ->
-            case ModuleNameLookupTable.moduleNameAt context.lookupTable range of
-                Just realModuleName ->
-                    markModuleAsUsed ( realModuleName, moduleName ) context
 
                 Nothing ->
                     context
@@ -731,19 +722,6 @@ expressionEnterVisitor (Node range value) context =
             context
 
 
-expressionExitVisitor : Node Expression -> ModuleContext -> ( List (Error {}), ModuleContext )
-expressionExitVisitor (Node _ expr) context =
-    case expr of
-        Expression.LetExpression _ ->
-            makeReport context
-
-        Expression.LambdaExpression _ ->
-            makeReport context
-
-        _ ->
-            ( [], context )
-
-
 letDeclarationEnterVisitor : Node Expression.LetBlock -> Node Expression.LetDeclaration -> ModuleContext -> ( List (Error {}), ModuleContext )
 letDeclarationEnterVisitor (Node range { declarations, expression }) (Node declarationRange declaration) context =
     let
@@ -759,21 +737,29 @@ letDeclarationEnterVisitor (Node range { declarations, expression }) (Node decla
     case declaration of
         Expression.LetFunction function ->
             let
-                functionDeclaration : FunctionImplementation
-                functionDeclaration =
-                    Node.value function.declaration
+                (Node _ functionDeclaration) =
+                    function.declaration
 
                 namesToIgnore : Set String
                 namesToIgnore =
                     getDeclaredNamesFromPattern functionDeclaration.arguments Set.empty
 
+                typeAnnotations : List (Node TypeAnnotation)
+                typeAnnotations =
+                    case function.signature of
+                        Just (Node _ signature) ->
+                            [ signature.typeAnnotation ]
+
+                        Nothing ->
+                            []
+
                 newContext : ModuleContext
                 newContext =
                     { context | inTheDeclarationOf = Node.value functionDeclaration.name :: context.inTheDeclarationOf }
+                        |> collectNamesFromTypeAnnotation Nothing typeAnnotations
                         |> markValuesFromPatternsAsUsed functionDeclaration.arguments
-                        |> registerFunction letBlockContext function range
             in
-            ( []
+            ( reportUnusedLetFunction letBlockContext function range newContext
             , { newContext
                 | scopes = NonemptyList.cons { declared = Dict.empty, used = Dict.empty, namesToIgnore = namesToIgnore } newContext.scopes
               }
@@ -864,16 +850,6 @@ isDebugLog lookupTable node =
             False
 
 
-letDeclarationExitVisitor : a -> Node Expression.LetDeclaration -> ModuleContext -> ( List (Error {}), ModuleContext )
-letDeclarationExitVisitor _ declaration context =
-    case Node.value declaration of
-        Expression.LetFunction _ ->
-            makeReport { context | inTheDeclarationOf = List.drop 1 context.inTheDeclarationOf }
-
-        Expression.LetDestructuring _ _ ->
-            ( [], context )
-
-
 caseBranchEnterVisitor : ( Node Pattern, b ) -> ModuleContext -> ModuleContext
 caseBranchEnterVisitor ( pattern, _ ) context =
     { context
@@ -885,11 +861,6 @@ caseBranchEnterVisitor ( pattern, _ ) context =
                 }
                 context.scopes
     }
-
-
-caseBranchExitVisitor : a -> ( Node Pattern, b ) -> ModuleContext -> ( List (Rule.Error {}), ModuleContext )
-caseBranchExitVisitor _ _ context =
-    makeReport context
 
 
 letDeclarationToRemoveRange : LetBlockContext -> Range -> Range
@@ -984,7 +955,6 @@ markValuesFromPatternsAsUsed nodes context =
                         Just realModuleName ->
                             context
                                 |> markLocalConstructorAsUsed realModuleName qualifiedNameRef
-                                |> markModuleAsUsed ( realModuleName, qualifiedNameRef.moduleName )
                                 |> markValuesFromPatternsAsUsed (patterns ++ restOfNodes)
 
                         Nothing ->
@@ -1139,58 +1109,51 @@ declarationEnterVisitor (Node nodeRange expr) context =
                 functionName : String
                 functionName =
                     Node.value functionImplementation.name
+            in
+            case Scope.getBinding (ScopeProvider.topLevel context.scopeProvider) functionName of
+                Nothing ->
+                    ( [], context )
 
-                typeAnnotation : List (Node TypeAnnotation)
-                typeAnnotation =
-                    case function.signature of
-                        Just signature ->
-                            [ (Node.value signature).typeAnnotation ]
+                Just binding ->
+                    let
+                        typeAnnotation : List (Node TypeAnnotation)
+                        typeAnnotation =
+                            case function.signature of
+                                Just signature ->
+                                    [ (Node.value signature).typeAnnotation ]
 
-                        Nothing ->
-                            []
+                                Nothing ->
+                                    []
 
-                newContextWhereFunctionIsRegistered : ModuleContext
-                newContextWhereFunctionIsRegistered =
-                    if
-                        Dict.member functionName context.exposed
-                            -- The main function is "exposed" by default for applications
-                            || (context.isApplication && functionName == "main")
-                    then
-                        context
-
-                    else
-                        registerVariable
-                            { typeName = "Top-level variable"
-                            , under = Node.range functionImplementation.name
-                            , rangeToRemove = Just (untilStartOfNextLine nodeRange)
-                            , warning = ""
-                            }
-                            functionName
-                            context
-
-                newContext : ModuleContext
-                newContext =
-                    { newContextWhereFunctionIsRegistered
-                        | inTheDeclarationOf = [ functionName ]
-                        , scopes = NonemptyList.cons (scopeWithPatternsToIgnore functionImplementation.arguments) newContextWhereFunctionIsRegistered.scopes
-                    }
-                        |> markValuesFromPatternsAsUsed (Node.value function.declaration).arguments
-                        |> collectNamesFromTypeAnnotation Nothing typeAnnotation
-
-                shadowingImportError : List (Error {})
-                shadowingImportError =
-                    case Dict.get functionName (NonemptyList.head context.scopes).declared of
-                        Just existingVariable ->
-                            if existingVariable.typeName == "Imported variable" then
-                                [ error existingVariable functionName ]
+                        newContextWhereFunctionIsRegistered : ModuleContext
+                        newContextWhereFunctionIsRegistered =
+                            if
+                                Dict.member functionName context.exposed
+                                    -- The main function is "exposed" by default for applications
+                                    || (context.isApplication && functionName == "main")
+                            then
+                                context
 
                             else
-                                []
+                                registerVariable
+                                    { typeName = "Top-level variable"
+                                    , under = Node.range functionImplementation.name
+                                    , rangeToRemove = Just (untilStartOfNextLine nodeRange)
+                                    , warning = ""
+                                    }
+                                    functionName
+                                    context
 
-                        _ ->
-                            []
-            in
-            ( shadowingImportError, newContext )
+                        newContext : ModuleContext
+                        newContext =
+                            { newContextWhereFunctionIsRegistered
+                                | inTheDeclarationOf = [ functionName ]
+                                , scopes = NonemptyList.cons (scopeWithPatternsToIgnore functionImplementation.arguments) newContextWhereFunctionIsRegistered.scopes
+                            }
+                                |> markValuesFromPatternsAsUsed (Node.value function.declaration).arguments
+                                |> collectNamesFromTypeAnnotation Nothing typeAnnotation
+                    in
+                    ( [], newContext )
 
         Declaration.CustomTypeDeclaration { name, constructors } ->
             let
@@ -1260,7 +1223,25 @@ declarationExitVisitor : Node Declaration -> ModuleContext -> ( List (Error {}),
 declarationExitVisitor node context =
     case Node.value node of
         Declaration.FunctionDeclaration _ ->
-            makeReport context
+            let
+                scope : Scope
+                scope =
+                    NonemptyList.head context.scopes
+
+                remainingUsed =
+                    Dict.keys scope.declared
+                        |> Set.fromList
+                        |> Set.diff (usedLocally scope)
+                        |> (\set -> Set.diff set scope.namesToIgnore)
+                        |> Set.toList
+
+                contextWithPoppedScope : ModuleContext
+                contextWithPoppedScope =
+                    { context | scopes = NonemptyList.pop context.scopes }
+            in
+            ( []
+            , markAllAsUsed remainingUsed contextWithPoppedScope
+            )
 
         _ ->
             ( [], context )
@@ -1277,128 +1258,29 @@ finalEvaluation context =
         rootScope =
             NonemptyList.head context.scopes
 
-        usedLocally : Set String
-        usedLocally =
-            Dict.get [] rootScope.used
-                |> Maybe.withDefault Set.empty
-
-        moduleNamesInUse : Set String
-        moduleNamesInUse =
-            context.declaredModules
-                |> List.map (\mod -> getModuleName mod.moduleNameInUse)
-                |> Set.fromList
-
-        addImportedTypeErrors : List (Error {}) -> List (Error {})
-        addImportedTypeErrors acc =
-            List.Extra.dictToListMap
-                (\name { under, rangeToRemove, openRange } ->
-                    if Set.member name usedLocally && not (Dict.member name context.localTypes) then
-                        Rule.errorWithFix
-                            { message = "Imported constructors for `" ++ name ++ "` are not used"
-                            , details = details
-                            }
-                            under
-                            -- If the constructors are not used but the type itself is, then only remove the `(..)`
-                            [ Fix.removeRange openRange ]
-
-                    else
-                        Rule.errorWithFix
-                            { message = "Imported type `" ++ name ++ "` is not used"
-                            , details = details
-                            }
-                            under
-                            [ Fix.removeRange rangeToRemove ]
-                )
-                context.unusedImportedCustomTypes
-                acc
-
-        moduleThatExposeEverythingErrors : List ( Maybe (Error {}), Maybe ( ModuleName, ModuleName ) )
-        moduleThatExposeEverythingErrors =
-            List.map
-                (\({ importRange, exposingRange, exposingRangeToRemove } as module_) ->
-                    if not module_.wasUsedImplicitly then
-                        if module_.wasUsedWithModuleName then
-                            ( Just
-                                (Rule.errorWithFix
-                                    { message = "No imported elements from `" ++ String.join "." module_.name ++ "` are used"
-                                    , details = details
-                                    }
-                                    exposingRange
-                                    [ Fix.removeRange exposingRangeToRemove ]
-                                )
-                            , Nothing
-                            )
-
-                        else
-                            ( Just
-                                (Rule.errorWithFix
-                                    { message = "Imported module `" ++ String.join "." module_.name ++ "` is not used"
-                                    , details = details
-                                    }
-                                    module_.moduleNameRange
-                                    [ Fix.removeRange { importRange | end = { row = importRange.end.row + 1, column = 1 } } ]
-                                )
-                            , Maybe.map (\alias -> ( module_.name, [ alias ] )) module_.alias
-                            )
-
-                    else
-                        ( Nothing, Nothing )
-                )
-                context.exposingAllModules
-
-        usedModules : Set ( ModuleName, ModuleName )
-        usedModules =
-            List.Extra.insertAllJusts moduleThatExposeEverythingErrors context.usedModules
-
-        addModuleErrors : List (Error {}) -> List (Error {})
-        addModuleErrors acc =
-            List.Extra.listFilterThenMapInto
-                (\variableInfo ->
-                    let
-                        moduleReference : ( ModuleName, ModuleName )
-                        moduleReference =
-                            ( variableInfo.moduleName, variableInfo.moduleNameInUse )
-                    in
-                    not (Set.member moduleReference usedModules)
-                )
-                (\variableInfo ->
-                    let
-                        fix : List Fix
-                        fix =
-                            case variableInfo.variableType of
-                                ImportedModule ->
-                                    [ Fix.removeRange variableInfo.rangeToRemove ]
-
-                                ModuleAlias { originalNameOfTheImport, exposesSomething } ->
-                                    if not exposesSomething || not (Set.member originalNameOfTheImport moduleNamesInUse) then
-                                        [ Fix.removeRange variableInfo.rangeToRemove ]
-
-                                    else
-                                        []
-                    in
-                    Rule.errorWithFix
-                        { message = variableInfo.typeName ++ " `" ++ String.join "." variableInfo.moduleNameInUse ++ "` is not used"
-                        , details = details
-                        }
-                        variableInfo.under
-                        fix
-                )
-                context.declaredModules
-                acc
+        usedLocally_ : Set String
+        usedLocally_ =
+            usedLocally rootScope
 
         addCustomTypeErrors : List (Error {}) -> List (Error {})
         addCustomTypeErrors acc =
             List.Extra.dictToListFilterAndMap
-                (\name -> not <| Set.member name usedLocally)
+                (\name -> not <| Set.member name usedLocally_)
                 errorForLocalType
                 context.localTypes
                 acc
     in
-    List.filterMap Tuple.first moduleThatExposeEverythingErrors
-        |> List.append (makeReportHelp rootScope |> Tuple.first)
-        |> addImportedTypeErrors
+    Dict.foldl
+        (\key variableInfo acc ->
+            if not (Set.member key usedLocally_) then
+                error variableInfo key :: acc
+
+            else
+                acc
+        )
+        []
+        rootScope.declared
         |> addCustomTypeErrors
-        |> addModuleErrors
 
 
 errorForLocalType : String -> TypeData -> Error {}
@@ -1421,31 +1303,87 @@ errorForLocalType name type_ =
         [ Fix.removeRange type_.rangeToRemove ]
 
 
-registerFunction : LetBlockContext -> Function -> Range -> ModuleContext -> ModuleContext
-registerFunction letBlockContext function functionDeclarationRange context =
+reportUnusedLetFunction : LetBlockContext -> Function -> Range -> ModuleContext -> List (Rule.Error {})
+reportUnusedLetFunction letBlockContext function letDeclarationRange context =
     let
         declaration : FunctionImplementation
         declaration =
             Node.value function.declaration
 
-        typeAnnotations : List (Node TypeAnnotation)
-        typeAnnotations =
-            case Maybe.map Node.value function.signature of
-                Just signature ->
-                    [ signature.typeAnnotation ]
-
-                Nothing ->
-                    []
+        scope : Scope.Scope
+        scope =
+            (Node.value function.declaration).expression
+                |> ScopeProvider.for context.scopeProvider
     in
-    context
-        |> collectNamesFromTypeAnnotation Nothing typeAnnotations
-        |> registerVariable
+    case Scope.getBinding scope (Node.value declaration.name) of
+        Just binding ->
+            reportUnusedLetBinding
+                context
+                letBlockContext
+                letDeclarationRange
+                (Node.value function.declaration).expression
+                (Node.range declaration.name)
+                binding
+
+        Nothing ->
+            []
+
+
+reportUnusedLetBinding :
+    ModuleContext
+    -> LetBlockContext
+    -> Range
+    -> Node Expression
+    -> Range
+    -> Binding
+    -> List (Error {})
+reportUnusedLetBinding context letBlockContext letDeclarationRange (Node expressionRange _) declarationName binding =
+    if
+        List.all
+            (referenceIsUsedFromWithinDefinition expressionRange)
+            (ScopeProvider.valueReferences context.scopeProvider (Binding.id binding))
+    then
+        [ error
             { typeName = "`let in` variable"
-            , under = Node.range declaration.name
-            , rangeToRemove = Just (letDeclarationToRemoveRange letBlockContext functionDeclarationRange)
+            , under = declarationName
+            , rangeToRemove = Just (letDeclarationToRemoveRange letBlockContext letDeclarationRange)
             , warning = ""
             }
-            (Node.value declaration.name)
+            (Binding.name binding)
+        ]
+
+    else
+        []
+
+
+referenceIsUsedFromWithinDefinition : Range -> Reference -> Bool
+referenceIsUsedFromWithinDefinition definitionRange reference =
+    isRangeIncludedIn (Reference.range reference) definitionRange
+
+
+isRangeIncludedIn : Range -> Range -> Bool
+isRangeIncludedIn inner outer =
+    case compareLocation inner.start outer.start of
+        LT ->
+            False
+
+        _ ->
+            case compareLocation inner.end outer.end of
+                GT ->
+                    False
+
+                _ ->
+                    True
+
+
+compareLocation : Location -> Location -> Order
+compareLocation a b =
+    case Basics.compare a.row b.row of
+        EQ ->
+            Basics.compare a.column b.column
+
+        ltOrGt ->
+            ltOrGt
 
 
 scopeWithPatternsToIgnore : List (Node Pattern) -> Scope
@@ -1454,17 +1392,6 @@ scopeWithPatternsToIgnore patterns =
     , used = Dict.empty
     , namesToIgnore = getDeclaredNamesFromPattern patterns Set.empty
     }
-
-
-type alias ExposedElement =
-    { name : String
-    , kind : ExposedElementKind
-    }
-
-
-type ExposedElementKind
-    = CustomType ImportedCustomType
-    | TypeOrValue VariableInfo
 
 
 untilEndOfVariable : String -> Range -> Range
@@ -1487,10 +1414,10 @@ collectNamesFromTypeAnnotation exception nodes context =
                 TypeAnnotation.FunctionTypeAnnotation left right ->
                     collectNamesFromTypeAnnotation exception (left :: right :: restOfNodes) context
 
-                TypeAnnotation.Typed (Node typeRange ( rawModuleName, typeName )) params ->
+                TypeAnnotation.Typed (Node _ ( rawModuleName, typeName )) params ->
                     let
-                        contextAfterTypeUsage : ModuleContext
-                        contextAfterTypeUsage =
+                        newContext : ModuleContext
+                        newContext =
                             if Just typeName /= exception then
                                 case rawModuleName of
                                     [] ->
@@ -1501,20 +1428,11 @@ collectNamesFromTypeAnnotation exception nodes context =
 
                             else
                                 context
-
-                        contextAfterModuleUsage : ModuleContext
-                        contextAfterModuleUsage =
-                            case ModuleNameLookupTable.moduleNameAt context.lookupTable typeRange of
-                                Just realModuleName ->
-                                    markModuleAsUsed ( realModuleName, rawModuleName ) contextAfterTypeUsage
-
-                                Nothing ->
-                                    contextAfterTypeUsage
                     in
                     collectNamesFromTypeAnnotation
                         exception
                         (params ++ restOfNodes)
-                        contextAfterModuleUsage
+                        newContext
 
                 TypeAnnotation.Record fields ->
                     let
@@ -1539,9 +1457,32 @@ collectNamesFromTypeAnnotation exception nodes context =
                     collectNamesFromTypeAnnotation exception restOfNodes context
 
 
-registerModule : DeclaredModule -> ModuleContext -> ModuleContext
-registerModule declaredModule context =
-    { context | declaredModules = declaredModule :: context.declaredModules }
+reportUnusedModule : Node Import -> ModuleContext -> List (Rule.Error {}) -> List (Rule.Error {})
+reportUnusedModule ((Node _ import_) as node) context errors =
+    let
+        (Node _ moduleName) =
+            import_.moduleName
+    in
+    case ScopeProvider.qualifiedReferences context.scopeProvider moduleName of
+        _ :: _ ->
+            errors
+
+        [] ->
+            unusedImportError node :: errors
+
+
+unusedImportError : Node Import -> Error {}
+unusedImportError (Node importRange import_) =
+    let
+        (Node moduleNameRange moduleName) =
+            import_.moduleName
+    in
+    Rule.errorWithFix
+        { message = "Imported module `" ++ String.join "." moduleName ++ "` is not used"
+        , details = details
+        }
+        moduleNameRange
+        [ Fix.removeRange (untilStartOfNextLine importRange) ]
 
 
 registerVariable : VariableInfo -> String -> ModuleContext -> ModuleContext
@@ -1573,8 +1514,8 @@ markValueAsUsed moduleName name context =
             Dict.get moduleName context.constructorNameToTypeName
                 |> Maybe.andThen (Dict.get name)
         of
-            Just customTypeName ->
-                { context | unusedImportedCustomTypes = Dict.remove customTypeName context.unusedImportedCustomTypes }
+            Just _ ->
+                context
 
             Nothing ->
                 markAsUsed name context
@@ -1626,83 +1567,15 @@ markLocalConstructorAsUsed realModuleName qualifiedNameRef context =
             context
 
 
-markModuleAsUsed : ( ModuleName, ModuleName ) -> ModuleContext -> ModuleContext
-markModuleAsUsed (( realModuleName, aliasName ) as realAndAliasModuleNames) context =
-    if List.isEmpty realModuleName then
-        context
-
-    else
-        { context
-            | usedModules = Set.insert realAndAliasModuleNames context.usedModules
-            , exposingAllModules =
-                List.map
-                    (\module_ ->
-                        if module_.name == realModuleName then
-                            if module_.name == aliasName || Just (String.join "." aliasName) == module_.alias then
-                                { module_ | wasUsedWithModuleName = True }
-
-                            else if List.isEmpty aliasName then
-                                { module_ | wasUsedImplicitly = True }
-
-                            else
-                                module_
-
-                        else
-                            module_
-                    )
-                    context.exposingAllModules
-        }
-
-
 getModuleName : List String -> String
 getModuleName name =
     String.join "." name
 
 
-makeReport : ModuleContext -> ( List (Error {}), ModuleContext )
-makeReport context =
-    let
-        ( errors, remainingUsed ) =
-            makeReportHelp (NonemptyList.head context.scopes)
-
-        contextWithPoppedScope : ModuleContext
-        contextWithPoppedScope =
-            { context | scopes = NonemptyList.pop context.scopes }
-    in
-    ( errors
-    , markAllAsUsed remainingUsed contextWithPoppedScope
-    )
-
-
-makeReportHelp : Scope -> ( List (Error {}), List String )
-makeReportHelp { declared, used, namesToIgnore } =
-    let
-        usedLocally : Set String
-        usedLocally =
-            Dict.get [] used |> Maybe.withDefault Set.empty
-
-        nonUsedVars : List String
-        nonUsedVars =
-            Dict.keys declared
-                |> Set.fromList
-                |> Set.diff usedLocally
-                |> (\set -> Set.diff set namesToIgnore)
-                |> Set.toList
-
-        errors : List (Error {})
-        errors =
-            Dict.foldl
-                (\key variableInfo acc ->
-                    if not (Set.member key usedLocally) then
-                        error variableInfo key :: acc
-
-                    else
-                        acc
-                )
-                []
-                declared
-    in
-    ( errors, nonUsedVars )
+usedLocally : Scope -> Set String
+usedLocally { used } =
+    Dict.get [] used
+        |> Maybe.withDefault Set.empty
 
 
 
