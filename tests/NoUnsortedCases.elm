@@ -777,34 +777,35 @@ declarationListVisitor :
     -> Dict ModuleName (Dict String ConstructorsAndOrder)
 declarationListVisitor (RuleConfig config) declarations { moduleName, exposedTypes, customTypes } =
     let
-        getCustomType : Node Declaration -> Maybe ( String, ConstructorsAndOrder )
-        getCustomType (Node _ decl) =
+        getCustomType : Node Declaration -> Dict String ConstructorsAndOrder -> Dict String ConstructorsAndOrder
+        getCustomType (Node _ decl) dict =
             case decl of
                 Declaration.CustomTypeDeclaration ({ name } as type_) ->
                     if config.sortablePredicate moduleName (Node.value name) then
-                        Just
-                            ( Node.value type_.name
-                            , type_.constructors
+                        Dict.insert
+                            (Node.value type_.name)
+                            (type_.constructors
                                 |> List.map (\(Node _ constructor) -> Node.value constructor.name)
                                 |> constructorsAndOrderFromList
                             )
+                            dict
 
                     else
-                        Nothing
+                        dict
 
                 _ ->
-                    Nothing
+                    dict
 
-        ts : List ( String, ConstructorsAndOrder )
+        ts : Dict String ConstructorsAndOrder
         ts =
             -- Find custom types that were defined in the module
-            List.filterMap getCustomType declarations
+            List.foldl getCustomType Dict.empty declarations
     in
-    if List.isEmpty ts then
+    if Dict.isEmpty ts then
         customTypes
 
     else
-        Dict.insert [] (Dict.fromList ts) customTypes
+        Dict.insert [] ts customTypes
 
 
 {-| Visit all expressions in a module, checking for `case`s and ensuring those
