@@ -26,6 +26,7 @@ import NoUnused.Variables.ElmPrelude as ElmPrelude
 import Review.Fix as Fix exposing (Fix)
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Rule as Rule exposing (Error, Rule)
+import Review.ScopeProvider exposing (ScopeProvider)
 import Set exposing (Set)
 
 
@@ -135,6 +136,7 @@ type alias ProjectIsApplication =
 
 type alias ModuleContext =
     { lookupTable : ModuleNameLookupTable
+    , scopeProvider : ScopeProvider
     , scopes : Nonempty Scope
     , inTheDeclarationOf : List String
     , exposed : Set String
@@ -225,8 +227,9 @@ initialContext =
 fromProjectToModule : Rule.ContextCreator ProjectIsApplication ModuleContext
 fromProjectToModule =
     Rule.initContextCreator
-        (\lookupTable { exposed } moduleDocs constructorToType isApplication ->
+        (\lookupTable scopeProvider { exposed } moduleDocs constructorToType isApplication ->
             { lookupTable = lookupTable
+            , scopeProvider = scopeProvider
             , scopes = NonemptyList.fromElement (scopeWithUsedExports exposed)
             , inTheDeclarationOf = []
             , exposed = exposed |> Dict.keys |> Set.fromList
@@ -241,6 +244,7 @@ fromProjectToModule =
             }
         )
         |> Rule.withModuleNameLookupTable
+        |> Rule.withScopes
         |> Rule.withExposed
         |> Rule.withImportedModuleDocs { implicitImports = False, dependencies = True }
         |> Rule.withConstructorToType { implicitImports = False, dependencies = True }
