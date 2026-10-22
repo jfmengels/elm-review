@@ -794,17 +794,17 @@ declarationListVisitor (RuleConfig config) declarations { moduleName, exposedTyp
 
                 _ ->
                     Nothing
-    in
-    -- Find custom types that were defined in the module
-    List.filterMap getCustomType declarations
-        |> (\ts ->
-                if List.isEmpty ts then
-                    customTypes
 
-                else
-                    Dict.fromList ts
-                        |> (\v -> Dict.insert [] v customTypes)
-           )
+        ts : List ( String, ConstructorsAndOrder )
+        ts =
+            -- Find custom types that were defined in the module
+            List.filterMap getCustomType declarations
+    in
+    if List.isEmpty ts then
+        customTypes
+
+    else
+        Dict.insert [] (Dict.fromList ts) customTypes
 
 
 {-| Visit all expressions in a module, checking for `case`s and ensuring those
