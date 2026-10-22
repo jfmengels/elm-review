@@ -824,19 +824,20 @@ expressionVisitor config (Node { start } expr) context =
             -- Convert all patterns to sortable ones, if we can
             ListX.indexedFoldr
                 (\i ( p, e ) acc ->
-                    getSortablePattern config context p
-                        |> Maybe.map
-                            (\sP ->
-                                { pattern = sP
-                                , index = i
-                                , range =
-                                    Range.combine
-                                        [ Node.range p
-                                        , Node.range e
-                                        ]
-                                }
-                            )
-                        |> Maybe.map2 (\acc_ sP -> sP :: acc_) acc
+                    Maybe.map2
+                        (\sP acc_ ->
+                            { pattern = sP
+                            , index = i
+                            , range =
+                                Range.combine
+                                    [ Node.range p
+                                    , Node.range e
+                                    ]
+                            }
+                                :: acc_
+                        )
+                        (getSortablePattern config context p)
+                        acc
                 )
                 (Just [])
                 cases
