@@ -23,13 +23,13 @@ import Elm.Docs
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.ModuleName exposing (ModuleName)
-import Elm.Syntax.Node as Node exposing (Node)
+import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern as Pattern exposing (Pattern)
 import Elm.Syntax.Range as Range exposing (Range)
 import Elm.Syntax.Type exposing (Type)
 import List.Extra as ListX
 import Maybe.Extra as MaybeX
-import Review.ModuleNameLookupTable exposing (ModuleNameLookupTable, moduleNameFor)
+import Review.ModuleNameLookupTable exposing (ModuleNameLookupTable, moduleNameAt)
 import Review.Rule as Rule exposing (Error, Rule)
 import Set exposing (Set)
 import Util exposing (checkSorting, fallbackCompareFor, fallbackCompareWithUnsortableFor)
@@ -778,14 +778,14 @@ declarationListVisitor :
 declarationListVisitor (RuleConfig config) declarations { moduleName, exposedTypes, customTypes } =
     let
         getCustomType : Node Declaration -> Maybe ( String, ConstructorsAndOrder )
-        getCustomType node =
-            case Node.value node of
+        getCustomType (Node _ decl) =
+            case decl of
                 Declaration.CustomTypeDeclaration ({ name } as type_) ->
                     if config.sortablePredicate moduleName (Node.value name) then
                         Just
                             ( Node.value type_.name
                             , type_.constructors
-                                |> List.map (Node.value >> .name >> Node.value)
+                                |> List.map (\(Node _ constructor) -> Node.value constructor.name)
                                 |> constructorsAndOrderFromList
                             )
 
@@ -811,19 +811,14 @@ declarationListVisitor (RuleConfig config) declarations { moduleName, exposedTyp
 are sorted properly.
 -}
 expressionVisitor : RuleConfig -> Node Expression -> Context -> List (Error {})
-expressionVisitor config node context =
-    case Node.value node of
+expressionVisitor config (Node { start } expr) context =
+    case expr of
         Expression.CaseExpression { cases } ->
             let
                 errorRange : Range
                 errorRange =
-                    let
-                        r : Range
-                        r =
-                            Node.range node
-                    in
                     -- Assume that the `case` of a case block is just the first 4 chars
-                    { r | end = { row = r.start.row, column = r.start.column + 4 } }
+                    { start = start, end = { row = start.row, column = start.column + 4 } }
             in
             -- Convert all patterns to sortable ones, if we can
             ListX.indexedFoldr
@@ -869,11 +864,10 @@ getSortablePattern : RuleConfig -> Context -> Node Pattern -> Maybe SortablePatt
 getSortablePattern ((RuleConfig config) as ruleConfig) context node =
     let
         go : Node Pattern -> Maybe SortablePattern
-        go =
-            getSortablePattern ruleConfig context
+        go n =
+            getSortablePattern ruleConfig context n
 
-        n : Node Pattern
-        n =
+        (Node range pattern) =
             getActualPattern node
 
         makeLiteral : (a -> LiteralPattern) -> a -> Maybe SortablePattern
@@ -909,10 +903,10 @@ getSortablePattern ((RuleConfig config) as ruleConfig) context node =
                                 )
                     )
     in
-    case Node.value n of
+    case pattern of
         -- Find declaration sorting for named patterns and their arguments
         Pattern.NamedPattern { name } ps ->
-            moduleNameFor context.lookupTable n
+            moduleNameAt context.lookupTable range
                 |> Maybe.andThen (findConstructorOrder name ps)
 
         -- Tuples and lists we recursively convert each subpattern
