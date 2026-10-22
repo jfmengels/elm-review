@@ -7,6 +7,8 @@
     "exposed-modules": [
         "Review.Rule",
         "Review.ModuleNameLookupTable",
+        "Review.Scope",
+        "Review.ScopeProvider",
         "Review.Project",
         "Review.Project.Dependency",
         "Review.FilePattern",
