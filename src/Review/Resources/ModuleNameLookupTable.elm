@@ -260,12 +260,12 @@ computeBaseModule modules =
     let
         topLevelScope : ScopeInfo
         topLevelScope =
-            createScope
-                { id = 0
-                , parentId = 0
-                , range = Range.empty -- TODO Use full range
-                , names = Set.empty
-                }
+            { id = 0
+            , parentId = Nothing
+            , range = Range.empty -- TODO Use full range
+            , names = Set.empty
+            , children = []
+            }
     in
     List.foldl importVisitor
         { scopeStack = NonEmpty.fromElement topLevelScope
@@ -286,7 +286,7 @@ computeBaseModule modules =
 createScope : { id : Int, parentId : Int, range : Range, names : ScopeNames } -> ScopeInfo
 createScope { id, parentId, range, names } =
     { id = id
-    , parentId = parentId
+    , parentId = Just parentId
     , range = range
     , names = names
     , children = []
