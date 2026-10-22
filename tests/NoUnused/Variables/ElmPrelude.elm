@@ -1,27 +1,43 @@
-module NoUnused.Variables.ElmPrelude exposing (elmPrelude)
+module NoUnused.Variables.ElmPrelude exposing (elmPreludeAliases, elmPreludeExposing)
 
 import Dict exposing (Dict)
+import Elm.Syntax.ModuleName exposing (ModuleName)
 
 
-elmPrelude :
-    Dict
-        (List String)
-        { exposes : List String
-        , alias : Maybe (List String)
-        }
-elmPrelude =
-    -- These are the default imports implicitly added by the Elm compiler
-    -- https://package.elm-lang.org/packages/elm/core/latest
+
+-- These are the default imports implicitly added by the Elm compiler
+-- https://package.elm-lang.org/packages/elm/core/latest
+
+
+{-| Elements explicitly exposed by the prelude.
+-}
+elmPreludeExposing : Dict (List String) (List String)
+elmPreludeExposing =
     Dict.fromList
-        [ ( [ "Basics" ], { exposes = [], alias = Nothing } )
-        , ( [ "List" ], { exposes = [ "List", "::" ], alias = Nothing } )
-        , ( [ "Maybe" ], { exposes = [ "Maybe" ], alias = Nothing } )
-        , ( [ "Result" ], { exposes = [ "Result" ], alias = Nothing } )
-        , ( [ "String" ], { exposes = [ "String" ], alias = Nothing } )
-        , ( [ "Char" ], { exposes = [ "Char" ], alias = Nothing } )
-        , ( [ "Tuple" ], { exposes = [], alias = Nothing } )
-        , ( [ "Debug" ], { exposes = [], alias = Nothing } )
-        , ( [ "Platform" ], { exposes = [ "Program" ], alias = Nothing } )
-        , ( [ "Platform", "Cmd" ], { exposes = [ "Cmd" ], alias = Just [ "Cmd" ] } )
-        , ( [ "Platform", "Sub" ], { exposes = [ "Sub" ], alias = Just [ "Sub" ] } )
+        [ ( [ "List" ], [ "List", "::" ] )
+        , ( [ "Maybe" ], [ "Maybe" ] )
+        , ( [ "Result" ], [ "Result" ] )
+        , ( [ "String" ], [ "String" ] )
+        , ( [ "Char" ], [ "Char" ] )
+        , ( [ "Platform" ], [ "Program" ] )
+        , ( [ "Platform", "Cmd" ], [ "Cmd" ] )
+        , ( [ "Platform", "Sub" ], [ "Sub" ] )
+        ]
+
+
+{-| Module aliases defined by the prelude.
+-}
+elmPreludeAliases : Dict (List String) ModuleName
+elmPreludeAliases =
+    Dict.fromList
+        [ ( [ "List" ], [ "List" ] )
+        , ( [ "Maybe" ], [ "Maybe" ] )
+        , ( [ "Result" ], [ "Result" ] )
+        , ( [ "String" ], [ "String" ] )
+        , ( [ "Char" ], [ "Char" ] )
+        , ( [ "Tuple" ], [ "Tuple" ] )
+        , ( [ "Debug" ], [ "Debug" ] )
+        , ( [ "Platform" ], [ "Platform" ] )
+        , ( [ "Platform", "Cmd" ], [ "Cmd" ] )
+        , ( [ "Platform", "Sub" ], [ "Sub" ] )
         ]
