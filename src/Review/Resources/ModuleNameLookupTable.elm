@@ -27,6 +27,8 @@ import Vendor.ListExtra as ListExtra
 
 type alias Context =
     { namesInScope : NonEmpty ScopeNames
+    , scopeIdCounter : ScopeId
+    , scopes : List Scope
     , localTypes : Set String
     , importAliases : Dict String (NonEmpty ModuleName)
     , importedFunctions : Dict String ModuleName
@@ -40,6 +42,17 @@ type alias Context =
 
 type alias ScopeNames =
     Set String
+
+
+type alias Scope =
+    { id : ScopeId
+    , range : Range
+    , names : ScopeNames
+    }
+
+
+type ScopeId
+    = ScopeId Int
 
 
 compute : ModuleName -> OpaqueProjectModule -> ProjectCache -> ( ModuleNameLookupTable, ProjectCache )
@@ -241,6 +254,8 @@ computeBaseModule : Dict ModuleName Elm.Docs.Module -> Context
 computeBaseModule modules =
     List.foldl importVisitor
         { namesInScope = NonEmpty.fromElement Set.empty
+        , scopeIdCounter = ScopeId 0
+        , scopes = []
         , localTypes = Set.empty
         , importAliases = Dict.empty
         , importedFunctions = Dict.empty
@@ -756,12 +771,24 @@ popScopeExit : Node Expression -> Context -> Context
 popScopeExit (Node range _) context =
     if range == NonEmpty.head context.caseToExit then
         { context
-            | namesInScope = NonEmpty.pop context.namesInScope
+            | scopeIdCounter = incrementScopeIdCounter context.scopeIdCounter
+            , namesInScope = NonEmpty.pop context.namesInScope
             , caseToExit = NonEmpty.pop context.caseToExit
+            , scopes =
+                { id = context.scopeIdCounter
+                , range = range
+                , names = NonEmpty.head context.namesInScope
+                }
+                    :: context.scopes
         }
 
     else
         context
+
+
+incrementScopeIdCounter : ScopeId -> ScopeId
+incrementScopeIdCounter (ScopeId id) =
+    ScopeId (id + 1)
 
 
 expressionEnterVisitor : Node Expression -> Context -> Context
