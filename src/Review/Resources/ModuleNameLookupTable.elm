@@ -31,7 +31,7 @@ type alias Context =
     { namesInScope : NonEmpty ScopeNames
     , scopeIdStack : NonEmpty Int
     , scopeIdCounter : Int
-    , scopes : List ScopeInfo
+    , scopes : Dict Int ScopeInfo
     , localTypes : Set String
     , importAliases : Dict String (NonEmpty ModuleName)
     , importedFunctions : Dict String ModuleName
@@ -135,18 +135,9 @@ computeHelp moduleName module_ projectCache =
             , names = NonEmpty.head moduleContext.namesInScope
             }
 
-        scopes : List ScopeInfo
+        scopes : Dict Int ScopeInfo
         scopes =
-            -- Top-level scope
-            { id = NonEmpty.head moduleContext.scopeIdStack
-            , range = Range.empty -- TODO Use full range
-            , names = NonEmpty.head moduleContext.namesInScope
-            }
-                :: moduleContext.scopes
-
-        scopeProvider : ScopeProvider
-        scopeProvider =
-            ScopeProvider.fromScopes moduleName topLevelScope scopes
+            Dict.insert topLevelScope.id topLevelScope moduleContext.scopes
     in
     Builder.finalize moduleName moduleContext.lookupTable
 
@@ -264,7 +255,7 @@ computeBaseModule modules =
         { namesInScope = NonEmpty.fromElement Set.empty
         , scopeIdCounter = 1
         , scopeIdStack = NonEmpty.fromElement 0
-        , scopes = []
+        , scopes = Dict.empty
         , localTypes = Set.empty
         , importAliases = Dict.empty
         , importedFunctions = Dict.empty
@@ -671,16 +662,19 @@ declarationExitVisitor : Node Declaration -> Context -> Context
 declarationExitVisitor (Node range node) context =
     case node of
         Declaration.FunctionDeclaration _ ->
-            { context
-                | scopeIdStack = NonEmpty.pop context.scopeIdStack
-                , namesInScope = NonEmpty.pop context.namesInScope
-                , caseToExit = NonEmpty.pop context.caseToExit
-                , scopes =
+            let
+                scope : ScopeInfo
+                scope =
                     { id = NonEmpty.head context.scopeIdStack
                     , range = range
                     , names = NonEmpty.head context.namesInScope
                     }
-                        :: context.scopes
+            in
+            { context
+                | scopeIdStack = NonEmpty.pop context.scopeIdStack
+                , namesInScope = NonEmpty.pop context.namesInScope
+                , caseToExit = NonEmpty.pop context.caseToExit
+                , scopes = Dict.insert scope.id scope context.scopes
             }
 
         _ ->
@@ -795,16 +789,19 @@ popScopeEnter (Node range _) context =
 popScopeExit : Node Expression -> Context -> Context
 popScopeExit (Node range _) context =
     if range == NonEmpty.head context.caseToExit then
-        { context
-            | scopeIdStack = NonEmpty.pop context.scopeIdStack
-            , namesInScope = NonEmpty.pop context.namesInScope
-            , caseToExit = NonEmpty.pop context.caseToExit
-            , scopes =
+        let
+            scope : ScopeInfo
+            scope =
                 { id = NonEmpty.head context.scopeIdStack
                 , range = range
                 , names = NonEmpty.head context.namesInScope
                 }
-                    :: context.scopes
+        in
+        { context
+            | scopeIdStack = NonEmpty.pop context.scopeIdStack
+            , namesInScope = NonEmpty.pop context.namesInScope
+            , caseToExit = NonEmpty.pop context.caseToExit
+            , scopes = Dict.insert scope.id scope context.scopes
         }
 
     else
