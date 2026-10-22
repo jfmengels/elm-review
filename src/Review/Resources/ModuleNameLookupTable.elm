@@ -42,7 +42,7 @@ type alias Context =
     }
 
 
-compute : ModuleName -> OpaqueProjectModule -> ProjectCache -> ( ModuleNameLookupTable, ProjectCache )
+compute : ModuleName -> OpaqueProjectModule -> ProjectCache -> ( ModuleNameLookupTable, ScopeProvider, ProjectCache )
 compute moduleName module_ projectCache =
     -- Caching layer. Real computation is in computeHelp
     let
@@ -72,30 +72,38 @@ compute moduleName module_ projectCache =
             }
     in
     case reuseFromCache cacheKey moduleName projectCache.lookupTables of
-        Just lookupTable ->
-            ( lookupTable, projectCache )
+        Just { lookupTable, scopeProvider } ->
+            ( lookupTable, scopeProvider, projectCache )
 
         Nothing ->
             let
-                lookupTable : ModuleNameLookupTable
-                lookupTable =
+                ( lookupTable, scopeProvider ) =
                     computeHelp moduleName module_ projectCache
             in
             ( lookupTable
-            , { projectCache | lookupTables = Dict.insert moduleName { key = cacheKey, lookupTable = lookupTable } projectCache.lookupTables }
+            , scopeProvider
+            , { projectCache
+                | lookupTables =
+                    Dict.insert moduleName
+                        { key = cacheKey
+                        , lookupTable = lookupTable
+                        , scopeProvider = scopeProvider
+                        }
+                        projectCache.lookupTables
+              }
             )
 
 
 reuseFromCache :
     ModuleCacheKey
     -> ModuleName
-    -> Dict ModuleName { key : ModuleCacheKey, lookupTable : ModuleNameLookupTable }
-    -> Maybe ModuleNameLookupTable
+    -> Dict ModuleName { key : ModuleCacheKey, lookupTable : ModuleNameLookupTable, scopeProvider : ScopeProvider }
+    -> Maybe { key : ModuleCacheKey, lookupTable : ModuleNameLookupTable, scopeProvider : ScopeProvider }
 reuseFromCache cacheKey moduleName lookupTables =
     case Dict.get moduleName lookupTables of
         Just cache ->
             if cache.key.contentHash == cacheKey.contentHash && cache.key.implicitImports == cacheKey.implicitImports then
-                Just cache.lookupTable
+                Just cache
 
             else
                 Nothing
@@ -104,7 +112,7 @@ reuseFromCache cacheKey moduleName lookupTables =
             Nothing
 
 
-computeHelp : ModuleName -> OpaqueProjectModule -> ProjectCache -> ModuleNameLookupTable
+computeHelp : ModuleName -> OpaqueProjectModule -> ProjectCache -> ( ModuleNameLookupTable, ScopeProvider )
 computeHelp moduleName module_ projectCache =
     let
         moduleAst : Elm.Syntax.File.File
@@ -135,7 +143,9 @@ computeHelp moduleName module_ projectCache =
         scopes =
             Dict.insert topLevelScope.id topLevelScope moduleContext.scopes
     in
-    Builder.finalize moduleName moduleContext.lookupTable
+    ( Builder.finalize moduleName moduleContext.lookupTable
+    , ScopeProvider.fromScopes moduleName topLevelScope scopes
+    )
 
 
 computeImplicitlyImportedElements :
