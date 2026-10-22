@@ -611,7 +611,11 @@ declarationEnterVisitor (Node _ node) context =
 
                 newContext : Context
                 newContext =
-                    { context | namesInScope = NonEmpty.cons newScope context.namesInScope }
+                    { context
+                        | scopeIdCounter = context.scopeIdCounter + 1
+                        , scopeIdStack = NonEmpty.cons context.scopeIdCounter context.scopeIdStack
+                        , namesInScope = NonEmpty.cons newScope context.namesInScope
+                    }
 
                 lookupTableAfterArguments : ModuleNameLookupTableBuilder
                 lookupTableAfterArguments =
@@ -653,10 +657,20 @@ declarationEnterVisitor (Node _ node) context =
 
 
 declarationExitVisitor : Node Declaration -> Context -> Context
-declarationExitVisitor (Node _ node) context =
+declarationExitVisitor (Node range node) context =
     case node of
         Declaration.FunctionDeclaration _ ->
-            { context | namesInScope = NonEmpty.pop context.namesInScope }
+            { context
+                | scopeIdStack = NonEmpty.pop context.scopeIdStack
+                , namesInScope = NonEmpty.pop context.namesInScope
+                , caseToExit = NonEmpty.pop context.caseToExit
+                , scopes =
+                    { id = NonEmpty.head context.scopeIdStack
+                    , range = range
+                    , names = NonEmpty.head context.namesInScope
+                    }
+                        :: context.scopes
+            }
 
         _ ->
             context
