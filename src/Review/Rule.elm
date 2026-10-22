@@ -404,6 +404,7 @@ import Review.Resources.DocsModules
 import Review.Resources.ElmCorePrelude
 import Review.Resources.Internal as ModuleNameLookupTableInternal
 import Review.Resources.ModuleNameLookupTable
+import Review.Resources.ScopeInternal as ScopeInternal
 import Review.WorkList as WorkList
 import Unicode
 import Vendor.Graph as Graph
@@ -5846,12 +5847,15 @@ computeModuleWithRuleVisitors project docsModule module_ inputRuleModuleVisitors
         projectCache =
             ValidProject.projectCache project
 
-        ( moduleNameLookupTable, newProjectCache ) =
+        ( moduleNameLookupTable, scopeProvider, newProjectCache ) =
             if requestedData.moduleNameLookupTable then
                 Review.Resources.ModuleNameLookupTable.compute moduleName module_ projectCache
 
             else
-                ( ModuleNameLookupTableInternal.empty moduleName, projectCache )
+                ( ModuleNameLookupTableInternal.empty moduleName
+                , ScopeInternal.empty moduleName
+                , projectCache
+                )
 
         availableData : AvailableData
         availableData =

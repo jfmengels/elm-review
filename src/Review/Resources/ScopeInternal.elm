@@ -3,12 +3,13 @@ module Review.Resources.ScopeInternal exposing
     , ScopeInfo
     , ScopeNames
     , ScopeProvider(..)
+    , empty
     , fromScopes
     )
 
 import Dict exposing (Dict)
 import Elm.Syntax.ModuleName exposing (ModuleName)
-import Elm.Syntax.Range exposing (Range)
+import Elm.Syntax.Range as Range exposing (Range)
 import Set exposing (Set)
 
 
@@ -36,8 +37,22 @@ type alias ScopeNames =
     Set String
 
 
+empty : ModuleName -> ScopeProvider
+empty moduleName =
+    ScopeProvider
+        { topLevel =
+            { id = 0
+            , parentId = 0
+            , range = Range.empty
+            , names = Set.empty
+            , children = []
+            }
+        , scopes = Dict.empty
+        }
+
+
 fromScopes : ModuleName -> ScopeInfo -> Dict Int ScopeInfo -> ScopeProvider
-fromScopes fileModuleName topLevel scopes =
+fromScopes moduleName topLevel scopes =
     ScopeProvider
         { topLevel = topLevel
         , scopes = scopes
