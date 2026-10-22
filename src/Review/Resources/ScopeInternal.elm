@@ -27,6 +27,7 @@ type alias ScopeInfo =
     { id : Int
     , range : Range
     , names : ScopeNames
+    , children : List Int
     }
 
 
