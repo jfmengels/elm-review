@@ -39,6 +39,32 @@ c = a + b
                     |> Scope.names
                     |> Set.toList
                     |> Expect.equal [ "a", "b", "c" ]
+        , test "should find all references to a top-level variable" <|
+            \() ->
+                let
+                    source : String
+                    source =
+                        """
+module A exposing (a, b)
+a = 1
+b = a
+c = a + b
+"""
+
+                    scopeProvider : ScopeProvider
+                    scopeProvider =
+                        getScopeProvider source
+                in
+                scopeProvider
+                    |> ScopeProvider.topLevel
+                    |> Scope.bindings
+                    |> Dict.get "a"
+                    |> failOnNothing "Could not find a binding `a`"
+                    |> .references
+                    |> Expect.equal
+                        [ { start = { row = 5, column = 5 }, end = { row = 5, column = 6 } }
+                        , { start = { row = 4, column = 5 }, end = { row = 4, column = 6 } }
+                        ]
         ]
 
 
@@ -73,3 +99,13 @@ parseOrCrash source =
 
         Err err ->
             Debug.todo ("Invalid source:\n" ++ Debug.toString err)
+
+
+failOnNothing : String -> Maybe a -> a
+failOnNothing message maybe =
+    case maybe of
+        Just a ->
+            a
+
+        Nothing ->
+            Debug.todo message
