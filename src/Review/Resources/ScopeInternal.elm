@@ -1,6 +1,5 @@
 module Review.Resources.ScopeInternal exposing
     ( Binding
-    , Bindings
     , Reference
     , Scope(..)
     , ScopeId
@@ -11,10 +10,7 @@ module Review.Resources.ScopeInternal exposing
     )
 
 import Dict exposing (Dict)
-import Elm.Syntax.Declaration exposing (Declaration)
-import Elm.Syntax.Expression as Expression
 import Elm.Syntax.ModuleName exposing (ModuleName)
-import Elm.Syntax.Node exposing (Node)
 import Elm.Syntax.Range as Range exposing (Range)
 
 
@@ -41,13 +37,9 @@ type alias ScopeInfo =
     { id : ScopeId
     , parentId : Maybe ScopeId
     , range : Range
-    , bindings : Bindings
+    , bindings : Dict String Binding
     , children : List ScopeId
     }
-
-
-type alias Bindings =
-    Dict String Binding
 
 
 type alias Binding =
