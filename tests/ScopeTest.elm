@@ -97,11 +97,12 @@ caseScopes =
                 scopeProvider
                     |> getTopLevel
                     |> ScopeProvider.children scopeProvider
-                    |> List.map Scope.range
-                    |> List.map (extractSourceCode lines)
+                    |> List.map (\s -> extractSourceCode lines (Scope.range s))
                     |> Expect.equal
                         [ "(\\lambda -> lambda)"
                         , "\"0branch\""
+                        , "n"
+                        , "fn n = n + 1"
                         ]
         ]
 
