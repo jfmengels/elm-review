@@ -38,7 +38,6 @@ type alias Context =
     , modules : Dict ModuleName Elm.Docs.Module
     , lookupTable : ModuleNameLookupTableBuilder
     , branches : NonEmpty ( Range, ScopeInfo )
-    , caseToExit : NonEmpty Range
     }
 
 
@@ -278,7 +277,6 @@ computeBaseModule modules =
         , modules = modules
         , lookupTable = Builder.empty
         , branches = NonEmpty.fromElement ( Range.empty, topLevelScope )
-        , caseToExit = NonEmpty.fromElement Range.empty
         }
         Review.Resources.ElmCorePrelude.elmCorePrelude
 
@@ -312,20 +310,52 @@ collectLookupTable declarations context =
 
 
 visitExpressions : Node Expression -> Context -> Context
-visitExpressions node context =
+visitExpressions ((Node range _) as node) context =
     -- IGNORE TCO
     let
-        newContext : Context
-        newContext =
-            context
-                |> popScopeEnter node
-                |> expressionEnterVisitor node
+        ( branchRange, scope ) =
+            NonEmpty.head context.branches
     in
-    List.foldl
-        visitExpressions
-        newContext
-        (expressionChildren node)
-        |> popScopeExit node
+    if range == branchRange then
+        List.foldl
+            visitExpressions
+            (context
+                |> enterScope scope
+                |> expressionEnterVisitor node
+            )
+            (expressionChildren node)
+            |> exitScope
+
+    else
+        List.foldl
+            visitExpressions
+            (expressionEnterVisitor node context)
+            (expressionChildren node)
+
+
+enterScope : ScopeInfo -> Context -> Context
+enterScope scope context =
+    { context
+        | scopeIdCounter = context.scopeIdCounter + 1
+        , scopeStack =
+            context.scopeStack
+                |> NonEmpty.mapHead (\parent -> { parent | children = scope.id :: parent.children })
+                |> NonEmpty.cons scope
+        , branches = NonEmpty.pop context.branches
+    }
+
+
+exitScope : Context -> Context
+exitScope context =
+    let
+        scope : ScopeInfo
+        scope =
+            NonEmpty.head context.scopeStack
+    in
+    { context
+        | scopeStack = NonEmpty.pop context.scopeStack
+        , scopes = Dict.insert scope.id scope context.scopes
+    }
 
 
 declarationListVisitor : List (Node Declaration) -> Context -> Context
@@ -713,19 +743,10 @@ declarationEnterVisitor (Node _ node) context =
 
 
 declarationExitVisitor : Node Declaration -> Context -> Context
-declarationExitVisitor (Node range node) context =
+declarationExitVisitor (Node _ node) context =
     case node of
         Declaration.FunctionDeclaration _ ->
-            let
-                scope : ScopeInfo
-                scope =
-                    NonEmpty.head context.scopeStack
-            in
-            { context
-                | scopeStack = NonEmpty.pop context.scopeStack
-                , caseToExit = NonEmpty.pop context.caseToExit
-                , scopes = Dict.insert scope.id scope context.scopes
-            }
+            exitScope context
 
         _ ->
             context
@@ -832,45 +853,6 @@ collectModuleNamesFromPattern context patternsToVisit acc =
 
         [] ->
             acc
-
-
-popScopeEnter : Node Expression -> Context -> Context
-popScopeEnter (Node range _) context =
-    let
-        ( branchRange, scope ) =
-            NonEmpty.head context.branches
-    in
-    if range == branchRange then
-        { context
-            | scopeIdCounter = context.scopeIdCounter + 1
-            , scopeStack =
-                context.scopeStack
-                    |> NonEmpty.mapHead (\parent -> { parent | children = scope.id :: parent.children })
-                    |> NonEmpty.cons scope
-            , caseToExit = NonEmpty.cons range context.caseToExit
-            , branches = NonEmpty.pop context.branches
-        }
-
-    else
-        context
-
-
-popScopeExit : Node Expression -> Context -> Context
-popScopeExit (Node range _) context =
-    if range == NonEmpty.head context.caseToExit then
-        let
-            scope : ScopeInfo
-            scope =
-                NonEmpty.head context.scopeStack
-        in
-        { context
-            | scopeStack = NonEmpty.pop context.scopeStack
-            , caseToExit = NonEmpty.pop context.caseToExit
-            , scopes = Dict.insert scope.id scope context.scopes
-        }
-
-    else
-        context
 
 
 expressionEnterVisitor : Node Expression -> Context -> Context
@@ -1048,7 +1030,6 @@ expressionEnterVisitor (Node nodeRange node) context =
                             }
                         )
                         context.branches
-                , caseToExit = NonEmpty.cons range context.caseToExit
             }
 
         Expression.PrefixOperator op ->
