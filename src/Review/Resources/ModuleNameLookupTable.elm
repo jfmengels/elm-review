@@ -930,23 +930,6 @@ expressionEnterVisitor (Node nodeRange node) context =
                         }
                         letExpression.declarations
 
-                newContext : Context
-                newContext =
-                    { context
-                        | scopeStack =
-                            NonEmpty.cons
-                                (createScope
-                                    { id = letScopeId
-                                    , parentId = (NonEmpty.head context.scopeStack).id
-                                    , range = nodeRange
-                                    , bindings = let_.names
-                                    }
-                                )
-                                context.scopeStack
-                        , branches = let_.branches
-                        , scopeIdCounter = let_.scopeIdCounter
-                    }
-
                 lookupTable : ModuleNameLookupTableBuilder
                 lookupTable =
                     List.foldl
@@ -956,14 +939,14 @@ expressionEnterVisitor (Node nodeRange node) context =
                                     let
                                         withDeclarationModuleName : ModuleNameLookupTableBuilder
                                         withDeclarationModuleName =
-                                            collectModuleNamesFromPattern newContext
+                                            collectModuleNamesFromPattern context
                                                 (Node.value function.declaration).arguments
                                                 acc
                                     in
                                     case function.signature of
                                         Just (Node _ signature) ->
                                             collectModuleNamesFromTypeAnnotation
-                                                newContext
+                                                context
                                                 [ signature.typeAnnotation ]
                                                 withDeclarationModuleName
 
@@ -971,12 +954,26 @@ expressionEnterVisitor (Node nodeRange node) context =
                                             withDeclarationModuleName
 
                                 Expression.LetDestructuring pattern _ ->
-                                    collectModuleNamesFromPattern newContext [ pattern ] acc
+                                    collectModuleNamesFromPattern context [ pattern ] acc
                         )
-                        newContext.lookupTable
+                        context.lookupTable
                         letExpression.declarations
             in
-            { newContext | lookupTable = lookupTable }
+            { context
+                | lookupTable = lookupTable
+                , scopeStack =
+                    NonEmpty.cons
+                        (createScope
+                            { id = letScopeId
+                            , parentId = (NonEmpty.head context.scopeStack).id
+                            , range = nodeRange
+                            , bindings = let_.names
+                            }
+                        )
+                        context.scopeStack
+                , branches = let_.branches
+                , scopeIdCounter = let_.scopeIdCounter
+            }
 
         Expression.CaseExpression caseBlock ->
             let
