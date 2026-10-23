@@ -958,19 +958,19 @@ expressionEnterVisitor (Node nodeRange node) context =
                         )
                         context.lookupTable
                         letExpression.declarations
+
+                letScope : ScopeInfo
+                letScope =
+                    createScope
+                        { id = letScopeId
+                        , parentId = (NonEmpty.head context.scopeStack).id
+                        , range = nodeRange
+                        , bindings = let_.names
+                        }
             in
             { context
                 | lookupTable = lookupTable
-                , scopeStack =
-                    NonEmpty.cons
-                        (createScope
-                            { id = letScopeId
-                            , parentId = (NonEmpty.head context.scopeStack).id
-                            , range = nodeRange
-                            , bindings = let_.names
-                            }
-                        )
-                        context.scopeStack
+                , scopeStack = NonEmpty.cons letScope context.scopeStack
                 , branches = let_.branches
                 , scopeIdCounter = let_.scopeIdCounter
             }
