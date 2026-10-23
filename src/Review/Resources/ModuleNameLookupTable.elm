@@ -21,7 +21,7 @@ import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModu
 import Review.Resources.ElmCorePrelude
 import Review.Resources.Internal exposing (ModuleNameLookupTable)
 import Review.Resources.ModuleNameLookupTableBuilder as Builder exposing (ModuleNameLookupTableBuilder)
-import Review.Resources.ScopeInternal as ScopeProvider exposing (Binding, ScopeId, ScopeInfo)
+import Review.Resources.ScopeInternal as ScopeInternal exposing (Binding, ScopeId, ScopeInfo)
 import Review.ScopeProvider exposing (ScopeProvider)
 import Set exposing (Set)
 import Vendor.ListExtra as ListExtra
@@ -143,7 +143,7 @@ computeHelp moduleName module_ projectCache =
             Dict.insert topLevelScope.id topLevelScope moduleContext.scopes
     in
     ( Builder.finalize moduleName moduleContext.lookupTable
-    , ScopeProvider.fromScopes moduleName topLevelScope scopes
+    , ScopeInternal.fromScopes moduleName topLevelScope scopes
     )
 
 
@@ -341,7 +341,7 @@ enterScope scope context =
         | scopeIdCounter = context.scopeIdCounter + 1
         , scopeStack =
             NonEmpty.mapHeadThenCons scope
-                (\parent -> { parent | children = ( scope.range, scope.id ) :: parent.children })
+                (\parent -> { parent | children = ScopeInternal.Scope scope :: parent.children })
                 context.scopeStack
         , branches = NonEmpty.pop context.branches
     }
@@ -732,7 +732,7 @@ declarationEnterVisitor (Node _ node) context =
                         , scopeIdCounter = context.scopeIdCounter + 1
                         , scopeStack =
                             NonEmpty.mapHeadThenCons scope
-                                (\parent -> { parent | children = ( scope.range, scope.id ) :: parent.children })
+                                (\parent -> { parent | children = ScopeInternal.Scope scope :: parent.children })
                                 context.scopeStack
                     }
 

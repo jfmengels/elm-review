@@ -1,6 +1,6 @@
 module Review.ScopeProvider exposing
     ( ScopeProvider, topLevel
-    , at, children
+    , at
     )
 
 {-| REPLACEME
@@ -24,13 +24,6 @@ topLevel (Internal.ScopeProvider scopeProvider) =
     Internal.Scope scopeProvider.topLevel
 
 
-children : ScopeProvider -> Scope -> List Scope
-children (Internal.ScopeProvider scopeProvider) (Internal.Scope scope) =
-    List.filterMap
-        (\( _, id ) -> Dict.get id scopeProvider.scopes |> Maybe.map Internal.Scope)
-        scope.children
-
-
 at : ScopeProvider -> Range -> Scope
 at (Internal.ScopeProvider scopeProvider) range =
     atHelp
@@ -40,20 +33,15 @@ at (Internal.ScopeProvider scopeProvider) range =
         scopeProvider.topLevel.children
 
 
-atHelp : Dict Int ScopeInfo -> Range -> ScopeInfo -> List ( Range, Int ) -> Scope
+atHelp : Dict Int ScopeInfo -> Range -> ScopeInfo -> List Scope -> Scope
 atHelp scopeDict range bestMatch childrenIds =
     case childrenIds of
         [] ->
             Internal.Scope bestMatch
 
-        ( scopeRange, id ) :: rest ->
-            if isRangeIncludedIn range scopeRange then
-                case Dict.get id scopeDict of
-                    Just scope ->
-                        atHelp scopeDict range scope scope.children
-
-                    Nothing ->
-                        Internal.Scope bestMatch
+        (Internal.Scope scope) :: rest ->
+            if isRangeIncludedIn range scope.range then
+                atHelp scopeDict range scope scope.children
 
             else
                 atHelp scopeDict range bestMatch rest

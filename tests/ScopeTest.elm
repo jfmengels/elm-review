@@ -90,14 +90,11 @@ caseScopes =
                     lines : List String
                     lines =
                         String.lines source
-
-                    scopeProvider : ScopeProvider
-                    scopeProvider =
-                        getScopeProvider source
                 in
-                scopeProvider
+                source
+                    |> getScopeProvider
                     |> getTopLevel
-                    |> ScopeProvider.children scopeProvider
+                    |> Scope.children
                     |> List.map (\s -> extractSourceCode lines (Scope.range s))
                     |> Expect.equal
                         [ "(\\lambda -> lambda)"

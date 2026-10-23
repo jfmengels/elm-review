@@ -33,7 +33,7 @@ type alias ScopeInfo =
     , parentId : Maybe ScopeId
     , range : Range
     , bindings : Dict String Binding
-    , children : List ( Range, ScopeId )
+    , children : List Scope
     }
 
 
