@@ -134,7 +134,7 @@ caseScopes =
                     scopeProvider =
                         getScopeProvider source
                 in
-                ScopeProvider.scopeAt scopeProvider { start = { row = 13, column = 14 }, end = { row = 13, column = 30 } }
+                ScopeProvider.at scopeProvider { start = { row = 13, column = 14 }, end = { row = 13, column = 30 } }
                     |> (\s -> extractSourceCode lines (Scope.range s))
                     |> Expect.equal "\"THISISTHETARGET\""
         ]
