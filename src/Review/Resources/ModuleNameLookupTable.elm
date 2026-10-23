@@ -338,9 +338,9 @@ enterScope scope context =
     { context
         | scopeIdCounter = context.scopeIdCounter + 1
         , scopeStack =
-            context.scopeStack
-                |> NonEmpty.mapHead (\parent -> { parent | children = scope.id :: parent.children })
-                |> NonEmpty.cons scope
+            NonEmpty.mapHeadThenCons scope
+                (\parent -> { parent | children = scope.id :: parent.children })
+                context.scopeStack
         , branches = NonEmpty.pop context.branches
     }
 
@@ -719,9 +719,9 @@ declarationEnterVisitor (Node _ node) context =
                         | lookupTable = finalLookupTable
                         , scopeIdCounter = context.scopeIdCounter + 1
                         , scopeStack =
-                            context.scopeStack
-                                |> NonEmpty.mapHead (\parent -> { parent | children = scope.id :: parent.children })
-                                |> NonEmpty.cons scope
+                            NonEmpty.mapHeadThenCons scope
+                                (\parent -> { parent | children = scope.id :: parent.children })
+                                context.scopeStack
                     }
 
         Declaration.CustomTypeDeclaration { constructors } ->
