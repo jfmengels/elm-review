@@ -128,10 +128,10 @@ pop (Nonempty 3 [ 2, 1 ]) --> Nonempty 2 [1]
 pop (Nonempty 1 []) --> Nonempty 1 []
 -}
 pop : NonEmpty a -> NonEmpty a
-pop (Nonempty x xs) =
+pop ((Nonempty _ xs) as nonEmpty) =
     case xs of
         [] ->
-            Nonempty x xs
+            nonEmpty
 
         y :: ys ->
             Nonempty y ys
