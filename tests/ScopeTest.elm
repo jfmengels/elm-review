@@ -46,9 +46,13 @@ c = a + b
                     |> getScopeProvider
                     |> getTopLevel
                     |> Scope.bindings
-                    |> dictGetOrFail "a"
-                    |> .range
-                    |> Expect.equal { start = { row = 3, column = 1 }, end = { row = 3, column = 2 } }
+                    |> Dict.toList
+                    |> List.map (\( key, scope ) -> ( key, scope.range ))
+                    |> Expect.equal
+                        [ ( "a", { start = { row = 3, column = 1 }, end = { row = 3, column = 2 } } )
+                        , ( "b", { start = { row = 4, column = 1 }, end = { row = 4, column = 2 } } )
+                        , ( "c", { start = { row = 5, column = 1 }, end = { row = 5, column = 2 } } )
+                        ]
         , test "should find all references to a top-level variable" <|
             \() ->
                 """
@@ -60,11 +64,16 @@ c = a + b
                     |> getScopeProvider
                     |> getTopLevel
                     |> Scope.bindings
-                    |> dictGetOrFail "a"
-                    |> .references
+                    |> Dict.toList
+                    |> List.map (\( key, scope ) -> ( key, scope.references ))
                     |> Expect.equal
-                        [ { start = { row = 5, column = 5 }, end = { row = 5, column = 6 } }
-                        , { start = { row = 4, column = 5 }, end = { row = 4, column = 6 } }
+                        [ ( "a"
+                          , [ { start = { row = 5, column = 5 }, end = { row = 5, column = 6 } }
+                            , { start = { row = 4, column = 5 }, end = { row = 4, column = 6 } }
+                            ]
+                          )
+                        , ( "b", [ { start = { row = 5, column = 9 }, end = { row = 5, column = 10 } } ] )
+                        , ( "c", [] )
                         ]
         , test "top-level scope should have the scope of top-level functions as its children" <|
             \() ->
@@ -201,16 +210,6 @@ getTopLevel scopeProvider =
 
         Nothing ->
             topLevel
-
-
-dictGetOrFail : comparable -> Dict comparable a -> a
-dictGetOrFail key dict =
-    case Dict.get key dict of
-        Just a ->
-            a
-
-        Nothing ->
-            Debug.todo ("Could not get key `" ++ Debug.toString key ++ "`")
 
 
 extractSourceCode : List String -> Range -> String
