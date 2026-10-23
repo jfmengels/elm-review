@@ -1,6 +1,7 @@
 module Review.Resources.ScopeInternal exposing
     ( Binding
     , Bindings
+    , Reference
     , Scope(..)
     , ScopeId
     , ScopeInfo
@@ -52,8 +53,12 @@ type alias Bindings =
 type alias Binding =
     { name : String
     , range : Range
-    , references : List ReferenceId
+    , references : List Range
     }
+
+
+type alias Reference =
+    Range
 
 
 empty : ModuleName -> ScopeProvider

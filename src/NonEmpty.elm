@@ -6,6 +6,7 @@ module NonEmpty exposing
     , any
     , cons, pop
     , mapHead
+    , mapFirstThat
     )
 
 {-| INLINED NONEMPTYLIST
@@ -142,6 +143,34 @@ pop ((Nonempty _ xs) as nonEmpty) =
 mapHead : (a -> a) -> NonEmpty a -> NonEmpty a
 mapHead fn (Nonempty x xs) =
     Nonempty (fn x) xs
+
+
+{-| Map the first element that matches a predicate.
+-}
+mapFirstThat : (a -> Maybe a) -> NonEmpty a -> Maybe (NonEmpty a)
+mapFirstThat fn (Nonempty x xs) =
+    case fn x of
+        Just mapped ->
+            Just (Nonempty mapped xs)
+
+        Nothing ->
+            mapFirstThatList fn [] xs
+                |> Maybe.map (\rest -> Nonempty x rest)
+
+
+mapFirstThatList : (a -> Maybe a) -> List a -> List a -> Maybe (List a)
+mapFirstThatList fn nonMatchingElements list =
+    case list of
+        a :: rest ->
+            case fn a of
+                Just mapped ->
+                    Just (List.foldl (::) (mapped :: rest) nonMatchingElements)
+
+                Nothing ->
+                    mapFirstThatList fn (a :: nonMatchingElements) rest
+
+        [] ->
+            Nothing
 
 
 {-| Find the first element that satisfies the predicate, and defaults to the first one.
