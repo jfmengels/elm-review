@@ -684,28 +684,9 @@ declarationEnterVisitor (Node _ node) context =
                 (Node functionRange functionDeclaration) =
                     function.declaration
 
-                newScope : ScopeInfo
-                newScope =
-                    createScope
-                        { id = context.scopeIdCounter
-                        , parentId = (NonEmpty.head context.scopeStack).id
-                        , range = functionRange
-                        , bindings = parameters functionDeclaration.arguments
-                        }
-
-                newContext : Context
-                newContext =
-                    { context
-                        | scopeIdCounter = context.scopeIdCounter + 1
-                        , scopeStack =
-                            context.scopeStack
-                                |> NonEmpty.mapHead (\parent -> { parent | children = newScope.id :: parent.children })
-                                |> NonEmpty.cons newScope
-                    }
-
                 lookupTableAfterArguments : ModuleNameLookupTableBuilder
                 lookupTableAfterArguments =
-                    collectModuleNamesFromPattern newContext functionDeclaration.arguments newContext.lookupTable
+                    collectModuleNamesFromPattern context functionDeclaration.arguments context.lookupTable
 
                 finalLookupTable : ModuleNameLookupTableBuilder
                 finalLookupTable =
@@ -719,7 +700,29 @@ declarationEnterVisitor (Node _ node) context =
                         Nothing ->
                             lookupTableAfterArguments
             in
-            { newContext | lookupTable = finalLookupTable }
+            case functionDeclaration.arguments of
+                [] ->
+                    { context | lookupTable = finalLookupTable }
+
+                _ ->
+                    let
+                        scope : ScopeInfo
+                        scope =
+                            createScope
+                                { id = context.scopeIdCounter
+                                , parentId = (NonEmpty.head context.scopeStack).id
+                                , range = functionRange
+                                , bindings = parameters functionDeclaration.arguments
+                                }
+                    in
+                    { context
+                        | lookupTable = finalLookupTable
+                        , scopeIdCounter = context.scopeIdCounter + 1
+                        , scopeStack =
+                            context.scopeStack
+                                |> NonEmpty.mapHead (\parent -> { parent | children = scope.id :: parent.children })
+                                |> NonEmpty.cons scope
+                    }
 
         Declaration.CustomTypeDeclaration { constructors } ->
             { context
@@ -745,8 +748,13 @@ declarationEnterVisitor (Node _ node) context =
 declarationExitVisitor : Node Declaration -> Context -> Context
 declarationExitVisitor (Node _ node) context =
     case node of
-        Declaration.FunctionDeclaration _ ->
-            exitScope context
+        Declaration.FunctionDeclaration function ->
+            case (Node.value function.declaration).arguments of
+                [] ->
+                    context
+
+                _ ->
+                    exitScope context
 
         _ ->
             context
