@@ -324,6 +324,7 @@ visitExpressions ((Node range _) as node) context =
                 |> expressionEnterVisitor node
             )
             (expressionChildren node)
+            |> exitLetScope node
             |> exitScope
 
     else
@@ -331,6 +332,7 @@ visitExpressions ((Node range _) as node) context =
             visitExpressions
             (expressionEnterVisitor node context)
             (expressionChildren node)
+            |> exitLetScope node
 
 
 enterScope : ScopeInfo -> Context -> Context
@@ -356,6 +358,16 @@ exitScope context =
         | scopeStack = NonEmpty.pop context.scopeStack
         , scopes = Dict.insert scope.id scope context.scopes
     }
+
+
+exitLetScope : Node Expression -> Context -> Context
+exitLetScope (Node _ expr) context =
+    case expr of
+        Expression.LetExpression _ ->
+            exitScope context
+
+        _ ->
+            context
 
 
 declarationListVisitor : List (Node Declaration) -> Context -> Context
