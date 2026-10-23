@@ -33,6 +33,8 @@ type alias ScopeInfo =
     , parentId : Maybe ScopeId
     , range : Range
     , bindings : Dict String Binding
+
+    -- TODO Change this to `List ( Range, ScopeId )` to reduce the number of lookups
     , children : List ScopeId
     }
 
