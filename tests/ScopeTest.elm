@@ -105,6 +105,38 @@ caseScopes =
                         , "n"
                         , "fn n = n + 1"
                         ]
+        , test "should get the scope at a given range" <|
+            \() ->
+                let
+                    source : String
+                    source =
+                        """
+module A exposing (a, b)
+
+fn n = n + 1
+noScope = "noScope"
+nestedScope = (\\n -> n)
+letScope =
+    let a = "letScope"
+        subFnScope n = "subFnScope"
+    in a
+caseScopes =
+    case 0 of
+        0 -> "THISISTHETARGET"
+        _ -> (\\lambda -> lambda)
+"""
+
+                    lines : List String
+                    lines =
+                        String.lines source
+
+                    scopeProvider : ScopeProvider
+                    scopeProvider =
+                        getScopeProvider source
+                in
+                ScopeProvider.scopeAt scopeProvider { start = { row = 13, column = 14 }, end = { row = 13, column = 30 } }
+                    |> (\s -> extractSourceCode lines (Scope.range s))
+                    |> Expect.equal "\"THISISTHETARGET\""
         ]
 
 
