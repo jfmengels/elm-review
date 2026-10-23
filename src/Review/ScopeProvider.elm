@@ -1,6 +1,6 @@
 module Review.ScopeProvider exposing
     ( ScopeProvider, topLevel
-    , at, parent
+    , at, for, parent
     )
 
 {-| REPLACEME
@@ -10,6 +10,7 @@ module Review.ScopeProvider exposing
 -}
 
 import Dict exposing (Dict)
+import Elm.Syntax.Node exposing (Node(..))
 import Elm.Syntax.Range exposing (Location, Range)
 import Review.Resources.ScopeInternal as Internal exposing (ScopeInfo)
 import Review.Scope exposing (Scope)
@@ -45,6 +46,15 @@ atHelp scopeDict range bestMatch childrenIds =
 
             else
                 atHelp scopeDict range bestMatch rest
+
+
+for : ScopeProvider -> Node a -> Scope
+for (Internal.ScopeProvider scopeProvider) (Node range _) =
+    atHelp
+        scopeProvider.scopes
+        range
+        scopeProvider.topLevel
+        scopeProvider.topLevel.children
 
 
 parent : ScopeProvider -> Scope -> Scope
