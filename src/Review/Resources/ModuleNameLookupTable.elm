@@ -879,29 +879,44 @@ expressionEnterVisitor (Node nodeRange node) context =
                             case declaration of
                                 Expression.LetFunction function ->
                                     let
-                                        { name, expression, arguments } =
+                                        decl : Expression.FunctionImplementation
+                                        decl =
                                             Node.value function.declaration
-                                    in
-                                    { names =
-                                        Dict.insert (Node.value name)
-                                            { name = Node.value name
-                                            , range = Node.range name
-                                            , references = []
-                                            }
-                                            names
-                                    , branches =
-                                        NonEmpty.cons
-                                            ( Node.range expression
-                                            , createScope
-                                                { id = scopeIdCounter
-                                                , parentId = letScopeId
-                                                , range = declRange
-                                                , bindings = collectNamesFromPattern arguments Dict.empty
+
+                                        (Node nameRange name) =
+                                            decl.name
+
+                                        newNames : Dict String Binding
+                                        newNames =
+                                            Dict.insert name
+                                                { name = name
+                                                , range = nameRange
+                                                , references = []
                                                 }
-                                            )
-                                            branches
-                                    , scopeIdCounter = scopeIdCounter + 1
-                                    }
+                                                names
+                                    in
+                                    case decl.arguments of
+                                        [] ->
+                                            { names = newNames
+                                            , branches = branches
+                                            , scopeIdCounter = scopeIdCounter
+                                            }
+
+                                        _ ->
+                                            { names = newNames
+                                            , branches =
+                                                NonEmpty.cons
+                                                    ( Node.range decl.expression
+                                                    , createScope
+                                                        { id = scopeIdCounter
+                                                        , parentId = letScopeId
+                                                        , range = declRange
+                                                        , bindings = collectNamesFromPattern decl.arguments Dict.empty
+                                                        }
+                                                    )
+                                                    branches
+                                            , scopeIdCounter = scopeIdCounter + 1
+                                            }
 
                                 Expression.LetDestructuring pattern _ ->
                                     { names = collectNamesFromPattern [ pattern ] names
