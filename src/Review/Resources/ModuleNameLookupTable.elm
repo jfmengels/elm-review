@@ -1013,6 +1013,7 @@ expressionEnterVisitor (Node nodeRange node) context =
                         (moduleNameForValue context name moduleName)
                         context.lookupTable
             }
+                |> addReference moduleName name nodeRange
 
         Expression.RecordUpdateExpression (Node range name) _ ->
             { context
@@ -1169,6 +1170,58 @@ moduleNameForValue context valueName moduleName =
 
         _ ->
             moduleName
+
+
+addReference : ModuleName -> String -> Range -> Context -> Context
+addReference moduleName valueName range context =
+    case moduleName of
+        [] ->
+            case
+                NonEmpty.mapFirstThat
+                    (\scope ->
+                        Dict.get valueName scope.bindings
+                            |> Maybe.map
+                                (\binding ->
+                                    let
+                                        bindings : Bindings
+                                        bindings =
+                                            Dict.insert valueName { binding | references = range :: binding.references } scope.bindings
+                                    in
+                                    { scope | bindings = bindings }
+                                )
+                    )
+                    context.scopeStack
+            of
+                Just scopeStack ->
+                    { context | scopeStack = scopeStack }
+
+                Nothing ->
+                    --Dict.get valueName context.importedFunctions
+                    --    |> Maybe.withDefault []
+                    -- TODO
+                    context
+
+        moduleNameOrAlias :: [] ->
+            --case Dict.get moduleNameOrAlias context.importAliases of
+            --    Just aliases ->
+            --        NonEmpty.findWithHeadAsDefault
+            --            (\aliasedModuleName ->
+            --                case Dict.get aliasedModuleName context.modules of
+            --                    Just module_ ->
+            --                        isValueDeclaredInModule valueName module_
+            --
+            --                    Nothing ->
+            --                        False
+            --            )
+            --            aliases
+            --
+            --    Nothing ->
+            --        moduleName
+            -- TODO
+            context
+
+        _ ->
+            context
 
 
 {-| Get the name of the module where a type was defined.

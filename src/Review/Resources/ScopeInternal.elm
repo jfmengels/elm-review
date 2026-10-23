@@ -10,10 +10,7 @@ module Review.Resources.ScopeInternal exposing
     )
 
 import Dict exposing (Dict)
-import Elm.Syntax.Declaration exposing (Declaration)
-import Elm.Syntax.Expression as Expression
 import Elm.Syntax.ModuleName exposing (ModuleName)
-import Elm.Syntax.Node exposing (Node)
 import Elm.Syntax.Range as Range exposing (Range)
 
 
