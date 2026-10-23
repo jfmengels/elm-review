@@ -21,7 +21,7 @@ import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModu
 import Review.Resources.ElmCorePrelude
 import Review.Resources.Internal exposing (ModuleNameLookupTable)
 import Review.Resources.ModuleNameLookupTableBuilder as Builder exposing (ModuleNameLookupTableBuilder)
-import Review.Resources.ScopeInternal as ScopeProvider exposing (Binding, Bindings, ScopeId, ScopeInfo)
+import Review.Resources.ScopeInternal as ScopeProvider exposing (Binding, ScopeId, ScopeInfo)
 import Review.ScopeProvider exposing (ScopeProvider)
 import Set exposing (Set)
 import Vendor.ListExtra as ListExtra
@@ -281,7 +281,7 @@ computeBaseModule modules =
         Review.Resources.ElmCorePrelude.elmCorePrelude
 
 
-createScope : { id : ScopeId, parentId : ScopeId, range : Range, bindings : Bindings } -> ScopeInfo
+createScope : { id : ScopeId, parentId : ScopeId, range : Range, bindings : Dict String Binding } -> ScopeInfo
 createScope { id, parentId, range, bindings } =
     { id = id
     , parentId = Just parentId
@@ -752,12 +752,12 @@ declarationExitVisitor (Node _ node) context =
             context
 
 
-parameters : List (Node Pattern) -> Bindings
+parameters : List (Node Pattern) -> Dict String Binding
 parameters patterns =
     collectNamesFromPattern patterns Dict.empty
 
 
-collectNamesFromPattern : List (Node Pattern) -> Bindings -> Bindings
+collectNamesFromPattern : List (Node Pattern) -> Dict String Binding -> Dict String Binding
 collectNamesFromPattern patternsToVisit acc =
     case patternsToVisit of
         (Node patternRange pattern) :: restOfPatternsToVisit ->
@@ -864,7 +864,7 @@ expressionEnterVisitor (Node nodeRange node) context =
                 letScopeId =
                     context.scopeIdCounter
 
-                let_ : { names : Bindings, branches : NonEmpty ( Range, ScopeInfo ), scopeIdCounter : ScopeId }
+                let_ : { names : Dict String Binding, branches : NonEmpty ( Range, ScopeInfo ), scopeIdCounter : ScopeId }
                 let_ =
                     List.foldr
                         (\(Node declRange declaration) { names, branches, scopeIdCounter } ->
@@ -1012,7 +1012,7 @@ expressionEnterVisitor (Node nodeRange node) context =
                 range =
                     Node.range expression
 
-                names : Bindings
+                names : Dict String Binding
                 names =
                     collectNamesFromPattern args Dict.empty
             in
@@ -1164,7 +1164,7 @@ addReference moduleName valueName range context =
                             |> Maybe.map
                                 (\binding ->
                                     let
-                                        bindings : Bindings
+                                        bindings : Dict String Binding
                                         bindings =
                                             Dict.insert valueName { binding | references = range :: binding.references } scope.bindings
                                     in

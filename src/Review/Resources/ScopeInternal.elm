@@ -1,6 +1,5 @@
 module Review.Resources.ScopeInternal exposing
     ( Binding
-    , Bindings
     , Scope(..)
     , ScopeId
     , ScopeInfo
@@ -33,13 +32,9 @@ type alias ScopeInfo =
     { id : ScopeId
     , parentId : Maybe ScopeId
     , range : Range
-    , bindings : Bindings
+    , bindings : Dict String Binding
     , children : List ScopeId
     }
-
-
-type alias Bindings =
-    Dict String Binding
 
 
 type alias Binding =
