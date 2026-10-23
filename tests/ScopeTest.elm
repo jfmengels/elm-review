@@ -9,6 +9,7 @@ import Review.Project as Project exposing (Project)
 import Review.Project.ProjectModule as ProjectModule
 import Review.Project.Valid as ValidProject
 import Review.Resources.ModuleNameLookupTable as ModuleNameLookupTable
+import Review.Resources.ScopeInternal exposing (Scope)
 import Review.Scope as Scope
 import Review.ScopeProvider as ScopeProvider exposing (ScopeProvider)
 import Review.Test.Dependencies
@@ -29,7 +30,7 @@ b = a
 c = a + b
 """
                     |> getScopeProvider
-                    |> ScopeProvider.topLevel
+                    |> getTopLevel
                     |> Scope.names
                     |> Set.toList
                     |> Expect.equal [ "a", "b", "c" ]
@@ -42,7 +43,7 @@ b = a
 c = a + b
 """
                     |> getScopeProvider
-                    |> ScopeProvider.topLevel
+                    |> getTopLevel
                     |> Scope.bindings
                     |> dictGetOrFail "a"
                     |> .range
@@ -56,7 +57,7 @@ b = a
 c = a + b
 """
                     |> getScopeProvider
-                    |> ScopeProvider.topLevel
+                    |> getTopLevel
                     |> Scope.bindings
                     |> dictGetOrFail "a"
                     |> .references
@@ -94,7 +95,7 @@ caseScopes =
                         getScopeProvider source
                 in
                 scopeProvider
-                    |> ScopeProvider.topLevel
+                    |> getTopLevel
                     |> ScopeProvider.children scopeProvider
                     |> List.map Scope.range
                     |> List.map (extractSourceCode lines)
@@ -136,6 +137,20 @@ parseOrCrash source =
 
         Err err ->
             Debug.todo ("Invalid source:\n" ++ Debug.toString err)
+
+
+getTopLevel : ScopeProvider -> Scope
+getTopLevel scopeProvider =
+    let
+        topLevel =
+            ScopeProvider.topLevel scopeProvider
+    in
+    case Scope.parentId topLevel of
+        Just _ ->
+            Debug.todo ("Oh no! The top-level is not really the top-level!\n\n" ++ Debug.toString topLevel)
+
+        Nothing ->
+            topLevel
 
 
 dictGetOrFail : comparable -> Dict comparable a -> a
