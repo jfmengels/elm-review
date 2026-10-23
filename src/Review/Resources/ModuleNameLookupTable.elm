@@ -341,7 +341,7 @@ enterScope scope context =
         | scopeIdCounter = context.scopeIdCounter + 1
         , scopeStack =
             NonEmpty.mapHeadThenCons scope
-                (\parent -> { parent | children = scope.id :: parent.children })
+                (\parent -> { parent | children = ( scope.range, scope.id ) :: parent.children })
                 context.scopeStack
         , branches = NonEmpty.pop context.branches
     }
@@ -732,7 +732,7 @@ declarationEnterVisitor (Node _ node) context =
                         , scopeIdCounter = context.scopeIdCounter + 1
                         , scopeStack =
                             NonEmpty.mapHeadThenCons scope
-                                (\parent -> { parent | children = scope.id :: parent.children })
+                                (\parent -> { parent | children = ( scope.range, scope.id ) :: parent.children })
                                 context.scopeStack
                     }
 

@@ -27,7 +27,7 @@ topLevel (Internal.ScopeProvider scopeProvider) =
 children : ScopeProvider -> Scope -> List Scope
 children (Internal.ScopeProvider scopeProvider) (Internal.Scope scope) =
     List.filterMap
-        (\id -> Dict.get id scopeProvider.scopes |> Maybe.map Internal.Scope)
+        (\( _, id ) -> Dict.get id scopeProvider.scopes |> Maybe.map Internal.Scope)
         scope.children
 
 
@@ -40,23 +40,23 @@ scopeAt (Internal.ScopeProvider scopeProvider) range =
         scopeProvider.topLevel.children
 
 
-scopeAtHelp : Dict Int ScopeInfo -> Range -> ScopeInfo -> List Int -> Scope
+scopeAtHelp : Dict Int ScopeInfo -> Range -> ScopeInfo -> List ( Range, Int ) -> Scope
 scopeAtHelp scopeDict range bestMatch childrenIds =
     case childrenIds of
         [] ->
             Internal.Scope bestMatch
 
-        id :: rest ->
-            case Dict.get id scopeDict of
-                Just scope ->
-                    if isRangeIncludedIn range scope.range then
+        ( scopeRange, id ) :: rest ->
+            if isRangeIncludedIn range scopeRange then
+                case Dict.get id scopeDict of
+                    Just scope ->
                         scopeAtHelp scopeDict range scope scope.children
 
-                    else
-                        scopeAtHelp scopeDict range bestMatch rest
+                    Nothing ->
+                        Internal.Scope bestMatch
 
-                Nothing ->
-                    scopeAtHelp scopeDict range bestMatch rest
+            else
+                scopeAtHelp scopeDict range bestMatch rest
 
 
 isRangeIncludedIn : Range -> Range -> Bool
