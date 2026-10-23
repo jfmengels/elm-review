@@ -2,6 +2,7 @@ module Review.Scope exposing
     ( Scope
     , bindings
     , names
+    , parentId
     , range
     )
 
@@ -38,3 +39,8 @@ bindings (Internal.Scope scope) =
 range : Internal.Scope -> Range
 range (Internal.Scope scope) =
     scope.range
+
+
+parentId : Internal.Scope -> Maybe Internal.ScopeId
+parentId (Internal.Scope scope) =
+    scope.parentId
