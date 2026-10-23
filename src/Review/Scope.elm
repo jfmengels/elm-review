@@ -2,6 +2,7 @@ module Review.Scope exposing
     ( Scope
     , bindings
     , names
+    , range
     )
 
 {-| REPLACEME
@@ -11,6 +12,7 @@ module Review.Scope exposing
 -}
 
 import Dict exposing (Dict)
+import Elm.Syntax.Range exposing (Range)
 import Review.Resources.ScopeInternal as Internal
 import Set exposing (Set)
 
@@ -31,3 +33,8 @@ names (Internal.Scope scope) =
 bindings : Scope -> Dict String Binding
 bindings (Internal.Scope scope) =
     scope.bindings
+
+
+range : Internal.Scope -> Range
+range (Internal.Scope scope) =
+    scope.range

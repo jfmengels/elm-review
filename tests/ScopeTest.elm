@@ -62,6 +62,35 @@ c = a + b
                         [ { start = { row = 5, column = 5 }, end = { row = 5, column = 6 } }
                         , { start = { row = 4, column = 5 }, end = { row = 4, column = 6 } }
                         ]
+        , test "top-level scope should have the scope of top-level functions as its children" <|
+            \() ->
+                let
+                    scopeProvider : ScopeProvider
+                    scopeProvider =
+                        getScopeProvider
+                            """
+module A exposing (a, b)
+
+fn n = n + 1
+noScope = 1
+nestedScope = (\\n -> n)
+letScope =
+    let a = 1
+    in a
+caseScopes =
+    case 0 of
+        0 -> 1
+        _ -> (\\n -> n)
+"""
+                in
+                scopeProvider
+                    |> ScopeProvider.topLevel
+                    |> ScopeProvider.children scopeProvider
+                    |> List.map Scope.range
+                    |> Expect.equal
+                        [ { start = { row = 13, column = 14 }, end = { row = 13, column = 23 } }
+                        , { start = { row = 12, column = 14 }, end = { row = 12, column = 15 } }
+                        ]
         ]
 
 

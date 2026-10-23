@@ -1,4 +1,7 @@
-module Review.ScopeProvider exposing (ScopeProvider, topLevel)
+module Review.ScopeProvider exposing
+    ( ScopeProvider, topLevel
+    , children
+    )
 
 {-| REPLACEME
 
