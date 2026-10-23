@@ -6,6 +6,7 @@ module Review.Project.Valid exposing
     , addParsedModule
     , addReadme
     , checkGraph
+    , computeDependencies
     , dependencies
     , dependenciesHash
     , directDependencies
