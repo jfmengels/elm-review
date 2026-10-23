@@ -20,42 +20,26 @@ all =
     describe "Scope"
         [ test "should list all known top-level elements" <|
             \() ->
-                let
-                    source : String
-                    source =
-                        """
+                """
 module A exposing (a, b)
 a = 1
 b = a
 c = a + b
 """
-
-                    scopeProvider : ScopeProvider
-                    scopeProvider =
-                        getScopeProvider source
-                in
-                scopeProvider
+                    |> getScopeProvider
                     |> ScopeProvider.topLevel
                     |> Scope.names
                     |> Set.toList
                     |> Expect.equal [ "a", "b", "c" ]
         , test "should get the binding for a variable name" <|
             \() ->
-                let
-                    source : String
-                    source =
-                        """
+                """
 module A exposing (a, b)
 a = 1
 b = a
 c = a + b
 """
-
-                    scopeProvider : ScopeProvider
-                    scopeProvider =
-                        getScopeProvider source
-                in
-                scopeProvider
+                    |> getScopeProvider
                     |> ScopeProvider.topLevel
                     |> Scope.bindings
                     |> Dict.get "a"
@@ -64,21 +48,13 @@ c = a + b
                     |> Expect.equal { start = { row = 3, column = 1 }, end = { row = 3, column = 2 } }
         , test "should find all references to a top-level variable" <|
             \() ->
-                let
-                    source : String
-                    source =
-                        """
+                """
 module A exposing (a, b)
 a = 1
 b = a
 c = a + b
 """
-
-                    scopeProvider : ScopeProvider
-                    scopeProvider =
-                        getScopeProvider source
-                in
-                scopeProvider
+                    |> getScopeProvider
                     |> ScopeProvider.topLevel
                     |> Scope.bindings
                     |> Dict.get "a"
