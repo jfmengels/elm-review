@@ -1,6 +1,6 @@
 module Review.ScopeProvider exposing
     ( ScopeProvider, topLevel
-    , at
+    , at, parent
     )
 
 {-| REPLACEME
@@ -45,6 +45,20 @@ atHelp scopeDict range bestMatch childrenIds =
 
             else
                 atHelp scopeDict range bestMatch rest
+
+
+parent : ScopeProvider -> Scope -> Scope
+parent (Internal.ScopeProvider scopeProvider) ((Internal.Scope scope) as untouched) =
+    case
+        Maybe.andThen
+            (\parentId -> Dict.get parentId scopeProvider.scopes)
+            scope.parentId
+    of
+        Just parentScope ->
+            Internal.Scope parentScope
+
+        Nothing ->
+            untouched
 
 
 isRangeIncludedIn : Range -> Range -> Bool
