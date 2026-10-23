@@ -1,6 +1,6 @@
 module ScopeTest exposing (all)
 
-import Dict
+import Dict exposing (Dict)
 import Elm.Syntax.File
 import Expect
 import Review.FileParser
@@ -42,8 +42,7 @@ c = a + b
                     |> getScopeProvider
                     |> ScopeProvider.topLevel
                     |> Scope.bindings
-                    |> Dict.get "a"
-                    |> failOnNothing "Could not find a binding `a`"
+                    |> dictGetOrFail "a"
                     |> .range
                     |> Expect.equal { start = { row = 3, column = 1 }, end = { row = 3, column = 2 } }
         , test "should find all references to a top-level variable" <|
@@ -57,8 +56,7 @@ c = a + b
                     |> getScopeProvider
                     |> ScopeProvider.topLevel
                     |> Scope.bindings
-                    |> Dict.get "a"
-                    |> failOnNothing "Could not find a binding `a`"
+                    |> dictGetOrFail "a"
                     |> .references
                     |> Expect.equal
                         [ { start = { row = 5, column = 5 }, end = { row = 5, column = 6 } }
@@ -100,11 +98,11 @@ parseOrCrash source =
             Debug.todo ("Invalid source:\n" ++ Debug.toString err)
 
 
-failOnNothing : String -> Maybe a -> a
-failOnNothing message maybe =
-    case maybe of
+dictGetOrFail : comparable -> Dict comparable a -> a
+dictGetOrFail key dict =
+    case Dict.get key dict of
         Just a ->
             a
 
         Nothing ->
-            Debug.todo message
+            Debug.todo ("Could not get key `" ++ Debug.toString key ++ "`")
