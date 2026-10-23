@@ -2,11 +2,12 @@ module ScopeTest exposing (all)
 
 import Dict exposing (Dict)
 import Elm.Syntax.File
+import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Range exposing (Range)
 import Expect
 import Review.FileParser
 import Review.Project as Project exposing (Project)
-import Review.Project.ProjectModule as ProjectModule
+import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModule)
 import Review.Project.Valid as ValidProject
 import Review.Resources.ModuleNameLookupTable as ModuleNameLookupTable
 import Review.Resources.ScopeInternal exposing (Scope)
@@ -110,24 +111,42 @@ caseScopes =
 getScopeProvider : String -> ScopeProvider
 getScopeProvider source =
     let
-        ( _, scopeProvider, _ ) =
-            ModuleNameLookupTable.compute [ "A" ]
-                (ProjectModule.create
-                    { ast = parseOrCrash source
-                    , isInSourceDirectories = True
-                    , moduleId = 0
-                    , path = "src/A.elm"
-                    , source = source
-                    }
-                )
+        ast : Elm.Syntax.File.File
+        ast =
+            parseOrCrash source
+
+        module_ : OpaqueProjectModule
+        module_ =
+            ProjectModule.create
+                { ast = ast
+                , isInSourceDirectories = True
+                , moduleId = 0
+                , path = "src/A.elm"
+                , source = source
+                }
+
+        moduleName : ModuleName
+        moduleName =
+            ProjectModule.moduleName module_
+
+        ( _, scopeProvider, projectCache ) =
+            ModuleNameLookupTable.compute moduleName
+                module_
                 { dependencies = ValidProject.computeDependencies (Project.directDependencies Review.Test.Dependencies.projectWithElmCore)
                 , elmJsonContentHash = Nothing
                 , lookupTables = Dict.empty
                 , modules = Dict.empty
                 , types = Nothing
                 }
+
+        ( _, scopeProviderOnReRun, _ ) =
+            ModuleNameLookupTable.compute moduleName module_ projectCache
     in
-    scopeProvider
+    if scopeProvider == scopeProviderOnReRun then
+        scopeProvider
+
+    else
+        Debug.todo "Oh no, scope provider is not the same on rerun!"
 
 
 parseOrCrash : String -> Elm.Syntax.File.File
