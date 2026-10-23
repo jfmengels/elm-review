@@ -77,6 +77,7 @@ noScope = "noScope"
 nestedScope = (\\n -> n)
 letScope =
     let a = "letScope"
+        subFnScope n = "subFnScope"
     in a
 caseScopes =
     case 0 of
