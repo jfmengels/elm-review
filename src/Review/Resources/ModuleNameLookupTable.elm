@@ -503,9 +503,9 @@ createBinding name range bindingIdCounter =
 collectPreludeImports : Dict ModuleName Elm.Docs.Module -> { importedFunctions : Dict String ModuleName, importedTypes : Dict String ModuleName, importAliases : Dict String (NonEmpty ModuleName) }
 collectPreludeImports dependencies =
     List.foldl
-        (\import_ acc -> importVisitor dependencies (Node.empty import_) acc)
-        { importedFunctions = Dict.empty, importedTypes = Dict.empty, importAliases = Dict.empty }
-        Review.Resources.ElmCorePrelude.elmCorePrelude
+        (\import_ acc -> registerImportedFunctionsAndTypes dependencies import_.moduleName import_.exposingList acc)
+        { importedFunctions = Dict.empty, importedTypes = Dict.empty, importAliases = Review.Resources.ElmCorePrelude.importAliases }
+        Review.Resources.ElmCorePrelude.modulesWithExposingList
 
 
 importVisitor :
@@ -528,9 +528,9 @@ importVisitor modules (Node _ import_) context =
 
         Just (Node _ exposing_) ->
             registerImportedFunctionsAndTypes
+                modules
                 (Node.value import_.moduleName)
                 exposing_
-                modules
                 { importedFunctions = context.importedFunctions
                 , importedTypes = context.importedTypes
                 , importAliases = importAliases
@@ -566,12 +566,12 @@ registerImportAlias import_ importAliases =
 
 
 registerImportedFunctionsAndTypes :
-    ModuleName
+    Dict ModuleName Elm.Docs.Module
+    -> ModuleName
     -> Exposing
-    -> Dict ModuleName Elm.Docs.Module
     -> { importedFunctions : Dict String ModuleName, importedTypes : Dict String ModuleName, importAliases : Dict String (NonEmpty ModuleName) }
     -> { importedFunctions : Dict String ModuleName, importedTypes : Dict String ModuleName, importAliases : Dict String (NonEmpty ModuleName) }
-registerImportedFunctionsAndTypes moduleName exposing_ modules context =
+registerImportedFunctionsAndTypes modules moduleName exposing_ context =
     let
         module_ : Elm.Docs.Module
         module_ =
