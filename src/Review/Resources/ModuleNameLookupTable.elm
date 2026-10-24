@@ -404,11 +404,7 @@ registerDeclaration (Node _ declaration) acc =
                 (Node nameRange name) =
                     (Node.value function.declaration).name
             in
-            addBinding
-                { name = name
-                , range = nameRange
-                }
-                acc
+            addBinding name nameRange acc
 
         Declaration.AliasDeclaration alias ->
             let
@@ -423,7 +419,7 @@ registerDeclaration (Node _ declaration) acc =
                 TypeAnnotation.Record _ ->
                     let
                         ( binding, bindingIdCounter ) =
-                            createBinding { name = name, range = nameRange } acc.bindingIdCounter
+                            createBinding name nameRange acc.bindingIdCounter
                     in
                     { localTypes = localTypes
                     , bindings = Dict.insert binding.name binding acc.bindings
@@ -443,11 +439,7 @@ registerDeclaration (Node _ declaration) acc =
                         (Node nameRange name) =
                             constructor.name
                     in
-                    addBinding
-                        { name = name
-                        , range = nameRange
-                        }
-                        context_
+                    addBinding name nameRange context_
                 )
                 { acc | localTypes = Set.insert (Node.value customType.name) acc.localTypes }
                 customType.constructors
@@ -457,22 +449,14 @@ registerDeclaration (Node _ declaration) acc =
                 (Node nameRange name) =
                     signature.name
             in
-            addBinding
-                { name = name
-                , range = nameRange
-                }
-                acc
+            addBinding name nameRange acc
 
         Declaration.InfixDeclaration infix_ ->
             let
                 (Node nameRange name) =
                     infix_.operator
             in
-            addBinding
-                { name = name
-                , range = nameRange
-                }
-                acc
+            addBinding name nameRange acc
 
         Declaration.Destructuring _ _ ->
             -- Not possible in 0.19 code
@@ -480,13 +464,14 @@ registerDeclaration (Node _ declaration) acc =
 
 
 addBinding :
-    { name : String, range : Range }
+    String
+    -> Range
     -> { localTypes : Set String, bindings : Dict String Binding, bindingIdCounter : BindingId.Counter }
     -> { localTypes : Set String, bindings : Dict String Binding, bindingIdCounter : BindingId.Counter }
-addBinding params acc =
+addBinding name range acc =
     let
         ( binding, bindingIdCounter ) =
-            createBinding params acc.bindingIdCounter
+            createBinding name range acc.bindingIdCounter
     in
     { localTypes = acc.localTypes
     , bindings = Dict.insert binding.name binding acc.bindings
@@ -494,8 +479,8 @@ addBinding params acc =
     }
 
 
-createBinding : { name : String, range : Range } -> BindingId.Counter -> ( Binding, BindingId.Counter )
-createBinding { name, range } bindingIdCounter =
+createBinding : String -> Range -> BindingId.Counter -> ( Binding, BindingId.Counter )
+createBinding name range bindingIdCounter =
     let
         ( id, counter ) =
             BindingId.new bindingIdCounter
@@ -826,7 +811,7 @@ collectNamesFromPattern patternsToVisit bindingIdCounter acc =
                 Pattern.VarPattern name ->
                     let
                         ( binding, newCounter ) =
-                            createBinding { name = name, range = patternRange } bindingIdCounter
+                            createBinding name patternRange bindingIdCounter
                     in
                     collectNamesFromPattern
                         restOfPatternsToVisit
@@ -843,7 +828,7 @@ collectNamesFromPattern patternsToVisit bindingIdCounter acc =
                                 (\(Node nameRange name) ( subAcc, counter ) ->
                                     let
                                         ( binding, newCounter_ ) =
-                                            createBinding { name = name, range = nameRange } counter
+                                            createBinding name nameRange counter
                                     in
                                     ( Dict.insert binding.name binding subAcc
                                     , newCounter_
@@ -863,7 +848,7 @@ collectNamesFromPattern patternsToVisit bindingIdCounter acc =
                 Pattern.AsPattern subPattern (Node aliasRange aliasName) ->
                     let
                         ( binding, newCounter ) =
-                            createBinding { name = aliasName, range = aliasRange } bindingIdCounter
+                            createBinding aliasName aliasRange bindingIdCounter
                     in
                     collectNamesFromPattern
                         (subPattern :: restOfPatternsToVisit)
@@ -947,7 +932,7 @@ expressionEnterVisitor (Node nodeRange node) context =
                                             (Node.value function.declaration).name
 
                                         ( binding, bindingIdCounter ) =
-                                            createBinding { name = name, range = nameRange } acc.bindingIdCounter
+                                            createBinding name nameRange acc.bindingIdCounter
                                     in
                                     { bindings = Dict.insert binding.name binding acc.bindings
                                     , bindingIdCounter = bindingIdCounter
