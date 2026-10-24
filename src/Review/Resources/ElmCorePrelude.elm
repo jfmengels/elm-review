@@ -1,10 +1,12 @@
-module Review.Resources.ElmCorePrelude exposing (elmCorePrelude)
+module Review.Resources.ElmCorePrelude exposing (elmCorePrelude, importAliases)
 
+import Dict exposing (Dict)
 import Elm.Syntax.Exposing as Exposing exposing (Exposing)
 import Elm.Syntax.Import exposing (Import)
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node exposing (Node(..))
 import Elm.Syntax.Range as Range
+import NonEmpty exposing (NonEmpty)
 
 
 elmCorePrelude : List Import
@@ -108,3 +110,20 @@ createFakeImport { moduleName, moduleAlias, exposingList } =
     , moduleAlias = moduleAlias |> Maybe.map (List.singleton >> Node Range.emptyRange)
     , exposingList = exposingList |> Maybe.map (Node Range.emptyRange)
     }
+
+
+importAliases : Dict String (NonEmpty ModuleName)
+importAliases =
+    Dict.fromList
+        [ ( "Basics", NonEmpty.fromElement [ "Basics" ] )
+        , ( "List", NonEmpty.fromElement [ "List" ] )
+        , ( "Maybe", NonEmpty.fromElement [ "Maybe" ] )
+        , ( "Result", NonEmpty.fromElement [ "Result" ] )
+        , ( "String", NonEmpty.fromElement [ "String" ] )
+        , ( "Char", NonEmpty.fromElement [ "Char" ] )
+        , ( "Tuple", NonEmpty.fromElement [ "Tuple" ] )
+        , ( "Debug", NonEmpty.fromElement [ "Debug" ] )
+        , ( "Platform", NonEmpty.fromElement [ "Platform" ] )
+        , ( "Cmd", NonEmpty.fromElement [ "Platform", "Cmd" ] )
+        , ( "Sub", NonEmpty.fromElement [ "Platform", "Sub" ] )
+        ]

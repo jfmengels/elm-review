@@ -28,7 +28,7 @@ import Review.Project.DocsModule as DocsModule exposing (DocsModule)
 import Review.Project.ProjectCache as ProjectCache exposing (ProjectCache)
 import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModule)
 import Review.Project.Valid as ValidProject exposing (ValidProject)
-import Review.Resources.ElmCorePrelude exposing (elmCorePrelude)
+import Review.Resources.ElmCorePrelude as ElmCorePrelude exposing (elmCorePrelude)
 import Set exposing (Set)
 import Vendor.IntSet as IntSet exposing (IntSet)
 import Vendor.ListExtra as ListExtra
@@ -199,17 +199,13 @@ computeHelp importDocsModuleHashes moduleName module_ projectCache =
 computeBaseModule : ModuleName -> Dict ModuleName Elm.Docs.Module -> Dict ModuleName DocsModule -> Context
 computeBaseModule moduleName dependencies modules =
     let
-        importAliases : Dict String (NonEmpty ModuleName)
-        importAliases =
-            List.foldl (\import_ acc -> registerImportAlias import_ acc) Dict.empty elmCorePrelude
-
         importedTypes : Dict String ModuleName
         importedTypes =
             List.foldl (\import_ acc -> registerImportedTypes import_ dependencies modules acc) Dict.empty elmCorePrelude
     in
     { moduleName = moduleName
     , localTypes = Set.empty
-    , importAliases = importAliases
+    , importAliases = ElmCorePrelude.importAliases
     , importedTypes = importedTypes
     , modules = modules
     , dependencies = dependencies
