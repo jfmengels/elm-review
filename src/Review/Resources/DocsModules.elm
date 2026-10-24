@@ -201,7 +201,7 @@ computeBaseModule moduleName dependencies modules =
     let
         importedTypes : Dict String ModuleName
         importedTypes =
-            List.foldl (\import_ acc -> registerImportedTypes import_ dependencies modules acc) Dict.empty elmCorePrelude
+            List.foldl (\import_ acc -> registerImportedTypes dependencies modules import_ acc) Dict.empty elmCorePrelude
     in
     { moduleName = moduleName
     , localTypes = Set.empty
@@ -277,7 +277,7 @@ collectModuleDocs moduleName ast context types =
 
         importedTypes : Dict String ModuleName
         importedTypes =
-            List.foldl (\(Node _ import_) acc -> registerImportedTypes import_ context.dependencies context.modules acc) context.importedTypes ast.imports
+            List.foldl (\(Node _ import_) acc -> registerImportedTypes context.dependencies context.modules import_ acc) context.importedTypes ast.imports
 
         exposed : { exposesEverything : Bool, exposedNames : Dict String Bool }
         exposed =
@@ -726,12 +726,12 @@ registerImportAlias import_ importAliases =
 
 
 registerImportedTypes :
-    Import
-    -> Dict ModuleName Elm.Docs.Module
+    Dict ModuleName Elm.Docs.Module
     -> Dict ModuleName DocsModule
+    -> Import
     -> Dict String ModuleName
     -> Dict String ModuleName
-registerImportedTypes import_ dependencies modules importedTypes =
+registerImportedTypes dependencies modules import_ importedTypes =
     case import_.exposingList of
         Nothing ->
             importedTypes
