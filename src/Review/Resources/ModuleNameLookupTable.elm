@@ -18,10 +18,11 @@ import NonEmpty exposing (NonEmpty)
 import Review.Project.DocsModule as DocsModule exposing (DocsModule)
 import Review.Project.ProjectCache as ProjectCache exposing (ModuleCacheKey, ProjectCache)
 import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModule)
+import Review.Resources.BindingId as BindingId
 import Review.Resources.ElmCorePrelude
 import Review.Resources.Internal exposing (ModuleNameLookupTable)
 import Review.Resources.ModuleNameLookupTableBuilder as Builder exposing (ModuleNameLookupTableBuilder)
-import Review.Resources.ScopeInternal as ScopeInternal exposing (Binding, BindingIdCounter, ScopeId, ScopeInfo)
+import Review.Resources.ScopeInternal as ScopeInternal exposing (Binding, ScopeId, ScopeInfo)
 import Review.ScopeProvider exposing (ScopeProvider)
 import Set exposing (Set)
 import Vendor.ListExtra as ListExtra
@@ -30,7 +31,7 @@ import Vendor.ListExtra as ListExtra
 type alias Context =
     { scopeStack : NonEmpty ScopeInfo
     , scopeIdCounter : ScopeId
-    , bindingIdCounter : BindingIdCounter
+    , bindingIdCounter : BindingId.Counter
     , scopes : Dict ScopeId ScopeInfo
     , localTypes : Set String
     , importAliases : Dict String (NonEmpty ModuleName)
@@ -270,7 +271,7 @@ computeBaseModule modules =
     List.foldl importVisitor
         { scopeStack = NonEmpty.fromElement topLevelScope
         , scopeIdCounter = 1
-        , bindingIdCounter = ScopeInternal.initialBindingIdCounter
+        , bindingIdCounter = BindingId.counter
         , scopes = Dict.empty
         , localTypes = Set.empty
         , importAliases = Dict.empty
@@ -470,11 +471,11 @@ addToScope params context =
     { context | scopeStack = newScopes, bindingIdCounter = bindingIdCounter }
 
 
-createBinding : { name : String, range : Range } -> BindingIdCounter -> ( Binding, BindingIdCounter )
+createBinding : { name : String, range : Range } -> BindingId.Counter -> ( Binding, BindingId.Counter )
 createBinding { name, range } bindingIdCounter =
     let
         ( id, counter ) =
-            ScopeInternal.bindingId bindingIdCounter
+            BindingId.new bindingIdCounter
     in
     ( { id = id
       , name = name
@@ -791,7 +792,7 @@ declarationExitVisitor (Node _ node) context =
             context
 
 
-collectNamesFromPattern : List (Node Pattern) -> BindingIdCounter -> Dict String Binding -> ( Dict String Binding, BindingIdCounter )
+collectNamesFromPattern : List (Node Pattern) -> BindingId.Counter -> Dict String Binding -> ( Dict String Binding, BindingId.Counter )
 collectNamesFromPattern patternsToVisit bindingIdCounter acc =
     case patternsToVisit of
         (Node patternRange pattern) :: restOfPatternsToVisit ->
@@ -910,7 +911,7 @@ expressionEnterVisitor (Node nodeRange node) context =
                         , bindings = letBlock.bindings
                         }
 
-                letBlock : { bindings : Dict String Binding, bindingIdCounter : BindingIdCounter }
+                letBlock : { bindings : Dict String Binding, bindingIdCounter : BindingId.Counter }
                 letBlock =
                     List.foldr
                         (\(Node _ declaration) acc ->
@@ -942,7 +943,7 @@ expressionEnterVisitor (Node nodeRange node) context =
                 let_ :
                     { branches : NonEmpty ( Range, ScopeInfo )
                     , scopeIdCounter : ScopeId
-                    , bindingIdCounter : BindingIdCounter
+                    , bindingIdCounter : BindingId.Counter
                     }
                 let_ =
                     List.foldr

@@ -9,8 +9,9 @@ import Review.FileParser
 import Review.Project as Project exposing (Project)
 import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModule)
 import Review.Project.Valid as ValidProject
+import Review.Resources.BindingId as BindingId
 import Review.Resources.ModuleNameLookupTable as ModuleNameLookupTable
-import Review.Resources.ScopeInternal as Internal exposing (Binding, Scope(..))
+import Review.Resources.ScopeInternal exposing (Binding, Scope(..))
 import Review.Scope as Scope
 import Review.ScopeProvider as ScopeProvider exposing (ScopeProvider)
 import Review.Test.Dependencies
@@ -243,7 +244,7 @@ bindingIdsAreUnique seenBindings scopes =
 
                             Ok soFar ->
                                 let
-                                    (Internal.BindingId id) =
+                                    (BindingId.Id id) =
                                         binding.id
                                 in
                                 case Dict.get id soFar of
