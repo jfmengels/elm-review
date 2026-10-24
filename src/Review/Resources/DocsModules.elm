@@ -28,7 +28,7 @@ import Review.Project.DocsModule as DocsModule exposing (DocsModule)
 import Review.Project.ProjectCache as ProjectCache exposing (ProjectCache)
 import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModule)
 import Review.Project.Valid as ValidProject exposing (ValidProject)
-import Review.Resources.ElmCorePrelude as ElmCorePrelude exposing (elmCorePrelude)
+import Review.Resources.ElmCorePrelude as ElmCorePrelude exposing (modulesWithExposingList)
 import Set exposing (Set)
 import Vendor.IntSet as IntSet exposing (IntSet)
 import Vendor.ListExtra as ListExtra
@@ -201,7 +201,7 @@ computeBaseModule moduleName dependencies modules =
     let
         importedTypes : Dict String ModuleName
         importedTypes =
-            List.foldl (\import_ acc -> registerImportedTypes dependencies modules import_ acc) Dict.empty elmCorePrelude
+            List.foldl (\import_ acc -> registerImportedTypesWithExposing dependencies modules import_.moduleName import_.exposingList acc) Dict.empty modulesWithExposingList
     in
     { moduleName = moduleName
     , localTypes = Set.empty
