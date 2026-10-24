@@ -5922,24 +5922,7 @@ filterModuleDocs params imports projectCache =
                 Dict.empty
     in
     List.foldl
-        (\(Node _ import_) dict ->
-            let
-                moduleName : ModuleName
-                moduleName =
-                    Node.value import_.moduleName
-            in
-            case Dict.get moduleName projectCache.modules of
-                Just doc ->
-                    Dict.insert moduleName (DocsModule.mod doc) dict
-
-                Nothing ->
-                    case Dict.get moduleName dependencies of
-                        Just doc ->
-                            Dict.insert moduleName doc dict
-
-                        Nothing ->
-                            dict
-        )
+        (\(Node _ import_) dict -> addModuleFromImport dependencies projectCache.modules import_ dict)
         Dict.empty
         (if params.implicitImports && params.dependencies then
             Review.Resources.ElmCorePrelude.elmCorePrelude ++ imports
@@ -5947,6 +5930,31 @@ filterModuleDocs params imports projectCache =
          else
             imports
         )
+
+
+addModuleFromImport :
+    Dict ModuleName Elm.Docs.Module
+    -> Dict ModuleName DocsModule
+    -> Import
+    -> Dict ModuleName Elm.Docs.Module
+    -> Dict ModuleName Elm.Docs.Module
+addModuleFromImport dependencies modules import_ dict =
+    let
+        moduleName : ModuleName
+        moduleName =
+            Node.value import_.moduleName
+    in
+    case Dict.get moduleName modules of
+        Just doc ->
+            Dict.insert moduleName (DocsModule.mod doc) dict
+
+        Nothing ->
+            case Dict.get moduleName dependencies of
+                Just doc ->
+                    Dict.insert moduleName doc dict
+
+                Nothing ->
+                    dict
 
 
 computeConstructorToType : { implicitImports : Bool, dependencies : Bool } -> Bool -> ModuleName -> Elm.Syntax.File.File -> ProjectCache -> Dict ModuleName (Dict String String)
