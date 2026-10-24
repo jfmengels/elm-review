@@ -5922,12 +5922,12 @@ filterModuleDocs params imports projectCache =
                 Dict.empty
     in
     List.foldl
-        (\(Node _ import_) dict -> addModuleFromImport dependencies projectCache.modules import_ dict)
+        (\(Node _ import_) dict -> addModule dependencies projectCache.modules (Node.value import_.moduleName) dict)
         (if params.implicitImports && params.dependencies then
             List.foldl
-                (\import_ dict -> addModuleFromImport dependencies projectCache.modules import_ dict)
+                (\moduleName dict -> addModule dependencies projectCache.modules moduleName dict)
                 Dict.empty
-                Review.Resources.ElmCorePrelude.elmCorePrelude
+                Review.Resources.ElmCorePrelude.moduleNames
 
          else
             Dict.empty
@@ -5935,18 +5935,13 @@ filterModuleDocs params imports projectCache =
         imports
 
 
-addModuleFromImport :
+addModule :
     Dict ModuleName Elm.Docs.Module
     -> Dict ModuleName DocsModule
-    -> Import
+    -> ModuleName
     -> Dict ModuleName Elm.Docs.Module
     -> Dict ModuleName Elm.Docs.Module
-addModuleFromImport dependencies modules import_ dict =
-    let
-        moduleName : ModuleName
-        moduleName =
-            Node.value import_.moduleName
-    in
+addModule dependencies modules moduleName dict =
     case Dict.get moduleName modules of
         Just doc ->
             Dict.insert moduleName (DocsModule.mod doc) dict

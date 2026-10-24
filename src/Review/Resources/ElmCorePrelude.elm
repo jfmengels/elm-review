@@ -1,4 +1,4 @@
-module Review.Resources.ElmCorePrelude exposing (elmCorePrelude, importAliases)
+module Review.Resources.ElmCorePrelude exposing (elmCorePrelude, importAliases, moduleNames)
 
 import Dict exposing (Dict)
 import Elm.Syntax.Exposing as Exposing exposing (Exposing)
@@ -110,6 +110,22 @@ createFakeImport { moduleName, moduleAlias, exposingList } =
     , moduleAlias = moduleAlias |> Maybe.map (List.singleton >> Node Range.emptyRange)
     , exposingList = exposingList |> Maybe.map (Node Range.emptyRange)
     }
+
+
+moduleNames : List ModuleName
+moduleNames =
+    [ [ "Basics" ]
+    , [ "List" ]
+    , [ "Maybe" ]
+    , [ "Result" ]
+    , [ "String" ]
+    , [ "Char" ]
+    , [ "Tuple" ]
+    , [ "Debug" ]
+    , [ "Platform" ]
+    , [ "Platform", "Cmd" ]
+    , [ "Platform", "Sub" ]
+    ]
 
 
 importAliases : Dict String (NonEmpty ModuleName)
