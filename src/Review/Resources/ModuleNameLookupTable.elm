@@ -135,14 +135,16 @@ computeHelp moduleName module_ projectCache =
             computeBaseModule
                 modules
                 (declarationListVisitor moduleAst.declarations)
+                (List.foldl
+                    (importVisitor modules)
+                    { importedFunctions = Dict.empty, importedTypes = Dict.empty, importAliases = Dict.empty }
+                    -- TODO Precompute for elmCorePrelude
+                    (Review.Resources.ElmCorePrelude.elmCorePrelude ++ moduleAst.imports)
+                )
 
         moduleContext : Context
         moduleContext =
-            List.foldl
-                importVisitor
-                baseModuleContext
-                (Review.Resources.ElmCorePrelude.elmCorePrelude ++ moduleAst.imports)
-                |> collectLookupTable moduleAst.declarations
+            collectLookupTable moduleAst.declarations baseModuleContext
 
         topLevelScope : ScopeInfo
         topLevelScope =
@@ -267,8 +269,9 @@ insertConstructors tags acc =
 computeBaseModule :
     Dict ModuleName Elm.Docs.Module
     -> { localTypes : Set String, bindings : Dict String Binding, bindingIdCounter : BindingId.Counter }
+    -> { importedFunctions : Dict String ModuleName, importedTypes : Dict String ModuleName, importAliases : Dict String (NonEmpty ModuleName) }
     -> Context
-computeBaseModule modules { localTypes, bindings, bindingIdCounter } =
+computeBaseModule modules { localTypes, bindings, bindingIdCounter } { importedFunctions, importedTypes, importAliases } =
     let
         topLevelScope : ScopeInfo
         topLevelScope =
@@ -284,9 +287,9 @@ computeBaseModule modules { localTypes, bindings, bindingIdCounter } =
     , bindingIdCounter = bindingIdCounter
     , scopes = Dict.empty
     , localTypes = localTypes
-    , importAliases = Dict.empty
-    , importedFunctions = Dict.empty
-    , importedTypes = Dict.empty
+    , importAliases = importAliases
+    , importedFunctions = importedFunctions
+    , importedTypes = importedTypes
     , modules = modules
     , lookupTable = Builder.empty
     , branches = NonEmpty.fromElement ( Range.empty, topLevelScope )
@@ -498,14 +501,19 @@ createBinding name range bindingIdCounter =
 -- IMPORT VISITOR
 
 
-importVisitor : Node Import -> Context -> Context
-importVisitor (Node _ import_) context =
-    let
-        importAliases : Dict String (NonEmpty ModuleName)
-        importAliases =
-            registerImportAlias import_ context.importAliases
-    in
-    registerImportedFunctionsAndTypes import_ { context | importAliases = importAliases }
+importVisitor :
+    Dict ModuleName Elm.Docs.Module
+    -> Node Import
+    -> { importedFunctions : Dict String ModuleName, importedTypes : Dict String ModuleName, importAliases : Dict String (NonEmpty ModuleName) }
+    -> { importedFunctions : Dict String ModuleName, importedTypes : Dict String ModuleName, importAliases : Dict String (NonEmpty ModuleName) }
+importVisitor modules (Node _ import_) context =
+    registerImportedFunctionsAndTypes
+        import_
+        modules
+        { importedFunctions = context.importedFunctions
+        , importedTypes = context.importedTypes
+        , importAliases = registerImportAlias import_ context.importAliases
+        }
 
 
 registerImportAlias : Import -> Dict String (NonEmpty ModuleName) -> Dict String (NonEmpty ModuleName)
@@ -536,8 +544,12 @@ registerImportAlias import_ importAliases =
     Dict.insert qualifier toInsert importAliases
 
 
-registerImportedFunctionsAndTypes : Import -> Context -> Context
-registerImportedFunctionsAndTypes import_ context =
+registerImportedFunctionsAndTypes :
+    Import
+    -> Dict ModuleName Elm.Docs.Module
+    -> { importedFunctions : Dict String ModuleName, importedTypes : Dict String ModuleName, importAliases : Dict String (NonEmpty ModuleName) }
+    -> { importedFunctions : Dict String ModuleName, importedTypes : Dict String ModuleName, importAliases : Dict String (NonEmpty ModuleName) }
+registerImportedFunctionsAndTypes import_ modules context =
     case import_.exposingList of
         Nothing ->
             context
@@ -550,7 +562,7 @@ registerImportedFunctionsAndTypes import_ context =
 
                 module_ : Elm.Docs.Module
                 module_ =
-                    case Dict.get moduleName context.modules of
+                    case Dict.get moduleName modules of
                         Just mod ->
                             mod
 
@@ -606,9 +618,9 @@ registerImportedFunctionsAndTypes import_ context =
                                 |> foldIntoDict module_.unions
                                 |> foldIntoDict module_.aliases
                     in
-                    { context
-                        | importedFunctions = importedFunctions
-                        , importedTypes = importedTypes
+                    { importedFunctions = importedFunctions
+                    , importedTypes = importedTypes
+                    , importAliases = context.importAliases
                     }
 
                 Exposing.Explicit topLevelExposeList ->
@@ -635,9 +647,9 @@ registerImportedFunctionsAndTypes import_ context =
                                 context.importedTypes
                                 topLevelExposeList
                     in
-                    { context
-                        | importedFunctions = importedFunctions
-                        , importedTypes = importedTypes
+                    { importedFunctions = importedFunctions
+                    , importedTypes = importedTypes
+                    , importAliases = context.importAliases
                     }
 
 
