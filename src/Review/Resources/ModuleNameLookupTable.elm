@@ -341,8 +341,7 @@ visitExpressions ((Node range _) as node) context =
 enterScope : ScopeInfo -> Context -> Context
 enterScope scope context =
     { context
-        | scopeIdCounter = context.scopeIdCounter + 1
-        , scopeStack =
+        | scopeStack =
             NonEmpty.mapHeadThenCons scope
                 (\parent -> { parent | children = ScopeInternal.Scope scope :: parent.children })
                 context.scopeStack
