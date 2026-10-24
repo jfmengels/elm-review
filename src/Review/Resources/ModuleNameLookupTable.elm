@@ -121,15 +121,18 @@ computeHelp moduleName module_ projectCache =
         moduleAst =
             ProjectModule.ast module_
 
-        baseModuleContext : Context
-        baseModuleContext =
+        modules : Dict ModuleName Elm.Docs.Module
+        modules =
             Dict.foldl
                 (\key docs dict ->
                     Dict.insert key (DocsModule.mod docs) dict
                 )
                 projectCache.dependencies
                 projectCache.modules
-                |> computeBaseModule
+
+        baseModuleContext : Context
+        baseModuleContext =
+            computeBaseModule modules
 
         moduleContext : Context
         moduleContext =
