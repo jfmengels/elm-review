@@ -11,7 +11,7 @@ import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModu
 import Review.Project.Valid as ValidProject
 import Review.Resources.BindingId as BindingId
 import Review.Resources.ModuleNameLookupTable as ModuleNameLookupTable
-import Review.Resources.ScopeInternal exposing (Binding, Scope(..))
+import Review.Resources.ScopeInternal exposing (Binding, Scope(..), ScopeInfo)
 import Review.Scope as Scope
 import Review.ScopeProvider as ScopeProvider exposing (ScopeProvider)
 import Review.Test.Dependencies
@@ -202,7 +202,7 @@ runChecks : ScopeProvider -> ScopeProvider
 runChecks scopeProvider =
     case
         topLevelIsActuallyTopLevel scopeProvider
-            --|> scopeIdsAreUnique Set.empty
+            |> Result.andThen (\() -> scopeIdsAreUnique Dict.empty [ ScopeProvider.topLevel scopeProvider ])
             --|> allParentsPointToParent
             |> Result.andThen (\() -> bindingIdsAreUnique Dict.empty [ ScopeProvider.topLevel scopeProvider ])
     of
@@ -226,6 +226,26 @@ topLevelIsActuallyTopLevel scopeProvider =
 
         Nothing ->
             Ok ()
+
+
+scopeIdsAreUnique : Dict Int ScopeInfo -> List Scope -> Result String ()
+scopeIdsAreUnique seenScopes scopes =
+    case scopes of
+        [] ->
+            Ok ()
+
+        (Scope scope) :: rest ->
+            case Dict.get scope.id seenScopes of
+                Nothing ->
+                    scopeIdsAreUnique (Dict.insert scope.id scope seenScopes) (scope.children ++ rest)
+
+                Just previousScope ->
+                    [ "Duplicate scope ids!"
+                    , Debug.toString previousScope
+                    , Debug.toString scope
+                    ]
+                        |> String.join "\n\n"
+                        |> Err
 
 
 bindingIdsAreUnique : Dict Int Binding -> List Scope -> Result String ()
