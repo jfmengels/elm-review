@@ -22,6 +22,7 @@ import Review.Resources.BindingId as BindingId
 import Review.Resources.ElmCorePrelude
 import Review.Resources.Internal exposing (ModuleNameLookupTable)
 import Review.Resources.ModuleNameLookupTableBuilder as Builder exposing (ModuleNameLookupTableBuilder)
+import Review.Resources.ScopeId as ScopeId
 import Review.Resources.ScopeInternal as ScopeInternal exposing (Binding, ScopeId, ScopeInfo)
 import Review.ScopeProvider exposing (ScopeProvider)
 import Set exposing (Set)
@@ -30,7 +31,7 @@ import Vendor.ListExtra as ListExtra
 
 type alias Context =
     { scopeStack : NonEmpty ScopeInfo
-    , scopeIdCounter : ScopeId
+    , scopeIdCounter : ScopeId.Counter
     , bindingIdCounter : BindingId.Counter
     , scopes : Dict ScopeId ScopeInfo
     , localTypes : Set String
@@ -261,7 +262,7 @@ computeBaseModule modules =
     let
         topLevelScope : ScopeInfo
         topLevelScope =
-            { id = 0
+            { id = ScopeId.topLevel
             , parentId = Nothing
             , range = Range.empty -- TODO Use full range
             , bindings = Dict.empty
@@ -270,7 +271,7 @@ computeBaseModule modules =
     in
     List.foldl importVisitor
         { scopeStack = NonEmpty.fromElement topLevelScope
-        , scopeIdCounter = 1
+        , scopeIdCounter = ScopeId.counter
         , bindingIdCounter = BindingId.counter
         , scopes = Dict.empty
         , localTypes = Set.empty
@@ -736,10 +737,13 @@ declarationEnterVisitor (Node _ node) context =
                         ( bindings, bindingIdCounter ) =
                             collectNamesFromPattern functionDeclaration.arguments context.bindingIdCounter Dict.empty
 
+                        ( scopeId, scopeIdCounter ) =
+                            ScopeId.new context.scopeIdCounter
+
                         scope : ScopeInfo
                         scope =
                             createScope
-                                { id = context.scopeIdCounter
+                                { id = scopeId
                                 , parentId = (NonEmpty.head context.scopeStack).id
                                 , range = functionRange
                                 , bindings = bindings
@@ -747,7 +751,7 @@ declarationEnterVisitor (Node _ node) context =
                     in
                     { context
                         | lookupTable = finalLookupTable
-                        , scopeIdCounter = context.scopeIdCounter + 1
+                        , scopeIdCounter = scopeIdCounter
                         , bindingIdCounter = bindingIdCounter
                         , scopeStack =
                             NonEmpty.mapHeadThenCons scope
@@ -897,9 +901,8 @@ expressionEnterVisitor (Node nodeRange node) context =
     case node of
         Expression.LetExpression letExpression ->
             let
-                letScopeId : ScopeId
-                letScopeId =
-                    context.scopeIdCounter
+                ( letScopeId, scopeIdCounter2 ) =
+                    ScopeId.new context.scopeIdCounter
 
                 letScope : ScopeInfo
                 letScope =
@@ -941,7 +944,7 @@ expressionEnterVisitor (Node nodeRange node) context =
 
                 let_ :
                     { branches : NonEmpty ( Range, ScopeInfo )
-                    , scopeIdCounter : ScopeId
+                    , scopeIdCounter : ScopeId.Counter
                     , bindingIdCounter : BindingId.Counter
                     }
                 let_ =
@@ -959,6 +962,9 @@ expressionEnterVisitor (Node nodeRange node) context =
 
                                         _ ->
                                             let
+                                                ( scopeId, scopeIdCounter ) =
+                                                    ScopeId.new acc.scopeIdCounter
+
                                                 ( bindings, bindingIdCounter ) =
                                                     collectNamesFromPattern arguments acc.bindingIdCounter Dict.empty
                                             in
@@ -966,14 +972,14 @@ expressionEnterVisitor (Node nodeRange node) context =
                                                 NonEmpty.cons
                                                     ( Node.range expression
                                                     , createScope
-                                                        { id = acc.scopeIdCounter
+                                                        { id = scopeId
                                                         , parentId = letScopeId
                                                         , range = declRange
                                                         , bindings = bindings
                                                         }
                                                     )
                                                     acc.branches
-                                            , scopeIdCounter = acc.scopeIdCounter + 1
+                                            , scopeIdCounter = scopeIdCounter
                                             , bindingIdCounter = bindingIdCounter
                                             }
 
@@ -981,7 +987,7 @@ expressionEnterVisitor (Node nodeRange node) context =
                                     acc
                         )
                         { branches = NonEmpty.cons ( nodeRange, letScope ) context.branches
-                        , scopeIdCounter = context.scopeIdCounter + 1
+                        , scopeIdCounter = scopeIdCounter2
                         , bindingIdCounter = letBlock.bindingIdCounter
                         }
                         letExpression.declarations
@@ -1032,6 +1038,9 @@ expressionEnterVisitor (Node nodeRange node) context =
                     List.foldr
                         (\( pattern, Node expressionRange _ ) acc ->
                             let
+                                ( scopeId, newScopeIdCounter ) =
+                                    ScopeId.new acc.scopeIdCounter
+
                                 ( bindings, bindingIdCounter_ ) =
                                     collectNamesFromPattern [ pattern ] acc.bindingIdCounter Dict.empty
                             in
@@ -1039,7 +1048,7 @@ expressionEnterVisitor (Node nodeRange node) context =
                                 NonEmpty.cons
                                     ( expressionRange
                                     , createScope
-                                        { id = acc.scopeIdCounter
+                                        { id = scopeId
                                         , parentId = parentId
                                         , range = expressionRange
                                         , bindings = bindings
@@ -1047,7 +1056,7 @@ expressionEnterVisitor (Node nodeRange node) context =
                                     )
                                     acc.branches
                             , lookupTable = collectModuleNamesFromPattern context [ pattern ] acc.lookupTable
-                            , scopeIdCounter = acc.scopeIdCounter + 1
+                            , scopeIdCounter = newScopeIdCounter
                             , bindingIdCounter = bindingIdCounter_
                             }
                         )
@@ -1090,18 +1099,21 @@ expressionEnterVisitor (Node nodeRange node) context =
                 range =
                     Node.range expression
 
+                ( scopeId, scopeIdCounter ) =
+                    ScopeId.new context.scopeIdCounter
+
                 ( bindings, bindingIdCounter ) =
                     collectNamesFromPattern args context.bindingIdCounter Dict.empty
             in
             { context
                 | lookupTable = collectModuleNamesFromPattern context args context.lookupTable
-                , scopeIdCounter = context.scopeIdCounter + 1
+                , scopeIdCounter = scopeIdCounter
                 , bindingIdCounter = bindingIdCounter
                 , branches =
                     NonEmpty.cons
                         ( range
                         , createScope
-                            { id = context.scopeIdCounter
+                            { id = scopeId
                             , parentId = (NonEmpty.head context.scopeStack).id
                             , range = range
                             , bindings = bindings
