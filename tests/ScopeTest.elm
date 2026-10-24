@@ -10,11 +10,11 @@ import Review.Project as Project exposing (Project)
 import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModule)
 import Review.Project.Valid as ValidProject
 import Review.Resources.ModuleNameLookupTable as ModuleNameLookupTable
-import Review.Resources.ScopeInternal exposing (Scope)
+import Review.Resources.ScopeInternal as Internal exposing (Binding, Scope(..))
 import Review.Scope as Scope
 import Review.ScopeProvider as ScopeProvider exposing (ScopeProvider)
 import Review.Test.Dependencies
-import Set
+import Set exposing (Set)
 import Test exposing (Test, describe, test)
 import Unicode
 
@@ -199,11 +199,20 @@ parseOrCrash source =
 
 runChecks : ScopeProvider -> ScopeProvider
 runChecks scopeProvider =
-    scopeProvider
-        |> topLevelIsActuallyTopLevel
+    case
+        topLevelIsActuallyTopLevel scopeProvider
+            --|> scopeIdsAreUnique Set.empty
+            --|> allParentsPointToParent
+            |> Result.andThen (\() -> bindingIdsAreUnique Dict.empty [ ScopeProvider.topLevel scopeProvider ])
+    of
+        Ok () ->
+            scopeProvider
+
+        Err error ->
+            Debug.todo error
 
 
-topLevelIsActuallyTopLevel : ScopeProvider -> ScopeProvider
+topLevelIsActuallyTopLevel : ScopeProvider -> Result String ()
 topLevelIsActuallyTopLevel scopeProvider =
     let
         topLevel : Scope
@@ -212,10 +221,51 @@ topLevelIsActuallyTopLevel scopeProvider =
     in
     case Scope.parentId topLevel of
         Just _ ->
-            Debug.todo ("Oh no! The top-level is not really the top-level!\n\n" ++ Debug.toString topLevel)
+            Err ("Oh no! The top-level is not really the top-level!\n\n" ++ Debug.toString topLevel)
 
         Nothing ->
-            scopeProvider
+            Ok ()
+
+
+bindingIdsAreUnique : Dict Int Binding -> List Scope -> Result String ()
+bindingIdsAreUnique seenBindings scopes =
+    case scopes of
+        [] ->
+            Ok ()
+
+        (Scope scope) :: rest ->
+            case
+                Dict.foldl
+                    (\_ binding acc ->
+                        case acc of
+                            Err _ ->
+                                acc
+
+                            Ok soFar ->
+                                let
+                                    (Internal.BindingId id) =
+                                        binding.id
+                                in
+                                case Dict.get id soFar of
+                                    Nothing ->
+                                        Ok (Dict.insert id binding soFar)
+
+                                    Just previousBinding ->
+                                        [ "Duplicate binding ids!"
+                                        , Debug.toString previousBinding
+                                        , Debug.toString binding
+                                        ]
+                                            |> String.join "\n\n"
+                                            |> Err
+                    )
+                    (Ok seenBindings)
+                    scope.bindings
+            of
+                Ok bindings ->
+                    bindingIdsAreUnique bindings (scope.children ++ rest)
+
+                Err error ->
+                    Err error
 
 
 extractSourceCode : List String -> Range -> String
