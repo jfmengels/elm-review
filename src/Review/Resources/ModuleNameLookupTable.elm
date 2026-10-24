@@ -415,21 +415,26 @@ registerDeclaration (Node _ declaration) acc =
                 (Node nameRange name) =
                     alias.name
 
-                registerAlias : { localTypes : Set String, bindings : Dict String Binding, bindingIdCounter : BindingId.Counter } -> { localTypes : Set String, bindings : Dict String Binding, bindingIdCounter : BindingId.Counter }
-                registerAlias ctx =
-                    case Node.value alias.typeAnnotation of
-                        TypeAnnotation.Record _ ->
-                            addBinding
-                                { name = name
-                                , range = nameRange
-                                }
-                                ctx
-
-                        _ ->
-                            ctx
+                localTypes : Set String
+                localTypes =
+                    Set.insert name acc.localTypes
             in
-            { acc | localTypes = Set.insert name acc.localTypes }
-                |> registerAlias
+            case Node.value alias.typeAnnotation of
+                TypeAnnotation.Record _ ->
+                    let
+                        ( binding, bindingIdCounter ) =
+                            createBinding { name = name, range = nameRange } acc.bindingIdCounter
+                    in
+                    { localTypes = localTypes
+                    , bindings = Dict.insert binding.name binding acc.bindings
+                    , bindingIdCounter = bindingIdCounter
+                    }
+
+                _ ->
+                    { localTypes = localTypes
+                    , bindings = acc.bindings
+                    , bindingIdCounter = acc.bindingIdCounter
+                    }
 
         Declaration.CustomTypeDeclaration customType ->
             List.foldl
