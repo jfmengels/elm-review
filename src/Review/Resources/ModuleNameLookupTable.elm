@@ -133,8 +133,10 @@ computeHelp moduleName module_ projectCache =
 
         moduleContext : Context
         moduleContext =
-            List.foldl importVisitor baseModuleContext moduleAst.imports
-                |> declarationListVisitor moduleAst.declarations
+            List.foldl
+                importVisitor
+                (declarationListVisitor moduleAst.declarations baseModuleContext)
+                moduleAst.imports
                 |> collectLookupTable moduleAst.declarations
 
         topLevelScope : ScopeInfo
