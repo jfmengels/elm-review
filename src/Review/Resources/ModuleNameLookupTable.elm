@@ -136,7 +136,7 @@ computeHelp moduleName module_ projectCache =
             List.foldl
                 importVisitor
                 (declarationListVisitor moduleAst.declarations baseModuleContext)
-                moduleAst.imports
+                (Review.Resources.ElmCorePrelude.elmCorePrelude ++ moduleAst.imports)
                 |> collectLookupTable moduleAst.declarations
 
         topLevelScope : ScopeInfo
@@ -271,20 +271,18 @@ computeBaseModule modules =
             , children = []
             }
     in
-    List.foldl importVisitor
-        { scopeStack = NonEmpty.fromElement topLevelScope
-        , scopeIdCounter = ScopeId.counter
-        , bindingIdCounter = BindingId.counter
-        , scopes = Dict.empty
-        , localTypes = Set.empty
-        , importAliases = Dict.empty
-        , importedFunctions = Dict.empty
-        , importedTypes = Dict.empty
-        , modules = modules
-        , lookupTable = Builder.empty
-        , branches = NonEmpty.fromElement ( Range.empty, topLevelScope )
-        }
-        Review.Resources.ElmCorePrelude.elmCorePrelude
+    { scopeStack = NonEmpty.fromElement topLevelScope
+    , scopeIdCounter = ScopeId.counter
+    , bindingIdCounter = BindingId.counter
+    , scopes = Dict.empty
+    , localTypes = Set.empty
+    , importAliases = Dict.empty
+    , importedFunctions = Dict.empty
+    , importedTypes = Dict.empty
+    , modules = modules
+    , lookupTable = Builder.empty
+    , branches = NonEmpty.fromElement ( Range.empty, topLevelScope )
+    }
 
 
 createScope : { id : ScopeId, parentId : ScopeId, range : Range, bindings : Dict String Binding } -> ScopeInfo
