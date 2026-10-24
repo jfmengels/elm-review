@@ -137,9 +137,8 @@ computeHelp moduleName module_ projectCache =
                 (declarationListVisitor moduleAst.declarations)
                 (List.foldl
                     (importVisitor modules)
-                    { importedFunctions = Dict.empty, importedTypes = Dict.empty, importAliases = Dict.empty }
-                    -- TODO Precompute for elmCorePrelude
-                    (List.map Node.empty Review.Resources.ElmCorePrelude.elmCorePrelude ++ moduleAst.imports)
+                    (collectPreludeImports projectCache.dependencies)
+                    moduleAst.imports
                 )
 
         moduleContext : Context
@@ -499,6 +498,14 @@ createBinding name range bindingIdCounter =
 
 
 -- IMPORT VISITOR
+
+
+collectPreludeImports : Dict ModuleName Elm.Docs.Module -> { importedFunctions : Dict String ModuleName, importedTypes : Dict String ModuleName, importAliases : Dict String (NonEmpty ModuleName) }
+collectPreludeImports dependencies =
+    List.foldl
+        (\import_ acc -> importVisitor dependencies (Node.empty import_) acc)
+        { importedFunctions = Dict.empty, importedTypes = Dict.empty, importAliases = Dict.empty }
+        Review.Resources.ElmCorePrelude.elmCorePrelude
 
 
 importVisitor :
