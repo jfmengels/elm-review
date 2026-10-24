@@ -31,7 +31,7 @@ b = a
 c = a + b
 """
                     |> getScopeProvider
-                    |> getTopLevel
+                    |> ScopeProvider.topLevel
                     |> Scope.names
                     |> Set.toList
                     |> Expect.equal [ "a", "b", "c" ]
@@ -44,7 +44,7 @@ b = a
 c = a + b
 """
                     |> getScopeProvider
-                    |> getTopLevel
+                    |> ScopeProvider.topLevel
                     |> Scope.bindings
                     |> Dict.toList
                     |> List.map (\( key, scope ) -> ( key, scope.range ))
@@ -62,7 +62,7 @@ b = a
 c = a + b
 """
                     |> getScopeProvider
-                    |> getTopLevel
+                    |> ScopeProvider.topLevel
                     |> Scope.bindings
                     |> Dict.toList
                     |> List.map (\( key, scope ) -> ( key, scope.references ))
@@ -102,7 +102,7 @@ caseScopes =
                 in
                 source
                     |> getScopeProvider
-                    |> getTopLevel
+                    |> ScopeProvider.topLevel
                     |> Scope.children
                     |> List.map (\s -> extractSourceCode lines (Scope.range s))
                     |> Expect.equal
@@ -181,7 +181,7 @@ getScopeProvider source =
             ModuleNameLookupTable.compute moduleName module_ projectCache
     in
     if scopeProvider == scopeProviderOnReRun then
-        scopeProvider
+        runChecks scopeProvider
 
     else
         Debug.todo "Oh no, scope provider is not the same on rerun!"
@@ -197,8 +197,14 @@ parseOrCrash source =
             Debug.todo ("Invalid source:\n" ++ Debug.toString err)
 
 
-getTopLevel : ScopeProvider -> Scope
-getTopLevel scopeProvider =
+runChecks : ScopeProvider -> ScopeProvider
+runChecks scopeProvider =
+    scopeProvider
+        |> topLevelIsActuallyTopLevel
+
+
+topLevelIsActuallyTopLevel : ScopeProvider -> ScopeProvider
+topLevelIsActuallyTopLevel scopeProvider =
     let
         topLevel : Scope
         topLevel =
@@ -209,7 +215,7 @@ getTopLevel scopeProvider =
             Debug.todo ("Oh no! The top-level is not really the top-level!\n\n" ++ Debug.toString topLevel)
 
         Nothing ->
-            topLevel
+            scopeProvider
 
 
 extractSourceCode : List String -> Range -> String
