@@ -1,11 +1,15 @@
 module Review.Resources.ScopeInternal exposing
     ( Binding
+    , BindingId(..)
+    , BindingIdCounter
     , Scope(..)
     , ScopeId
     , ScopeInfo
     , ScopeProvider(..)
+    , bindingId
     , empty
     , fromScopes
+    , initialBindingIdCounter
     )
 
 import Dict exposing (Dict)
@@ -28,6 +32,24 @@ type alias ScopeId =
     Int
 
 
+type BindingId
+    = BindingId Int
+
+
+type BindingIdCounter
+    = BindingIdCounter Int
+
+
+initialBindingIdCounter : BindingIdCounter
+initialBindingIdCounter =
+    BindingIdCounter 0
+
+
+bindingId : BindingIdCounter -> ( BindingId, BindingIdCounter )
+bindingId (BindingIdCounter n) =
+    ( BindingId n, BindingIdCounter (n + 1) )
+
+
 type alias ScopeInfo =
     { id : ScopeId
     , parentId : Maybe ScopeId
@@ -38,7 +60,8 @@ type alias ScopeInfo =
 
 
 type alias Binding =
-    { name : String
+    { id : BindingId
+    , name : String
     , range : Range
     , references : List Range
     }

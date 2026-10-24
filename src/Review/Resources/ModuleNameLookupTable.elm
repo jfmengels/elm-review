@@ -21,7 +21,7 @@ import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModu
 import Review.Resources.ElmCorePrelude
 import Review.Resources.Internal exposing (ModuleNameLookupTable)
 import Review.Resources.ModuleNameLookupTableBuilder as Builder exposing (ModuleNameLookupTableBuilder)
-import Review.Resources.ScopeInternal as ScopeInternal exposing (Binding, ScopeId, ScopeInfo)
+import Review.Resources.ScopeInternal as ScopeInternal exposing (Binding, BindingIdCounter, ScopeId, ScopeInfo)
 import Review.ScopeProvider exposing (ScopeProvider)
 import Set exposing (Set)
 import Vendor.ListExtra as ListExtra
@@ -30,6 +30,7 @@ import Vendor.ListExtra as ListExtra
 type alias Context =
     { scopeStack : NonEmpty ScopeInfo
     , scopeIdCounter : ScopeId
+    , bindingIdCounter : BindingIdCounter
     , scopes : Dict ScopeId ScopeInfo
     , localTypes : Set String
     , importAliases : Dict String (NonEmpty ModuleName)
@@ -269,6 +270,7 @@ computeBaseModule modules =
     List.foldl importVisitor
         { scopeStack = NonEmpty.fromElement topLevelScope
         , scopeIdCounter = 1
+        , bindingIdCounter = ScopeInternal.initialBindingIdCounter
         , scopes = Dict.empty
         , localTypes = Set.empty
         , importAliases = Dict.empty
@@ -386,7 +388,6 @@ registerDeclaration (Node _ declaration) context =
             addToScope
                 { name = name
                 , range = nameRange
-                , references = []
                 }
                 context
 
@@ -402,7 +403,6 @@ registerDeclaration (Node _ declaration) context =
                             addToScope
                                 { name = name
                                 , range = nameRange
-                                , references = []
                                 }
                                 ctx
 
@@ -422,7 +422,6 @@ registerDeclaration (Node _ declaration) context =
                     addToScope
                         { name = name
                         , range = nameRange
-                        , references = []
                         }
                         context_
                 )
@@ -437,7 +436,6 @@ registerDeclaration (Node _ declaration) context =
             addToScope
                 { name = name
                 , range = nameRange
-                , references = []
                 }
                 context
 
@@ -449,7 +447,6 @@ registerDeclaration (Node _ declaration) context =
             addToScope
                 { name = name
                 , range = nameRange
-                , references = []
                 }
                 context
 
@@ -458,16 +455,34 @@ registerDeclaration (Node _ declaration) context =
             context
 
 
-addToScope : Binding -> Context -> Context
-addToScope binding context =
+addToScope : { name : String, range : Range } -> Context -> Context
+addToScope params context =
     let
+        ( binding, bindingIdCounter ) =
+            createBinding params context.bindingIdCounter
+
         newScopes : NonEmpty ScopeInfo
         newScopes =
             NonEmpty.mapHead
                 (\scope -> { scope | bindings = Dict.insert binding.name binding scope.bindings })
                 context.scopeStack
     in
-    { context | scopeStack = newScopes }
+    { context | scopeStack = newScopes, bindingIdCounter = bindingIdCounter }
+
+
+createBinding : { name : String, range : Range } -> BindingIdCounter -> ( Binding, BindingIdCounter )
+createBinding { name, range } bindingIdCounter =
+    let
+        ( id, counter ) =
+            ScopeInternal.bindingId bindingIdCounter
+    in
+    ( { id = id
+      , name = name
+      , range = range
+      , references = []
+      }
+    , counter
+    )
 
 
 
@@ -718,18 +733,22 @@ declarationEnterVisitor (Node _ node) context =
 
                 _ ->
                     let
+                        ( bindings, bindingIdCounter ) =
+                            collectNamesFromPattern functionDeclaration.arguments context.bindingIdCounter Dict.empty
+
                         scope : ScopeInfo
                         scope =
                             createScope
                                 { id = context.scopeIdCounter
                                 , parentId = (NonEmpty.head context.scopeStack).id
                                 , range = functionRange
-                                , bindings = parameters functionDeclaration.arguments
+                                , bindings = bindings
                                 }
                     in
                     { context
                         | lookupTable = finalLookupTable
                         , scopeIdCounter = context.scopeIdCounter + 1
+                        , bindingIdCounter = bindingIdCounter
                         , scopeStack =
                             NonEmpty.mapHeadThenCons scope
                                 (\parent -> { parent | children = ScopeInternal.Scope scope :: parent.children })
@@ -772,74 +791,72 @@ declarationExitVisitor (Node _ node) context =
             context
 
 
-parameters : List (Node Pattern) -> Dict String Binding
-parameters patterns =
-    collectNamesFromPattern patterns Dict.empty
-
-
-collectNamesFromPattern : List (Node Pattern) -> Dict String Binding -> Dict String Binding
-collectNamesFromPattern patternsToVisit acc =
+collectNamesFromPattern : List (Node Pattern) -> BindingIdCounter -> Dict String Binding -> ( Dict String Binding, BindingIdCounter )
+collectNamesFromPattern patternsToVisit bindingIdCounter acc =
     case patternsToVisit of
         (Node patternRange pattern) :: restOfPatternsToVisit ->
             case pattern of
                 Pattern.VarPattern name ->
+                    let
+                        ( binding, newCounter ) =
+                            createBinding { name = name, range = patternRange } bindingIdCounter
+                    in
                     collectNamesFromPattern
                         restOfPatternsToVisit
-                        (Dict.insert name
-                            { name = name
-                            , range = patternRange
-                            , references = []
-                            }
-                            acc
-                        )
+                        newCounter
+                        (Dict.insert binding.name binding acc)
 
                 Pattern.NamedPattern _ subPatterns ->
-                    collectNamesFromPattern (List.append subPatterns restOfPatternsToVisit) acc
+                    collectNamesFromPattern (List.append subPatterns restOfPatternsToVisit) bindingIdCounter acc
 
                 Pattern.RecordPattern names ->
+                    let
+                        ( bindings, newCounter ) =
+                            List.foldl
+                                (\(Node nameRange name) ( subAcc, counter ) ->
+                                    let
+                                        ( binding, newCounter_ ) =
+                                            createBinding { name = name, range = nameRange } counter
+                                    in
+                                    ( Dict.insert binding.name binding subAcc
+                                    , newCounter_
+                                    )
+                                )
+                                ( acc, bindingIdCounter )
+                                names
+                    in
                     collectNamesFromPattern
                         restOfPatternsToVisit
-                        (List.foldl
-                            (\(Node nameRange name) subAcc ->
-                                Dict.insert name
-                                    { name = name
-                                    , range = nameRange
-                                    , references = []
-                                    }
-                                    subAcc
-                            )
-                            acc
-                            names
-                        )
+                        newCounter
+                        bindings
 
                 Pattern.ParenthesizedPattern subPattern ->
-                    collectNamesFromPattern (subPattern :: restOfPatternsToVisit) acc
+                    collectNamesFromPattern (subPattern :: restOfPatternsToVisit) bindingIdCounter acc
 
                 Pattern.AsPattern subPattern (Node aliasRange aliasName) ->
+                    let
+                        ( binding, newCounter ) =
+                            createBinding { name = aliasName, range = aliasRange } bindingIdCounter
+                    in
                     collectNamesFromPattern
                         (subPattern :: restOfPatternsToVisit)
-                        (Dict.insert aliasName
-                            { name = aliasName
-                            , range = aliasRange
-                            , references = []
-                            }
-                            acc
-                        )
+                        newCounter
+                        (Dict.insert binding.name binding acc)
 
                 Pattern.TuplePattern subPatterns ->
-                    collectNamesFromPattern (List.append subPatterns restOfPatternsToVisit) acc
+                    collectNamesFromPattern (List.append subPatterns restOfPatternsToVisit) bindingIdCounter acc
 
                 Pattern.UnConsPattern left right ->
-                    collectNamesFromPattern (left :: right :: restOfPatternsToVisit) acc
+                    collectNamesFromPattern (left :: right :: restOfPatternsToVisit) bindingIdCounter acc
 
                 Pattern.ListPattern subPatterns ->
-                    collectNamesFromPattern (List.append subPatterns restOfPatternsToVisit) acc
+                    collectNamesFromPattern (List.append subPatterns restOfPatternsToVisit) bindingIdCounter acc
 
                 _ ->
-                    collectNamesFromPattern restOfPatternsToVisit acc
+                    collectNamesFromPattern restOfPatternsToVisit bindingIdCounter acc
 
         [] ->
-            acc
+            ( acc, bindingIdCounter )
 
 
 collectModuleNamesFromPattern : Context -> List (Node Pattern) -> ModuleNameLookupTableBuilder -> ModuleNameLookupTableBuilder
@@ -890,33 +907,43 @@ expressionEnterVisitor (Node nodeRange node) context =
                         { id = letScopeId
                         , parentId = (NonEmpty.head context.scopeStack).id
                         , range = nodeRange
-                        , bindings = letBindings
+                        , bindings = letBlock.bindings
                         }
 
-                letBindings : Dict String Binding
-                letBindings =
+                letBlock : { bindings : Dict String Binding, bindingIdCounter : BindingIdCounter }
+                letBlock =
                     List.foldr
-                        (\(Node _ declaration) bindings ->
+                        (\(Node _ declaration) acc ->
                             case declaration of
                                 Expression.LetFunction function ->
                                     let
                                         (Node nameRange name) =
                                             (Node.value function.declaration).name
+
+                                        ( binding, bindingIdCounter ) =
+                                            createBinding { name = name, range = nameRange } acc.bindingIdCounter
                                     in
-                                    Dict.insert name
-                                        { name = name
-                                        , range = nameRange
-                                        , references = []
-                                        }
-                                        bindings
+                                    { bindings = Dict.insert binding.name binding acc.bindings
+                                    , bindingIdCounter = bindingIdCounter
+                                    }
 
                                 Expression.LetDestructuring pattern _ ->
-                                    collectNamesFromPattern [ pattern ] bindings
+                                    let
+                                        ( bindings, bindingIdCounter ) =
+                                            collectNamesFromPattern [ pattern ] acc.bindingIdCounter acc.bindings
+                                    in
+                                    { bindings = bindings
+                                    , bindingIdCounter = bindingIdCounter
+                                    }
                         )
-                        Dict.empty
+                        { bindings = Dict.empty, bindingIdCounter = context.bindingIdCounter }
                         letExpression.declarations
 
-                let_ : { branches : NonEmpty ( Range, ScopeInfo ), scopeIdCounter : ScopeId }
+                let_ :
+                    { branches : NonEmpty ( Range, ScopeInfo )
+                    , scopeIdCounter : ScopeId
+                    , bindingIdCounter : BindingIdCounter
+                    }
                 let_ =
                     List.foldr
                         (\(Node declRange declaration) acc ->
@@ -931,6 +958,10 @@ expressionEnterVisitor (Node nodeRange node) context =
                                             acc
 
                                         _ ->
+                                            let
+                                                ( bindings, bindingIdCounter ) =
+                                                    collectNamesFromPattern arguments acc.bindingIdCounter Dict.empty
+                                            in
                                             { branches =
                                                 NonEmpty.cons
                                                     ( Node.range expression
@@ -938,11 +969,12 @@ expressionEnterVisitor (Node nodeRange node) context =
                                                         { id = acc.scopeIdCounter
                                                         , parentId = letScopeId
                                                         , range = declRange
-                                                        , bindings = collectNamesFromPattern arguments Dict.empty
+                                                        , bindings = bindings
                                                         }
                                                     )
                                                     acc.branches
                                             , scopeIdCounter = acc.scopeIdCounter + 1
+                                            , bindingIdCounter = bindingIdCounter
                                             }
 
                                 Expression.LetDestructuring _ _ ->
@@ -950,6 +982,7 @@ expressionEnterVisitor (Node nodeRange node) context =
                         )
                         { branches = NonEmpty.cons ( nodeRange, letScope ) context.branches
                         , scopeIdCounter = context.scopeIdCounter + 1
+                        , bindingIdCounter = letBlock.bindingIdCounter
                         }
                         letExpression.declarations
 
@@ -995,9 +1028,13 @@ expressionEnterVisitor (Node nodeRange node) context =
                 parentId =
                     (NonEmpty.head context.scopeStack).id
 
-                { branches, lookupTable, scopeIdCounter } =
+                { branches, lookupTable, scopeIdCounter, bindingIdCounter } =
                     List.foldr
                         (\( pattern, Node expressionRange _ ) acc ->
+                            let
+                                ( bindings, bindingIdCounter_ ) =
+                                    collectNamesFromPattern [ pattern ] acc.bindingIdCounter Dict.empty
+                            in
                             { branches =
                                 NonEmpty.cons
                                     ( expressionRange
@@ -1005,17 +1042,19 @@ expressionEnterVisitor (Node nodeRange node) context =
                                         { id = acc.scopeIdCounter
                                         , parentId = parentId
                                         , range = expressionRange
-                                        , bindings = collectNamesFromPattern [ pattern ] Dict.empty
+                                        , bindings = bindings
                                         }
                                     )
                                     acc.branches
                             , lookupTable = collectModuleNamesFromPattern context [ pattern ] acc.lookupTable
                             , scopeIdCounter = acc.scopeIdCounter + 1
+                            , bindingIdCounter = bindingIdCounter_
                             }
                         )
                         { branches = context.branches
                         , lookupTable = context.lookupTable
                         , scopeIdCounter = context.scopeIdCounter
+                        , bindingIdCounter = context.bindingIdCounter
                         }
                         caseBlock.cases
             in
@@ -1023,6 +1062,7 @@ expressionEnterVisitor (Node nodeRange node) context =
                 | branches = branches
                 , lookupTable = lookupTable
                 , scopeIdCounter = scopeIdCounter
+                , bindingIdCounter = bindingIdCounter
             }
 
         Expression.FunctionOrValue moduleName name ->
@@ -1050,13 +1090,13 @@ expressionEnterVisitor (Node nodeRange node) context =
                 range =
                     Node.range expression
 
-                names : Dict String Binding
-                names =
-                    collectNamesFromPattern args Dict.empty
+                ( bindings, bindingIdCounter ) =
+                    collectNamesFromPattern args context.bindingIdCounter Dict.empty
             in
             { context
                 | lookupTable = collectModuleNamesFromPattern context args context.lookupTable
                 , scopeIdCounter = context.scopeIdCounter + 1
+                , bindingIdCounter = bindingIdCounter
                 , branches =
                     NonEmpty.cons
                         ( range
@@ -1064,7 +1104,7 @@ expressionEnterVisitor (Node nodeRange node) context =
                             { id = context.scopeIdCounter
                             , parentId = (NonEmpty.head context.scopeStack).id
                             , range = range
-                            , bindings = names
+                            , bindings = bindings
                             }
                         )
                         context.branches
