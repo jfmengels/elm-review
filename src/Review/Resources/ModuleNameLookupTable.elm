@@ -995,24 +995,28 @@ expressionEnterVisitor (Node nodeRange node) context =
                 parentId =
                     (NonEmpty.head context.scopeStack).id
 
-                ( branches, lookupTable, scopeIdCounter ) =
+                { branches, lookupTable, scopeIdCounter } =
                     List.foldr
-                        (\( pattern, Node expressionRange _ ) ( branchesAcc, lookupTableAcc, counter ) ->
-                            ( NonEmpty.cons
-                                ( expressionRange
-                                , createScope
-                                    { id = counter
-                                    , parentId = parentId
-                                    , range = expressionRange
-                                    , bindings = collectNamesFromPattern [ pattern ] Dict.empty
-                                    }
-                                )
-                                branchesAcc
-                            , collectModuleNamesFromPattern context [ pattern ] lookupTableAcc
-                            , counter + 1
-                            )
+                        (\( pattern, Node expressionRange _ ) acc ->
+                            { branches =
+                                NonEmpty.cons
+                                    ( expressionRange
+                                    , createScope
+                                        { id = acc.scopeIdCounter
+                                        , parentId = parentId
+                                        , range = expressionRange
+                                        , bindings = collectNamesFromPattern [ pattern ] Dict.empty
+                                        }
+                                    )
+                                    acc.branches
+                            , lookupTable = collectModuleNamesFromPattern context [ pattern ] acc.lookupTable
+                            , scopeIdCounter = acc.scopeIdCounter + 1
+                            }
                         )
-                        ( context.branches, context.lookupTable, context.scopeIdCounter )
+                        { branches = context.branches
+                        , lookupTable = context.lookupTable
+                        , scopeIdCounter = context.scopeIdCounter
+                        }
                         caseBlock.cases
             in
             { context
