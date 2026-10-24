@@ -132,13 +132,15 @@ computeHelp moduleName module_ projectCache =
 
         baseModuleContext : Context
         baseModuleContext =
-            computeBaseModule modules
+            computeBaseModule
+                modules
+                (declarationListVisitor moduleAst.declarations)
 
         moduleContext : Context
         moduleContext =
             List.foldl
                 importVisitor
-                (declarationListVisitor moduleAst.declarations baseModuleContext)
+                baseModuleContext
                 (Review.Resources.ElmCorePrelude.elmCorePrelude ++ moduleAst.imports)
                 |> collectLookupTable moduleAst.declarations
 
@@ -262,23 +264,26 @@ insertConstructors tags acc =
         tags
 
 
-computeBaseModule : Dict ModuleName Elm.Docs.Module -> Context
-computeBaseModule modules =
+computeBaseModule :
+    Dict ModuleName Elm.Docs.Module
+    -> { localTypes : Set String, bindings : Dict String Binding, bindingIdCounter : BindingId.Counter }
+    -> Context
+computeBaseModule modules { localTypes, bindings, bindingIdCounter } =
     let
         topLevelScope : ScopeInfo
         topLevelScope =
             { id = ScopeId.topLevel
             , parentId = Nothing
             , range = Range.empty -- TODO Use full range
-            , bindings = Dict.empty
+            , bindings = bindings
             , children = []
             }
     in
     { scopeStack = NonEmpty.fromElement topLevelScope
     , scopeIdCounter = ScopeId.counter
-    , bindingIdCounter = BindingId.counter
+    , bindingIdCounter = bindingIdCounter
     , scopes = Dict.empty
-    , localTypes = Set.empty
+    , localTypes = localTypes
     , importAliases = Dict.empty
     , importedFunctions = Dict.empty
     , importedTypes = Dict.empty
@@ -376,35 +381,45 @@ exitLetScope (Node _ expr) context =
             context
 
 
-declarationListVisitor : List (Node Declaration) -> Context -> Context
-declarationListVisitor declarations context =
-    List.foldl registerDeclaration context declarations
+declarationListVisitor :
+    List (Node Declaration)
+    -> { localTypes : Set String, bindings : Dict String Binding, bindingIdCounter : BindingId.Counter }
+declarationListVisitor declarations =
+    List.foldl registerDeclaration
+        { localTypes = Set.empty
+        , bindings = Dict.empty
+        , bindingIdCounter = BindingId.counter
+        }
+        declarations
 
 
-registerDeclaration : Node Declaration -> Context -> Context
-registerDeclaration (Node _ declaration) context =
+registerDeclaration :
+    Node Declaration
+    -> { localTypes : Set String, bindings : Dict String Binding, bindingIdCounter : BindingId.Counter }
+    -> { localTypes : Set String, bindings : Dict String Binding, bindingIdCounter : BindingId.Counter }
+registerDeclaration (Node _ declaration) acc =
     case declaration of
         Declaration.FunctionDeclaration function ->
             let
                 (Node nameRange name) =
                     (Node.value function.declaration).name
             in
-            addToScope
+            addBinding
                 { name = name
                 , range = nameRange
                 }
-                context
+                acc
 
         Declaration.AliasDeclaration alias ->
             let
                 (Node nameRange name) =
                     alias.name
 
-                registerAlias : Context -> Context
+                registerAlias : { localTypes : Set String, bindings : Dict String Binding, bindingIdCounter : BindingId.Counter } -> { localTypes : Set String, bindings : Dict String Binding, bindingIdCounter : BindingId.Counter }
                 registerAlias ctx =
                     case Node.value alias.typeAnnotation of
                         TypeAnnotation.Record _ ->
-                            addToScope
+                            addBinding
                                 { name = name
                                 , range = nameRange
                                 }
@@ -413,7 +428,7 @@ registerDeclaration (Node _ declaration) context =
                         _ ->
                             ctx
             in
-            { context | localTypes = Set.insert name context.localTypes }
+            { acc | localTypes = Set.insert name acc.localTypes }
                 |> registerAlias
 
         Declaration.CustomTypeDeclaration customType ->
@@ -423,13 +438,13 @@ registerDeclaration (Node _ declaration) context =
                         (Node nameRange name) =
                             constructor.name
                     in
-                    addToScope
+                    addBinding
                         { name = name
                         , range = nameRange
                         }
                         context_
                 )
-                { context | localTypes = Set.insert (Node.value customType.name) context.localTypes }
+                { acc | localTypes = Set.insert (Node.value customType.name) acc.localTypes }
                 customType.constructors
 
         Declaration.PortDeclaration signature ->
@@ -437,41 +452,41 @@ registerDeclaration (Node _ declaration) context =
                 (Node nameRange name) =
                     signature.name
             in
-            addToScope
+            addBinding
                 { name = name
                 , range = nameRange
                 }
-                context
+                acc
 
         Declaration.InfixDeclaration infix_ ->
             let
                 (Node nameRange name) =
                     infix_.operator
             in
-            addToScope
+            addBinding
                 { name = name
                 , range = nameRange
                 }
-                context
+                acc
 
         Declaration.Destructuring _ _ ->
             -- Not possible in 0.19 code
-            context
+            acc
 
 
-addToScope : { name : String, range : Range } -> Context -> Context
-addToScope params context =
+addBinding :
+    { name : String, range : Range }
+    -> { localTypes : Set String, bindings : Dict String Binding, bindingIdCounter : BindingId.Counter }
+    -> { localTypes : Set String, bindings : Dict String Binding, bindingIdCounter : BindingId.Counter }
+addBinding params acc =
     let
         ( binding, bindingIdCounter ) =
-            createBinding params context.bindingIdCounter
-
-        newScopes : NonEmpty ScopeInfo
-        newScopes =
-            NonEmpty.mapHead
-                (\scope -> { scope | bindings = Dict.insert binding.name binding scope.bindings })
-                context.scopeStack
+            createBinding params acc.bindingIdCounter
     in
-    { context | scopeStack = newScopes, bindingIdCounter = bindingIdCounter }
+    { localTypes = acc.localTypes
+    , bindings = Dict.insert binding.name binding acc.bindings
+    , bindingIdCounter = bindingIdCounter
+    }
 
 
 createBinding : { name : String, range : Range } -> BindingId.Counter -> ( Binding, BindingId.Counter )
