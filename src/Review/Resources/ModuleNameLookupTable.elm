@@ -3,7 +3,7 @@ module Review.Resources.ModuleNameLookupTable exposing (compute)
 import Dict exposing (Dict)
 import Elm.Docs
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
-import Elm.Syntax.Exposing as Exposing exposing (TopLevelExpose)
+import Elm.Syntax.Exposing as Exposing exposing (Exposing, TopLevelExpose)
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.File
 import Elm.Syntax.Import exposing (Import)
@@ -507,13 +507,27 @@ importVisitor :
     -> { importedFunctions : Dict String ModuleName, importedTypes : Dict String ModuleName, importAliases : Dict String (NonEmpty ModuleName) }
     -> { importedFunctions : Dict String ModuleName, importedTypes : Dict String ModuleName, importAliases : Dict String (NonEmpty ModuleName) }
 importVisitor modules (Node _ import_) context =
-    registerImportedFunctionsAndTypes
-        import_
-        modules
-        { importedFunctions = context.importedFunctions
-        , importedTypes = context.importedTypes
-        , importAliases = registerImportAlias import_ context.importAliases
-        }
+    let
+        importAliases : Dict String (NonEmpty ModuleName)
+        importAliases =
+            registerImportAlias import_ context.importAliases
+    in
+    case import_.exposingList of
+        Nothing ->
+            { importedFunctions = context.importedFunctions
+            , importedTypes = context.importedTypes
+            , importAliases = importAliases
+            }
+
+        Just (Node _ exposing_) ->
+            registerImportedFunctionsAndTypes
+                (Node.value import_.moduleName)
+                exposing_
+                modules
+                { importedFunctions = context.importedFunctions
+                , importedTypes = context.importedTypes
+                , importAliases = importAliases
+                }
 
 
 registerImportAlias : Import -> Dict String (NonEmpty ModuleName) -> Dict String (NonEmpty ModuleName)
@@ -545,112 +559,104 @@ registerImportAlias import_ importAliases =
 
 
 registerImportedFunctionsAndTypes :
-    Import
+    ModuleName
+    -> Exposing
     -> Dict ModuleName Elm.Docs.Module
     -> { importedFunctions : Dict String ModuleName, importedTypes : Dict String ModuleName, importAliases : Dict String (NonEmpty ModuleName) }
     -> { importedFunctions : Dict String ModuleName, importedTypes : Dict String ModuleName, importAliases : Dict String (NonEmpty ModuleName) }
-registerImportedFunctionsAndTypes import_ modules context =
-    case import_.exposingList of
-        Nothing ->
-            context
+registerImportedFunctionsAndTypes moduleName exposing_ modules context =
+    let
+        module_ : Elm.Docs.Module
+        module_ =
+            case Dict.get moduleName modules of
+                Just mod ->
+                    mod
 
-        Just (Node _ exposing_) ->
+                Nothing ->
+                    { name = joinModuleName moduleName
+                    , comment = ""
+                    , unions = []
+                    , values = []
+                    , aliases = []
+                    , binops = []
+                    }
+    in
+    case exposing_ of
+        Exposing.All _ ->
             let
-                moduleName : ModuleName
-                moduleName =
-                    Node.value import_.moduleName
+                foldIntoDict : List { a | name : comparable } -> Dict comparable ModuleName -> Dict comparable ModuleName
+                foldIntoDict list dict =
+                    List.foldl (\{ name } acc -> Dict.insert name moduleName acc) dict list
 
-                module_ : Elm.Docs.Module
-                module_ =
-                    case Dict.get moduleName modules of
-                        Just mod ->
-                            mod
+                addRecordAliases : List Elm.Docs.Alias -> Dict String ModuleName -> Dict String ModuleName
+                addRecordAliases list dict =
+                    List.foldl
+                        (\{ name, tipe } acc ->
+                            if isPlainRecordType tipe then
+                                Dict.insert name moduleName acc
 
-                        Nothing ->
-                            { name = joinModuleName moduleName
-                            , comment = ""
-                            , unions = []
-                            , values = []
-                            , aliases = []
-                            , binops = []
-                            }
+                            else
+                                acc
+                        )
+                        dict
+                        list
+
+                foldCustomTypesIntoDict : List { a | tags : List ( String, b ) } -> Dict String ModuleName -> Dict String ModuleName
+                foldCustomTypesIntoDict unions dict =
+                    List.foldl
+                        (\union acc ->
+                            List.foldl (\( name, _ ) subAcc -> Dict.insert name moduleName subAcc) acc union.tags
+                        )
+                        dict
+                        unions
+
+                importedFunctions : Dict String ModuleName
+                importedFunctions =
+                    context.importedFunctions
+                        |> foldIntoDict module_.values
+                        |> foldIntoDict module_.binops
+                        |> addRecordAliases module_.aliases
+                        |> foldCustomTypesIntoDict module_.unions
+
+                importedTypes : Dict String ModuleName
+                importedTypes =
+                    context.importedTypes
+                        |> foldIntoDict module_.unions
+                        |> foldIntoDict module_.aliases
             in
-            case exposing_ of
-                Exposing.All _ ->
-                    let
-                        foldIntoDict : List { a | name : comparable } -> Dict comparable ModuleName -> Dict comparable ModuleName
-                        foldIntoDict list dict =
-                            List.foldl (\{ name } acc -> Dict.insert name moduleName acc) dict list
+            { importedFunctions = importedFunctions
+            , importedTypes = importedTypes
+            , importAliases = context.importAliases
+            }
 
-                        addRecordAliases : List Elm.Docs.Alias -> Dict String ModuleName -> Dict String ModuleName
-                        addRecordAliases list dict =
-                            List.foldl
-                                (\{ name, tipe } acc ->
-                                    if isPlainRecordType tipe then
-                                        Dict.insert name moduleName acc
+        Exposing.Explicit topLevelExposeList ->
+            let
+                importedFunctions : Dict String ModuleName
+                importedFunctions =
+                    valuesFromExposingList
+                        moduleName
+                        module_
+                        topLevelExposeList
+                        context.importedFunctions
 
-                                    else
-                                        acc
-                                )
-                                dict
-                                list
+                importedTypes : Dict String ModuleName
+                importedTypes =
+                    List.foldl
+                        (\topLevelExpose acc ->
+                            case typesFromExposingList topLevelExpose of
+                                Just name ->
+                                    Dict.insert name moduleName acc
 
-                        foldCustomTypesIntoDict : List { a | tags : List ( String, b ) } -> Dict String ModuleName -> Dict String ModuleName
-                        foldCustomTypesIntoDict unions dict =
-                            List.foldl
-                                (\union acc ->
-                                    List.foldl (\( name, _ ) subAcc -> Dict.insert name moduleName subAcc) acc union.tags
-                                )
-                                dict
-                                unions
-
-                        importedFunctions : Dict String ModuleName
-                        importedFunctions =
-                            context.importedFunctions
-                                |> foldIntoDict module_.values
-                                |> foldIntoDict module_.binops
-                                |> addRecordAliases module_.aliases
-                                |> foldCustomTypesIntoDict module_.unions
-
-                        importedTypes : Dict String ModuleName
-                        importedTypes =
-                            context.importedTypes
-                                |> foldIntoDict module_.unions
-                                |> foldIntoDict module_.aliases
-                    in
-                    { importedFunctions = importedFunctions
-                    , importedTypes = importedTypes
-                    , importAliases = context.importAliases
-                    }
-
-                Exposing.Explicit topLevelExposeList ->
-                    let
-                        importedFunctions : Dict String ModuleName
-                        importedFunctions =
-                            valuesFromExposingList
-                                moduleName
-                                module_
-                                topLevelExposeList
-                                context.importedFunctions
-
-                        importedTypes : Dict String ModuleName
-                        importedTypes =
-                            List.foldl
-                                (\topLevelExpose acc ->
-                                    case typesFromExposingList topLevelExpose of
-                                        Just name ->
-                                            Dict.insert name moduleName acc
-
-                                        Nothing ->
-                                            acc
-                                )
-                                context.importedTypes
-                                topLevelExposeList
-                    in
-                    { importedFunctions = importedFunctions
-                    , importedTypes = importedTypes
-                    , importAliases = context.importAliases
-                    }
+                                Nothing ->
+                                    acc
+                        )
+                        context.importedTypes
+                        topLevelExposeList
+            in
+            { importedFunctions = importedFunctions
+            , importedTypes = importedTypes
+            , importAliases = context.importAliases
+            }
 
 
 valuesFromExposingList : ModuleName -> Elm.Docs.Module -> List (Node TopLevelExpose) -> Dict String ModuleName -> Dict String ModuleName
