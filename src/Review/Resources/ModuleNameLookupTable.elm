@@ -139,7 +139,7 @@ computeHelp moduleName module_ projectCache =
                     (importVisitor modules)
                     { importedFunctions = Dict.empty, importedTypes = Dict.empty, importAliases = Dict.empty }
                     -- TODO Precompute for elmCorePrelude
-                    (Review.Resources.ElmCorePrelude.elmCorePrelude ++ moduleAst.imports)
+                    (List.map Node.empty Review.Resources.ElmCorePrelude.elmCorePrelude ++ moduleAst.imports)
                 )
 
         moduleContext : Context

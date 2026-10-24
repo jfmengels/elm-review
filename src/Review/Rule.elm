@@ -5925,7 +5925,7 @@ filterModuleDocs params imports projectCache =
         (\(Node _ import_) dict -> addModuleFromImport dependencies projectCache.modules import_ dict)
         (if params.implicitImports && params.dependencies then
             List.foldl
-                (\(Node _ import_) dict -> addModuleFromImport dependencies projectCache.modules import_ dict)
+                (\import_ dict -> addModuleFromImport dependencies projectCache.modules import_ dict)
                 Dict.empty
                 Review.Resources.ElmCorePrelude.elmCorePrelude
 

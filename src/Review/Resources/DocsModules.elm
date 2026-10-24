@@ -201,11 +201,11 @@ computeBaseModule moduleName dependencies modules =
     let
         importAliases : Dict String (NonEmpty ModuleName)
         importAliases =
-            List.foldl (\(Node _ import_) acc -> registerImportAlias import_ acc) Dict.empty elmCorePrelude
+            List.foldl (\import_ acc -> registerImportAlias import_ acc) Dict.empty elmCorePrelude
 
         importedTypes : Dict String ModuleName
         importedTypes =
-            List.foldl (\(Node _ import_) acc -> registerImportedTypes import_ dependencies modules acc) Dict.empty elmCorePrelude
+            List.foldl (\import_ acc -> registerImportedTypes import_ dependencies modules acc) Dict.empty elmCorePrelude
     in
     { moduleName = moduleName
     , localTypes = Set.empty

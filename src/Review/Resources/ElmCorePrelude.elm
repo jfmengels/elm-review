@@ -7,7 +7,7 @@ import Elm.Syntax.Node exposing (Node(..))
 import Elm.Syntax.Range as Range
 
 
-elmCorePrelude : List (Node Import)
+elmCorePrelude : List Import
 elmCorePrelude =
     let
         explicit : List Exposing.TopLevelExpose -> Maybe Exposing
@@ -102,10 +102,9 @@ elmCorePrelude =
     ]
 
 
-createFakeImport : { moduleName : ModuleName, exposingList : Maybe Exposing, moduleAlias : Maybe String } -> Node Import
+createFakeImport : { moduleName : ModuleName, exposingList : Maybe Exposing, moduleAlias : Maybe String } -> Import
 createFakeImport { moduleName, moduleAlias, exposingList } =
-    Node Range.emptyRange
-        { moduleName = Node Range.emptyRange moduleName
-        , moduleAlias = moduleAlias |> Maybe.map (List.singleton >> Node Range.emptyRange)
-        , exposingList = exposingList |> Maybe.map (Node Range.emptyRange)
-        }
+    { moduleName = Node Range.emptyRange moduleName
+    , moduleAlias = moduleAlias |> Maybe.map (List.singleton >> Node Range.emptyRange)
+    , exposingList = exposingList |> Maybe.map (Node Range.emptyRange)
+    }
