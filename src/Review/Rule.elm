@@ -14,6 +14,7 @@ module Review.Rule exposing
     , providesFixesForModuleRule
     , withFinalModuleEvaluation
     , withElmJsonModuleVisitor, withReadmeModuleVisitor, withDirectDependenciesModuleVisitor, withDependenciesModuleVisitor
+    , withScopeVisitor, withScopeExitVisitor
     , withExtraFilesModuleVisitor
     , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema
     , withModuleVisitor, withModuleContext, withModuleContextUsingContextCreator, withModuleContextWithErrors
@@ -178,6 +179,8 @@ simpler version of project rules.
 
 The traversal of a module rule is the following:
 
+TODO Mention withScopeVisitor
+
   - Read project-related info (only collect data in the context in these steps)
       - The `elm.json` file, visited by [`withElmJsonModuleVisitor`](#withElmJsonModuleVisitor)
       - The `README.md` file, visited by [`withReadmeModuleVisitor`](#withReadmeModuleVisitor)
@@ -228,6 +231,7 @@ Evaluating/visiting a node means two things:
 ## Builder functions to analyze the project's data
 
 @docs withElmJsonModuleVisitor, withReadmeModuleVisitor, withDirectDependenciesModuleVisitor, withDependenciesModuleVisitor
+@docs withScopeVisitor, withScopeExitVisitor
 @docs withExtraFilesModuleVisitor
 
 
@@ -405,6 +409,7 @@ import Review.Resources.ElmCorePrelude
 import Review.Resources.Internal as ModuleNameLookupTableInternal
 import Review.Resources.ModuleNameLookupTable
 import Review.Resources.ScopeInternal as ScopeInternal
+import Review.Scope exposing (Scope)
 import Review.ScopeProvider exposing (ScopeProvider)
 import Review.WorkList as WorkList
 import Unicode
@@ -469,6 +474,8 @@ type alias ModuleRuleVisitors moduleContext =
     , letDeclarationVisitorOnExit : Maybe (Node Expression.LetBlock -> Node Expression.LetDeclaration -> moduleContext -> ( List (Error {}), moduleContext ))
     , caseBranchVisitorOnEnter : Maybe (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> moduleContext -> ( List (Error {}), moduleContext ))
     , caseBranchVisitorOnExit : Maybe (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> moduleContext -> ( List (Error {}), moduleContext ))
+    , scopeVisitorsOnEnter : Maybe ({ child : Scope, parent : Scope } -> moduleContext -> ( List (Error {}), moduleContext ))
+    , scopeVisitorsOnExit : Maybe ({ child : Scope, parent : Scope } -> moduleContext -> ( List (Error {}), moduleContext ))
     , finalEvaluationFn : Maybe (moduleContext -> List (Error {}))
 
     -- Project visitors
@@ -1354,6 +1361,8 @@ emptyModuleRuleVisitors =
     , letDeclarationVisitorOnExit = Nothing
     , caseBranchVisitorOnEnter = Nothing
     , caseBranchVisitorOnExit = Nothing
+    , scopeVisitorsOnEnter = Nothing
+    , scopeVisitorsOnExit = Nothing
     , finalEvaluationFn = Nothing
     , elmJsonVisitor = Nothing
     , readmeVisitor = Nothing
@@ -2802,6 +2811,36 @@ withElmJsonModuleVisitor :
 withElmJsonModuleVisitor visitor schema =
     mapVisitors
         (\visitors -> { visitors | elmJsonVisitor = Just (combineContextOnlyVisitor visitor visitors.elmJsonVisitor) })
+        schema
+
+
+{-| Update the scope every time a new scope is entered.
+
+REPLACEME
+
+TODO Also include the Node we're entering.
+TODO Maybe have a visitor for declarations, and one for expressions?
+
+-}
+withScopeVisitor :
+    ({ child : Scope, parent : Scope } -> moduleContext -> ( List (Error {}), moduleContext ))
+    -> ModuleRuleSchema schemaState moduleContext
+    -> ModuleRuleSchema schemaState moduleContext
+withScopeVisitor visitor schema =
+    mapVisitors
+        (\visitors -> { visitors | scopeVisitorsOnEnter = Just (combineVisitors visitor visitors.scopeVisitorsOnEnter) })
+        schema
+
+
+{-| REPLACEME
+-}
+withScopeExitVisitor :
+    ({ child : Scope, parent : Scope } -> moduleContext -> ( List (Error {}), moduleContext ))
+    -> ModuleRuleSchema schemaState moduleContext
+    -> ModuleRuleSchema schemaState moduleContext
+withScopeExitVisitor visitor schema =
+    mapVisitors
+        (\visitors -> { visitors | scopeVisitorsOnExit = Just (combineVisitors visitor visitors.scopeVisitorsOnExit) })
         schema
 
 
@@ -7475,6 +7514,8 @@ type alias RuleModuleVisitorOperations =
     , letDeclarationVisitorOnExit : Maybe (Node Expression.LetBlock -> Node Expression.LetDeclaration -> RuleModuleVisitor)
     , caseBranchVisitorOnEnter : Maybe (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> RuleModuleVisitor)
     , caseBranchVisitorOnExit : Maybe (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> RuleModuleVisitor)
+    , scopeVisitorsOnEnter : Maybe ({ child : Scope, parent : Scope } -> RuleModuleVisitor)
+    , scopeVisitorsOnExit : Maybe ({ child : Scope, parent : Scope } -> RuleModuleVisitor)
     , finalModuleEvaluation : Maybe (() -> RuleModuleVisitor)
     , toProjectVisitor : () -> RuleProjectVisitor
     }
@@ -7504,6 +7545,8 @@ createRuleModuleVisitor visitors params toRuleProjectVisitor initialContext =
                 , letDeclarationVisitorOnExit = createVisitor2 params raise errorsAndContext visitors.letDeclarationVisitorOnExit
                 , caseBranchVisitorOnEnter = createVisitor2 params raise errorsAndContext visitors.caseBranchVisitorOnEnter
                 , caseBranchVisitorOnExit = createVisitor2 params raise errorsAndContext visitors.caseBranchVisitorOnExit
+                , scopeVisitorsOnEnter = createVisitor params raise errorsAndContext visitors.scopeVisitorsOnEnter
+                , scopeVisitorsOnExit = createVisitor params raise errorsAndContext visitors.scopeVisitorsOnExit
                 , finalModuleEvaluation = createFinalModuleEvaluationVisitor params raise errorsAndContext visitors.finalEvaluationFn
                 , toProjectVisitor = \() -> toRuleProjectVisitor errorsAndContext
                 }
