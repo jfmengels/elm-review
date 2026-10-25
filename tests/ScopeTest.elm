@@ -144,6 +144,23 @@ caseScopes =
                 ScopeProvider.at scopeProvider { start = { row = 13, column = 14 }, end = { row = 13, column = 30 } }
                     |> (\s -> extractSourceCode lines (Scope.range s))
                     |> Expect.equal "\"THISISTHETARGET\""
+        , test "should exit nested scopes that end at the same location" <|
+            \() ->
+                """
+module A exposing (fn1)
+fn1 a =
+    let
+        fn2 b =
+            let
+                fn3 c =
+                    ()
+            in
+            ()
+    in
+    ()
+"""
+                    |> getScopeProvider
+                    |> (\_ -> Expect.pass)
         ]
 
 
