@@ -34,6 +34,7 @@ type alias ScopeInfo =
     , parentId : Maybe ScopeId
     , range : Range
     , bindings : Dict String Binding
+    , parentBindings : List (Dict String Binding)
     , children : List Scope
     }
 
@@ -54,6 +55,7 @@ empty moduleName =
             , parentId = Nothing
             , range = Range.empty
             , bindings = Dict.empty
+            , parentBindings = []
             , children = []
             }
         , scopes = Dict.empty

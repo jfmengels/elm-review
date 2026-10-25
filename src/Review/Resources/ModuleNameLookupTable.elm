@@ -278,6 +278,7 @@ computeBaseModule modules { localTypes, bindings, bindingIdCounter } { importedF
             , parentId = Nothing
             , range = Range.empty -- TODO Use full range
             , bindings = bindings
+            , parentBindings = []
             , children = []
             }
     in
@@ -302,6 +303,7 @@ createScope { id, parent, range, bindings } =
     , range = range
     , bindings = bindings
     , children = []
+    , parentBindings = parent.bindings :: parent.parentBindings
     }
 
 

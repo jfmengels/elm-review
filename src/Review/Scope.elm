@@ -50,3 +50,7 @@ parentId (Internal.Scope scope) =
 children : Internal.Scope -> List Scope
 children (Internal.Scope scope) =
     scope.children
+
+
+
+-- TODO Add `canIntroduceName`
