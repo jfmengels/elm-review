@@ -295,10 +295,10 @@ computeBaseModule modules { localTypes, bindings, bindingIdCounter } { importedF
     }
 
 
-createScope : { id : ScopeId, parentId : ScopeId, range : Range, bindings : Dict String Binding } -> ScopeInfo
-createScope { id, parentId, range, bindings } =
+createScope : { id : ScopeId, parent : ScopeInfo, range : Range, bindings : Dict String Binding } -> ScopeInfo
+createScope { id, parent, range, bindings } =
     { id = id
-    , parentId = Just parentId
+    , parentId = Just parent.id
     , range = range
     , bindings = bindings
     , children = []
@@ -796,7 +796,7 @@ declarationEnterVisitor (Node _ node) context =
                         scope =
                             createScope
                                 { id = scopeId
-                                , parentId = (NonEmpty.head context.scopeStack).id
+                                , parent = NonEmpty.head context.scopeStack
                                 , range = functionRange
                                 , bindings = bindings
                                 }
@@ -960,7 +960,7 @@ expressionEnterVisitor (Node nodeRange node) context =
                 letScope =
                     createScope
                         { id = letScopeId
-                        , parentId = (NonEmpty.head context.scopeStack).id
+                        , parent = NonEmpty.head context.scopeStack
                         , range = nodeRange
                         , bindings = letBlock.bindings
                         }
@@ -1025,7 +1025,7 @@ expressionEnterVisitor (Node nodeRange node) context =
                                                     ( Node.range expression
                                                     , createScope
                                                         { id = scopeId
-                                                        , parentId = letScopeId
+                                                        , parent = letScope
                                                         , range = declRange
                                                         , bindings = bindings
                                                         }
@@ -1082,9 +1082,9 @@ expressionEnterVisitor (Node nodeRange node) context =
 
         Expression.CaseExpression caseBlock ->
             let
-                parentId : ScopeId
-                parentId =
-                    (NonEmpty.head context.scopeStack).id
+                parent : ScopeInfo
+                parent =
+                    NonEmpty.head context.scopeStack
 
                 { branches, lookupTable, scopeIdCounter, bindingIdCounter } =
                     List.foldr
@@ -1101,7 +1101,7 @@ expressionEnterVisitor (Node nodeRange node) context =
                                     ( expressionRange
                                     , createScope
                                         { id = scopeId
-                                        , parentId = parentId
+                                        , parent = parent
                                         , range = expressionRange
                                         , bindings = bindings
                                         }
@@ -1166,7 +1166,7 @@ expressionEnterVisitor (Node nodeRange node) context =
                         ( range
                         , createScope
                             { id = scopeId
-                            , parentId = (NonEmpty.head context.scopeStack).id
+                            , parent = NonEmpty.head context.scopeStack
                             , range = range
                             , bindings = bindings
                             }
