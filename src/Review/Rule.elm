@@ -439,7 +439,14 @@ type alias ModuleRuleSchemaData moduleContext =
     { name : String
     , initialModuleContext : Maybe moduleContext
     , moduleContextCreator : ContextCreator () moduleContext
-    , moduleDefinitionVisitor : Maybe (Visitor Module moduleContext)
+    , visitors : ModuleRuleVisitors moduleContext
+    , providesFixes : Bool
+    , extraFileRequest : ExtraFileRequest
+    }
+
+
+type alias ModuleRuleVisitors moduleContext =
+    { moduleDefinitionVisitor : Maybe (Visitor Module moduleContext)
     , moduleDocumentationVisitor : Maybe (Maybe (Node String) -> moduleContext -> ( List (Error {}), moduleContext ))
     , commentsVisitor : Maybe (List (Node String) -> moduleContext -> ( List (Error {}), moduleContext ))
     , importVisitor : Maybe (Node Import -> moduleContext -> ( List (Error {}), moduleContext ))
@@ -453,11 +460,9 @@ type alias ModuleRuleSchemaData moduleContext =
     , caseBranchVisitorOnEnter : Maybe (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> moduleContext -> ( List (Error {}), moduleContext ))
     , caseBranchVisitorOnExit : Maybe (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> moduleContext -> ( List (Error {}), moduleContext ))
     , finalEvaluationFn : Maybe (moduleContext -> List (Error {}))
-    , providesFixes : Bool
 
     -- Project visitors
     , elmJsonVisitor : Maybe (Maybe Elm.Project.Project -> moduleContext -> moduleContext)
-    , extraFileRequest : ExtraFileRequest
     , readmeVisitor : Maybe (Maybe String -> moduleContext -> moduleContext)
     , extraFilesVisitor : Maybe (ExtraFileData -> moduleContext -> moduleContext)
     , dependenciesVisitor : Maybe (Dict String Review.Project.Dependency.Dependency -> moduleContext -> moduleContext)
@@ -1100,27 +1105,9 @@ newModuleRuleSchema name initialModuleContext =
         { name = name
         , initialModuleContext = Just initialModuleContext
         , moduleContextCreator = initContextCreator (always initialModuleContext)
-        , moduleDefinitionVisitor = Nothing
-        , moduleDocumentationVisitor = Nothing
-        , commentsVisitor = Nothing
-        , importVisitor = Nothing
-        , declarationListVisitor = Nothing
-        , declarationVisitorOnEnter = Nothing
-        , declarationVisitorOnExit = Nothing
-        , expressionVisitorsOnEnter = Nothing
-        , expressionVisitorsOnExit = Nothing
-        , letDeclarationVisitorOnEnter = Nothing
-        , letDeclarationVisitorOnExit = Nothing
-        , caseBranchVisitorOnEnter = Nothing
-        , caseBranchVisitorOnExit = Nothing
-        , finalEvaluationFn = Nothing
-        , elmJsonVisitor = Nothing
-        , readmeVisitor = Nothing
-        , extraFilesVisitor = Nothing
         , extraFileRequest = Ok []
-        , dependenciesVisitor = Nothing
-        , directDependenciesVisitor = Nothing
         , providesFixes = False
+        , visitors = emptyModuleRuleVisitors
         }
 
 
@@ -1168,28 +1155,34 @@ newModuleRuleSchemaUsingContextCreator name moduleContextCreator =
         { name = name
         , initialModuleContext = Nothing
         , moduleContextCreator = moduleContextCreator
-        , moduleDefinitionVisitor = Nothing
-        , moduleDocumentationVisitor = Nothing
-        , commentsVisitor = Nothing
-        , importVisitor = Nothing
-        , declarationListVisitor = Nothing
-        , declarationVisitorOnEnter = Nothing
-        , declarationVisitorOnExit = Nothing
-        , expressionVisitorsOnEnter = Nothing
-        , expressionVisitorsOnExit = Nothing
-        , letDeclarationVisitorOnEnter = Nothing
-        , letDeclarationVisitorOnExit = Nothing
-        , caseBranchVisitorOnEnter = Nothing
-        , caseBranchVisitorOnExit = Nothing
-        , finalEvaluationFn = Nothing
-        , elmJsonVisitor = Nothing
-        , readmeVisitor = Nothing
-        , extraFilesVisitor = Nothing
         , extraFileRequest = Ok []
-        , dependenciesVisitor = Nothing
-        , directDependenciesVisitor = Nothing
         , providesFixes = False
+        , visitors = emptyModuleRuleVisitors
         }
+
+
+emptyModuleRuleVisitors : ModuleRuleVisitors moduleContext
+emptyModuleRuleVisitors =
+    { moduleDefinitionVisitor = Nothing
+    , moduleDocumentationVisitor = Nothing
+    , commentsVisitor = Nothing
+    , importVisitor = Nothing
+    , declarationListVisitor = Nothing
+    , declarationVisitorOnEnter = Nothing
+    , declarationVisitorOnExit = Nothing
+    , expressionVisitorsOnEnter = Nothing
+    , expressionVisitorsOnExit = Nothing
+    , letDeclarationVisitorOnEnter = Nothing
+    , letDeclarationVisitorOnExit = Nothing
+    , caseBranchVisitorOnEnter = Nothing
+    , caseBranchVisitorOnExit = Nothing
+    , finalEvaluationFn = Nothing
+    , elmJsonVisitor = Nothing
+    , readmeVisitor = Nothing
+    , extraFilesVisitor = Nothing
+    , dependenciesVisitor = Nothing
+    , directDependenciesVisitor = Nothing
+    }
 
 
 {-| Create a [`Rule`](#Rule) from a configured [`ModuleRuleSchema`](#ModuleRuleSchema).
@@ -1202,12 +1195,12 @@ fromModuleRuleSchema ((ModuleRuleSchema schema) as moduleVisitor) =
             ProjectRuleSchema
                 { name = schema.name
                 , initialProjectContext = initialModuleContext
-                , elmJsonVisitor = compactProjectDataVisitors (Maybe.map .project) schema.elmJsonVisitor
-                , readmeVisitor = compactProjectDataVisitors (Maybe.map .content) schema.readmeVisitor
-                , extraFilesVisitor = compactExtraFilesVisitor schema.extraFilesVisitor
+                , elmJsonVisitor = compactProjectDataVisitors (Maybe.map .project) schema.visitors.elmJsonVisitor
+                , readmeVisitor = compactProjectDataVisitors (Maybe.map .content) schema.visitors.readmeVisitor
+                , extraFilesVisitor = compactExtraFilesVisitor schema.visitors.extraFilesVisitor
                 , extraFileRequest = schema.extraFileRequest
-                , directDependenciesVisitor = compactProjectDataVisitors identity schema.directDependenciesVisitor
-                , dependenciesVisitor = compactProjectDataVisitors identity schema.dependenciesVisitor
+                , directDependenciesVisitor = compactProjectDataVisitors identity schema.visitors.directDependenciesVisitor
+                , dependenciesVisitor = compactProjectDataVisitors identity schema.visitors.dependenciesVisitor
                 , moduleVisitors = [ removeExtensibleRecordTypeVariable (always moduleVisitor) ]
                 , moduleContextCreator = Just (initContextCreator identity)
                 , folder = Nothing
@@ -1482,27 +1475,9 @@ mergeModuleVisitorsHelp ruleName_ initialProjectContext moduleContextCreator vis
                 { name = ruleName_
                 , initialModuleContext = Just initialModuleContext
                 , moduleContextCreator = initContextCreator (always initialModuleContext)
-                , moduleDefinitionVisitor = Nothing
-                , moduleDocumentationVisitor = Nothing
-                , commentsVisitor = Nothing
-                , importVisitor = Nothing
-                , declarationListVisitor = Nothing
-                , declarationVisitorOnEnter = Nothing
-                , declarationVisitorOnExit = Nothing
-                , expressionVisitorsOnEnter = Nothing
-                , expressionVisitorsOnExit = Nothing
-                , letDeclarationVisitorOnEnter = Nothing
-                , letDeclarationVisitorOnExit = Nothing
-                , caseBranchVisitorOnEnter = Nothing
-                , caseBranchVisitorOnExit = Nothing
-                , finalEvaluationFn = Nothing
-                , elmJsonVisitor = Nothing
-                , readmeVisitor = Nothing
-                , extraFilesVisitor = Nothing
                 , extraFileRequest = Ok []
-                , dependenciesVisitor = Nothing
-                , directDependenciesVisitor = Nothing
                 , providesFixes = False
+                , visitors = emptyModuleRuleVisitors
                 }
     in
     ( List.foldl
@@ -2675,8 +2650,10 @@ withElmJsonModuleVisitor :
     (Maybe Elm.Project.Project -> moduleContext -> moduleContext)
     -> ModuleRuleSchema { schemaState | canCollectProjectData : () } moduleContext
     -> ModuleRuleSchema { schemaState | canCollectProjectData : () } moduleContext
-withElmJsonModuleVisitor visitor (ModuleRuleSchema schema) =
-    ModuleRuleSchema { schema | elmJsonVisitor = Just (combineContextOnlyVisitor visitor schema.elmJsonVisitor) }
+withElmJsonModuleVisitor visitor schema =
+    mapVisitors
+        (\visitors -> { visitors | elmJsonVisitor = Just (combineContextOnlyVisitor visitor visitors.elmJsonVisitor) })
+        schema
 
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) to visit files that `elm-review`
@@ -2783,17 +2760,19 @@ withExtraFilesModuleVisitor baseVisitor filePatterns (ModuleRuleSchema schema) =
                 visitor files context =
                     baseVisitor (Dict.filter (\path _ -> FilePattern.match { includeByDefault = False } filePatternSummary path) files.withoutFileKeys) context
             in
-            ModuleRuleSchema
-                { schema
-                    | extraFilesVisitor = Just (combineContextOnlyVisitor visitor schema.extraFilesVisitor)
-                    , extraFileRequest =
-                        case schema.extraFileRequest of
-                            Ok previous ->
-                                Ok (FilePattern.toStrings filePatternSummary :: previous)
+            mapVisitors
+                (\visitors -> { visitors | extraFilesVisitor = Just (combineContextOnlyVisitor visitor visitors.extraFilesVisitor) })
+                (ModuleRuleSchema
+                    { schema
+                        | extraFileRequest =
+                            case schema.extraFileRequest of
+                                Ok previous ->
+                                    Ok (FilePattern.toStrings filePatternSummary :: previous)
 
-                            Err _ ->
-                                schema.extraFileRequest
-                }
+                                Err _ ->
+                                    schema.extraFileRequest
+                    }
+                )
 
         Err globErrors ->
             ModuleRuleSchema
@@ -2815,8 +2794,10 @@ withReadmeModuleVisitor :
     (Maybe String -> moduleContext -> moduleContext)
     -> ModuleRuleSchema { schemaState | canCollectProjectData : () } moduleContext
     -> ModuleRuleSchema { schemaState | canCollectProjectData : () } moduleContext
-withReadmeModuleVisitor visitor (ModuleRuleSchema schema) =
-    ModuleRuleSchema { schema | readmeVisitor = Just (combineContextOnlyVisitor visitor schema.readmeVisitor) }
+withReadmeModuleVisitor visitor schema =
+    mapVisitors
+        (\visitors -> { visitors | readmeVisitor = Just (combineContextOnlyVisitor visitor visitors.readmeVisitor) })
+        schema
 
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will examine the project's
@@ -2830,8 +2811,10 @@ withDependenciesModuleVisitor :
     (Dict String Review.Project.Dependency.Dependency -> moduleContext -> moduleContext)
     -> ModuleRuleSchema { schemaState | canCollectProjectData : () } moduleContext
     -> ModuleRuleSchema { schemaState | canCollectProjectData : () } moduleContext
-withDependenciesModuleVisitor visitor (ModuleRuleSchema schema) =
-    ModuleRuleSchema { schema | dependenciesVisitor = Just (combineContextOnlyVisitor visitor schema.dependenciesVisitor) }
+withDependenciesModuleVisitor visitor schema =
+    mapVisitors
+        (\visitors -> { visitors | dependenciesVisitor = Just (combineContextOnlyVisitor visitor visitors.dependenciesVisitor) })
+        schema
 
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will examine the project's
@@ -2845,8 +2828,10 @@ withDirectDependenciesModuleVisitor :
     (Dict String Review.Project.Dependency.Dependency -> moduleContext -> moduleContext)
     -> ModuleRuleSchema { schemaState | canCollectProjectData : () } moduleContext
     -> ModuleRuleSchema { schemaState | canCollectProjectData : () } moduleContext
-withDirectDependenciesModuleVisitor visitor (ModuleRuleSchema schema) =
-    ModuleRuleSchema { schema | directDependenciesVisitor = Just (combineContextOnlyVisitor visitor schema.directDependenciesVisitor) }
+withDirectDependenciesModuleVisitor visitor schema =
+    mapVisitors
+        (\visitors -> { visitors | directDependenciesVisitor = Just (combineContextOnlyVisitor visitor visitors.directDependenciesVisitor) })
+        schema
 
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's
@@ -2911,8 +2896,10 @@ not catch and report the use `Html.button`. To handle this, check out [`withModu
 
 -}
 withModuleDefinitionVisitor : (Node Module -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
-withModuleDefinitionVisitor visitor (ModuleRuleSchema schema) =
-    ModuleRuleSchema { schema | moduleDefinitionVisitor = Just (combineVisitors visitor schema.moduleDefinitionVisitor) }
+withModuleDefinitionVisitor visitor schema =
+    mapVisitors
+        (\visitors -> { visitors | moduleDefinitionVisitor = Just (combineVisitors visitor visitors.moduleDefinitionVisitor) })
+        schema
 
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's comments, collect data in
@@ -2939,8 +2926,10 @@ Tip: If you only need to access the module documentation, you should use
 
 -}
 withCommentsVisitor : (List (Node String) -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
-withCommentsVisitor visitor (ModuleRuleSchema schema) =
-    ModuleRuleSchema { schema | commentsVisitor = Just (combineVisitors visitor schema.commentsVisitor) }
+withCommentsVisitor visitor schema =
+    mapVisitors
+        (\visitors -> { visitors | commentsVisitor = Just (combineVisitors visitor visitors.commentsVisitor) })
+        schema
 
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's documentation, collect data in
@@ -2951,8 +2940,10 @@ When that is the case, the visitor will be called with the `Nothing` as the modu
 
 -}
 withModuleDocumentationVisitor : (Maybe (Node String) -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
-withModuleDocumentationVisitor visitor (ModuleRuleSchema schema) =
-    ModuleRuleSchema { schema | moduleDocumentationVisitor = Just (combineVisitors visitor schema.moduleDocumentationVisitor) }
+withModuleDocumentationVisitor visitor schema =
+    mapVisitors
+        (\visitors -> { visitors | moduleDocumentationVisitor = Just (combineVisitors visitor visitors.moduleDocumentationVisitor) })
+        schema
 
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's
@@ -3027,8 +3018,10 @@ simpler [`withSimpleImportVisitor`](#withSimpleImportVisitor) function.
 
 -}
 withImportVisitor : (Node Import -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
-withImportVisitor visitor (ModuleRuleSchema schema) =
-    ModuleRuleSchema { schema | importVisitor = Just (combineVisitors visitor schema.importVisitor) }
+withImportVisitor visitor schema =
+    mapVisitors
+        (\visitors -> { visitors | importVisitor = Just (combineVisitors visitor visitors.importVisitor) })
+        schema
 
 
 {-| **@deprecated**
@@ -3130,12 +3123,15 @@ simpler [`withSimpleDeclarationVisitor`](#withSimpleDeclarationVisitor) function
 
 -}
 withDeclarationVisitor : (Node Declaration -> Direction -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
-withDeclarationVisitor visitor (ModuleRuleSchema schema) =
-    ModuleRuleSchema
-        { schema
-            | declarationVisitorOnEnter = Just (combineVisitors (\node ctx -> visitor node OnEnter ctx) schema.declarationVisitorOnEnter)
-            , declarationVisitorOnExit = Just (combineExitVisitors (\node ctx -> visitor node OnExit ctx) schema.declarationVisitorOnExit)
-        }
+withDeclarationVisitor visitor schema =
+    mapVisitors
+        (\visitors ->
+            { visitors
+                | declarationVisitorOnEnter = Just (combineVisitors (\node ctx -> visitor node OnEnter ctx) visitors.declarationVisitorOnEnter)
+                , declarationVisitorOnExit = Just (combineExitVisitors (\node ctx -> visitor node OnExit ctx) visitors.declarationVisitorOnExit)
+            }
+        )
+        schema
 
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's
@@ -3223,8 +3219,10 @@ simpler [`withSimpleDeclarationVisitor`](#withSimpleDeclarationVisitor) function
 
 -}
 withDeclarationEnterVisitor : (Node Declaration -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
-withDeclarationEnterVisitor visitor (ModuleRuleSchema schema) =
-    ModuleRuleSchema { schema | declarationVisitorOnEnter = Just (combineVisitors visitor schema.declarationVisitorOnEnter) }
+withDeclarationEnterVisitor visitor schema =
+    mapVisitors
+        (\visitors -> { visitors | declarationVisitorOnEnter = Just (combineVisitors visitor visitors.declarationVisitorOnEnter) })
+        schema
 
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's
@@ -3269,8 +3267,10 @@ The following example reports unused parameters from top-level declarations.
 
 -}
 withDeclarationExitVisitor : (Node Declaration -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
-withDeclarationExitVisitor visitor (ModuleRuleSchema schema) =
-    ModuleRuleSchema { schema | declarationVisitorOnExit = Just (combineExitVisitors visitor schema.declarationVisitorOnExit) }
+withDeclarationExitVisitor visitor schema =
+    mapVisitors
+        (\visitors -> { visitors | declarationVisitorOnExit = Just (combineExitVisitors visitor visitors.declarationVisitorOnExit) })
+        schema
 
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's
@@ -3289,8 +3289,10 @@ and [withExpressionEnterVisitor](#withExpressionEnterVisitor). Otherwise, using
 
 -}
 withDeclarationListVisitor : (List (Node Declaration) -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
-withDeclarationListVisitor visitor (ModuleRuleSchema schema) =
-    ModuleRuleSchema { schema | declarationListVisitor = Just (combineVisitors visitor schema.declarationListVisitor) }
+withDeclarationListVisitor visitor schema =
+    mapVisitors
+        (\visitors -> { visitors | declarationListVisitor = Just (combineVisitors visitor visitors.declarationListVisitor) })
+        schema
 
 
 {-| **@deprecated**
@@ -3386,12 +3388,15 @@ simpler [`withSimpleExpressionVisitor`](#withSimpleExpressionVisitor) function.
 
 -}
 withExpressionVisitor : (Node Expression -> Direction -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
-withExpressionVisitor visitor (ModuleRuleSchema schema) =
-    ModuleRuleSchema
-        { schema
-            | expressionVisitorsOnEnter = Just (combineVisitors (\node ctx -> visitor node OnEnter ctx) schema.expressionVisitorsOnEnter)
-            , expressionVisitorsOnExit = Just (combineExitVisitors (\node ctx -> visitor node OnExit ctx) schema.expressionVisitorsOnExit)
-        }
+withExpressionVisitor visitor schema =
+    mapVisitors
+        (\visitors ->
+            { visitors
+                | expressionVisitorsOnEnter = Just (combineVisitors (\node ctx -> visitor node OnEnter ctx) visitors.expressionVisitorsOnEnter)
+                , expressionVisitorsOnExit = Just (combineExitVisitors (\node ctx -> visitor node OnExit ctx) visitors.expressionVisitorsOnExit)
+            }
+        )
+        schema
 
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's
@@ -3477,8 +3482,10 @@ simpler [`withSimpleExpressionVisitor`](#withSimpleExpressionVisitor) function.
 
 -}
 withExpressionEnterVisitor : (Node Expression -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
-withExpressionEnterVisitor visitor (ModuleRuleSchema schema) =
-    ModuleRuleSchema { schema | expressionVisitorsOnEnter = Just (combineVisitors visitor schema.expressionVisitorsOnEnter) }
+withExpressionEnterVisitor visitor schema =
+    mapVisitors
+        (\visitors -> { visitors | expressionVisitorsOnEnter = Just (combineVisitors visitor visitors.expressionVisitorsOnEnter) })
+        schema
 
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's
@@ -3528,8 +3535,10 @@ meaning after its children are visited.
 
 -}
 withExpressionExitVisitor : (Node Expression -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
-withExpressionExitVisitor visitor (ModuleRuleSchema schema) =
-    ModuleRuleSchema { schema | expressionVisitorsOnExit = Just (combineExitVisitors visitor schema.expressionVisitorsOnExit) }
+withExpressionExitVisitor visitor schema =
+    mapVisitors
+        (\visitors -> { visitors | expressionVisitorsOnExit = Just (combineExitVisitors visitor visitors.expressionVisitorsOnExit) })
+        schema
 
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's
@@ -3613,8 +3622,10 @@ For convenience, the entire case expression is passed as the first argument.
 
 -}
 withCaseBranchEnterVisitor : (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
-withCaseBranchEnterVisitor visitor (ModuleRuleSchema schema) =
-    ModuleRuleSchema { schema | caseBranchVisitorOnEnter = Just (combineVisitors2 visitor schema.caseBranchVisitorOnEnter) }
+withCaseBranchEnterVisitor visitor schema =
+    mapVisitors
+        (\visitors -> { visitors | caseBranchVisitorOnEnter = Just (combineVisitors2 visitor visitors.caseBranchVisitorOnEnter) })
+        schema
 
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's
@@ -3624,8 +3635,10 @@ See the documentation for [`withCaseBranchEnterVisitor`](#withCaseBranchEnterVis
 
 -}
 withCaseBranchExitVisitor : (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
-withCaseBranchExitVisitor visitor (ModuleRuleSchema schema) =
-    ModuleRuleSchema { schema | caseBranchVisitorOnExit = Just (combineExitVisitors2 visitor schema.caseBranchVisitorOnExit) }
+withCaseBranchExitVisitor visitor schema =
+    mapVisitors
+        (\visitors -> { visitors | caseBranchVisitorOnExit = Just (combineExitVisitors2 visitor visitors.caseBranchVisitorOnExit) })
+        schema
 
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's
@@ -3718,8 +3731,10 @@ For convenience, the entire let expression is passed as the first argument.
 
 -}
 withLetDeclarationEnterVisitor : (Node Expression.LetBlock -> Node Expression.LetDeclaration -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
-withLetDeclarationEnterVisitor visitor (ModuleRuleSchema schema) =
-    ModuleRuleSchema { schema | letDeclarationVisitorOnEnter = Just (combineVisitors2 visitor schema.letDeclarationVisitorOnEnter) }
+withLetDeclarationEnterVisitor visitor schema =
+    mapVisitors
+        (\visitors -> { visitors | letDeclarationVisitorOnEnter = Just (combineVisitors2 visitor visitors.letDeclarationVisitorOnEnter) })
+        schema
 
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's
@@ -3729,8 +3744,10 @@ See the documentation for [`withLetDeclarationEnterVisitor`](#withLetDeclaration
 
 -}
 withLetDeclarationExitVisitor : (Node Expression.LetBlock -> Node Expression.LetDeclaration -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
-withLetDeclarationExitVisitor visitor (ModuleRuleSchema schema) =
-    ModuleRuleSchema { schema | letDeclarationVisitorOnExit = Just (combineExitVisitors2 visitor schema.letDeclarationVisitorOnExit) }
+withLetDeclarationExitVisitor visitor schema =
+    mapVisitors
+        (\visitors -> { visitors | letDeclarationVisitorOnExit = Just (combineExitVisitors2 visitor visitors.letDeclarationVisitorOnExit) })
+        schema
 
 
 {-| Add a function that makes a final evaluation of the module based only on the
@@ -3777,18 +3794,27 @@ for [`withImportVisitor`](#withImportVisitor), but using [`withFinalModuleEvalua
 
 -}
 withFinalModuleEvaluation : (moduleContext -> List (Error {})) -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
-withFinalModuleEvaluation visitor (ModuleRuleSchema schema) =
-    let
-        combinedVisitor : moduleContext -> List (Error {})
-        combinedVisitor =
-            case schema.finalEvaluationFn of
-                Nothing ->
-                    visitor
+withFinalModuleEvaluation visitor schema =
+    mapVisitors
+        (\visitors ->
+            let
+                combinedVisitor : moduleContext -> List (Error {})
+                combinedVisitor =
+                    case visitors.finalEvaluationFn of
+                        Nothing ->
+                            visitor
 
-                Just previousVisitor ->
-                    \context -> List.append (visitor context) (previousVisitor context)
-    in
-    ModuleRuleSchema { schema | finalEvaluationFn = Just combinedVisitor }
+                        Just previousVisitor ->
+                            \context -> List.append (visitor context) (previousVisitor context)
+            in
+            { visitors | finalEvaluationFn = Just combinedVisitor }
+        )
+        schema
+
+
+mapVisitors : (ModuleRuleVisitors moduleContext -> ModuleRuleVisitors moduleContext) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema a moduleContext
+mapVisitors fn (ModuleRuleSchema schema) =
+    ModuleRuleSchema { schema | visitors = fn schema.visitors }
 
 
 combineVisitors :
@@ -7040,7 +7066,7 @@ createModuleVisitorFromProjectVisitorHelp schema raise hidden howToCreateModuleC
                                 in
                                 raise { cache | moduleContexts = Dict.insert availableData.filePath cacheEntry cache.moduleContexts }
                         in
-                        createRuleModuleVisitor moduleRuleSchema ruleData toRuleProjectVisitor initialContext
+                        createRuleModuleVisitor moduleRuleSchema.visitors ruleData toRuleProjectVisitor initialContext
                     )
 
 
@@ -7080,30 +7106,30 @@ type alias RuleModuleVisitorOperations =
 
 
 createRuleModuleVisitor :
-    ModuleRuleSchemaData moduleContext
+    ModuleRuleVisitors moduleContext
     -> { ruleName : String, exceptions : Exceptions, filePath : FilePath }
     -> (( List (Error {}), moduleContext ) -> RuleProjectVisitor)
     -> moduleContext
     -> RuleModuleVisitor
-createRuleModuleVisitor schema params toRuleProjectVisitor initialContext =
+createRuleModuleVisitor visitors params toRuleProjectVisitor initialContext =
     let
         raise : ( List (Error {}), moduleContext ) -> RuleModuleVisitor
         raise errorsAndContext =
             RuleModuleVisitor
-                { moduleDefinitionVisitor = createVisitor params raise errorsAndContext schema.moduleDefinitionVisitor
-                , moduleDocumentationVisitor = createVisitor params raise errorsAndContext schema.moduleDocumentationVisitor
-                , commentVisitor = createVisitor params raise errorsAndContext schema.commentsVisitor
-                , importsVisitor = createImportsVisitor params raise errorsAndContext schema.importVisitor
-                , declarationListVisitor = createVisitor params raise errorsAndContext schema.declarationListVisitor
-                , declarationVisitorOnEnter = createVisitor params raise errorsAndContext schema.declarationVisitorOnEnter
-                , declarationVisitorOnExit = createVisitor params raise errorsAndContext schema.declarationVisitorOnExit
-                , expressionVisitorOnEnter = createVisitor params raise errorsAndContext schema.expressionVisitorsOnEnter
-                , expressionVisitorOnExit = createVisitor params raise errorsAndContext schema.expressionVisitorsOnExit
-                , letDeclarationVisitorOnEnter = createVisitor2 params raise errorsAndContext schema.letDeclarationVisitorOnEnter
-                , letDeclarationVisitorOnExit = createVisitor2 params raise errorsAndContext schema.letDeclarationVisitorOnExit
-                , caseBranchVisitorOnEnter = createVisitor2 params raise errorsAndContext schema.caseBranchVisitorOnEnter
-                , caseBranchVisitorOnExit = createVisitor2 params raise errorsAndContext schema.caseBranchVisitorOnExit
-                , finalModuleEvaluation = createFinalModuleEvaluationVisitor params raise errorsAndContext schema.finalEvaluationFn
+                { moduleDefinitionVisitor = createVisitor params raise errorsAndContext visitors.moduleDefinitionVisitor
+                , moduleDocumentationVisitor = createVisitor params raise errorsAndContext visitors.moduleDocumentationVisitor
+                , commentVisitor = createVisitor params raise errorsAndContext visitors.commentsVisitor
+                , importsVisitor = createImportsVisitor params raise errorsAndContext visitors.importVisitor
+                , declarationListVisitor = createVisitor params raise errorsAndContext visitors.declarationListVisitor
+                , declarationVisitorOnEnter = createVisitor params raise errorsAndContext visitors.declarationVisitorOnEnter
+                , declarationVisitorOnExit = createVisitor params raise errorsAndContext visitors.declarationVisitorOnExit
+                , expressionVisitorOnEnter = createVisitor params raise errorsAndContext visitors.expressionVisitorsOnEnter
+                , expressionVisitorOnExit = createVisitor params raise errorsAndContext visitors.expressionVisitorsOnExit
+                , letDeclarationVisitorOnEnter = createVisitor2 params raise errorsAndContext visitors.letDeclarationVisitorOnEnter
+                , letDeclarationVisitorOnExit = createVisitor2 params raise errorsAndContext visitors.letDeclarationVisitorOnExit
+                , caseBranchVisitorOnEnter = createVisitor2 params raise errorsAndContext visitors.caseBranchVisitorOnEnter
+                , caseBranchVisitorOnExit = createVisitor2 params raise errorsAndContext visitors.caseBranchVisitorOnExit
+                , finalModuleEvaluation = createFinalModuleEvaluationVisitor params raise errorsAndContext visitors.finalEvaluationFn
                 , toProjectVisitor = \() -> toRuleProjectVisitor errorsAndContext
                 }
     in
