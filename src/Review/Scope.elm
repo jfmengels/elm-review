@@ -1,6 +1,7 @@
 module Review.Scope exposing
     ( Scope
     , bindings
+    , canIntroduceName
     , children
     , names
     , parentId
@@ -37,20 +38,22 @@ bindings (Internal.Scope scope) =
     scope.bindings
 
 
-range : Internal.Scope -> Range
+range : Scope -> Range
 range (Internal.Scope scope) =
     scope.range
 
 
-parentId : Internal.Scope -> Maybe Internal.ScopeId
+parentId : Scope -> Maybe Internal.ScopeId
 parentId (Internal.Scope scope) =
     scope.parentId
 
 
-children : Internal.Scope -> List Scope
+children : Scope -> List Scope
 children (Internal.Scope scope) =
     scope.children
 
 
-
--- TODO Add `canIntroduceName`
+canIntroduceName : Scope -> String -> Bool
+canIntroduceName (Internal.Scope scope) name =
+    List.any (Dict.member name) (scope.bindings :: scope.parentBindings)
+        |> not
