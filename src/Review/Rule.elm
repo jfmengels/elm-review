@@ -437,8 +437,7 @@ type ModuleRuleSchema schemaState moduleContext
 
 type alias ModuleRuleSchemaData moduleContext =
     { name : String
-    , initialModuleContext : Maybe moduleContext
-    , moduleContextCreator : ContextCreator () moduleContext
+    , initialModuleContext : InitialModuleContext moduleContext
     , visitors : ModuleRuleVisitors moduleContext
     , providesFixes : Bool
     , extraFileRequest : ExtraFileRequest
@@ -468,6 +467,11 @@ type alias ModuleRuleVisitors moduleContext =
     , dependenciesVisitor : Maybe (Dict String Review.Project.Dependency.Dependency -> moduleContext -> moduleContext)
     , directDependenciesVisitor : Maybe (Dict String Review.Project.Dependency.Dependency -> moduleContext -> moduleContext)
     }
+
+
+type InitialModuleContext moduleContext
+    = Static moduleContext
+    | UsingContextCreator (ContextCreator () moduleContext)
 
 
 type alias ExtraFileRequest =
@@ -1103,8 +1107,7 @@ newModuleRuleSchema : String -> moduleContext -> ModuleRuleSchema { canCollectPr
 newModuleRuleSchema name initialModuleContext =
     ModuleRuleSchema
         { name = name
-        , initialModuleContext = Just initialModuleContext
-        , moduleContextCreator = initContextCreator (always initialModuleContext)
+        , initialModuleContext = Static initialModuleContext
         , extraFileRequest = Ok []
         , providesFixes = False
         , visitors = emptyModuleRuleVisitors
@@ -1153,8 +1156,7 @@ newModuleRuleSchemaUsingContextCreator : String -> ContextCreator () moduleConte
 newModuleRuleSchemaUsingContextCreator name moduleContextCreator =
     ModuleRuleSchema
         { name = name
-        , initialModuleContext = Nothing
-        , moduleContextCreator = moduleContextCreator
+        , initialModuleContext = UsingContextCreator moduleContextCreator
         , extraFileRequest = Ok []
         , providesFixes = False
         , visitors = emptyModuleRuleVisitors
@@ -1191,7 +1193,7 @@ fromModuleRuleSchema : ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : (
 fromModuleRuleSchema ((ModuleRuleSchema schema) as moduleVisitor) =
     -- TODO BREAKING CHANGE Add canCollectData as a pre-requisite to using fromModuleRuleSchema
     case schema.initialModuleContext of
-        Just initialModuleContext ->
+        Static initialModuleContext ->
             ProjectRuleSchema
                 { name = schema.name
                 , initialProjectContext = initialModuleContext
@@ -1211,7 +1213,7 @@ fromModuleRuleSchema ((ModuleRuleSchema schema) as moduleVisitor) =
                 }
                 |> fromProjectRuleSchema
 
-        Nothing ->
+        UsingContextCreator moduleContextCreator ->
             ProjectRuleSchema
                 { name = schema.name
                 , initialProjectContext = ()
@@ -1222,7 +1224,7 @@ fromModuleRuleSchema ((ModuleRuleSchema schema) as moduleVisitor) =
                 , directDependenciesVisitor = Nothing
                 , dependenciesVisitor = Nothing
                 , moduleVisitors = [ removeExtensibleRecordTypeVariable (always moduleVisitor) ]
-                , moduleContextCreator = Just schema.moduleContextCreator
+                , moduleContextCreator = Just moduleContextCreator
                 , folder = Nothing
                 , providesFixes = schema.providesFixes
                 , howToCreateModuleContext = SchemaStandaloneContext
@@ -1473,8 +1475,7 @@ mergeModuleVisitorsHelp ruleName_ initialProjectContext moduleContextCreator vis
         emptyModuleVisitor =
             ModuleRuleSchema
                 { name = ruleName_
-                , initialModuleContext = Just initialModuleContext
-                , moduleContextCreator = initContextCreator (always initialModuleContext)
+                , initialModuleContext = Static initialModuleContext
                 , extraFileRequest = Ok []
                 , providesFixes = False
                 , visitors = emptyModuleRuleVisitors
