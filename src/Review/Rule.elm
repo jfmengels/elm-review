@@ -998,7 +998,7 @@ getConfigurationError (Rule rule) =
 
 {-| **@deprecated**
 
-This is used in [`withDeclarationVisitor`](#withDeclarationVisitor) and [`withDeclarationVisitor`](#withDeclarationVisitor),
+This is used in [`withDeclarationVisitor`](#withDeclarationVisitor) and [`withExpressionVisitor`](#withExpressionVisitor),
 which are deprecated and will be removed in the next major version. This type will be removed along with them.
 
 To replicate the same behavior, take a look at
@@ -2247,7 +2247,7 @@ withDirectDependenciesProjectVisitor visitor (ProjectRuleSchema schema) =
 data that was collected in the `projectContext`. This can be useful if you can't report something until you have visited
 all the modules in the project.
 
-It works similarly [`withFinalModuleEvaluation`](#withFinalModuleEvaluation).
+It works similarly to [`withFinalModuleEvaluation`](#withFinalModuleEvaluation).
 
 **NOTE**: Do not create errors using the [`error`](#error) function using `withFinalProjectEvaluation`, but using [`errorForModule`](#errorForModule)
 instead. When the project is evaluated in this function, you are not in the "context" of an Elm module (the idiomatic "context", not `projectContext` or `moduleContext`).
