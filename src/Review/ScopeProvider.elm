@@ -28,30 +28,28 @@ topLevel (Internal.ScopeProvider scopeProvider) =
 at : ScopeProvider -> Range -> Scope
 at (Internal.ScopeProvider scopeProvider) range =
     atHelp
-        scopeProvider.scopes
         range
         scopeProvider.topLevel
         scopeProvider.topLevel.children
 
 
-atHelp : Dict Int ScopeInfo -> Range -> ScopeInfo -> List Scope -> Scope
-atHelp scopeDict range bestMatch childrenIds =
+atHelp : Range -> ScopeInfo -> List Scope -> Scope
+atHelp range bestMatch childrenIds =
     case childrenIds of
         [] ->
             Internal.Scope bestMatch
 
         (Internal.Scope scope) :: rest ->
             if isRangeIncludedIn range scope.range then
-                atHelp scopeDict range scope scope.children
+                atHelp range scope scope.children
 
             else
-                atHelp scopeDict range bestMatch rest
+                atHelp range bestMatch rest
 
 
 for : ScopeProvider -> Node a -> Scope
 for (Internal.ScopeProvider scopeProvider) (Node range _) =
     atHelp
-        scopeProvider.scopes
         range
         scopeProvider.topLevel
         scopeProvider.topLevel.children
