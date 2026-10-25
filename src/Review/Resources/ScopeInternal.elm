@@ -4,6 +4,7 @@ module Review.Resources.ScopeInternal exposing
     , ScopeId
     , ScopeInfo
     , ScopeProvider(..)
+    , breadthFirstSearchScopes
     , empty
     , fromScopes
     )
@@ -68,3 +69,18 @@ fromScopes moduleName topLevel scopes =
         { topLevel = topLevel
         , scopes = scopes
         }
+
+
+breadthFirstSearchScopes : ScopeProvider -> List ScopeInfo
+breadthFirstSearchScopes (ScopeProvider { topLevel }) =
+    breadthFirstSearchScopesHelp [ Scope topLevel ] []
+
+
+breadthFirstSearchScopesHelp : List Scope -> List ScopeInfo -> List ScopeInfo
+breadthFirstSearchScopesHelp scopes acc =
+    case scopes of
+        [] ->
+            List.reverse acc
+
+        (Scope scope) :: rest ->
+            breadthFirstSearchScopesHelp (scope.children ++ rest) (scope :: acc)
