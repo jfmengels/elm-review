@@ -3,6 +3,7 @@ module Review.Scope exposing
     , bindings
     , canIntroduceName
     , children
+    , getBinding
     , names
     , parentId
     , range
@@ -51,6 +52,26 @@ parentId (Internal.Scope scope) =
 children : Scope -> List Scope
 children (Internal.Scope scope) =
     scope.children
+
+
+getBinding : Scope -> String -> Maybe Binding
+getBinding (Internal.Scope scope) name =
+    getBindingHelp (scope.bindings :: scope.parentBindings) name
+
+
+getBindingHelp : List (Dict String Binding) -> String -> Maybe Binding
+getBindingHelp bindingsStack name =
+    case bindingsStack of
+        [] ->
+            Nothing
+
+        bindings_ :: rest ->
+            case Dict.get name bindings_ of
+                Nothing ->
+                    getBindingHelp rest name
+
+                just ->
+                    just
 
 
 canIntroduceName : Scope -> String -> Bool
