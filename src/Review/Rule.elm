@@ -6688,7 +6688,7 @@ visitDeclarationsAndExpressions topLevelScope declarations ruleModuleVisitor =
 
 
 visitDeclarationAndExpressions : ScopeInternal.Scope -> Node Declaration -> RuleModuleVisitor -> RuleModuleVisitor
-visitDeclarationAndExpressions ((ScopeInternal.Scope { children }) as topLevelScope) ((Node _ declaration) as node) ruleModuleVisitor =
+visitDeclarationAndExpressions (ScopeInternal.Scope topLevelScope) ((Node _ declaration) as node) ruleModuleVisitor =
     let
         visitFunctionDeclaration : RuleModuleVisitor -> RuleModuleVisitor
         visitFunctionDeclaration visitor =
@@ -6698,21 +6698,21 @@ visitDeclarationAndExpressions ((ScopeInternal.Scope { children }) as topLevelSc
                         (Node functionRange { expression }) =
                             function.declaration
                     in
-                    case ListExtra.find (\(ScopeInternal.Scope { range }) -> range == functionRange) children of
-                        Just scope ->
+                    case ListExtra.find (\(ScopeInternal.Scope { range }) -> range == functionRange) topLevelScope.children of
+                        Just ((ScopeInternal.Scope child) as childScope) ->
                             let
                                 params : { child : ScopeInternal.Scope, parent : ScopeInternal.Scope }
                                 params =
-                                    { child = scope, parent = topLevelScope }
+                                    { child = childScope, parent = ScopeInternal.Scope topLevelScope }
                             in
                             visitor
                                 |> runScopeVisitorOnEnter params expression
-                                |> visitExpression expression
+                                |> visitExpression child expression
                                 |> runScopeVisitorOnExit params expression
 
                         Nothing ->
                             -- TODO Can we precompute an array of expressions to visit per declaration? Store in `List (Array (Node Expression))`
-                            visitExpression expression visitor
+                            visitExpression topLevelScope expression visitor
 
                 _ ->
                     visitor
@@ -6722,16 +6722,31 @@ visitDeclarationAndExpressions ((ScopeInternal.Scope { children }) as topLevelSc
         |> runDeclarationVisitorOnExit node
 
 
-visitExpression : Node Expression -> RuleModuleVisitor -> RuleModuleVisitor
-visitExpression node ruleModuleVisitor =
-    ruleModuleVisitor
-        |> runExpressionVisitorOnEnter node
-        |> visitExpressionChildren node
-        |> runExpressionVisitorOnExit node
+visitExpression : ScopeInternal.ScopeInfo -> Node Expression -> RuleModuleVisitor -> RuleModuleVisitor
+visitExpression scope ((Node nodeRange _) as node) ruleModuleVisitor =
+    case ListExtra.find (\(ScopeInternal.Scope { range }) -> range == nodeRange) scope.children of
+        Just ((ScopeInternal.Scope child) as childScope) ->
+            let
+                params : { child : ScopeInternal.Scope, parent : ScopeInternal.Scope }
+                params =
+                    { child = childScope, parent = ScopeInternal.Scope scope }
+            in
+            ruleModuleVisitor
+                |> runScopeVisitorOnEnter params node
+                |> runExpressionVisitorOnEnter node
+                |> visitExpressionChildren child node
+                |> runExpressionVisitorOnExit node
+                |> runScopeVisitorOnExit params node
+
+        Nothing ->
+            ruleModuleVisitor
+                |> runExpressionVisitorOnEnter node
+                |> visitExpressionChildren scope node
+                |> runExpressionVisitorOnExit node
 
 
-visitExpressionChildren : Node Expression -> RuleModuleVisitor -> RuleModuleVisitor
-visitExpressionChildren (Node range nodeExpr) visitor =
+visitExpressionChildren : ScopeInternal.ScopeInfo -> Node Expression -> RuleModuleVisitor -> RuleModuleVisitor
+visitExpressionChildren scope (Node range nodeExpr) visitor =
     -- Walk the expression's children in place without allocating an
     -- intermediate `List (Node Expression)` via `expressionChildren`.
     -- Pattern-matching once here (vs. once in visitExpression + once
@@ -6739,24 +6754,24 @@ visitExpressionChildren (Node range nodeExpr) visitor =
     -- every expression node in the project.
     case nodeExpr of
         Expression.Application expressions ->
-            List.foldl visitExpression visitor expressions
+            List.foldl (\e v -> visitExpression scope e v) visitor expressions
 
         Expression.ListExpr elements ->
-            List.foldl visitExpression visitor elements
+            List.foldl (\e v -> visitExpression scope e v) visitor elements
 
         Expression.OperatorApplication _ direction left right ->
             case direction of
                 Infix.Right ->
-                    visitExpression left (visitExpression right visitor)
+                    visitExpression scope left (visitExpression scope right visitor)
 
                 _ ->
-                    visitExpression right (visitExpression left visitor)
+                    visitExpression scope right (visitExpression scope left visitor)
 
         Expression.IfBlock cond then_ else_ ->
-            visitExpression else_ (visitExpression then_ (visitExpression cond visitor))
+            visitExpression scope else_ (visitExpression scope then_ (visitExpression scope cond visitor))
 
         Expression.ParenthesizedExpression expr ->
-            visitExpression expr visitor
+            visitExpression scope expr visitor
 
         Expression.LetExpression letBlock ->
             let
@@ -6764,8 +6779,9 @@ visitExpressionChildren (Node range nodeExpr) visitor =
                 letBlockWithRange =
                     Node range letBlock
             in
-            visitExpression letBlock.expression
-                (List.foldl (visitLetDeclaration letBlockWithRange) visitor letBlock.declarations)
+            visitExpression scope
+                letBlock.expression
+                (List.foldl (visitLetDeclaration scope letBlockWithRange) visitor letBlock.declarations)
 
         Expression.CaseExpression caseBlock ->
             let
@@ -6775,43 +6791,39 @@ visitExpressionChildren (Node range nodeExpr) visitor =
 
                 afterSubject : RuleModuleVisitor
                 afterSubject =
-                    visitExpression caseBlock.expression visitor
+                    visitExpression scope caseBlock.expression visitor
             in
-            List.foldl (visitCaseBranch caseBlockWithRange) afterSubject caseBlock.cases
+            List.foldl (visitCaseBranch scope caseBlockWithRange) afterSubject caseBlock.cases
 
         Expression.LambdaExpression lambda ->
-            visitExpression lambda.expression visitor
+            visitExpression scope lambda.expression visitor
 
         Expression.TupledExpression expressions ->
-            List.foldl visitExpression visitor expressions
+            List.foldl (\e v -> visitExpression scope e v) visitor expressions
 
         Expression.RecordExpr fields ->
-            List.foldl visitRecordSetter visitor fields
+            List.foldl (\(Node _ ( _, expr )) v -> visitExpression scope expr v) visitor fields
 
         Expression.RecordUpdateExpression _ setters ->
-            List.foldl visitRecordSetter visitor setters
+            List.foldl (\(Node _ ( _, expr )) v -> visitExpression scope expr v) visitor setters
 
         Expression.Negation expr ->
-            visitExpression expr visitor
+            visitExpression scope expr visitor
 
         Expression.RecordAccess expr _ ->
-            visitExpression expr visitor
+            visitExpression scope expr visitor
 
         _ ->
             visitor
 
 
-visitRecordSetter : Node Expression.RecordSetter -> RuleModuleVisitor -> RuleModuleVisitor
-visitRecordSetter (Node _ ( _, expr )) rules =
-    visitExpression expr rules
-
-
 visitLetDeclaration :
-    Node Expression.LetBlock
+    ScopeInternal.ScopeInfo
+    -> Node Expression.LetBlock
     -> Node Expression.LetDeclaration
     -> RuleModuleVisitor
     -> RuleModuleVisitor
-visitLetDeclaration letBlockWithRange ((Node _ letDeclaration) as letDeclarationWithRange) rules =
+visitLetDeclaration scope letBlockWithRange ((Node _ letDeclaration) as letDeclarationWithRange) rules =
     let
         expressionNode : Node Expression
         expressionNode =
@@ -6824,19 +6836,20 @@ visitLetDeclaration letBlockWithRange ((Node _ letDeclaration) as letDeclaration
     in
     rules
         |> runLetDeclarationVisitorOnEnter letBlockWithRange letDeclarationWithRange
-        |> visitExpression expressionNode
+        |> visitExpression scope expressionNode
         |> runLetDeclarationVisitorOnExit letBlockWithRange letDeclarationWithRange
 
 
 visitCaseBranch :
-    Node Expression.CaseBlock
+    ScopeInternal.ScopeInfo
+    -> Node Expression.CaseBlock
     -> ( Node Pattern, Node Expression )
     -> RuleModuleVisitor
     -> RuleModuleVisitor
-visitCaseBranch caseBlockWithRange (( _, caseExpression ) as caseBranch) rules =
+visitCaseBranch scope caseBlockWithRange (( _, caseExpression ) as caseBranch) rules =
     rules
         |> runCaseBranchVisitorOnEnter caseBlockWithRange caseBranch
-        |> visitExpression caseExpression
+        |> visitExpression scope caseExpression
         |> runCaseBranchVisitorOnExit caseBlockWithRange caseBranch
 
 
