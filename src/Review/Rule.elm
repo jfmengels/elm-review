@@ -410,11 +410,12 @@ import Review.Resources.Internal as ModuleNameLookupTableInternal
 import Review.Resources.ModuleNameLookupTable
 import Review.Resources.ScopeInternal as ScopeInternal
 import Review.Scope exposing (Scope)
-import Review.ScopeProvider exposing (ScopeProvider)
+import Review.ScopeProvider as ScopeProvider exposing (ScopeProvider)
 import Review.WorkList as WorkList
 import Unicode
 import Vendor.Graph as Graph
 import Vendor.IntSet as IntSet
+import Vendor.ListExtra as ListExtra
 
 
 {-| Represents a construct able to analyze a project and report
@@ -6677,28 +6678,41 @@ visitModuleForProjectRule ({ ast } as availableData) ruleModuleVisitor =
         |> runVisitor .commentVisitor ast.comments
         |> runVisitor .importsVisitor ast.imports
         |> runVisitor .declarationListVisitor ast.declarations
-        |> visitDeclarationsAndExpressions ast.declarations
+        |> visitDeclarationsAndExpressions (ScopeProvider.topLevel availableData.scopeProvider) ast.declarations
         |> runVisitor .finalModuleEvaluation ()
 
 
-visitDeclarationsAndExpressions : List (Node Declaration) -> RuleModuleVisitor -> RuleModuleVisitor
-visitDeclarationsAndExpressions declarations ruleModuleVisitor =
-    List.foldl visitDeclarationAndExpressions ruleModuleVisitor declarations
+visitDeclarationsAndExpressions : ScopeInternal.Scope -> List (Node Declaration) -> RuleModuleVisitor -> RuleModuleVisitor
+visitDeclarationsAndExpressions topLevelScope declarations ruleModuleVisitor =
+    List.foldl (\decl visitor -> visitDeclarationAndExpressions topLevelScope decl visitor) ruleModuleVisitor declarations
 
 
-visitDeclarationAndExpressions : Node Declaration -> RuleModuleVisitor -> RuleModuleVisitor
-visitDeclarationAndExpressions ((Node _ declaration) as node) ruleModuleVisitor =
+visitDeclarationAndExpressions : ScopeInternal.Scope -> Node Declaration -> RuleModuleVisitor -> RuleModuleVisitor
+visitDeclarationAndExpressions ((ScopeInternal.Scope { children }) as topLevelScope) ((Node _ declaration) as node) ruleModuleVisitor =
     let
         visitFunctionDeclaration : RuleModuleVisitor -> RuleModuleVisitor
         visitFunctionDeclaration visitor =
             case declaration of
                 Declaration.FunctionDeclaration function ->
                     let
-                        (Node _ { expression }) =
+                        (Node functionRange { expression }) =
                             function.declaration
                     in
-                    -- TODO Can we precompute an array of expressions to visit per declaration? Store in `List (Array (Node Expression))`
-                    visitExpression expression visitor
+                    case ListExtra.find (\(ScopeInternal.Scope { range }) -> range == functionRange) children of
+                        Just scope ->
+                            let
+                                params : { child : ScopeInternal.Scope, parent : ScopeInternal.Scope }
+                                params =
+                                    { child = scope, parent = topLevelScope }
+                            in
+                            visitor
+                                |> runScopeVisitorOnEnter params expression
+                                |> visitExpression expression
+                                |> runScopeVisitorOnExit params expression
+
+                        Nothing ->
+                            -- TODO Can we precompute an array of expressions to visit per declaration? Store in `List (Array (Node Expression))`
+                            visitExpression expression visitor
 
                 _ ->
                     visitor
@@ -7712,6 +7726,26 @@ runDeclarationVisitorOnExit node ((RuleModuleVisitor ops) as original) =
     case ops.declarationVisitorOnExit of
         Just visitor ->
             visitor node
+
+        Nothing ->
+            original
+
+
+runScopeVisitorOnEnter : { child : Scope, parent : Scope } -> Node Expression -> RuleModuleVisitor -> RuleModuleVisitor
+runScopeVisitorOnEnter scopes node ((RuleModuleVisitor ops) as original) =
+    case ops.scopeVisitorsOnEnter of
+        Just visitor ->
+            visitor scopes
+
+        Nothing ->
+            original
+
+
+runScopeVisitorOnExit : { child : Scope, parent : Scope } -> Node Expression -> RuleModuleVisitor -> RuleModuleVisitor
+runScopeVisitorOnExit scopes node ((RuleModuleVisitor ops) as original) =
+    case ops.scopeVisitorsOnExit of
+        Just visitor ->
+            visitor scopes
 
         Nothing ->
             original
