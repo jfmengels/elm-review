@@ -1425,26 +1425,25 @@ mergeModuleVisitors :
     String
     -> Maybe (ContextCreator projectContext moduleContext)
     -> List (ModuleRuleSchema schemaState1 moduleContext -> ModuleRuleSchema schemaState2 moduleContext)
-    -> Maybe ( ModuleRuleSchema {} moduleContext, ContextCreator projectContext moduleContext )
-mergeModuleVisitors ruleName_ maybeModuleContextCreator visitors =
+    -> Maybe ( ModuleRuleVisitors moduleContext, ContextCreator projectContext moduleContext )
+mergeModuleVisitors ruleName_ maybeModuleContextCreator visitorsToApply =
     case maybeModuleContextCreator of
         Nothing ->
             Nothing
 
         Just moduleContextCreator ->
-            if List.isEmpty visitors then
+            if List.isEmpty visitorsToApply then
                 Nothing
 
             else
-                Just (mergeModuleVisitorsHelp ruleName_ moduleContextCreator visitors)
+                Just ( mergeModuleVisitorsHelp ruleName_ visitorsToApply, moduleContextCreator )
 
 
 mergeModuleVisitorsHelp :
     String
-    -> ContextCreator projectContext moduleContext
     -> List (ModuleRuleSchema schemaState1 moduleContext -> ModuleRuleSchema schemaState2 moduleContext)
-    -> ( ModuleRuleSchema {} moduleContext, ContextCreator projectContext moduleContext )
-mergeModuleVisitorsHelp ruleName_ moduleContextCreator visitors =
+    -> ModuleRuleVisitors moduleContext
+mergeModuleVisitorsHelp ruleName_ visitorsToApply =
     let
         emptyModuleVisitor : ModuleRuleSchema schemaState moduleContext
         emptyModuleVisitor =
@@ -1455,16 +1454,16 @@ mergeModuleVisitorsHelp ruleName_ moduleContextCreator visitors =
                 , providesFixes = False
                 , visitors = emptyModuleRuleVisitors
                 }
+
+        (ModuleRuleSchema { visitors }) =
+            List.foldl
+                (\addVisitors (ModuleRuleSchema moduleVisitorSchema) ->
+                    addVisitors (ModuleRuleSchema moduleVisitorSchema)
+                )
+                emptyModuleVisitor
+                visitorsToApply
     in
-    ( List.foldl
-        (\addVisitors (ModuleRuleSchema moduleVisitorSchema) ->
-            addVisitors (ModuleRuleSchema moduleVisitorSchema)
-        )
-        emptyModuleVisitor
-        visitors
-        |> removeExtensibleRecordFromModuleRuleSchema
-    , moduleContextCreator
-    )
+    visitors
 
 
 {-| Add a visitor to the [`ProjectRuleSchema`](#ProjectRuleSchema) which will
@@ -6912,7 +6911,7 @@ createModuleVisitorFromProjectVisitor schema raise hidden =
         Nothing ->
             Nothing
 
-        Just moduleRuleSchema ->
+        Just moduleVisitors ->
             let
                 howToCreateModuleContext : HowToCreateModuleContextAndFolder projectContext moduleContext
                 howToCreateModuleContext =
@@ -6929,7 +6928,7 @@ createModuleVisitorFromProjectVisitor schema raise hidden =
                         ( SchemaRequireContextFromImportedIncludingIndirect, Just folder ) ->
                             RequireContextFromImportedIncludingIndirect folder
             in
-            Just (createModuleVisitorFromProjectVisitorHelp schema raise hidden howToCreateModuleContext moduleRuleSchema)
+            Just (createModuleVisitorFromProjectVisitorHelp schema raise hidden howToCreateModuleContext moduleVisitors)
 
 
 createModuleVisitorFromProjectVisitorHelp :
@@ -6937,11 +6936,11 @@ createModuleVisitorFromProjectVisitorHelp :
     -> (ProjectRuleCache projectContext -> RuleProjectVisitor)
     -> RuleProjectVisitorHidden projectContext
     -> HowToCreateModuleContextAndFolder projectContext moduleContext
-    -> ( ModuleRuleSchema schemaState moduleContext, ContextCreator projectContext moduleContext )
+    -> ( ModuleRuleVisitors moduleContext, ContextCreator projectContext moduleContext )
     -> ValidProject
     -> OpaqueProjectModule
     -> Maybe (AvailableData -> RuleModuleVisitor)
-createModuleVisitorFromProjectVisitorHelp schema raise hidden howToCreateModuleContext ( ModuleRuleSchema moduleRuleSchema, moduleContextCreator ) =
+createModuleVisitorFromProjectVisitorHelp schema raise hidden howToCreateModuleContext ( moduleVisitors, moduleContextCreator ) =
     \project module_ ->
         let
             filePath : FilePath
@@ -7042,7 +7041,7 @@ createModuleVisitorFromProjectVisitorHelp schema raise hidden howToCreateModuleC
                                 in
                                 raise { cache | moduleContexts = Dict.insert availableData.filePath cacheEntry cache.moduleContexts }
                         in
-                        createRuleModuleVisitor moduleRuleSchema.visitors ruleData toRuleProjectVisitor initialContext
+                        createRuleModuleVisitor moduleVisitors ruleData toRuleProjectVisitor initialContext
                     )
 
 
