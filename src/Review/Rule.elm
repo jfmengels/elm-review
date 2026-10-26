@@ -1423,20 +1423,14 @@ emptyCache =
 
 mergeModuleVisitors :
     String
-    -> Maybe (ContextCreator projectContext moduleContext)
     -> List (ModuleRuleSchema schemaState1 moduleContext -> ModuleRuleSchema schemaState2 moduleContext)
-    -> Maybe ( ModuleRuleVisitors moduleContext, ContextCreator projectContext moduleContext )
-mergeModuleVisitors ruleName_ maybeModuleContextCreator visitorsToApply =
-    case maybeModuleContextCreator of
-        Nothing ->
-            Nothing
+    -> Maybe (ModuleRuleVisitors moduleContext)
+mergeModuleVisitors ruleName_ visitorsToApply =
+    if List.isEmpty visitorsToApply then
+        Nothing
 
-        Just moduleContextCreator ->
-            if List.isEmpty visitorsToApply then
-                Nothing
-
-            else
-                Just ( mergeModuleVisitorsHelp ruleName_ visitorsToApply, moduleContextCreator )
+    else
+        Just (mergeModuleVisitorsHelp ruleName_ visitorsToApply)
 
 
 mergeModuleVisitorsHelp :
@@ -6907,28 +6901,33 @@ createModuleVisitorFromProjectVisitor :
     -> RuleProjectVisitorHidden projectContext
     -> Maybe (ValidProject -> OpaqueProjectModule -> Maybe (AvailableData -> RuleModuleVisitor))
 createModuleVisitorFromProjectVisitor schema raise hidden =
-    case mergeModuleVisitors schema.name schema.moduleContextCreator schema.moduleVisitors of
+    case schema.moduleContextCreator of
         Nothing ->
             Nothing
 
-        Just moduleVisitors ->
-            let
-                howToCreateModuleContext : HowToCreateModuleContextAndFolder projectContext moduleContext
-                howToCreateModuleContext =
-                    case ( schema.howToCreateModuleContext, schema.folder ) of
-                        ( SchemaStandaloneContext, _ ) ->
-                            StandaloneContext schema.folder
+        Just moduleContextCreator ->
+            case mergeModuleVisitors schema.name schema.moduleVisitors of
+                Nothing ->
+                    Nothing
 
-                        ( _, Nothing ) ->
-                            StandaloneContext Nothing
+                Just moduleVisitors ->
+                    let
+                        howToCreateModuleContext : HowToCreateModuleContextAndFolder projectContext moduleContext
+                        howToCreateModuleContext =
+                            case ( schema.howToCreateModuleContext, schema.folder ) of
+                                ( SchemaStandaloneContext, _ ) ->
+                                    StandaloneContext schema.folder
 
-                        ( SchemaRequireContextFromImported, Just folder ) ->
-                            RequireContextFromImported folder
+                                ( _, Nothing ) ->
+                                    StandaloneContext Nothing
 
-                        ( SchemaRequireContextFromImportedIncludingIndirect, Just folder ) ->
-                            RequireContextFromImportedIncludingIndirect folder
-            in
-            Just (createModuleVisitorFromProjectVisitorHelp schema raise hidden howToCreateModuleContext moduleVisitors)
+                                ( SchemaRequireContextFromImported, Just folder ) ->
+                                    RequireContextFromImported folder
+
+                                ( SchemaRequireContextFromImportedIncludingIndirect, Just folder ) ->
+                                    RequireContextFromImportedIncludingIndirect folder
+                    in
+                    Just (createModuleVisitorFromProjectVisitorHelp schema raise hidden howToCreateModuleContext moduleVisitors moduleContextCreator)
 
 
 createModuleVisitorFromProjectVisitorHelp :
@@ -6936,11 +6935,12 @@ createModuleVisitorFromProjectVisitorHelp :
     -> (ProjectRuleCache projectContext -> RuleProjectVisitor)
     -> RuleProjectVisitorHidden projectContext
     -> HowToCreateModuleContextAndFolder projectContext moduleContext
-    -> ( ModuleRuleVisitors moduleContext, ContextCreator projectContext moduleContext )
+    -> ModuleRuleVisitors moduleContext
+    -> ContextCreator projectContext moduleContext
     -> ValidProject
     -> OpaqueProjectModule
     -> Maybe (AvailableData -> RuleModuleVisitor)
-createModuleVisitorFromProjectVisitorHelp schema raise hidden howToCreateModuleContext ( moduleVisitors, moduleContextCreator ) =
+createModuleVisitorFromProjectVisitorHelp schema raise hidden howToCreateModuleContext moduleVisitors moduleContextCreator =
     \project module_ ->
         let
             filePath : FilePath
