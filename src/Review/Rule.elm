@@ -5669,9 +5669,15 @@ computeModuleWithRuleVisitors initialProject module_ inputRuleModuleVisitors (Re
 
         outputRuleProjectVisitors : List RuleProjectVisitor
         outputRuleProjectVisitors =
-            inputRuleModuleVisitors
-                |> visitModuleForProjectRule availableData
-                |> List.map (\(RuleModuleVisitor ruleModuleVisitor) -> ruleModuleVisitor.toProjectVisitor ())
+            List.map
+                (\createRuleVisitor ->
+                    let
+                        (RuleModuleVisitor ruleModuleVisitor) =
+                            visitModuleForProjectRule availableData (createRuleVisitor availableData)
+                    in
+                    ruleModuleVisitor.toProjectVisitor ()
+                )
+                inputRuleModuleVisitors
     in
     ( project, List.append rulesNotToRun outputRuleProjectVisitors )
 
@@ -6243,70 +6249,52 @@ applyExtraFileFix project ((Error headError) as err) targetPath edits =
                         Ok (ValidProject.addExtraFile { path = targetPath, content = newFileContent } project)
 
 
-visitModuleForProjectRule : AvailableData -> List (AvailableData -> RuleModuleVisitor) -> List RuleModuleVisitor
-visitModuleForProjectRule availableData ruleModuleVisitors =
-    ruleModuleVisitors
-        |> List.map (\createRuleVisitor -> createRuleVisitor availableData)
-        |> fromListToJsArray
-        |> mutatingMap (\acc -> runVisitor .moduleDefinitionVisitor availableData.ast.moduleDefinition acc)
-        |> mutatingMap (\acc -> runVisitor .moduleDocumentationVisitor availableData.moduleDocumentation acc)
-        |> mutatingMap (\acc -> runVisitor .commentVisitor availableData.ast.comments acc)
-        |> mutatingMap (\acc -> runVisitor .importsVisitor availableData.ast.imports acc)
-        |> mutatingMap (\acc -> runVisitor .declarationListVisitor availableData.ast.declarations acc)
-        |> visitDeclarationsAndExpressions availableData.ast.declarations
-        |> mutatingMap (\acc -> runVisitor .finalModuleEvaluation () acc)
-        |> fromJsArrayToList
+visitModuleForProjectRule : AvailableData -> RuleModuleVisitor -> RuleModuleVisitor
+visitModuleForProjectRule ({ ast } as availableData) ruleModuleVisitor =
+    ruleModuleVisitor
+        |> runVisitor .moduleDefinitionVisitor ast.moduleDefinition
+        |> runVisitor .moduleDocumentationVisitor availableData.moduleDocumentation
+        |> runVisitor .commentVisitor ast.comments
+        |> runVisitor .importsVisitor ast.imports
+        |> runVisitor .declarationListVisitor ast.declarations
+        |> visitDeclarationsAndExpressions ast.declarations
+        |> runVisitor .finalModuleEvaluation ()
 
 
-type JsArray a
-    = JsArray (List a)
+visitDeclarationsAndExpressions : List (Node Declaration) -> RuleModuleVisitor -> RuleModuleVisitor
+visitDeclarationsAndExpressions declarations ruleModuleVisitor =
+    List.foldl visitDeclarationAndExpressions ruleModuleVisitor declarations
 
 
-fromJsArrayToList : JsArray a -> List a
-fromJsArrayToList (JsArray list) =
-    list
-
-
-fromListToJsArray : List a -> JsArray a
-fromListToJsArray =
-    JsArray
-
-
-mutatingMap : (a -> b) -> JsArray a -> JsArray b
-mutatingMap mapper (JsArray list) =
-    JsArray (List.map mapper list)
-
-
-visitDeclarationsAndExpressions : List (Node Declaration) -> JsArray RuleModuleVisitor -> JsArray RuleModuleVisitor
-visitDeclarationsAndExpressions declarations rules =
-    List.foldl visitDeclarationAndExpressions rules declarations
-
-
-visitDeclarationAndExpressions : Node Declaration -> JsArray RuleModuleVisitor -> JsArray RuleModuleVisitor
-visitDeclarationAndExpressions declaration rules =
+visitDeclarationAndExpressions : Node Declaration -> RuleModuleVisitor -> RuleModuleVisitor
+visitDeclarationAndExpressions ((Node _ declaration) as node) ruleModuleVisitor =
     let
-        updatedRules : JsArray RuleModuleVisitor
-        updatedRules =
-            mutatingMap (runDeclarationVisitorOnEnter declaration) rules
+        visitor : RuleModuleVisitor
+        visitor =
+            runDeclarationVisitorOnEnter node ruleModuleVisitor
     in
-    (case Node.value declaration of
+    (case declaration of
         Declaration.FunctionDeclaration function ->
-            visitExpression (Node.value function.declaration |> .expression) updatedRules
+            let
+                (Node _ { expression }) =
+                    function.declaration
+            in
+            visitExpression expression visitor
 
         _ ->
-            updatedRules
+            visitor
     )
-        |> mutatingMap (runDeclarationVisitorOnExit declaration)
+        |> runDeclarationVisitorOnExit node
 
 
-visitExpression : Node Expression -> JsArray RuleModuleVisitor -> JsArray RuleModuleVisitor
-visitExpression node rules =
+visitExpression : Node Expression -> RuleModuleVisitor -> RuleModuleVisitor
+visitExpression ((Node nodeRange expression) as node) ruleModuleVisitor =
     let
-        afterEnter : JsArray RuleModuleVisitor
-        afterEnter =
-            mutatingMap (runExpressionVisitorOnEnter node) rules
+        visitor : RuleModuleVisitor
+        visitor =
+            runExpressionVisitorOnEnter node ruleModuleVisitor
 
-        afterChildren : JsArray RuleModuleVisitor
+        afterChildren : RuleModuleVisitor
         afterChildren =
             -- Walk the expression's children in place without allocating an
             -- intermediate `List (Node Expression)` via `expressionChildren`.
@@ -6315,24 +6303,24 @@ visitExpression node rules =
             -- every expression node in the project.
             case Node.value node of
                 Expression.Application expressions ->
-                    List.foldl visitExpression afterEnter expressions
+                    List.foldl visitExpression visitor expressions
 
                 Expression.ListExpr elements ->
-                    List.foldl visitExpression afterEnter elements
+                    List.foldl visitExpression visitor elements
 
                 Expression.OperatorApplication _ direction left right ->
                     case direction of
                         Infix.Right ->
-                            visitExpression left (visitExpression right afterEnter)
+                            visitExpression left (visitExpression right visitor)
 
                         _ ->
-                            visitExpression right (visitExpression left afterEnter)
+                            visitExpression right (visitExpression left visitor)
 
                 Expression.IfBlock cond then_ else_ ->
-                    visitExpression else_ (visitExpression then_ (visitExpression cond afterEnter))
+                    visitExpression else_ (visitExpression then_ (visitExpression cond visitor))
 
                 Expression.ParenthesizedExpression expr ->
-                    visitExpression expr afterEnter
+                    visitExpression expr visitor
 
                 Expression.LetExpression letBlock ->
                     let
@@ -6341,7 +6329,7 @@ visitExpression node rules =
                             Node (Node.range node) letBlock
                     in
                     visitExpression letBlock.expression
-                        (List.foldl (visitLetDeclaration letBlockWithRange) afterEnter letBlock.declarations)
+                        (List.foldl (visitLetDeclaration letBlockWithRange) visitor letBlock.declarations)
 
                 Expression.CaseExpression caseBlock ->
                     let
@@ -6349,37 +6337,37 @@ visitExpression node rules =
                         caseBlockWithRange =
                             Node (Node.range node) caseBlock
 
-                        afterSubject : JsArray RuleModuleVisitor
+                        afterSubject : RuleModuleVisitor
                         afterSubject =
-                            visitExpression caseBlock.expression afterEnter
+                            visitExpression caseBlock.expression visitor
                     in
                     List.foldl (visitCaseBranch caseBlockWithRange) afterSubject caseBlock.cases
 
                 Expression.LambdaExpression lambda ->
-                    visitExpression lambda.expression afterEnter
+                    visitExpression lambda.expression visitor
 
                 Expression.TupledExpression expressions ->
-                    List.foldl visitExpression afterEnter expressions
+                    List.foldl visitExpression visitor expressions
 
                 Expression.RecordExpr fields ->
-                    List.foldl visitRecordSetter afterEnter fields
+                    List.foldl visitRecordSetter visitor fields
 
                 Expression.RecordUpdateExpression _ setters ->
-                    List.foldl visitRecordSetter afterEnter setters
+                    List.foldl visitRecordSetter visitor setters
 
                 Expression.Negation expr ->
-                    visitExpression expr afterEnter
+                    visitExpression expr visitor
 
                 Expression.RecordAccess expr _ ->
-                    visitExpression expr afterEnter
+                    visitExpression expr visitor
 
                 _ ->
-                    afterEnter
+                    visitor
     in
-    mutatingMap (runExpressionVisitorOnExit node) afterChildren
+    runExpressionVisitorOnExit node afterChildren
 
 
-visitRecordSetter : Node Expression.RecordSetter -> JsArray RuleModuleVisitor -> JsArray RuleModuleVisitor
+visitRecordSetter : Node Expression.RecordSetter -> RuleModuleVisitor -> RuleModuleVisitor
 visitRecordSetter (Node _ ( _, expr )) rules =
     visitExpression expr rules
 
@@ -6387,8 +6375,8 @@ visitRecordSetter (Node _ ( _, expr )) rules =
 visitLetDeclaration :
     Node Expression.LetBlock
     -> Node Expression.LetDeclaration
-    -> JsArray RuleModuleVisitor
-    -> JsArray RuleModuleVisitor
+    -> RuleModuleVisitor
+    -> RuleModuleVisitor
 visitLetDeclaration letBlockWithRange ((Node _ letDeclaration) as letDeclarationWithRange) rules =
     let
         expressionNode : Node Expression
@@ -6401,21 +6389,21 @@ visitLetDeclaration letBlockWithRange ((Node _ letDeclaration) as letDeclaration
                     expr
     in
     rules
-        |> mutatingMap (runLetDeclarationVisitorOnEnter letBlockWithRange letDeclarationWithRange)
+        |> runLetDeclarationVisitorOnEnter letBlockWithRange letDeclarationWithRange
         |> visitExpression expressionNode
-        |> mutatingMap (runLetDeclarationVisitorOnExit letBlockWithRange letDeclarationWithRange)
+        |> runLetDeclarationVisitorOnExit letBlockWithRange letDeclarationWithRange
 
 
 visitCaseBranch :
     Node Expression.CaseBlock
     -> ( Node Pattern, Node Expression )
-    -> JsArray RuleModuleVisitor
-    -> JsArray RuleModuleVisitor
+    -> RuleModuleVisitor
+    -> RuleModuleVisitor
 visitCaseBranch caseBlockWithRange (( _, caseExpression ) as caseBranch) rules =
     rules
-        |> mutatingMap (runCaseBranchVisitorOnEnter caseBlockWithRange caseBranch)
+        |> runCaseBranchVisitorOnEnter caseBlockWithRange caseBranch
         |> visitExpression caseExpression
-        |> mutatingMap (runCaseBranchVisitorOnExit caseBlockWithRange caseBranch)
+        |> runCaseBranchVisitorOnExit caseBlockWithRange caseBranch
 
 
 extractSourceCode : List String -> Range -> String
