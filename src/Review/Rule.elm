@@ -6723,83 +6723,82 @@ visitDeclarationAndExpressions ((ScopeInternal.Scope { children }) as topLevelSc
 
 
 visitExpression : Node Expression -> RuleModuleVisitor -> RuleModuleVisitor
-visitExpression ((Node nodeRange expression) as node) ruleModuleVisitor =
-    let
-        visitor : RuleModuleVisitor
-        visitor =
-            runExpressionVisitorOnEnter node ruleModuleVisitor
+visitExpression node ruleModuleVisitor =
+    ruleModuleVisitor
+        |> runExpressionVisitorOnEnter node
+        |> visitExpressionChildren node
+        |> runExpressionVisitorOnExit node
 
-        afterChildren : RuleModuleVisitor
-        afterChildren =
-            -- Walk the expression's children in place without allocating an
-            -- intermediate `List (Node Expression)` via `expressionChildren`.
-            -- Pattern-matching once here (vs. once in visitExpression + once
-            -- in expressionChildren) also halves the case-dispatch cost for
-            -- every expression node in the project.
-            case Node.value node of
-                Expression.Application expressions ->
-                    List.foldl visitExpression visitor expressions
 
-                Expression.ListExpr elements ->
-                    List.foldl visitExpression visitor elements
+visitExpressionChildren : Node Expression -> RuleModuleVisitor -> RuleModuleVisitor
+visitExpressionChildren (Node range nodeExpr) visitor =
+    -- Walk the expression's children in place without allocating an
+    -- intermediate `List (Node Expression)` via `expressionChildren`.
+    -- Pattern-matching once here (vs. once in visitExpression + once
+    -- in expressionChildren) also halves the case-dispatch cost for
+    -- every expression node in the project.
+    case nodeExpr of
+        Expression.Application expressions ->
+            List.foldl visitExpression visitor expressions
 
-                Expression.OperatorApplication _ direction left right ->
-                    case direction of
-                        Infix.Right ->
-                            visitExpression left (visitExpression right visitor)
+        Expression.ListExpr elements ->
+            List.foldl visitExpression visitor elements
 
-                        _ ->
-                            visitExpression right (visitExpression left visitor)
-
-                Expression.IfBlock cond then_ else_ ->
-                    visitExpression else_ (visitExpression then_ (visitExpression cond visitor))
-
-                Expression.ParenthesizedExpression expr ->
-                    visitExpression expr visitor
-
-                Expression.LetExpression letBlock ->
-                    let
-                        letBlockWithRange : Node Expression.LetBlock
-                        letBlockWithRange =
-                            Node (Node.range node) letBlock
-                    in
-                    visitExpression letBlock.expression
-                        (List.foldl (visitLetDeclaration letBlockWithRange) visitor letBlock.declarations)
-
-                Expression.CaseExpression caseBlock ->
-                    let
-                        caseBlockWithRange : Node Expression.CaseBlock
-                        caseBlockWithRange =
-                            Node (Node.range node) caseBlock
-
-                        afterSubject : RuleModuleVisitor
-                        afterSubject =
-                            visitExpression caseBlock.expression visitor
-                    in
-                    List.foldl (visitCaseBranch caseBlockWithRange) afterSubject caseBlock.cases
-
-                Expression.LambdaExpression lambda ->
-                    visitExpression lambda.expression visitor
-
-                Expression.TupledExpression expressions ->
-                    List.foldl visitExpression visitor expressions
-
-                Expression.RecordExpr fields ->
-                    List.foldl visitRecordSetter visitor fields
-
-                Expression.RecordUpdateExpression _ setters ->
-                    List.foldl visitRecordSetter visitor setters
-
-                Expression.Negation expr ->
-                    visitExpression expr visitor
-
-                Expression.RecordAccess expr _ ->
-                    visitExpression expr visitor
+        Expression.OperatorApplication _ direction left right ->
+            case direction of
+                Infix.Right ->
+                    visitExpression left (visitExpression right visitor)
 
                 _ ->
-                    visitor
-    in
-    runExpressionVisitorOnExit node afterChildren
+                    visitExpression right (visitExpression left visitor)
+
+        Expression.IfBlock cond then_ else_ ->
+            visitExpression else_ (visitExpression then_ (visitExpression cond visitor))
+
+        Expression.ParenthesizedExpression expr ->
+            visitExpression expr visitor
+
+        Expression.LetExpression letBlock ->
+            let
+                letBlockWithRange : Node Expression.LetBlock
+                letBlockWithRange =
+                    Node range letBlock
+            in
+            visitExpression letBlock.expression
+                (List.foldl (visitLetDeclaration letBlockWithRange) visitor letBlock.declarations)
+
+        Expression.CaseExpression caseBlock ->
+            let
+                caseBlockWithRange : Node Expression.CaseBlock
+                caseBlockWithRange =
+                    Node range caseBlock
+
+                afterSubject : RuleModuleVisitor
+                afterSubject =
+                    visitExpression caseBlock.expression visitor
+            in
+            List.foldl (visitCaseBranch caseBlockWithRange) afterSubject caseBlock.cases
+
+        Expression.LambdaExpression lambda ->
+            visitExpression lambda.expression visitor
+
+        Expression.TupledExpression expressions ->
+            List.foldl visitExpression visitor expressions
+
+        Expression.RecordExpr fields ->
+            List.foldl visitRecordSetter visitor fields
+
+        Expression.RecordUpdateExpression _ setters ->
+            List.foldl visitRecordSetter visitor setters
+
+        Expression.Negation expr ->
+            visitExpression expr visitor
+
+        Expression.RecordAccess expr _ ->
+            visitExpression expr visitor
+
+        _ ->
+            visitor
 
 
 visitRecordSetter : Node Expression.RecordSetter -> RuleModuleVisitor -> RuleModuleVisitor
