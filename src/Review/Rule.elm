@@ -472,6 +472,7 @@ type alias ModuleRuleVisitors moduleContext =
 type InitialModuleContext moduleContext
     = Static moduleContext
     | UsingContextCreator (ContextCreator () moduleContext)
+    | NoContext
 
 
 type alias ExtraFileRequest =
@@ -1233,6 +1234,12 @@ fromModuleRuleSchema ((ModuleRuleSchema schema) as moduleVisitor) =
                 }
                 |> fromProjectRuleSchema
 
+        NoContext ->
+            -- IGNORE TCO
+            -- Only used for `mergeModuleVisitors`
+            ModuleRuleSchema schema
+                |> fromModuleRuleSchema
+
 
 compactProjectDataVisitors : (rawData -> data) -> Maybe (data -> moduleContext -> moduleContext) -> Maybe (rawData -> moduleContext -> ( List nothing, moduleContext ))
 compactProjectDataVisitors getData maybeVisitor =
@@ -1416,11 +1423,10 @@ emptyCache =
 
 mergeModuleVisitors :
     String
-    -> projectContext
     -> Maybe (ContextCreator projectContext moduleContext)
     -> List (ModuleRuleSchema schemaState1 moduleContext -> ModuleRuleSchema schemaState2 moduleContext)
     -> Maybe ( ModuleRuleSchema {} moduleContext, ContextCreator projectContext moduleContext )
-mergeModuleVisitors ruleName_ initialProjectContext maybeModuleContextCreator visitors =
+mergeModuleVisitors ruleName_ maybeModuleContextCreator visitors =
     case maybeModuleContextCreator of
         Nothing ->
             Nothing
@@ -1430,52 +1436,21 @@ mergeModuleVisitors ruleName_ initialProjectContext maybeModuleContextCreator vi
                 Nothing
 
             else
-                Just (mergeModuleVisitorsHelp ruleName_ initialProjectContext moduleContextCreator visitors)
+                Just (mergeModuleVisitorsHelp ruleName_ moduleContextCreator visitors)
 
 
 mergeModuleVisitorsHelp :
     String
-    -> projectContext
     -> ContextCreator projectContext moduleContext
     -> List (ModuleRuleSchema schemaState1 moduleContext -> ModuleRuleSchema schemaState2 moduleContext)
     -> ( ModuleRuleSchema {} moduleContext, ContextCreator projectContext moduleContext )
-mergeModuleVisitorsHelp ruleName_ initialProjectContext moduleContextCreator visitors =
+mergeModuleVisitorsHelp ruleName_ moduleContextCreator visitors =
     let
-        dummyAst : Elm.Syntax.File.File
-        dummyAst =
-            { moduleDefinition =
-                Node.Node Range.emptyRange
-                    (Module.NormalModule
-                        { moduleName = Node.Node Range.emptyRange []
-                        , exposingList = Node.Node Range.emptyRange (Exposing.Explicit [])
-                        }
-                    )
-            , imports = []
-            , declarations = []
-            , comments = []
-            }
-
-        dummyAvailableData : AvailableData
-        dummyAvailableData =
-            { ast = dummyAst
-            , moduleDocumentation = Nothing
-            , isModuleExposed = Nothing
-            , exposed = { exposesAll = True, exposed = Dict.empty }
-            , moduleNameLookupTable = ModuleNameLookupTableInternal.empty []
-            , extractSourceCode = always "dummy"
-            , filePath = "dummy file path"
-            , isInSourceDirectories = True
-            }
-
-        initialModuleContext : moduleContext
-        initialModuleContext =
-            applyContextCreator dummyAvailableData False False moduleContextCreator initialProjectContext
-
         emptyModuleVisitor : ModuleRuleSchema schemaState moduleContext
         emptyModuleVisitor =
             ModuleRuleSchema
                 { name = ruleName_
-                , initialModuleContext = Static initialModuleContext
+                , initialModuleContext = NoContext
                 , extraFileRequest = Ok []
                 , providesFixes = False
                 , visitors = emptyModuleRuleVisitors
@@ -6933,7 +6908,7 @@ createModuleVisitorFromProjectVisitor :
     -> RuleProjectVisitorHidden projectContext
     -> Maybe (ValidProject -> OpaqueProjectModule -> Maybe (AvailableData -> RuleModuleVisitor))
 createModuleVisitorFromProjectVisitor schema raise hidden =
-    case mergeModuleVisitors schema.name schema.initialProjectContext schema.moduleContextCreator schema.moduleVisitors of
+    case mergeModuleVisitors schema.name schema.moduleContextCreator schema.moduleVisitors of
         Nothing ->
             Nothing
 
