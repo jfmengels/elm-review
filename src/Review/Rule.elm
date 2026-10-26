@@ -5603,6 +5603,7 @@ computeModule params =
                     , ruleProjectVisitors = newRules
                 }
     in
+    -- TODO Find fix after computing a single rule, not after visiting all of them
     findFixInComputeModuleResults paramsAfterVisit paramsAfterVisit.ruleProjectVisitors []
 
 
@@ -6251,6 +6252,7 @@ applyExtraFileFix project ((Error headError) as err) targetPath edits =
 
 visitModuleForProjectRule : AvailableData -> RuleModuleVisitor -> RuleModuleVisitor
 visitModuleForProjectRule ({ ast } as availableData) ruleModuleVisitor =
+    -- TODO Can we skip `ModuleRuleVisitors moduleContext -> RuleModuleVisitor` migration?
     ruleModuleVisitor
         |> runVisitor .moduleDefinitionVisitor ast.moduleDefinition
         |> runVisitor .moduleDocumentationVisitor availableData.moduleDocumentation
@@ -6277,6 +6279,7 @@ visitDeclarationAndExpressions ((Node _ declaration) as node) ruleModuleVisitor 
                         (Node _ { expression }) =
                             function.declaration
                     in
+                    -- TODO Can we precompute an array of expressions to visit per declaration? Store in `List (Array (Node Expression))`
                     visitExpression expression visitor
 
                 _ ->
