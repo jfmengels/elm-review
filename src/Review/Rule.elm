@@ -6269,21 +6269,21 @@ visitDeclarationsAndExpressions declarations ruleModuleVisitor =
 visitDeclarationAndExpressions : Node Declaration -> RuleModuleVisitor -> RuleModuleVisitor
 visitDeclarationAndExpressions ((Node _ declaration) as node) ruleModuleVisitor =
     let
-        visitor : RuleModuleVisitor
-        visitor =
-            runDeclarationVisitorOnEnter node ruleModuleVisitor
-    in
-    (case declaration of
-        Declaration.FunctionDeclaration function ->
-            let
-                (Node _ { expression }) =
-                    function.declaration
-            in
-            visitExpression expression visitor
+        visitFunctionDeclaration : RuleModuleVisitor -> RuleModuleVisitor
+        visitFunctionDeclaration visitor =
+            case declaration of
+                Declaration.FunctionDeclaration function ->
+                    let
+                        (Node _ { expression }) =
+                            function.declaration
+                    in
+                    visitExpression expression visitor
 
-        _ ->
-            visitor
-    )
+                _ ->
+                    visitor
+    in
+    runDeclarationVisitorOnEnter node ruleModuleVisitor
+        |> visitFunctionDeclaration
         |> runDeclarationVisitorOnExit node
 
 
