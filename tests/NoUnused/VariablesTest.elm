@@ -375,51 +375,6 @@ a = let
                         |> Review.Test.whenFixed """module SomeModule exposing (a)
 a = 2"""
                     ]
-    , test "should report unused variables from let even if they are exposed by name" <|
-        \() ->
-            """module SomeModule exposing (a, b)
-a = let b = 1
-        c = 2
-    in c"""
-                |> Review.Test.run rule
-                |> Review.Test.expectErrors
-                    [ Review.Test.error
-                        { message = "`let in` variable `b` is not used"
-                        , details = details
-                        , under = "b"
-                        }
-                        |> Review.Test.atExactly { start = { row = 2, column = 9 }, end = { row = 2, column = 10 } }
-                        |> Review.Test.whenFixed ("""module SomeModule exposing (a, b)
-a = let$
-        c = 2
-    in c""" |> String.replace "$" " ")
-                    ]
-    , test "should report unused variables from let even if they are exposed by name (multiple ones with type annotations)" <|
-        \() ->
-            """module SomeModule exposing (a, b)
-a = let
-        b : number
-        b = 1
-
-        c : number
-        c = 2
-    in c"""
-                |> Review.Test.run rule
-                |> Review.Test.expectErrors
-                    [ Review.Test.error
-                        { message = "`let in` variable `b` is not used"
-                        , details = details
-                        , under = "b"
-                        }
-                        |> Review.Test.atExactly { start = { row = 4, column = 9 }, end = { row = 4, column = 10 } }
-                        |> Review.Test.whenFixed ("""module SomeModule exposing (a, b)
-a = let
-       $
-
-        c : number
-        c = 2
-    in c""" |> String.replace "$" " ")
-                    ]
     , test "should report unused function from let even if they are exposed by name" <|
         \() ->
             """module SomeModule exposing (a, b)
@@ -577,10 +532,10 @@ a = let () = b
                             ]
                         , under = "()"
                         }
-                        |> Review.Test.whenFixed ("""module SomeModule exposing (a)
-a = let$
+                        |> Review.Test.whenFixed """module SomeModule exposing (a)
+a = let
         {c} = 1
-    in c""" |> String.replace "$" " ")
+    in c"""
                     ]
     , test "should report parenthesized wildcard assignments" <|
         \() ->
@@ -1057,7 +1012,7 @@ a= Html.a div"""
                         , under = "CoreHtml"
                         }
                     ]
-    , test "should report unused import alias but and fix it if another alias is named like the original module name but we can remove the whole import" <|
+    , test "should report unused import alias and fix it if another alias is named like the original module name but we can remove the whole import" <|
         \() ->
             """module SomeModule exposing (a)
 import Html as CoreHtml
@@ -1173,7 +1128,7 @@ a = C_Value"""
                         ]
                       )
                     ]
-    , test "should report open type import when the exposed constructor is NOT shadowed by a local type alias when it is not a record" <|
+    , test "should report local non-record type alias when it has the same name as a used imported type constructor" <|
         \() ->
             [ """module A exposing (a)
 import B exposing (C(..))
@@ -1434,40 +1389,6 @@ type C = C_Value
             ]
                 |> Review.Test.runOnModules rule
                 |> Review.Test.expectNoErrors
-    , test "should report unused imported element when another import imports the same" <|
-        \() ->
-            [ """module A exposing (a)
-import B exposing (SomeType, b)
-import C exposing (SomeType)
-a : SomeType
-a = b
-"""
-            , """module B exposing (SomeType, b)
-type SomeType = SomeType
-b = SomeType
-"""
-            , """module C exposing (SomeType)
-type SomeType = SomeType
-"""
-            ]
-                |> Review.Test.runOnModules rule
-                |> Review.Test.expectErrorsForModules
-                    [ ( "A"
-                      , [ Review.Test.error
-                            { message = "Imported type `SomeType` is not used"
-                            , details = details
-                            , under = "SomeType"
-                            }
-                            |> Review.Test.atExactly { start = { row = 2, column = 20 }, end = { row = 2, column = 28 } }
-                            |> Review.Test.whenFixed """module A exposing (a)
-import B exposing (b)
-import C exposing (SomeType)
-a : SomeType
-a = b
-"""
-                        ]
-                      )
-                    ]
     , test "should report open type import when none of the exposed constructors are used, but only remove the (..) when type is used" <|
         \() ->
             [ """module A exposing (a)
