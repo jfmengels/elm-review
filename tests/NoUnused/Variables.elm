@@ -563,11 +563,11 @@ collectExplicitlyExposedElementsHelp fold exposingNodeRange list maybePreviousRa
                 rangeToRemove r =
                     case maybePreviousRange of
                         Nothing ->
-                            case List.head rest of
-                                Just (Node nextRange _) ->
+                            case rest of
+                                (Node nextRange _) :: _ ->
                                     { r | end = nextRange.start }
 
-                                Nothing ->
+                                [] ->
                                     exposingNodeRange
 
                         Just previousRange ->
@@ -763,8 +763,8 @@ expressionEnterVisitor (Node range value) context =
 
 
 expressionExitVisitor : Node Expression -> ModuleContext -> ( List (Error {}), ModuleContext )
-expressionExitVisitor node context =
-    case Node.value node of
+expressionExitVisitor (Node _ expr) context =
+    case expr of
         Expression.LetExpression _ ->
             makeReport context
 
@@ -776,17 +776,18 @@ expressionExitVisitor node context =
 
 
 letDeclarationEnterVisitor : Node Expression.LetBlock -> Node Expression.LetDeclaration -> ModuleContext -> ( List (Error {}), ModuleContext )
-letDeclarationEnterVisitor (Node range { declarations, expression }) declaration context =
+letDeclarationEnterVisitor (Node range { declarations, expression }) (Node declarationRange declaration) context =
     let
         letBlockContext : LetBlockContext
         letBlockContext =
-            if List.length declarations == 1 then
-                HasNoOtherDeclarations <| rangeUpUntil range (Node.range expression |> .start)
+            case declarations of
+                [ _ ] ->
+                    HasNoOtherDeclarations <| rangeUpUntil range (Node.range expression).start
 
-            else
-                HasMultipleDeclarations
+                _ ->
+                    HasMultipleDeclarations
     in
-    case Node.value declaration of
+    case declaration of
         Expression.LetFunction function ->
             let
                 functionDeclaration : FunctionImplementation
@@ -801,7 +802,7 @@ letDeclarationEnterVisitor (Node range { declarations, expression }) declaration
                 newContext =
                     { context | inTheDeclarationOf = Node.value functionDeclaration.name :: context.inTheDeclarationOf }
                         |> markValuesFromPatternsAsUsed functionDeclaration.arguments
-                        |> registerFunction letBlockContext function (Node.range declaration)
+                        |> registerFunction letBlockContext function range
             in
             ( []
             , { newContext
@@ -823,7 +824,7 @@ letDeclarationEnterVisitor (Node range { declarations, expression }) declaration
                                     ]
                                 }
                                 wildCardRange
-                                [ Fix.removeRange (letDeclarationToRemoveRange letBlockContext (Node.range declaration)) ]
+                                [ Fix.removeRange (letDeclarationToRemoveRange letBlockContext declarationRange) ]
                           ]
                         , context
                         )
@@ -836,7 +837,7 @@ letDeclarationEnterVisitor (Node range { declarations, expression }) declaration
                                 ]
                             }
                             unitPattern
-                            [ Fix.removeRange (letDeclarationToRemoveRange letBlockContext (Node.range declaration)) ]
+                            [ Fix.removeRange (letDeclarationToRemoveRange letBlockContext declarationRange) ]
                       ]
                     , context
                     )
@@ -852,7 +853,7 @@ letDeclarationEnterVisitor (Node range { declarations, expression }) declaration
                                 [ "This value has been computed but isn't assigned to any variable, which makes the value unusable. You should remove it at the location I pointed at." ]
                             }
                             (Node.range pattern)
-                            [ Fix.removeRange (letDeclarationToRemoveRange letBlockContext (Node.range declaration)) ]
+                            [ Fix.removeRange (letDeclarationToRemoveRange letBlockContext declarationRange) ]
                         ]
                     , markValuesFromPatternsAsUsed [ pattern ] context
                     )
@@ -956,8 +957,8 @@ letDeclarationToRemoveRange letBlockContext range =
 
 removeParensFromPattern : Node Pattern -> Node Pattern
 removeParensFromPattern node =
-    case Node.value node of
-        Pattern.ParenthesizedPattern pattern ->
+    case node of
+        Node _ (Pattern.ParenthesizedPattern pattern) ->
             removeParensFromPattern pattern
 
         _ ->
@@ -966,8 +967,8 @@ removeParensFromPattern node =
 
 removeParensFromExpression : Node Expression -> Node Expression
 removeParensFromExpression node =
-    case Node.value node of
-        Expression.ParenthesizedExpression expr ->
+    case node of
+        Node _ (Expression.ParenthesizedExpression expr) ->
             removeParensFromExpression expr
 
         _ ->
@@ -1056,8 +1057,8 @@ introducesVariable nodes =
         [] ->
             False
 
-        patternNode :: restOfNodes ->
-            case Node.value patternNode of
+        (Node _ pattern) :: restOfNodes ->
+            case pattern of
                 Pattern.VarPattern _ ->
                     True
 
@@ -1083,8 +1084,8 @@ introducesVariable nodes =
                 Pattern.NamedPattern _ patterns ->
                     introducesVariable (patterns ++ restOfNodes)
 
-                Pattern.ParenthesizedPattern pattern ->
-                    introducesVariable (pattern :: restOfNodes)
+                Pattern.ParenthesizedPattern subPattern ->
+                    introducesVariable (subPattern :: restOfNodes)
 
                 _ ->
                     introducesVariable restOfNodes
@@ -1178,8 +1179,8 @@ registerTypeAlias range { name, typeAnnotation } context =
 
 
 declarationEnterVisitor : Node Declaration -> ModuleContext -> ( List (Error {}), ModuleContext )
-declarationEnterVisitor node context =
-    case Node.value node of
+declarationEnterVisitor (Node nodeRange expr) context =
+    case expr of
         Declaration.FunctionDeclaration function ->
             let
                 functionImplementation : FunctionImplementation
@@ -1212,7 +1213,7 @@ declarationEnterVisitor node context =
                         registerVariable
                             { typeName = "Top-level variable"
                             , under = Node.range functionImplementation.name
-                            , rangeToRemove = Just (untilStartOfNextLine (Node.range node))
+                            , rangeToRemove = Just (untilStartOfNextLine nodeRange)
                             , warning = ""
                             }
                             functionName
@@ -1246,7 +1247,7 @@ declarationEnterVisitor node context =
             let
                 arguments : List (Node TypeAnnotation)
                 arguments =
-                    List.concatMap (Node.value >> .arguments) constructors
+                    List.concatMap (\(Node _ c) -> c.arguments) constructors
             in
             ( []
             , collectNamesFromTypeAnnotation (Just (Node.value name)) arguments context
@@ -1257,38 +1258,45 @@ declarationEnterVisitor node context =
             , collectNamesFromTypeAnnotation Nothing [ typeAnnotation ] context
             )
 
-        Declaration.PortDeclaration { name, typeAnnotation } ->
+        Declaration.PortDeclaration signature ->
             let
                 contextWithUsedElements : ModuleContext
                 contextWithUsedElements =
-                    collectNamesFromTypeAnnotation Nothing [ typeAnnotation ] context
+                    collectNamesFromTypeAnnotation Nothing [ signature.typeAnnotation ] context
+
+                (Node under name) =
+                    signature.name
             in
             ( []
-            , if Set.member (Node.value name) context.exposed then
+            , if Set.member name context.exposed then
                 contextWithUsedElements
 
               else
                 registerVariable
                     { typeName = "Port"
-                    , under = Node.range name
+                    , under = under
                     , rangeToRemove = Nothing
                     , warning = " (Warning: Removing this port may break your application if it is used in the JS code)"
                     }
-                    (Node.value name)
+                    name
                     contextWithUsedElements
             )
 
         Declaration.InfixDeclaration { operator, function } ->
+            let
+                (Node under name) =
+                    operator
+            in
             ( []
             , context
                 |> markAsUsed (Node.value function)
                 |> registerVariable
                     { typeName = "Declared operator"
-                    , under = Node.range operator
-                    , rangeToRemove = Just (Node.range node)
+                    , under = under
+                    , rangeToRemove = Just nodeRange
                     , warning = ""
                     }
-                    (Node.value operator)
+                    name
             )
 
         Declaration.Destructuring _ _ ->
