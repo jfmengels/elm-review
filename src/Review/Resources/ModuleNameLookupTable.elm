@@ -315,8 +315,8 @@ registerDeclaration (Node _ declaration) context =
 
                 registerAlias : Context -> Context
                 registerAlias ctx =
-                    case Node.value alias.typeAnnotation of
-                        TypeAnnotation.Record _ ->
+                    case alias.typeAnnotation of
+                        Node _ (TypeAnnotation.Record _) ->
                             addToScope name ctx
 
                         _ ->
