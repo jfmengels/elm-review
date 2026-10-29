@@ -367,14 +367,10 @@ reportImport ((Node _ import_) as node) context =
         moduleName : ModuleName
         moduleName =
             Node.value import_.moduleName
-
-        preludeModule : Maybe { exposes : List String, alias : Maybe (List String) }
-        preludeModule =
-            Dict.get moduleName ElmPrelude.elmPrelude
     in
     case import_.exposingList of
         Nothing ->
-            ( case preludeModule of
+            ( case Dict.get moduleName ElmPrelude.elmPrelude of
                 Nothing ->
                     []
 
@@ -404,7 +400,7 @@ reportImport ((Node _ import_) as node) context =
                 context
                 node
                 exposingRange
-                (preludeModule
+                (Dict.get moduleName ElmPrelude.elmPrelude
                     |> Maybe.map .exposes
                     |> Maybe.withDefault []
                 )
