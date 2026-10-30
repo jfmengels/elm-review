@@ -5,7 +5,7 @@ module NonEmpty exposing
     , findWithHeadAsDefault
     , any
     , cons, pop
-    , mapHead
+    , mapHead, mapHeadThenCons
     )
 
 {-| INLINED NONEMPTYLIST
@@ -46,7 +46,7 @@ available.
 
 # Map
 
-@docs mapHead
+@docs mapHead, mapHeadThenCons
 
 
 # Original copyright notice
@@ -142,6 +142,13 @@ pop ((Nonempty _ xs) as nonEmpty) =
 mapHead : (a -> a) -> NonEmpty a -> NonEmpty a
 mapHead fn (Nonempty x xs) =
     Nonempty (fn x) xs
+
+
+{-| Map the head to a value of the same type, then cons another element.
+-}
+mapHeadThenCons : a -> (a -> a) -> NonEmpty a -> NonEmpty a
+mapHeadThenCons y fn (Nonempty x xs) =
+    Nonempty y (fn x :: xs)
 
 
 {-| Find the first element that satisfies the predicate, and defaults to the first one.
