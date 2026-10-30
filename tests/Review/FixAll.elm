@@ -120,7 +120,7 @@ d = 1
                                 , source = """
 module A exposing (a)
 a = 1
-d = 1
+b = 1
 """
                                 }
                             |> Project.modules
@@ -137,8 +137,8 @@ d = 1
                             |> Expect.equal
                                 (Dict.fromList
                                     [ ( "A.elm"
-                                      , [ "Top-level variable `b` is not used"
-                                        , "Top-level variable `c` is not used"
+                                      , [ "Top-level variable `c` is not used"
+                                        , "Top-level variable `d` is not used"
                                         ]
                                       )
                                     ]

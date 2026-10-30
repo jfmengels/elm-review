@@ -1125,35 +1125,38 @@ declarationEnterVisitor (Node nodeRange expr) context =
                                 Nothing ->
                                     []
 
-                        newContextWhereFunctionIsRegistered : ModuleContext
-                        newContextWhereFunctionIsRegistered =
-                            if
-                                Dict.member functionName context.exposed
-                                    -- The main function is "exposed" by default for applications
-                                    || (context.isApplication && functionName == "main")
-                            then
-                                context
-
-                            else
-                                registerVariable
-                                    { typeName = "Top-level variable"
-                                    , under = Node.range functionImplementation.name
-                                    , rangeToRemove = Just (untilStartOfNextLine nodeRange)
-                                    , warning = ""
-                                    }
-                                    functionName
-                                    context
-
                         newContext : ModuleContext
                         newContext =
-                            { newContextWhereFunctionIsRegistered
+                            { context
                                 | inTheDeclarationOf = [ functionName ]
-                                , scopes = NonemptyList.cons (scopeWithPatternsToIgnore functionImplementation.arguments) newContextWhereFunctionIsRegistered.scopes
+                                , scopes = NonemptyList.cons (scopeWithPatternsToIgnore functionImplementation.arguments) context.scopes
                             }
                                 |> markValuesFromPatternsAsUsed (Node.value function.declaration).arguments
                                 |> collectNamesFromTypeAnnotation Nothing typeAnnotation
                     in
-                    ( [], newContext )
+                    ( if
+                        Dict.member functionName context.exposed
+                            -- The main function is "exposed" by default for applications
+                            || (context.isApplication && functionName == "main")
+                            || not
+                                (List.all
+                                    (referenceIsUsedFromWithinDefinition (Node.range functionImplementation.expression))
+                                    (ScopeProvider.valueReferences context.scopeProvider (Binding.id binding))
+                                )
+                      then
+                        []
+
+                      else
+                        [ error
+                            { typeName = "Top-level variable"
+                            , under = Node.range functionImplementation.name
+                            , rangeToRemove = Just (untilStartOfNextLine nodeRange)
+                            , warning = ""
+                            }
+                            (Binding.name binding)
+                        ]
+                    , newContext
+                    )
 
         Declaration.CustomTypeDeclaration { name, constructors } ->
             let
