@@ -1,6 +1,5 @@
 module List.Extra exposing
-    ( dictToListFilterAndMap
-    , elemIndex
+    ( elemIndex
     , find
     , findMap
     , findMapWithIndex
@@ -26,7 +25,6 @@ module List.Extra exposing
 {-| Some utilities.
 -}
 
-import Dict exposing (Dict)
 import Set exposing (Set)
 
 
@@ -303,20 +301,6 @@ listFilterThenMapInto predicate mapper list acc =
 
             else
                 listFilterThenMapInto predicate mapper xs acc
-
-
-dictToListFilterAndMap : (k -> Bool) -> (k -> v -> a) -> Dict k v -> List a -> List a
-dictToListFilterAndMap predicate mapper dict baseAcc =
-    Dict.foldr
-        (\k v acc ->
-            if predicate k then
-                mapper k v :: acc
-
-            else
-                acc
-        )
-        baseAcc
-        dict
 
 
 insertAllJusts : List ( a, Maybe comparable ) -> Set comparable -> Set comparable
