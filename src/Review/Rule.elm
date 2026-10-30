@@ -5916,31 +5916,37 @@ filterModuleDocs params imports projectCache =
                 Dict.empty
     in
     List.foldl
-        (\(Node _ import_) dict ->
-            let
-                moduleName : ModuleName
-                moduleName =
-                    Node.value import_.moduleName
-            in
-            case Dict.get moduleName projectCache.modules of
-                Just doc ->
-                    Dict.insert moduleName (DocsModule.mod doc) dict
-
-                Nothing ->
-                    case Dict.get moduleName dependencies of
-                        Just doc ->
-                            Dict.insert moduleName doc dict
-
-                        Nothing ->
-                            dict
-        )
-        Dict.empty
+        (\(Node _ import_) dict -> addModule dependencies projectCache.modules (Node.value import_.moduleName) dict)
         (if params.implicitImports && params.dependencies then
-            Review.Resources.ElmCorePrelude.elmCorePrelude ++ imports
+            List.foldl
+                (\moduleName dict -> addModule dependencies projectCache.modules moduleName dict)
+                Dict.empty
+                Review.Resources.ElmCorePrelude.moduleNames
 
          else
-            imports
+            Dict.empty
         )
+        imports
+
+
+addModule :
+    Dict ModuleName Elm.Docs.Module
+    -> Dict ModuleName DocsModule
+    -> ModuleName
+    -> Dict ModuleName Elm.Docs.Module
+    -> Dict ModuleName Elm.Docs.Module
+addModule dependencies modules moduleName dict =
+    case Dict.get moduleName modules of
+        Just doc ->
+            Dict.insert moduleName (DocsModule.mod doc) dict
+
+        Nothing ->
+            case Dict.get moduleName dependencies of
+                Just doc ->
+                    Dict.insert moduleName doc dict
+
+                Nothing ->
+                    dict
 
 
 computeConstructorToType : { implicitImports : Bool, dependencies : Bool } -> Bool -> ModuleName -> Elm.Syntax.File.File -> ProjectCache -> Dict ModuleName (Dict String String)
