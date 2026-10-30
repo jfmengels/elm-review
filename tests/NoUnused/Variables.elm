@@ -21,7 +21,6 @@ import Elm.Syntax.TypeAlias exposing (TypeAlias)
 import List.Extra
 import NoUnused.Variables.ElmPrelude as ElmPrelude
 import Review.Fix as Fix
-import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Resources.Binding as Binding exposing (Binding)
 import Review.Resources.ImportBinding as ImportBinding
 import Review.Resources.Reference as Reference exposing (Reference)
@@ -113,8 +112,7 @@ rule =
 
 
 type alias Context =
-    { lookupTable : ModuleNameLookupTable
-    , scopeProvider : ScopeProvider
+    { scopeProvider : ScopeProvider
     , exposed : Dict String Bool
     , isApplication : Bool
     , moduleNamesInUse : Set String
@@ -136,16 +134,14 @@ type LetBlockContext
 fromProjectToModule : Rule.ContextCreator () Context
 fromProjectToModule =
     Rule.initContextCreator
-        (\lookupTable scopeProvider { exposed } isModuleExposed ast moduleDocs () ->
-            { lookupTable = lookupTable
-            , scopeProvider = scopeProvider
+        (\scopeProvider { exposed } isModuleExposed ast moduleDocs () ->
+            { scopeProvider = scopeProvider
             , exposed = exposed
             , isApplication = isModuleExposed == Nothing
             , moduleNamesInUse = collectModuleNamesInUse ast.imports Set.empty
             , moduleDocs = moduleDocs
             }
         )
-        |> Rule.withModuleNameLookupTable
         |> Rule.withScopes
         |> Rule.withExposed
         |> Rule.withIsModuleExposed
@@ -604,7 +600,7 @@ letDeclarationEnterVisitor (Node range { declarations, expression }) (Node decla
         Expression.LetDestructuring pattern value ->
             case removeParensFromPattern pattern of
                 Node wildCardRange Pattern.AllPattern ->
-                    if isDebugLogCall context.lookupTable value then
+                    if isDebugLogCall context.scopeProvider value then
                         []
 
                     else
@@ -644,16 +640,16 @@ letDeclarationEnterVisitor (Node range { declarations, expression }) (Node decla
                         ]
 
 
-isDebugLogCall : ModuleNameLookupTable -> Node Expression -> Bool
-isDebugLogCall lookupTable (Node _ node) =
+isDebugLogCall : ScopeProvider -> Node Expression -> Bool
+isDebugLogCall scopeProvider (Node _ node) =
     case node of
         Expression.Application [ function, _, _ ] ->
-            isDebugLog lookupTable function
+            isDebugLog scopeProvider function
 
         Expression.OperatorApplication "|>" _ _ pipeFunction ->
             case removeParensFromExpression pipeFunction of
                 Node _ (Expression.Application [ functionWithParens, _ ]) ->
-                    isDebugLog lookupTable functionWithParens
+                    isDebugLog scopeProvider functionWithParens
 
                 _ ->
                     False
@@ -661,7 +657,7 @@ isDebugLogCall lookupTable (Node _ node) =
         Expression.OperatorApplication "<|" _ pipeFunction _ ->
             case removeParensFromExpression pipeFunction of
                 Node _ (Expression.Application [ functionWithParens, _ ]) ->
-                    isDebugLog lookupTable functionWithParens
+                    isDebugLog scopeProvider functionWithParens
 
                 _ ->
                     False
@@ -670,11 +666,16 @@ isDebugLogCall lookupTable (Node _ node) =
             False
 
 
-isDebugLog : ModuleNameLookupTable -> Node Expression -> Bool
-isDebugLog lookupTable node =
+isDebugLog : ScopeProvider -> Node Expression -> Bool
+isDebugLog scopeProvider node =
     case removeParensFromExpression node of
-        Node functionRange (Expression.FunctionOrValue _ "log") ->
-            ModuleNameLookupTable.moduleNameAt lookupTable functionRange == Just [ "Debug" ]
+        Node functionRange (Expression.FunctionOrValue moduleName "log") ->
+            case ScopeProvider.moduleNameForValue scopeProvider functionRange moduleName "log" of
+                [ "Debug" ] ->
+                    True
+
+                _ ->
+                    False
 
         _ ->
             False
