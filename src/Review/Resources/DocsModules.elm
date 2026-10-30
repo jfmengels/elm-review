@@ -8,7 +8,7 @@ module Review.Resources.DocsModules exposing
 import Dict exposing (Dict)
 import Elm.Docs
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
-import Elm.Syntax.Exposing as Exposing exposing (TopLevelExpose)
+import Elm.Syntax.Exposing as Exposing exposing (Exposing, TopLevelExpose)
 import Elm.Syntax.Expression as Expression
 import Elm.Syntax.File
 import Elm.Syntax.Import exposing (Import)
@@ -28,7 +28,7 @@ import Review.Project.DocsModule as DocsModule exposing (DocsModule)
 import Review.Project.ProjectCache as ProjectCache exposing (ProjectCache)
 import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModule)
 import Review.Project.Valid as ValidProject exposing (ValidProject)
-import Review.Resources.ElmCorePrelude exposing (elmCorePrelude)
+import Review.Resources.ElmCorePrelude as ElmCorePrelude exposing (modulesWithExposingList)
 import Set exposing (Set)
 import Vendor.IntSet as IntSet exposing (IntSet)
 import Vendor.ListExtra as ListExtra
@@ -199,17 +199,13 @@ computeHelp importDocsModuleHashes moduleName module_ projectCache =
 computeBaseModule : ModuleName -> Dict ModuleName Elm.Docs.Module -> Dict ModuleName DocsModule -> Context
 computeBaseModule moduleName dependencies modules =
     let
-        importAliases : Dict String (NonEmpty ModuleName)
-        importAliases =
-            List.foldl (\(Node _ import_) acc -> registerImportAlias import_ acc) Dict.empty elmCorePrelude
-
         importedTypes : Dict String ModuleName
         importedTypes =
-            List.foldl (\(Node _ import_) acc -> registerImportedTypes import_ dependencies modules acc) Dict.empty elmCorePrelude
+            List.foldl (\import_ acc -> registerImportedTypesWithExposing dependencies modules import_.moduleName import_.exposingList acc) Dict.empty modulesWithExposingList
     in
     { moduleName = moduleName
     , localTypes = Set.empty
-    , importAliases = importAliases
+    , importAliases = ElmCorePrelude.importAliases
     , importedTypes = importedTypes
     , modules = modules
     , dependencies = dependencies
@@ -281,7 +277,7 @@ collectModuleDocs moduleName ast context types =
 
         importedTypes : Dict String ModuleName
         importedTypes =
-            List.foldl (\(Node _ import_) acc -> registerImportedTypes import_ context.dependencies context.modules acc) context.importedTypes ast.imports
+            List.foldl (\(Node _ import_) acc -> registerImportedTypes context.dependencies context.modules import_ acc) context.importedTypes ast.imports
 
         exposed : { exposesEverything : Bool, exposedNames : Dict String Bool }
         exposed =
@@ -730,12 +726,12 @@ registerImportAlias import_ importAliases =
 
 
 registerImportedTypes :
-    Import
-    -> Dict ModuleName Elm.Docs.Module
+    Dict ModuleName Elm.Docs.Module
     -> Dict ModuleName DocsModule
+    -> Import
     -> Dict String ModuleName
     -> Dict String ModuleName
-registerImportedTypes import_ dependencies modules importedTypes =
+registerImportedTypes dependencies modules import_ importedTypes =
     case import_.exposingList of
         Nothing ->
             importedTypes
@@ -746,43 +742,54 @@ registerImportedTypes import_ dependencies modules importedTypes =
                 moduleName =
                     Node.value import_.moduleName
             in
-            case exposing_ of
-                Exposing.All _ ->
-                    let
-                        module_ : Elm.Docs.Module
-                        module_ =
-                            case Dict.get moduleName modules of
+            registerImportedTypesWithExposing dependencies modules moduleName exposing_ importedTypes
+
+
+registerImportedTypesWithExposing :
+    Dict ModuleName Elm.Docs.Module
+    -> Dict ModuleName DocsModule
+    -> ModuleName
+    -> Exposing
+    -> Dict String ModuleName
+    -> Dict String ModuleName
+registerImportedTypesWithExposing dependencies modules moduleName exposing_ importedTypes =
+    case exposing_ of
+        Exposing.All _ ->
+            let
+                module_ : Elm.Docs.Module
+                module_ =
+                    case Dict.get moduleName modules of
+                        Just mod ->
+                            DocsModule.mod mod
+
+                        Nothing ->
+                            case Dict.get moduleName dependencies of
                                 Just mod ->
-                                    DocsModule.mod mod
+                                    mod
 
                                 Nothing ->
-                                    case Dict.get moduleName dependencies of
-                                        Just mod ->
-                                            mod
+                                    dummyModuleDocs moduleName
 
-                                        Nothing ->
-                                            dummyModuleDocs moduleName
+                foldIntoDict : List { a | name : comparable } -> Dict comparable ModuleName -> Dict comparable ModuleName
+                foldIntoDict list dict =
+                    List.foldl (\{ name } acc -> Dict.insert name moduleName acc) dict list
+            in
+            importedTypes
+                |> foldIntoDict module_.unions
+                |> foldIntoDict module_.aliases
 
-                        foldIntoDict : List { a | name : comparable } -> Dict comparable ModuleName -> Dict comparable ModuleName
-                        foldIntoDict list dict =
-                            List.foldl (\{ name } acc -> Dict.insert name moduleName acc) dict list
-                    in
-                    importedTypes
-                        |> foldIntoDict module_.unions
-                        |> foldIntoDict module_.aliases
+        Exposing.Explicit topLevelExposeList ->
+            List.foldl
+                (\topLevelExpose acc ->
+                    case typesFromExposingList topLevelExpose of
+                        Just name ->
+                            Dict.insert name moduleName acc
 
-                Exposing.Explicit topLevelExposeList ->
-                    List.foldl
-                        (\topLevelExpose acc ->
-                            case typesFromExposingList topLevelExpose of
-                                Just name ->
-                                    Dict.insert name moduleName acc
-
-                                Nothing ->
-                                    acc
-                        )
-                        importedTypes
-                        topLevelExposeList
+                        Nothing ->
+                            acc
+                )
+                importedTypes
+                topLevelExposeList
 
 
 dummyModuleDocs : ModuleName -> Elm.Docs.Module
