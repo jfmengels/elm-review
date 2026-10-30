@@ -1175,27 +1175,29 @@ declarationEnterVisitor (Node nodeRange expr) context =
 
         Declaration.PortDeclaration signature ->
             let
-                contextWithUsedElements : ModuleContext
-                contextWithUsedElements =
-                    collectNamesFromTypeAnnotation Nothing [ signature.typeAnnotation ] context
-
                 (Node under name) =
                     signature.name
             in
-            ( []
-            , if Dict.member name context.exposed then
-                contextWithUsedElements
+            case Scope.valueBinding (ScopeProvider.topLevel context.scopeProvider) name of
+                Nothing ->
+                    ( [], context )
 
-              else
-                registerVariable
-                    { typeName = "Port"
-                    , under = under
-                    , rangeToRemove = Nothing
-                    , warning = " (Warning: Removing this port may break your application if it is used in the JS code)"
-                    }
-                    name
-                    contextWithUsedElements
-            )
+                Just binding ->
+                    ( if
+                        Dict.member name context.exposed
+                            || not (List.isEmpty (ScopeProvider.valueReferences context.scopeProvider (Binding.id binding)))
+                      then
+                        []
+
+                      else
+                        [ Rule.error
+                            { message = "Port `" ++ name ++ "` is not used (Warning: Removing this port may break your application if it is used in the JS code)"
+                            , details = details
+                            }
+                            under
+                        ]
+                    , collectNamesFromTypeAnnotation Nothing [ signature.typeAnnotation ] context
+                    )
 
         Declaration.InfixDeclaration { operator, function } ->
             let
