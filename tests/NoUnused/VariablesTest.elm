@@ -2354,7 +2354,7 @@ a = 1"""
                 |> Review.Test.run rule
                 |> Review.Test.expectErrors
                     [ Review.Test.error
-                        { message = "Type `A` is not used"
+                        { message = "Type alias `A` is not used"
                         , details = details
                         , under = "A"
                         }
@@ -2372,7 +2372,7 @@ a = 1"""
                 |> Review.Test.run rule
                 |> Review.Test.expectErrors
                     [ Review.Test.error
-                        { message = "Type `UnusedType` is not used"
+                        { message = "Type alias `UnusedType` is not used"
                         , details = details
                         , under = "UnusedType"
                         }

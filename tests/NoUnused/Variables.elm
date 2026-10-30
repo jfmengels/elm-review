@@ -9,7 +9,7 @@ module NoUnused.Variables exposing (rule)
 import Dict exposing (Dict)
 import Elm.Docs
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
-import Elm.Syntax.Exposing as Exposing exposing (TopLevelExpose)
+import Elm.Syntax.Exposing as Exposing
 import Elm.Syntax.Expression as Expression exposing (Expression, Function, FunctionImplementation)
 import Elm.Syntax.Import exposing (Import)
 import Elm.Syntax.ModuleName exposing (ModuleName)
@@ -18,11 +18,9 @@ import Elm.Syntax.Pattern as Pattern exposing (Pattern)
 import Elm.Syntax.Range exposing (Location, Range)
 import Elm.Syntax.Type as Type
 import Elm.Syntax.TypeAlias exposing (TypeAlias)
-import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
 import List.Extra
-import NoUnused.NonemptyList as NonemptyList exposing (Nonempty)
 import NoUnused.Variables.ElmPrelude as ElmPrelude
-import Review.Fix as Fix exposing (Fix)
+import Review.Fix as Fix
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Resources.Binding as Binding exposing (Binding)
 import Review.Resources.ImportBinding as ImportBinding
@@ -106,69 +104,21 @@ elm-review --template jfmengels/elm-review-unused/example --rules NoUnused.Varia
 -}
 rule : Rule
 rule =
-    Rule.newProjectRuleSchema "NoUnused.Variables" ()
-        |> Rule.withModuleVisitor moduleVisitor
-        |> Rule.withModuleContextUsingContextCreator
-            { fromProjectToModule = fromProjectToModule
-            , fromModuleToProject = fromModuleToProject
-            , foldProjectContexts = foldProjectContexts
-            }
-        |> Rule.providesFixesForProjectRule
-        |> Rule.fromProjectRuleSchema
-
-
-moduleVisitor : Rule.ModuleRuleSchema schemaState ModuleContext -> Rule.ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } ModuleContext
-moduleVisitor schema =
-    schema
+    Rule.newModuleRuleSchemaUsingContextCreator "NoUnused.Variables" fromProjectToModule
         |> Rule.withImportVisitor (\node context -> ( importVisitor node context, context ))
-        |> Rule.withDeclarationListVisitor (\nodes context -> ( [], declarationListVisitor nodes context ))
-        |> Rule.withDeclarationEnterVisitor declarationEnterVisitor
-        |> Rule.withDeclarationExitVisitor declarationExitVisitor
-        |> Rule.withExpressionEnterVisitor (\node context -> ( [], expressionEnterVisitor node context ))
-        |> Rule.withLetDeclarationEnterVisitor letDeclarationEnterVisitor
-        |> Rule.withCaseBranchEnterVisitor (\_ casePattern context -> ( [], caseBranchEnterVisitor casePattern context ))
-        |> Rule.withFinalModuleEvaluation finalEvaluation
+        |> Rule.withDeclarationEnterVisitor (\node context -> ( declarationEnterVisitor node context, context ))
+        |> Rule.withLetDeclarationEnterVisitor (\letBlock letDecl context -> ( letDeclarationEnterVisitor letBlock letDecl context, context ))
+        |> Rule.providesFixesForModuleRule
+        |> Rule.fromModuleRuleSchema
 
 
-type alias ModuleContext =
+type alias Context =
     { lookupTable : ModuleNameLookupTable
     , scopeProvider : ScopeProvider
-    , scopes : Nonempty Scope
-    , inTheDeclarationOf : List String
     , exposed : Dict String Bool
     , isApplication : Bool
-    , constructorNameToTypeName : Dict ModuleName (Dict String String)
     , moduleNamesInUse : Set String
-    , localTypes : Dict String TypeData
     , moduleDocs : Dict ModuleName Elm.Docs.Module
-    }
-
-
-type alias TypeData =
-    { under : Range
-    , kind : TypeKind
-    , rangeToRemove : Range
-    , variants : List String
-    }
-
-
-type TypeKind
-    = CustomTypeKind
-    | TypeAliasKind
-
-
-type alias Scope =
-    { declared : Dict String VariableInfo
-    , used : Dict ModuleName (Set String)
-    , namesToIgnore : Set String
-    }
-
-
-type alias VariableInfo =
-    { typeName : String
-    , under : Range
-    , rangeToRemove : Maybe Range
-    , warning : String
     }
 
 
@@ -183,19 +133,15 @@ type LetBlockContext
     | HasNoOtherDeclarations Range
 
 
-fromProjectToModule : Rule.ContextCreator () ModuleContext
+fromProjectToModule : Rule.ContextCreator () Context
 fromProjectToModule =
     Rule.initContextCreator
-        (\lookupTable scopeProvider { exposed } isModuleExposed ast moduleDocs constructorToType () ->
+        (\lookupTable scopeProvider { exposed } isModuleExposed ast moduleDocs () ->
             { lookupTable = lookupTable
             , scopeProvider = scopeProvider
-            , scopes = NonemptyList.fromElement (scopeWithUsedExports exposed)
-            , inTheDeclarationOf = []
             , exposed = exposed
             , isApplication = isModuleExposed == Nothing
-            , constructorNameToTypeName = constructorToType
             , moduleNamesInUse = collectModuleNamesInUse ast.imports Set.empty
-            , localTypes = Dict.empty
             , moduleDocs = moduleDocs
             }
         )
@@ -205,7 +151,6 @@ fromProjectToModule =
         |> Rule.withIsModuleExposed
         |> Rule.withFullAst
         |> Rule.withImportedModuleDocs { implicitImports = False, dependencies = True }
-        |> Rule.withConstructorToType { implicitImports = False, dependencies = True }
 
 
 collectModuleNamesInUse : List (Node Import) -> Set String -> Set String
@@ -227,38 +172,21 @@ collectModuleNamesInUse nodes set =
             collectModuleNamesInUse rest (Set.insert (String.join "." effectiveName) set)
 
 
-fromModuleToProject : Rule.ContextCreator ModuleContext ()
-fromModuleToProject =
-    Rule.initContextCreator (\_ -> ())
-
-
-foldProjectContexts : () -> () -> ()
-foldProjectContexts _ previousProjectContext =
-    previousProjectContext
-
-
-scopeWithUsedExports : Dict String Bool -> Scope
-scopeWithUsedExports exposed =
-    { declared = Dict.empty
-    , used = Dict.singleton [] (Dict.foldl (\key _ set -> Set.insert key set) Set.empty exposed)
-    , namesToIgnore = Set.empty
+type alias VariableInfo =
+    { typeName : String
+    , under : Range
+    , rangeToRemove : Range
     }
 
 
-error : { typeName : String, under : Range, rangeToRemove : Maybe Range, warning : String } -> String -> Error {}
+error : VariableInfo -> String -> Error {}
 error variableInfo name =
     Rule.errorWithFix
-        { message = variableInfo.typeName ++ " `" ++ name ++ "` is not used" ++ variableInfo.warning
+        { message = variableInfo.typeName ++ " `" ++ name ++ "` is not used"
         , details = details
         }
         variableInfo.under
-        (case variableInfo.rangeToRemove of
-            Just rangeToRemove ->
-                [ Fix.removeRange rangeToRemove ]
-
-            Nothing ->
-                []
-        )
+        [ Fix.removeRange variableInfo.rangeToRemove ]
 
 
 details : List String
@@ -267,7 +195,7 @@ details =
     ]
 
 
-importVisitor : Node Import -> ModuleContext -> List (Error {})
+importVisitor : Node Import -> Context -> List (Error {})
 importVisitor ((Node _ import_) as node) context =
     let
         (Node moduleNameRange moduleName) =
@@ -299,7 +227,7 @@ importVisitor ((Node _ import_) as node) context =
         reportImport node context errors
 
 
-reportImport : Node { moduleName : Node ModuleName, moduleAlias : Maybe (Node ModuleName), exposingList : Maybe (Node Exposing.Exposing) } -> ModuleContext -> List (Error {}) -> List (Error {})
+reportImport : Node { moduleName : Node ModuleName, moduleAlias : Maybe (Node ModuleName), exposingList : Maybe (Node Exposing.Exposing) } -> Context -> List (Error {}) -> List (Error {})
 reportImport ((Node _ import_) as node) context errors =
     let
         (Node _ moduleName) =
@@ -380,7 +308,7 @@ importPreludeModuleError (Node importRange import_) =
         [ Fix.removeRange (untilStartOfNextLine importRange) ]
 
 
-explicitExposingAllErrors : ModuleContext -> Range -> Node Import -> List (Rule.Error {}) -> List (Rule.Error {})
+explicitExposingAllErrors : Context -> Range -> Node Import -> List (Rule.Error {}) -> List (Rule.Error {})
 explicitExposingAllErrors context exposingRange ((Node _ import_) as node) errors =
     let
         (Node _ moduleName) =
@@ -436,7 +364,7 @@ importPreludeElementError name under rangeToRemove =
 
 
 reportImportedCustomType :
-    ModuleContext
+    Context
     -> ModuleName
     -> String
     -> Range
@@ -481,7 +409,7 @@ reportImportedCustomType context moduleName name under variableInfo errors =
             errors
 
 
-reportImportedTypeOrValue : ModuleContext -> String -> VariableInfo -> List (Error {}) -> List (Error {})
+reportImportedTypeOrValue : Context -> String -> VariableInfo -> List (Error {}) -> List (Error {})
 reportImportedTypeOrValue context name variableInfo errors =
     if
         isImportedValueReferenced context.scopeProvider name
@@ -494,7 +422,7 @@ reportImportedTypeOrValue context name variableInfo errors =
 
 
 collectExplicitlyExposedElements :
-    ModuleContext
+    Context
     -> ModuleName
     -> List String
     -> Range
@@ -538,8 +466,7 @@ collectExplicitlyExposedElements context moduleName exposedFromPrelude exposingN
                                     name
                                     { typeName = "Imported variable"
                                     , under = under
-                                    , rangeToRemove = Just rangeToRemove
-                                    , warning = ""
+                                    , rangeToRemove = rangeToRemove
                                     }
 
                         Exposing.InfixExpose name ->
@@ -554,8 +481,7 @@ collectExplicitlyExposedElements context moduleName exposedFromPrelude exposingN
                                     name
                                     { typeName = "Imported operator"
                                     , under = under
-                                    , rangeToRemove = Just rangeToRemove
-                                    , warning = ""
+                                    , rangeToRemove = rangeToRemove
                                     }
 
                         Exposing.TypeOrAliasExpose name ->
@@ -570,8 +496,7 @@ collectExplicitlyExposedElements context moduleName exposedFromPrelude exposingN
                                     name
                                     { typeName = "Imported type"
                                     , under = under
-                                    , rangeToRemove = Just rangeToRemove
-                                    , warning = ""
+                                    , rangeToRemove = rangeToRemove
                                     }
 
                         Exposing.TypeExpose { name, open } ->
@@ -622,7 +547,7 @@ targets moduleName ref =
             False
 
 
-reportUnusedModuleAlias : Node Import -> Maybe (Node ModuleName) -> ModuleContext -> List (Rule.Error {}) -> List (Rule.Error {})
+reportUnusedModuleAlias : Node Import -> Maybe (Node ModuleName) -> Context -> List (Rule.Error {}) -> List (Rule.Error {})
 reportUnusedModuleAlias (Node range import_) maybeModuleAlias context errors =
     case maybeModuleAlias of
         Just (Node aliasRange alias) ->
@@ -660,69 +585,7 @@ reportUnusedModuleAlias (Node range import_) maybeModuleAlias context errors =
             errors
 
 
-expressionEnterVisitor : Node Expression -> ModuleContext -> ModuleContext
-expressionEnterVisitor (Node range value) context =
-    case value of
-        Expression.FunctionOrValue [] name ->
-            case ModuleNameLookupTable.moduleNameAt context.lookupTable range of
-                Just [] ->
-                    case Dict.get [] context.constructorNameToTypeName |> Maybe.andThen (Dict.get name) of
-                        Just typeName ->
-                            markValueAsUsed [] typeName context
-
-                        Nothing ->
-                            markValueAsUsed [] name context
-
-                Just realModuleName ->
-                    context
-                        |> markValueAsUsed realModuleName name
-
-                Nothing ->
-                    context
-
-        Expression.OperatorApplication name _ _ _ ->
-            markAsUsed name context
-
-        Expression.PrefixOperator name ->
-            markAsUsed name context
-
-        Expression.RecordUpdateExpression (Node _ expr) _ ->
-            markAsUsed expr context
-
-        Expression.LambdaExpression { args } ->
-            markValuesFromPatternsAsUsed args
-                { context | scopes = NonemptyList.cons (scopeWithPatternsToIgnore args) context.scopes }
-
-        Expression.CaseExpression { cases } ->
-            markValuesFromPatternsAsUsed
-                (List.map (\( patternNode, _ ) -> patternNode) cases)
-                context
-
-        Expression.LetExpression letBlock ->
-            let
-                namesToIgnore : Set String
-                namesToIgnore =
-                    List.foldl
-                        (\declaration acc ->
-                            case Node.value declaration of
-                                Expression.LetFunction _ ->
-                                    acc
-
-                                Expression.LetDestructuring pattern _ ->
-                                    getDeclaredNamesFromPattern [ pattern ] acc
-                        )
-                        Set.empty
-                        letBlock.declarations
-            in
-            { context
-                | scopes = NonemptyList.cons { declared = Dict.empty, used = Dict.empty, namesToIgnore = namesToIgnore } context.scopes
-            }
-
-        _ ->
-            context
-
-
-letDeclarationEnterVisitor : Node Expression.LetBlock -> Node Expression.LetDeclaration -> ModuleContext -> ( List (Error {}), ModuleContext )
+letDeclarationEnterVisitor : Node Expression.LetBlock -> Node Expression.LetDeclaration -> Context -> List (Error {})
 letDeclarationEnterVisitor (Node range { declarations, expression }) (Node declarationRange declaration) context =
     let
         letBlockContext : LetBlockContext
@@ -736,72 +599,41 @@ letDeclarationEnterVisitor (Node range { declarations, expression }) (Node decla
     in
     case declaration of
         Expression.LetFunction function ->
-            let
-                (Node _ functionDeclaration) =
-                    function.declaration
-
-                namesToIgnore : Set String
-                namesToIgnore =
-                    getDeclaredNamesFromPattern functionDeclaration.arguments Set.empty
-
-                typeAnnotations : List (Node TypeAnnotation)
-                typeAnnotations =
-                    case function.signature of
-                        Just (Node _ signature) ->
-                            [ signature.typeAnnotation ]
-
-                        Nothing ->
-                            []
-
-                newContext : ModuleContext
-                newContext =
-                    { context | inTheDeclarationOf = Node.value functionDeclaration.name :: context.inTheDeclarationOf }
-                        |> collectNamesFromTypeAnnotation Nothing typeAnnotations
-                        |> markValuesFromPatternsAsUsed functionDeclaration.arguments
-            in
-            ( reportUnusedLetFunction letBlockContext function range newContext
-            , { newContext
-                | scopes = NonemptyList.cons { declared = Dict.empty, used = Dict.empty, namesToIgnore = namesToIgnore } newContext.scopes
-              }
-            )
+            reportUnusedLetFunction letBlockContext function declarationRange context
 
         Expression.LetDestructuring pattern value ->
             case removeParensFromPattern pattern of
                 Node wildCardRange Pattern.AllPattern ->
                     if isDebugLogCall context.lookupTable value then
-                        ( [], context )
-
-                    else
-                        ( [ Rule.errorWithFix
-                                { message = "Value assigned to `_` is unused"
-                                , details =
-                                    [ "This value has been assigned to a wildcard, which makes the value unusable. You should remove it at the location I pointed at."
-                                    ]
-                                }
-                                wildCardRange
-                                [ Fix.removeRange (letDeclarationToRemoveRange letBlockContext declarationRange) ]
-                          ]
-                        , context
-                        )
-
-                Node unitPattern Pattern.UnitPattern ->
-                    ( [ Rule.errorWithFix
-                            { message = "Unit value is unused"
-                            , details =
-                                [ "This value has no data, which makes the value unusable. You should remove it at the location I pointed at."
-                                ]
-                            }
-                            unitPattern
-                            [ Fix.removeRange (letDeclarationToRemoveRange letBlockContext declarationRange) ]
-                      ]
-                    , context
-                    )
-
-                _ ->
-                    ( if introducesVariable [ pattern ] then
                         []
 
-                      else
+                    else
+                        [ Rule.errorWithFix
+                            { message = "Value assigned to `_` is unused"
+                            , details =
+                                [ "This value has been assigned to a wildcard, which makes the value unusable. You should remove it at the location I pointed at."
+                                ]
+                            }
+                            wildCardRange
+                            [ Fix.removeRange (letDeclarationToRemoveRange letBlockContext declarationRange) ]
+                        ]
+
+                Node unitPattern Pattern.UnitPattern ->
+                    [ Rule.errorWithFix
+                        { message = "Unit value is unused"
+                        , details =
+                            [ "This value has no data, which makes the value unusable. You should remove it at the location I pointed at."
+                            ]
+                        }
+                        unitPattern
+                        [ Fix.removeRange (letDeclarationToRemoveRange letBlockContext declarationRange) ]
+                    ]
+
+                _ ->
+                    if introducesVariable [ pattern ] then
+                        []
+
+                    else
                         [ Rule.errorWithFix
                             { message = "Pattern doesn't introduce any variables"
                             , details =
@@ -810,8 +642,6 @@ letDeclarationEnterVisitor (Node range { declarations, expression }) (Node decla
                             (Node.range pattern)
                             [ Fix.removeRange (letDeclarationToRemoveRange letBlockContext declarationRange) ]
                         ]
-                    , markValuesFromPatternsAsUsed [ pattern ] context
-                    )
 
 
 isDebugLogCall : ModuleNameLookupTable -> Node Expression -> Bool
@@ -850,19 +680,6 @@ isDebugLog lookupTable node =
             False
 
 
-caseBranchEnterVisitor : ( Node Pattern, b ) -> ModuleContext -> ModuleContext
-caseBranchEnterVisitor ( pattern, _ ) context =
-    { context
-        | scopes =
-            NonemptyList.cons
-                { declared = Dict.empty
-                , used = Dict.empty
-                , namesToIgnore = getDeclaredNamesFromPattern [ pattern ] Set.empty
-                }
-                context.scopes
-    }
-
-
 letDeclarationToRemoveRange : LetBlockContext -> Range -> Range
 letDeclarationToRemoveRange letBlockContext range =
     case letBlockContext of
@@ -893,81 +710,6 @@ removeParensFromExpression node =
 
         _ ->
             node
-
-
-getDeclaredNamesFromPattern : List (Node Pattern) -> Set String -> Set String
-getDeclaredNamesFromPattern nodes acc =
-    case nodes of
-        (Node _ node) :: restOfNodes ->
-            case node of
-                Pattern.ParenthesizedPattern pattern ->
-                    getDeclaredNamesFromPattern (pattern :: restOfNodes) acc
-
-                Pattern.VarPattern name ->
-                    getDeclaredNamesFromPattern restOfNodes (Set.insert name acc)
-
-                Pattern.AsPattern pattern (Node _ asName) ->
-                    getDeclaredNamesFromPattern (pattern :: restOfNodes) (Set.insert asName acc)
-
-                Pattern.RecordPattern fields ->
-                    getDeclaredNamesFromPattern
-                        restOfNodes
-                        (List.foldl (\field subAcc -> Set.insert (Node.value field) subAcc) acc fields)
-
-                Pattern.TuplePattern patterns ->
-                    getDeclaredNamesFromPattern (patterns ++ restOfNodes) acc
-
-                Pattern.NamedPattern _ patterns ->
-                    getDeclaredNamesFromPattern (patterns ++ restOfNodes) acc
-
-                Pattern.UnConsPattern left right ->
-                    getDeclaredNamesFromPattern (left :: right :: restOfNodes) acc
-
-                Pattern.ListPattern patterns ->
-                    getDeclaredNamesFromPattern (patterns ++ restOfNodes) acc
-
-                _ ->
-                    getDeclaredNamesFromPattern restOfNodes acc
-
-        [] ->
-            acc
-
-
-markValuesFromPatternsAsUsed : List (Node Pattern) -> ModuleContext -> ModuleContext
-markValuesFromPatternsAsUsed nodes context =
-    case nodes of
-        [] ->
-            context
-
-        node :: restOfNodes ->
-            case Node.value node of
-                Pattern.TuplePattern patterns ->
-                    markValuesFromPatternsAsUsed (patterns ++ restOfNodes) context
-
-                Pattern.UnConsPattern left right ->
-                    markValuesFromPatternsAsUsed (left :: right :: restOfNodes) context
-
-                Pattern.ListPattern patterns ->
-                    markValuesFromPatternsAsUsed (patterns ++ restOfNodes) context
-
-                Pattern.NamedPattern qualifiedNameRef patterns ->
-                    case ModuleNameLookupTable.moduleNameFor context.lookupTable node of
-                        Just realModuleName ->
-                            context
-                                |> markLocalConstructorAsUsed realModuleName qualifiedNameRef
-                                |> markValuesFromPatternsAsUsed (patterns ++ restOfNodes)
-
-                        Nothing ->
-                            context
-
-                Pattern.AsPattern pattern _ ->
-                    markValuesFromPatternsAsUsed (pattern :: restOfNodes) context
-
-                Pattern.ParenthesizedPattern pattern ->
-                    markValuesFromPatternsAsUsed (pattern :: restOfNodes) context
-
-                _ ->
-                    markValuesFromPatternsAsUsed restOfNodes context
 
 
 introducesVariable : List (Node Pattern) -> Bool
@@ -1010,30 +752,11 @@ introducesVariable nodes =
                     introducesVariable restOfNodes
 
 
-
--- DECLARATION LIST VISITOR
-
-
-declarationListVisitor : List (Node Declaration) -> ModuleContext -> ModuleContext
-declarationListVisitor nodes context =
-    List.foldl registerTypes context nodes
-
-
-registerTypes : Node Declaration -> ModuleContext -> ModuleContext
-registerTypes node context =
-    case Node.value node of
-        Declaration.AliasDeclaration typeAliasDeclaration ->
-            registerTypeAlias (Node.range node) typeAliasDeclaration context
-
-        _ ->
-            context
-
-
 reportCustomType :
-    ModuleContext
+    Context
     -> Type.Type
     -> Range
-    -> ( List (Error {}), ModuleContext )
+    -> List (Error {})
 reportCustomType context type_ nodeRange =
     let
         (Node nameRange name) =
@@ -1041,14 +764,10 @@ reportCustomType context type_ nodeRange =
     in
     case ScopeProvider.typeBinding context.scopeProvider name of
         Nothing ->
-            ( [], context )
+            []
 
         Just binding ->
             let
-                arguments : List (Node TypeAnnotation)
-                arguments =
-                    List.concatMap (\(Node _ c) -> c.arguments) type_.constructors
-
                 isConstructorReferenced : Node { a | name : Node String } -> Bool
                 isConstructorReferenced (Node _ constructor) =
                     case Scope.valueBinding (ScopeProvider.topLevel context.scopeProvider) (Node.value constructor.name) of
@@ -1058,7 +777,7 @@ reportCustomType context type_ nodeRange =
                         Just constructorBinding ->
                             not (List.isEmpty (ScopeProvider.valueReferences context.scopeProvider (Binding.id constructorBinding)))
             in
-            ( if
+            if
                 Dict.member name context.exposed
                     || not
                         (List.all
@@ -1066,64 +785,52 @@ reportCustomType context type_ nodeRange =
                             (ScopeProvider.typeReferences context.scopeProvider (Binding.id binding))
                         )
                     || List.any isConstructorReferenced type_.constructors
-              then
+            then
                 []
 
-              else
-                [ errorForLocalType
-                    name
-                    { kind = CustomTypeKind
-                    , under = nameRange
-                    , rangeToRemove = untilStartOfNextLine nodeRange
-                    , variants = List.map (Node.value >> .name >> Node.value) type_.constructors
+            else
+                [ Rule.errorWithFix
+                    { message = "Type `" ++ name ++ "` is not used"
+                    , details = details
                     }
+                    nameRange
+                    [ Fix.removeRange (untilStartOfNextLine nodeRange) ]
                 ]
-            , collectNamesFromTypeAnnotation (Just name) arguments context
-            )
 
 
-registerTypeAlias : Range -> TypeAlias -> ModuleContext -> ModuleContext
-registerTypeAlias range { name, typeAnnotation } context =
-    case Node.value typeAnnotation of
-        TypeAnnotation.Record _ ->
-            if Dict.member (Node.value name) context.exposed then
-                context
+registerTypeAlias : Context -> TypeAlias -> Range -> List (Rule.Error {})
+registerTypeAlias context alias nodeRange =
+    let
+        (Node nameRange name) =
+            alias.name
+    in
+    case ScopeProvider.typeBinding context.scopeProvider name of
+        Nothing ->
+            []
+
+        Just binding ->
+            if
+                Dict.member name context.exposed
+                    || not (List.isEmpty (ScopeProvider.typeReferences context.scopeProvider (Binding.id binding)))
+                    || not (List.isEmpty (ScopeProvider.valueReferences context.scopeProvider (Binding.id binding)))
+            then
+                []
 
             else
-                registerVariable
-                    { typeName = "Type"
-                    , under = Node.range name
-                    , rangeToRemove = Just (untilStartOfNextLine range)
-                    , warning = ""
+                [ Rule.errorWithFix
+                    { message = "Type alias `" ++ name ++ "` is not used"
+                    , details = details
                     }
-                    (Node.value name)
-                    context
-
-        _ ->
-            let
-                typeAlias : TypeData
-                typeAlias =
-                    { kind = TypeAliasKind
-                    , under = Node.range name
-                    , rangeToRemove = untilStartOfNextLine range
-                    , variants = []
-                    }
-
-                localTypes : Dict String TypeData
-                localTypes =
-                    Dict.insert
-                        (Node.value name)
-                        typeAlias
-                        context.localTypes
-            in
-            { context | localTypes = localTypes }
+                    nameRange
+                    [ Fix.removeRange (untilStartOfNextLine nodeRange) ]
+                ]
 
 
 
 -- DECLARATION ENTER VISITOR
 
 
-declarationEnterVisitor : Node Declaration -> ModuleContext -> ( List (Error {}), ModuleContext )
+declarationEnterVisitor : Node Declaration -> Context -> List (Error {})
 declarationEnterVisitor (Node nodeRange expr) context =
     case expr of
         Declaration.FunctionDeclaration function ->
@@ -1138,29 +845,10 @@ declarationEnterVisitor (Node nodeRange expr) context =
             in
             case Scope.valueBinding (ScopeProvider.topLevel context.scopeProvider) functionName of
                 Nothing ->
-                    ( [], context )
+                    []
 
                 Just binding ->
-                    let
-                        typeAnnotation : List (Node TypeAnnotation)
-                        typeAnnotation =
-                            case function.signature of
-                                Just signature ->
-                                    [ (Node.value signature).typeAnnotation ]
-
-                                Nothing ->
-                                    []
-
-                        newContext : ModuleContext
-                        newContext =
-                            { context
-                                | inTheDeclarationOf = [ functionName ]
-                                , scopes = NonemptyList.cons (scopeWithPatternsToIgnore functionImplementation.arguments) context.scopes
-                            }
-                                |> markValuesFromPatternsAsUsed (Node.value function.declaration).arguments
-                                |> collectNamesFromTypeAnnotation Nothing typeAnnotation
-                    in
-                    ( if
+                    if
                         Dict.member functionName context.exposed
                             -- The main function is "exposed" by default for applications
                             || (context.isApplication && functionName == "main")
@@ -1169,28 +857,23 @@ declarationEnterVisitor (Node nodeRange expr) context =
                                     (referenceIsUsedFromWithinDefinition (Node.range functionImplementation.expression))
                                     (ScopeProvider.valueReferences context.scopeProvider (Binding.id binding))
                                 )
-                      then
+                    then
                         []
 
-                      else
+                    else
                         [ error
                             { typeName = "Top-level variable"
                             , under = Node.range functionImplementation.name
-                            , rangeToRemove = Just (untilStartOfNextLine nodeRange)
-                            , warning = ""
+                            , rangeToRemove = untilStartOfNextLine nodeRange
                             }
                             (Binding.name binding)
                         ]
-                    , newContext
-                    )
 
         Declaration.CustomTypeDeclaration type_ ->
             reportCustomType context type_ nodeRange
 
-        Declaration.AliasDeclaration { typeAnnotation } ->
-            ( []
-            , collectNamesFromTypeAnnotation Nothing [ typeAnnotation ] context
-            )
+        Declaration.AliasDeclaration typeAliasDeclaration ->
+            registerTypeAlias context typeAliasDeclaration nodeRange
 
         Declaration.PortDeclaration signature ->
             let
@@ -1199,24 +882,22 @@ declarationEnterVisitor (Node nodeRange expr) context =
             in
             case Scope.valueBinding (ScopeProvider.topLevel context.scopeProvider) name of
                 Nothing ->
-                    ( [], context )
+                    []
 
                 Just binding ->
-                    ( if
+                    if
                         Dict.member name context.exposed
                             || not (List.isEmpty (ScopeProvider.valueReferences context.scopeProvider (Binding.id binding)))
-                      then
+                    then
                         []
 
-                      else
+                    else
                         [ Rule.error
                             { message = "Port `" ++ name ++ "` is not used (Warning: Removing this port may break your application if it is used in the JS code)"
                             , details = details
                             }
                             under
                         ]
-                    , collectNamesFromTypeAnnotation Nothing [ signature.typeAnnotation ] context
-                    )
 
         Declaration.InfixDeclaration { operator } ->
             let
@@ -1225,127 +906,36 @@ declarationEnterVisitor (Node nodeRange expr) context =
             in
             case Scope.valueBinding (ScopeProvider.topLevel context.scopeProvider) name of
                 Nothing ->
-                    ( [], context )
+                    []
 
                 Just binding ->
-                    ( if
+                    if
                         Dict.member name context.exposed
                             || not (List.isEmpty (ScopeProvider.valueReferences context.scopeProvider (Binding.id binding)))
-                      then
+                    then
                         []
 
-                      else
+                    else
                         [ error
                             { typeName = "Declared operator"
                             , under = under
-                            , rangeToRemove = Just nodeRange
-                            , warning = ""
+                            , rangeToRemove = nodeRange
                             }
                             name
                         ]
-                    , context
-                    )
 
         Declaration.Destructuring _ _ ->
-            ( [], context )
+            []
 
 
-
--- DECLARATION EXIT VISITOR
-
-
-declarationExitVisitor : Node Declaration -> ModuleContext -> ( List (Error {}), ModuleContext )
-declarationExitVisitor node context =
-    case Node.value node of
-        Declaration.FunctionDeclaration _ ->
-            let
-                scope : Scope
-                scope =
-                    NonemptyList.head context.scopes
-
-                remainingUsed =
-                    Dict.keys scope.declared
-                        |> Set.fromList
-                        |> Set.diff (usedLocally scope)
-                        |> (\set -> Set.diff set scope.namesToIgnore)
-                        |> Set.toList
-
-                contextWithPoppedScope : ModuleContext
-                contextWithPoppedScope =
-                    { context | scopes = NonemptyList.pop context.scopes }
-            in
-            ( []
-            , markAllAsUsed remainingUsed contextWithPoppedScope
-            )
-
-        _ ->
-            ( [], context )
-
-
-
--- FINAL EVALUATION
-
-
-finalEvaluation : ModuleContext -> List (Error {})
-finalEvaluation context =
-    let
-        rootScope : Scope
-        rootScope =
-            NonemptyList.head context.scopes
-
-        usedLocally_ : Set String
-        usedLocally_ =
-            usedLocally rootScope
-
-        addCustomTypeErrors : List (Error {}) -> List (Error {})
-        addCustomTypeErrors acc =
-            List.Extra.dictToListFilterAndMap
-                (\name -> not <| Set.member name usedLocally_)
-                errorForLocalType
-                context.localTypes
-                acc
-    in
-    Dict.foldl
-        (\key variableInfo acc ->
-            if not (Set.member key usedLocally_) then
-                error variableInfo key :: acc
-
-            else
-                acc
-        )
-        []
-        rootScope.declared
-        |> addCustomTypeErrors
-
-
-errorForLocalType : String -> TypeData -> Error {}
-errorForLocalType name type_ =
-    let
-        kind : String
-        kind =
-            case type_.kind of
-                CustomTypeKind ->
-                    "Type"
-
-                TypeAliasKind ->
-                    "Type alias"
-    in
-    Rule.errorWithFix
-        { message = kind ++ " `" ++ name ++ "` is not used"
-        , details = details
-        }
-        type_.under
-        [ Fix.removeRange type_.rangeToRemove ]
-
-
-reportUnusedLetFunction : LetBlockContext -> Function -> Range -> ModuleContext -> List (Rule.Error {})
+reportUnusedLetFunction : LetBlockContext -> Function -> Range -> Context -> List (Rule.Error {})
 reportUnusedLetFunction letBlockContext function letDeclarationRange context =
     let
         declaration : FunctionImplementation
         declaration =
             Node.value function.declaration
 
-        scope : Scope.Scope
+        scope : Scope
         scope =
             (Node.value function.declaration).expression
                 |> ScopeProvider.scopeFor context.scopeProvider
@@ -1365,7 +955,7 @@ reportUnusedLetFunction letBlockContext function letDeclarationRange context =
 
 
 reportUnusedLetBinding :
-    ModuleContext
+    Context
     -> LetBlockContext
     -> Range
     -> Node Expression
@@ -1381,8 +971,7 @@ reportUnusedLetBinding context letBlockContext letDeclarationRange (Node express
         [ error
             { typeName = "`let in` variable"
             , under = declarationName
-            , rangeToRemove = Just (letDeclarationToRemoveRange letBlockContext letDeclarationRange)
-            , warning = ""
+            , rangeToRemove = letDeclarationToRemoveRange letBlockContext letDeclarationRange
             }
             (Binding.name binding)
         ]
@@ -1421,14 +1010,6 @@ compareLocation a b =
             ltOrGt
 
 
-scopeWithPatternsToIgnore : List (Node Pattern) -> Scope
-scopeWithPatternsToIgnore patterns =
-    { declared = Dict.empty
-    , used = Dict.empty
-    , namesToIgnore = getDeclaredNamesFromPattern patterns Set.empty
-    }
-
-
 untilEndOfVariable : String -> Range -> Range
 untilEndOfVariable name range =
     if range.start.row == range.end.row then
@@ -1438,61 +1019,7 @@ untilEndOfVariable name range =
         { range | end = { row = range.start.row, column = range.start.column + String.length name } }
 
 
-collectNamesFromTypeAnnotation : Maybe String -> List (Node TypeAnnotation) -> ModuleContext -> ModuleContext
-collectNamesFromTypeAnnotation exception nodes context =
-    case nodes of
-        [] ->
-            context
-
-        node :: restOfNodes ->
-            case Node.value node of
-                TypeAnnotation.FunctionTypeAnnotation left right ->
-                    collectNamesFromTypeAnnotation exception (left :: right :: restOfNodes) context
-
-                TypeAnnotation.Typed (Node _ ( rawModuleName, typeName )) params ->
-                    let
-                        newContext : ModuleContext
-                        newContext =
-                            if Just typeName /= exception then
-                                case rawModuleName of
-                                    [] ->
-                                        markAsUsed typeName context
-
-                                    _ ->
-                                        context
-
-                            else
-                                context
-                    in
-                    collectNamesFromTypeAnnotation
-                        exception
-                        (params ++ restOfNodes)
-                        newContext
-
-                TypeAnnotation.Record fields ->
-                    let
-                        subNodes : List (Node TypeAnnotation)
-                        subNodes =
-                            List.map (\(Node _ ( _, value )) -> value) fields
-                    in
-                    collectNamesFromTypeAnnotation exception (subNodes ++ restOfNodes) context
-
-                TypeAnnotation.GenericRecord _ (Node _ fields) ->
-                    let
-                        subNodes : List (Node TypeAnnotation)
-                        subNodes =
-                            List.map (\(Node _ ( _, value )) -> value) fields
-                    in
-                    collectNamesFromTypeAnnotation exception (subNodes ++ restOfNodes) context
-
-                TypeAnnotation.Tupled list ->
-                    collectNamesFromTypeAnnotation exception (list ++ restOfNodes) context
-
-                _ ->
-                    collectNamesFromTypeAnnotation exception restOfNodes context
-
-
-reportUnusedModule : Node Import -> ModuleContext -> List (Rule.Error {}) -> List (Rule.Error {})
+reportUnusedModule : Node Import -> Context -> List (Rule.Error {}) -> List (Rule.Error {})
 reportUnusedModule ((Node _ import_) as node) context errors =
     let
         (Node _ moduleName) =
@@ -1520,97 +1047,9 @@ unusedImportError (Node importRange import_) =
         [ Fix.removeRange (untilStartOfNextLine importRange) ]
 
 
-registerVariable : VariableInfo -> String -> ModuleContext -> ModuleContext
-registerVariable variableInfo name context =
-    let
-        scopes : Nonempty Scope
-        scopes =
-            NonemptyList.mapHead
-                (\scope ->
-                    { scope | declared = Dict.insert name variableInfo scope.declared }
-                )
-                context.scopes
-    in
-    { context | scopes = scopes }
-
-
-markAllAsUsed : List String -> ModuleContext -> ModuleContext
-markAllAsUsed names context =
-    List.foldl markAsUsed context names
-
-
-markValueAsUsed : ModuleName -> String -> ModuleContext -> ModuleContext
-markValueAsUsed moduleName name context =
-    if List.isEmpty moduleName then
-        markAsUsed name context
-
-    else
-        case
-            Dict.get moduleName context.constructorNameToTypeName
-                |> Maybe.andThen (Dict.get name)
-        of
-            Just _ ->
-                context
-
-            Nothing ->
-                markAsUsed name context
-
-
-markAsUsed : String -> ModuleContext -> ModuleContext
-markAsUsed name context =
-    if List.member name context.inTheDeclarationOf then
-        context
-
-    else
-        let
-            scopes : Nonempty Scope
-            scopes =
-                NonemptyList.mapHead
-                    (\scope ->
-                        { scope
-                            | used =
-                                Dict.update []
-                                    (\set ->
-                                        set
-                                            |> Maybe.withDefault Set.empty
-                                            |> Set.insert name
-                                            |> Just
-                                    )
-                                    scope.used
-                        }
-                    )
-                    context.scopes
-        in
-        { context | scopes = scopes }
-
-
-markLocalConstructorAsUsed : ModuleName -> Pattern.QualifiedNameRef -> ModuleContext -> ModuleContext
-markLocalConstructorAsUsed realModuleName qualifiedNameRef context =
-    case qualifiedNameRef.moduleName of
-        [] ->
-            case
-                Dict.get [] context.constructorNameToTypeName
-                    |> Maybe.andThen (Dict.get qualifiedNameRef.name)
-            of
-                Just typeName ->
-                    markValueAsUsed realModuleName typeName context
-
-                Nothing ->
-                    markValueAsUsed realModuleName qualifiedNameRef.name context
-
-        _ ->
-            context
-
-
 getModuleName : List String -> String
 getModuleName name =
     String.join "." name
-
-
-usedLocally : Scope -> Set String
-usedLocally { used } =
-    Dict.get [] used
-        |> Maybe.withDefault Set.empty
 
 
 
