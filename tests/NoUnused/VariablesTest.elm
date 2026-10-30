@@ -1228,6 +1228,23 @@ import UnknownDependency exposing (C(..))
 a = 1"""
                 |> Review.Test.runWithProjectData packageProject rule
                 |> Review.Test.expectNoErrors
+    , test "should not report open type import when the dependency it comes from is unknown but still report an unused module alias" <|
+        \() ->
+            """module A exposing (a)
+import UnknownDependency as UnusedAlias exposing (..)
+a = 1"""
+                |> Review.Test.runWithProjectData packageProject rule
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Module alias `UnusedAlias` is not used"
+                        , details = details
+                        , under = "UnusedAlias"
+                        }
+                        |> Review.Test.atExactly { start = { row = 2, column = 29 }, end = { row = 2, column = 40 } }
+                        |> Review.Test.whenFixed """module A exposing (a)
+import UnknownDependency exposing (..)
+a = 1"""
+                    ]
     , test "should not report open type import when at least one of the exposed constructors is used in a pattern" <|
         \() ->
             [ """module A exposing (a)
