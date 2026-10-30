@@ -132,7 +132,7 @@ type alias ModuleContext =
     { lookupTable : ModuleNameLookupTable
     , scopes : Nonempty Scope
     , inTheDeclarationOf : List String
-    , exposed : Set String
+    , exposed : Dict String Bool
     , isApplication : Bool
     , constructorNameToTypeName : Dict ModuleName (Dict String String)
     , declaredModules : List DeclaredModule
@@ -219,7 +219,7 @@ fromProjectToModule =
             { lookupTable = lookupTable
             , scopes = NonemptyList.fromElement (scopeWithUsedExports exposed)
             , inTheDeclarationOf = []
-            , exposed = exposed |> Dict.keys |> Set.fromList
+            , exposed = exposed
             , isApplication = isModuleExposed == Nothing
             , constructorNameToTypeName = constructorToType
             , declaredModules = []
@@ -1110,7 +1110,7 @@ registerTypeAlias : Range -> TypeAlias -> ModuleContext -> ModuleContext
 registerTypeAlias range { name, typeAnnotation } context =
     case Node.value typeAnnotation of
         TypeAnnotation.Record _ ->
-            if Set.member (Node.value name) context.exposed then
+            if Dict.member (Node.value name) context.exposed then
                 context
 
             else
@@ -1172,7 +1172,7 @@ declarationEnterVisitor (Node nodeRange expr) context =
                 newContextWhereFunctionIsRegistered : ModuleContext
                 newContextWhereFunctionIsRegistered =
                     if
-                        Set.member functionName context.exposed
+                        Dict.member functionName context.exposed
                             -- The main function is "exposed" by default for applications
                             || (context.isApplication && functionName == "main")
                     then
@@ -1237,7 +1237,7 @@ declarationEnterVisitor (Node nodeRange expr) context =
                     signature.name
             in
             ( []
-            , if Set.member name context.exposed then
+            , if Dict.member name context.exposed then
                 contextWithUsedElements
 
               else
