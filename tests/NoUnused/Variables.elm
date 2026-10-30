@@ -1199,22 +1199,33 @@ declarationEnterVisitor (Node nodeRange expr) context =
                     , collectNamesFromTypeAnnotation Nothing [ signature.typeAnnotation ] context
                     )
 
-        Declaration.InfixDeclaration { operator, function } ->
+        Declaration.InfixDeclaration { operator } ->
             let
                 (Node under name) =
                     operator
             in
-            ( []
-            , context
-                |> markAsUsed (Node.value function)
-                |> registerVariable
-                    { typeName = "Declared operator"
-                    , under = under
-                    , rangeToRemove = Just nodeRange
-                    , warning = ""
-                    }
-                    name
-            )
+            case Scope.valueBinding (ScopeProvider.topLevel context.scopeProvider) name of
+                Nothing ->
+                    ( [], context )
+
+                Just binding ->
+                    ( if
+                        Dict.member name context.exposed
+                            || not (List.isEmpty (ScopeProvider.valueReferences context.scopeProvider (Binding.id binding)))
+                      then
+                        []
+
+                      else
+                        [ error
+                            { typeName = "Declared operator"
+                            , under = under
+                            , rangeToRemove = Just nodeRange
+                            , warning = ""
+                            }
+                            name
+                        ]
+                    , context
+                    )
 
         Declaration.Destructuring _ _ ->
             ( [], context )
