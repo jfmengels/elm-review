@@ -782,7 +782,7 @@ letDeclarationEnterVisitor (Node range { declarations, expression }) (Node decla
         Expression.LetDestructuring pattern value ->
             case removeParensFromPattern pattern of
                 Node wildCardRange Pattern.AllPattern ->
-                    if isDebugLog context.lookupTable value then
+                    if isDebugLogCall context.lookupTable value then
                         ( [], context )
 
                     else
@@ -828,57 +828,37 @@ letDeclarationEnterVisitor (Node range { declarations, expression }) (Node decla
                     )
 
 
-isDebugLog : ModuleNameLookupTable -> Node Expression -> Bool
-isDebugLog lookupTable node =
-    case Node.value node of
-        Expression.Application [ functionWithParens, _, _ ] ->
-            let
-                function : Node Expression
-                function =
-                    removeParensFromExpression functionWithParens
-            in
-            case Node.value function of
-                Expression.FunctionOrValue _ "log" ->
-                    ModuleNameLookupTable.moduleNameFor lookupTable function == Just [ "Debug" ]
-
-                _ ->
-                    False
+isDebugLogCall : ModuleNameLookupTable -> Node Expression -> Bool
+isDebugLogCall lookupTable (Node _ node) =
+    case node of
+        Expression.Application [ function, _, _ ] ->
+            isDebugLog lookupTable function
 
         Expression.OperatorApplication "|>" _ _ pipeFunction ->
-            case Node.value (removeParensFromExpression pipeFunction) of
-                Expression.Application [ functionWithParens, _ ] ->
-                    let
-                        function : Node Expression
-                        function =
-                            removeParensFromExpression functionWithParens
-                    in
-                    case Node.value function of
-                        Expression.FunctionOrValue _ "log" ->
-                            ModuleNameLookupTable.moduleNameFor lookupTable function == Just [ "Debug" ]
-
-                        _ ->
-                            False
+            case removeParensFromExpression pipeFunction of
+                Node _ (Expression.Application [ functionWithParens, _ ]) ->
+                    isDebugLog lookupTable functionWithParens
 
                 _ ->
                     False
 
         Expression.OperatorApplication "<|" _ pipeFunction _ ->
-            case Node.value (removeParensFromExpression pipeFunction) of
-                Expression.Application [ functionWithParens, _ ] ->
-                    let
-                        function : Node Expression
-                        function =
-                            removeParensFromExpression functionWithParens
-                    in
-                    case Node.value function of
-                        Expression.FunctionOrValue _ "log" ->
-                            ModuleNameLookupTable.moduleNameFor lookupTable function == Just [ "Debug" ]
-
-                        _ ->
-                            False
+            case removeParensFromExpression pipeFunction of
+                Node _ (Expression.Application [ functionWithParens, _ ]) ->
+                    isDebugLog lookupTable functionWithParens
 
                 _ ->
                     False
+
+        _ ->
+            False
+
+
+isDebugLog : ModuleNameLookupTable -> Node Expression -> Bool
+isDebugLog lookupTable node =
+    case removeParensFromExpression node of
+        Node functionRange (Expression.FunctionOrValue _ "log") ->
+            ModuleNameLookupTable.moduleNameAt lookupTable functionRange == Just [ "Debug" ]
 
         _ ->
             False
