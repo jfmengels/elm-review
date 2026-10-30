@@ -101,8 +101,7 @@ elm-review --template jfmengels/elm-review-unused/example --rules NoUnused.Varia
 -}
 rule : Rule
 rule =
-    Rule.newProjectRuleSchema "NoUnused.Variables" initialContext
-        |> Rule.withElmJsonProjectVisitor (\project _ -> ( [], elmJsonVisitor project ))
+    Rule.newProjectRuleSchema "NoUnused.Variables" ()
         |> Rule.withModuleVisitor moduleVisitor
         |> Rule.withModuleContextUsingContextCreator
             { fromProjectToModule = fromProjectToModule
@@ -127,10 +126,6 @@ moduleVisitor schema =
         |> Rule.withCaseBranchEnterVisitor (\_ casePattern context -> ( [], caseBranchEnterVisitor casePattern context ))
         |> Rule.withCaseBranchExitVisitor caseBranchExitVisitor
         |> Rule.withFinalModuleEvaluation finalEvaluation
-
-
-type alias ProjectIsApplication =
-    Bool
 
 
 type alias ModuleContext =
@@ -217,20 +212,15 @@ type LetBlockContext
     | HasNoOtherDeclarations Range
 
 
-initialContext : ProjectIsApplication
-initialContext =
-    True
-
-
-fromProjectToModule : Rule.ContextCreator ProjectIsApplication ModuleContext
+fromProjectToModule : Rule.ContextCreator () ModuleContext
 fromProjectToModule =
     Rule.initContextCreator
-        (\lookupTable { exposed } moduleDocs constructorToType isApplication ->
+        (\lookupTable { exposed } isModuleExposed moduleDocs constructorToType () ->
             { lookupTable = lookupTable
             , scopes = NonemptyList.fromElement (scopeWithUsedExports exposed)
             , inTheDeclarationOf = []
             , exposed = exposed |> Dict.keys |> Set.fromList
-            , isApplication = isApplication
+            , isApplication = isModuleExposed == Nothing
             , constructorNameToTypeName = constructorToType
             , declaredModules = []
             , exposingAllModules = []
@@ -242,6 +232,7 @@ fromProjectToModule =
         )
         |> Rule.withModuleNameLookupTable
         |> Rule.withExposed
+        |> Rule.withIsModuleExposed
         |> Rule.withImportedModuleDocs { implicitImports = False, dependencies = True }
         |> Rule.withConstructorToType { implicitImports = False, dependencies = True }
 
@@ -258,12 +249,12 @@ buildCustomTypesWithConstructors moduleDocs =
         moduleDocs
 
 
-fromModuleToProject : Rule.ContextCreator ModuleContext ProjectIsApplication
+fromModuleToProject : Rule.ContextCreator ModuleContext ()
 fromModuleToProject =
-    Rule.initContextCreator (\_ -> True)
+    Rule.initContextCreator (\_ -> ())
 
 
-foldProjectContexts : ProjectIsApplication -> ProjectIsApplication -> ProjectIsApplication
+foldProjectContexts : () -> () -> ()
 foldProjectContexts _ previousProjectContext =
     previousProjectContext
 
@@ -296,24 +287,6 @@ details : List String
 details =
     [ "You should either use this value somewhere, or remove it at the location I pointed at."
     ]
-
-
-
--- ELM.JSON VISITOR
-
-
-elmJsonVisitor : Maybe { a | project : Elm.Project.Project } -> ProjectIsApplication
-elmJsonVisitor maybeElmJson =
-    case Maybe.map .project maybeElmJson of
-        Just (Elm.Project.Application _) ->
-            True
-
-        Just (Elm.Project.Package _) ->
-            False
-
-        Nothing ->
-            -- Sensible default, because now `main` won't be reported.
-            True
 
 
 importVisitor : Node Import -> ModuleContext -> ( List (Error {}), ModuleContext )
