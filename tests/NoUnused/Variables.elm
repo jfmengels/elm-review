@@ -314,7 +314,7 @@ explicitExposingAllErrors context exposingRange ((Node _ import_) as node) error
         Nothing ->
             -- We somehow don't know the contents of the module, so we presume the `exposing (..)` is useful
             -- to avoid reporting a false positive.
-            errors
+            reportUnusedModuleAlias node import_.moduleAlias context errors
 
         Just _ ->
             case ScopeProvider.moduleReferences context.scopeProvider moduleName of
