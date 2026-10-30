@@ -16,7 +16,7 @@ import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern as Pattern exposing (Pattern)
 import Elm.Syntax.Range exposing (Location, Range)
-import Elm.Syntax.Type
+import Elm.Syntax.Type as Type
 import Elm.Syntax.TypeAlias exposing (TypeAlias)
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
 import List.Extra
@@ -1022,9 +1022,6 @@ declarationListVisitor nodes context =
 registerTypes : Node Declaration -> ModuleContext -> ModuleContext
 registerTypes node context =
     case Node.value node of
-        Declaration.CustomTypeDeclaration customType ->
-            registerCustomType (Node.range node) customType context
-
         Declaration.AliasDeclaration typeAliasDeclaration ->
             registerTypeAlias (Node.range node) typeAliasDeclaration context
 
@@ -1032,28 +1029,57 @@ registerTypes node context =
             context
 
 
-registerCustomType : Range -> Elm.Syntax.Type.Type -> ModuleContext -> ModuleContext
-registerCustomType range { name, constructors } context =
+reportCustomType :
+    ModuleContext
+    -> Type.Type
+    -> Range
+    -> ( List (Error {}), ModuleContext )
+reportCustomType context type_ nodeRange =
     let
-        constructorNames : List String
-        constructorNames =
-            List.map (Node.value >> .name >> Node.value) constructors
-
-        customType : TypeData
-        customType =
-            { kind = CustomTypeKind
-            , under = Node.range name
-            , rangeToRemove = untilStartOfNextLine range
-            , variants = constructorNames
-            }
+        (Node nameRange name) =
+            type_.name
     in
-    { context
-        | localTypes =
-            Dict.insert
-                (Node.value name)
-                customType
-                context.localTypes
-    }
+    case ScopeProvider.typeBinding context.scopeProvider name of
+        Nothing ->
+            ( [], context )
+
+        Just binding ->
+            let
+                arguments : List (Node TypeAnnotation)
+                arguments =
+                    List.concatMap (\(Node _ c) -> c.arguments) type_.constructors
+
+                isConstructorReferenced : Node { a | name : Node String } -> Bool
+                isConstructorReferenced (Node _ constructor) =
+                    case Scope.valueBinding (ScopeProvider.topLevel context.scopeProvider) (Node.value constructor.name) of
+                        Nothing ->
+                            False
+
+                        Just constructorBinding ->
+                            not (List.isEmpty (ScopeProvider.valueReferences context.scopeProvider (Binding.id constructorBinding)))
+            in
+            ( if
+                Dict.member name context.exposed
+                    || not
+                        (List.all
+                            (referenceIsUsedFromWithinDefinition nodeRange)
+                            (ScopeProvider.typeReferences context.scopeProvider (Binding.id binding))
+                        )
+                    || List.any isConstructorReferenced type_.constructors
+              then
+                []
+
+              else
+                [ errorForLocalType
+                    name
+                    { kind = CustomTypeKind
+                    , under = nameRange
+                    , rangeToRemove = untilStartOfNextLine nodeRange
+                    , variants = List.map (Node.value >> .name >> Node.value) type_.constructors
+                    }
+                ]
+            , collectNamesFromTypeAnnotation (Just name) arguments context
+            )
 
 
 registerTypeAlias : Range -> TypeAlias -> ModuleContext -> ModuleContext
@@ -1158,15 +1184,8 @@ declarationEnterVisitor (Node nodeRange expr) context =
                     , newContext
                     )
 
-        Declaration.CustomTypeDeclaration { name, constructors } ->
-            let
-                arguments : List (Node TypeAnnotation)
-                arguments =
-                    List.concatMap (\(Node _ c) -> c.arguments) constructors
-            in
-            ( []
-            , collectNamesFromTypeAnnotation (Just (Node.value name)) arguments context
-            )
+        Declaration.CustomTypeDeclaration type_ ->
+            reportCustomType context type_ nodeRange
 
         Declaration.AliasDeclaration { typeAnnotation } ->
             ( []
