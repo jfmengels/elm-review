@@ -14,6 +14,7 @@ module Review.Rule exposing
     , providesFixesForModuleRule
     , withFinalModuleEvaluation
     , withElmJsonModuleVisitor, withReadmeModuleVisitor, withDirectDependenciesModuleVisitor, withDependenciesModuleVisitor
+    , withScopeVisitor, withScopeExitVisitor
     , withExtraFilesModuleVisitor
     , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema
     , withModuleVisitor, withModuleContext, withModuleContextUsingContextCreator, withModuleContextWithErrors
@@ -24,7 +25,7 @@ module Review.Rule exposing
     , withModuleName, withModuleNameNode
     , withIsInSourceDirectories, withFilePath
     , withIsFileIgnored, withIsFileFixable
-    , withModuleNameLookupTable, withTypes, withImportedModuleDocs, withConstructorToType, withModuleKey
+    , withModuleNameLookupTable, withTypes, withScopes, withImportedModuleDocs, withConstructorToType, withModuleKey
     , withFullAst, withModuleDocumentation, withIsModuleExposed, withExposed
     , withSourceCodeExtractor
     , Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix
@@ -178,6 +179,8 @@ simpler version of project rules.
 
 The traversal of a module rule is the following:
 
+TODO Mention withScopeVisitor
+
   - Read project-related info (only collect data in the context in these steps)
       - The `elm.json` file, visited by [`withElmJsonModuleVisitor`](#withElmJsonModuleVisitor)
       - The `README.md` file, visited by [`withReadmeModuleVisitor`](#withReadmeModuleVisitor)
@@ -228,6 +231,7 @@ Evaluating/visiting a node means two things:
 ## Builder functions to analyze the project's data
 
 @docs withElmJsonModuleVisitor, withReadmeModuleVisitor, withDirectDependenciesModuleVisitor, withDependenciesModuleVisitor
+@docs withScopeVisitor, withScopeExitVisitor
 @docs withExtraFilesModuleVisitor
 
 
@@ -257,7 +261,7 @@ first, as they are in practice a simpler version of project rules.
 @docs withModuleName, withModuleNameNode
 @docs withIsInSourceDirectories, withFilePath
 @docs withIsFileIgnored, withIsFileFixable
-@docs withModuleNameLookupTable, withTypes, withImportedModuleDocs, withConstructorToType, withModuleKey
+@docs withModuleNameLookupTable, withTypes, withScopes, withImportedModuleDocs, withConstructorToType, withModuleKey
 @docs withFullAst, withModuleDocumentation, withIsModuleExposed, withExposed
 @docs withSourceCodeExtractor
 
@@ -404,10 +408,14 @@ import Review.Resources.DocsModules
 import Review.Resources.ElmCorePrelude
 import Review.Resources.Internal as ModuleNameLookupTableInternal
 import Review.Resources.ModuleNameLookupTable
+import Review.Resources.Scope exposing (Scope)
+import Review.Resources.ScopeInternal as ScopeInternal
+import Review.Resources.ScopeProvider as ScopeProvider exposing (ScopeProvider)
 import Review.WorkList as WorkList
 import Unicode
 import Vendor.Graph as Graph
 import Vendor.IntSet as IntSet
+import Vendor.ListExtra as ListExtra
 
 
 {-| Represents a construct able to analyze a project and report
@@ -450,6 +458,7 @@ type alias ModuleRuleSchemaData moduleContext =
     , visitors : ModuleRuleVisitors moduleContext
     , providesFixes : Bool
     , extraFileRequest : ExtraFileRequest
+    , requestedData : RequestedData
     }
 
 
@@ -467,6 +476,8 @@ type alias ModuleRuleVisitors moduleContext =
     , letDeclarationVisitorOnExit : Maybe (Node Expression.LetBlock -> Node Expression.LetDeclaration -> moduleContext -> ( List (Error {}), moduleContext ))
     , caseBranchVisitorOnEnter : Maybe (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> moduleContext -> ( List (Error {}), moduleContext ))
     , caseBranchVisitorOnExit : Maybe (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> moduleContext -> ( List (Error {}), moduleContext ))
+    , scopeVisitorsOnEnter : Maybe ({ child : Scope, parent : Scope, scopeProvider : ScopeProvider } -> Node Expression -> moduleContext -> ( List (Error {}), moduleContext ))
+    , scopeVisitorsOnExit : Maybe ({ child : Scope, parent : Scope, scopeProvider : ScopeProvider } -> Node Expression -> moduleContext -> ( List (Error {}), moduleContext ))
     , finalEvaluationFn : Maybe (moduleContext -> List (Error {}))
 
     -- Project visitors
@@ -1285,6 +1296,7 @@ newModuleRuleSchema name initialModuleContext =
         , extraFileRequest = Ok []
         , providesFixes = False
         , visitors = emptyModuleRuleVisitors
+        , requestedData = RequestedData.none
         }
 
 
@@ -1334,6 +1346,7 @@ newModuleRuleSchemaUsingContextCreator name moduleContextCreator =
         , extraFileRequest = Ok []
         , providesFixes = False
         , visitors = emptyModuleRuleVisitors
+        , requestedData = RequestedData.none
         }
 
 
@@ -1352,6 +1365,8 @@ emptyModuleRuleVisitors =
     , letDeclarationVisitorOnExit = Nothing
     , caseBranchVisitorOnEnter = Nothing
     , caseBranchVisitorOnExit = Nothing
+    , scopeVisitorsOnEnter = Nothing
+    , scopeVisitorsOnExit = Nothing
     , finalEvaluationFn = Nothing
     , elmJsonVisitor = Nothing
     , readmeVisitor = Nothing
@@ -1602,7 +1617,7 @@ emptyCache =
 mergeModuleVisitors :
     String
     -> List (ModuleRuleSchema schemaState1 moduleContext -> ModuleRuleSchema schemaState2 moduleContext)
-    -> Maybe (ModuleRuleVisitors moduleContext)
+    -> Maybe ( ModuleRuleVisitors moduleContext, RequestedData )
 mergeModuleVisitors ruleName_ visitorsToApply =
     if List.isEmpty visitorsToApply then
         Nothing
@@ -1614,7 +1629,7 @@ mergeModuleVisitors ruleName_ visitorsToApply =
 mergeModuleVisitorsHelp :
     String
     -> List (ModuleRuleSchema schemaState1 moduleContext -> ModuleRuleSchema schemaState2 moduleContext)
-    -> ModuleRuleVisitors moduleContext
+    -> ( ModuleRuleVisitors moduleContext, RequestedData )
 mergeModuleVisitorsHelp ruleName_ visitorsToApply =
     let
         emptyModuleVisitor : ModuleRuleSchema schemaState moduleContext
@@ -1625,9 +1640,10 @@ mergeModuleVisitorsHelp ruleName_ visitorsToApply =
                 , extraFileRequest = Ok []
                 , providesFixes = False
                 , visitors = emptyModuleRuleVisitors
+                , requestedData = RequestedData.none
                 }
 
-        (ModuleRuleSchema { visitors }) =
+        (ModuleRuleSchema { visitors, requestedData }) =
             List.foldl
                 (\addVisitors (ModuleRuleSchema moduleVisitorSchema) ->
                     addVisitors (ModuleRuleSchema moduleVisitorSchema)
@@ -1635,7 +1651,7 @@ mergeModuleVisitorsHelp ruleName_ visitorsToApply =
                 emptyModuleVisitor
                 visitorsToApply
     in
-    visitors
+    ( visitors, requestedData )
 
 
 {-| Add a visitor to the [`ProjectRuleSchema`](#ProjectRuleSchema) which will
@@ -2803,6 +2819,36 @@ withElmJsonModuleVisitor visitor schema =
         schema
 
 
+{-| Update the scope every time a new scope is entered.
+
+REPLACEME
+
+TODO Also include the Node we're entering.
+TODO Maybe have a visitor for declarations, and one for expressions?
+
+-}
+withScopeVisitor :
+    ({ child : Scope, parent : Scope, scopeProvider : ScopeProvider } -> Node Expression -> moduleContext -> ( List (Error {}), moduleContext ))
+    -> ModuleRuleSchema schemaState moduleContext
+    -> ModuleRuleSchema schemaState moduleContext
+withScopeVisitor visitor schema =
+    mapVisitorsAndRequestScopes
+        (\visitors -> { visitors | scopeVisitorsOnEnter = Just (combineVisitors2 visitor visitors.scopeVisitorsOnEnter) })
+        schema
+
+
+{-| REPLACEME
+-}
+withScopeExitVisitor :
+    ({ child : Scope, parent : Scope, scopeProvider : ScopeProvider } -> Node Expression -> moduleContext -> ( List (Error {}), moduleContext ))
+    -> ModuleRuleSchema schemaState moduleContext
+    -> ModuleRuleSchema schemaState moduleContext
+withScopeExitVisitor visitor schema =
+    mapVisitorsAndRequestScopes
+        (\visitors -> { visitors | scopeVisitorsOnExit = Just (combineVisitors2 visitor visitors.scopeVisitorsOnExit) })
+        schema
+
+
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) to visit files that `elm-review`
 doesn't analyze by default.
 
@@ -3962,6 +4008,19 @@ withFinalModuleEvaluation visitor schema =
 mapVisitors : (ModuleRuleVisitors moduleContext -> ModuleRuleVisitors moduleContext) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema a moduleContext
 mapVisitors fn (ModuleRuleSchema schema) =
     ModuleRuleSchema { schema | visitors = fn schema.visitors }
+
+
+mapVisitorsAndRequestScopes : (ModuleRuleVisitors moduleContext -> ModuleRuleVisitors moduleContext) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema a moduleContext
+mapVisitorsAndRequestScopes fn (ModuleRuleSchema schema) =
+    let
+        (RequestedData requestedData) =
+            schema.requestedData
+    in
+    ModuleRuleSchema
+        { schema
+            | visitors = fn schema.visitors
+            , requestedData = RequestedData { requestedData | moduleNameLookupTable = True }
+        }
 
 
 combineVisitors :
@@ -5846,18 +5905,22 @@ computeModuleWithRuleVisitors project docsModule module_ inputRuleModuleVisitors
         projectCache =
             ValidProject.projectCache project
 
-        ( moduleNameLookupTable, newProjectCache ) =
+        ( moduleNameLookupTable, scopeProvider, newProjectCache ) =
             if requestedData.moduleNameLookupTable then
                 Review.Resources.ModuleNameLookupTable.compute moduleName module_ projectCache
 
             else
-                ( ModuleNameLookupTableInternal.empty moduleName, projectCache )
+                ( ModuleNameLookupTableInternal.empty moduleName
+                , ScopeInternal.empty moduleName
+                , projectCache
+                )
 
         availableData : AvailableData
         availableData =
             { ast = ast
             , moduleNameLookupTable = moduleNameLookupTable
             , getType = \range -> TypeInference.getType moduleName range (Tuple.first typeInferenceProject) |> getTypeMarker typeInferenceProject
+            , scopeProvider = scopeProvider
             , moduleDocumentation = Review.Resources.DocsModules.findModuleDocumentation ast
             , isModuleExposed = ValidProject.isModuleExposed project moduleName
             , exposed =
@@ -6632,28 +6695,47 @@ visitModuleForProjectRule ({ ast } as availableData) ruleModuleVisitor =
         |> runVisitor .commentVisitor ast.comments
         |> runVisitor .importsVisitor ast.imports
         |> runVisitor .declarationListVisitor ast.declarations
-        |> visitDeclarationsAndExpressions ast.declarations
+        |> visitDeclarationsAndExpressions availableData.scopeProvider ast.declarations
         |> runVisitor .finalModuleEvaluation ()
 
 
-visitDeclarationsAndExpressions : List (Node Declaration) -> RuleModuleVisitor -> RuleModuleVisitor
-visitDeclarationsAndExpressions declarations ruleModuleVisitor =
-    List.foldl visitDeclarationAndExpressions ruleModuleVisitor declarations
+visitDeclarationsAndExpressions : ScopeProvider -> List (Node Declaration) -> RuleModuleVisitor -> RuleModuleVisitor
+visitDeclarationsAndExpressions scopeProvider declarations ruleModuleVisitor =
+    List.foldl (\decl visitor -> visitDeclarationAndExpressions scopeProvider decl visitor) ruleModuleVisitor declarations
 
 
-visitDeclarationAndExpressions : Node Declaration -> RuleModuleVisitor -> RuleModuleVisitor
-visitDeclarationAndExpressions ((Node _ declaration) as node) ruleModuleVisitor =
+visitDeclarationAndExpressions : ScopeProvider -> Node Declaration -> RuleModuleVisitor -> RuleModuleVisitor
+visitDeclarationAndExpressions scopeProvider ((Node _ declaration) as node) ruleModuleVisitor =
     let
         visitFunctionDeclaration : RuleModuleVisitor -> RuleModuleVisitor
         visitFunctionDeclaration visitor =
             case declaration of
                 Declaration.FunctionDeclaration function ->
                     let
-                        (Node _ { expression }) =
+                        (Node functionRange { expression }) =
                             function.declaration
+
+                        ((ScopeInternal.Scope topLevel) as topLevelScope) =
+                            ScopeProvider.topLevel scopeProvider
                     in
-                    -- TODO Can we precompute an array of expressions to visit per declaration? Store in `List (Array (Node Expression))`
-                    visitExpression expression visitor
+                    case ListExtra.find (\(ScopeInternal.Scope { range }) -> range == functionRange) topLevel.children of
+                        Just ((ScopeInternal.Scope child) as childScope) ->
+                            let
+                                params : { child : ScopeInternal.Scope, parent : ScopeInternal.Scope, scopeProvider : ScopeProvider }
+                                params =
+                                    { child = childScope
+                                    , parent = topLevelScope
+                                    , scopeProvider = scopeProvider
+                                    }
+                            in
+                            visitor
+                                |> runScopeVisitorOnEnter params expression
+                                |> visitExpression scopeProvider child expression
+                                |> runScopeVisitorOnExit params expression
+
+                        Nothing ->
+                            -- TODO Can we precompute an array of expressions to visit per declaration? Store in `List (Array (Node Expression))`
+                            visitExpression scopeProvider topLevel expression visitor
 
                 _ ->
                     visitor
@@ -6663,97 +6745,110 @@ visitDeclarationAndExpressions ((Node _ declaration) as node) ruleModuleVisitor 
         |> runDeclarationVisitorOnExit node
 
 
-visitExpression : Node Expression -> RuleModuleVisitor -> RuleModuleVisitor
-visitExpression ((Node nodeRange expression) as node) ruleModuleVisitor =
-    let
-        visitor : RuleModuleVisitor
-        visitor =
-            runExpressionVisitorOnEnter node ruleModuleVisitor
+visitExpression : ScopeProvider -> ScopeInternal.ScopeInfo -> Node Expression -> RuleModuleVisitor -> RuleModuleVisitor
+visitExpression scopeProvider scope ((Node nodeRange _) as node) ruleModuleVisitor =
+    case ListExtra.find (\(ScopeInternal.Scope { range }) -> range == nodeRange) scope.children of
+        Just ((ScopeInternal.Scope child) as childScope) ->
+            let
+                params : { child : ScopeInternal.Scope, parent : ScopeInternal.Scope, scopeProvider : ScopeProvider }
+                params =
+                    { child = childScope, parent = ScopeInternal.Scope scope, scopeProvider = scopeProvider }
+            in
+            ruleModuleVisitor
+                |> runScopeVisitorOnEnter params node
+                |> runExpressionVisitorOnEnter node
+                |> visitExpressionChildren scopeProvider child node
+                |> runExpressionVisitorOnExit node
+                |> runScopeVisitorOnExit params node
 
-        afterChildren : RuleModuleVisitor
-        afterChildren =
-            -- Walk the expression's children in place without allocating an
-            -- intermediate `List (Node Expression)` via `expressionChildren`.
-            -- Pattern-matching once here (vs. once in visitExpression + once
-            -- in expressionChildren) also halves the case-dispatch cost for
-            -- every expression node in the project.
-            case Node.value node of
-                Expression.Application expressions ->
-                    List.foldl visitExpression visitor expressions
+        Nothing ->
+            ruleModuleVisitor
+                |> runExpressionVisitorOnEnter node
+                |> visitExpressionChildren scopeProvider scope node
+                |> runExpressionVisitorOnExit node
 
-                Expression.ListExpr elements ->
-                    List.foldl visitExpression visitor elements
 
-                Expression.OperatorApplication _ direction left right ->
-                    case direction of
-                        Infix.Right ->
-                            visitExpression left (visitExpression right visitor)
+visitExpressionChildren : ScopeProvider -> ScopeInternal.ScopeInfo -> Node Expression -> RuleModuleVisitor -> RuleModuleVisitor
+visitExpressionChildren scopeProvider scope (Node range nodeExpr) visitor =
+    -- Walk the expression's children in place without allocating an
+    -- intermediate `List (Node Expression)` via `expressionChildren`.
+    -- Pattern-matching once here (vs. once in visitExpression + once
+    -- in expressionChildren) also halves the case-dispatch cost for
+    -- every expression node in the project.
+    case nodeExpr of
+        Expression.Application expressions ->
+            List.foldl (\e v -> visitExpression scopeProvider scope e v) visitor expressions
 
-                        _ ->
-                            visitExpression right (visitExpression left visitor)
+        Expression.ListExpr elements ->
+            List.foldl (\e v -> visitExpression scopeProvider scope e v) visitor elements
 
-                Expression.IfBlock cond then_ else_ ->
-                    visitExpression else_ (visitExpression then_ (visitExpression cond visitor))
-
-                Expression.ParenthesizedExpression expr ->
-                    visitExpression expr visitor
-
-                Expression.LetExpression letBlock ->
-                    let
-                        letBlockWithRange : Node Expression.LetBlock
-                        letBlockWithRange =
-                            Node (Node.range node) letBlock
-                    in
-                    visitExpression letBlock.expression
-                        (List.foldl (visitLetDeclaration letBlockWithRange) visitor letBlock.declarations)
-
-                Expression.CaseExpression caseBlock ->
-                    let
-                        caseBlockWithRange : Node Expression.CaseBlock
-                        caseBlockWithRange =
-                            Node (Node.range node) caseBlock
-
-                        afterSubject : RuleModuleVisitor
-                        afterSubject =
-                            visitExpression caseBlock.expression visitor
-                    in
-                    List.foldl (visitCaseBranch caseBlockWithRange) afterSubject caseBlock.cases
-
-                Expression.LambdaExpression lambda ->
-                    visitExpression lambda.expression visitor
-
-                Expression.TupledExpression expressions ->
-                    List.foldl visitExpression visitor expressions
-
-                Expression.RecordExpr fields ->
-                    List.foldl visitRecordSetter visitor fields
-
-                Expression.RecordUpdateExpression _ setters ->
-                    List.foldl visitRecordSetter visitor setters
-
-                Expression.Negation expr ->
-                    visitExpression expr visitor
-
-                Expression.RecordAccess expr _ ->
-                    visitExpression expr visitor
+        Expression.OperatorApplication _ direction left right ->
+            case direction of
+                Infix.Right ->
+                    visitExpression scopeProvider scope left (visitExpression scopeProvider scope right visitor)
 
                 _ ->
-                    visitor
-    in
-    runExpressionVisitorOnExit node afterChildren
+                    visitExpression scopeProvider scope right (visitExpression scopeProvider scope left visitor)
 
+        Expression.IfBlock cond then_ else_ ->
+            visitExpression scopeProvider scope else_ (visitExpression scopeProvider scope then_ (visitExpression scopeProvider scope cond visitor))
 
-visitRecordSetter : Node Expression.RecordSetter -> RuleModuleVisitor -> RuleModuleVisitor
-visitRecordSetter (Node _ ( _, expr )) rules =
-    visitExpression expr rules
+        Expression.ParenthesizedExpression expr ->
+            visitExpression scopeProvider scope expr visitor
+
+        Expression.LetExpression letBlock ->
+            let
+                letBlockWithRange : Node Expression.LetBlock
+                letBlockWithRange =
+                    Node range letBlock
+            in
+            visitExpression scopeProvider
+                scope
+                letBlock.expression
+                (List.foldl (visitLetDeclaration scopeProvider scope letBlockWithRange) visitor letBlock.declarations)
+
+        Expression.CaseExpression caseBlock ->
+            let
+                caseBlockWithRange : Node Expression.CaseBlock
+                caseBlockWithRange =
+                    Node range caseBlock
+
+                afterSubject : RuleModuleVisitor
+                afterSubject =
+                    visitExpression scopeProvider scope caseBlock.expression visitor
+            in
+            List.foldl (visitCaseBranch scopeProvider scope caseBlockWithRange) afterSubject caseBlock.cases
+
+        Expression.LambdaExpression lambda ->
+            visitExpression scopeProvider scope lambda.expression visitor
+
+        Expression.TupledExpression expressions ->
+            List.foldl (\e v -> visitExpression scopeProvider scope e v) visitor expressions
+
+        Expression.RecordExpr fields ->
+            List.foldl (\(Node _ ( _, expr )) v -> visitExpression scopeProvider scope expr v) visitor fields
+
+        Expression.RecordUpdateExpression _ setters ->
+            List.foldl (\(Node _ ( _, expr )) v -> visitExpression scopeProvider scope expr v) visitor setters
+
+        Expression.Negation expr ->
+            visitExpression scopeProvider scope expr visitor
+
+        Expression.RecordAccess expr _ ->
+            visitExpression scopeProvider scope expr visitor
+
+        _ ->
+            visitor
 
 
 visitLetDeclaration :
-    Node Expression.LetBlock
+    ScopeProvider
+    -> ScopeInternal.ScopeInfo
+    -> Node Expression.LetBlock
     -> Node Expression.LetDeclaration
     -> RuleModuleVisitor
     -> RuleModuleVisitor
-visitLetDeclaration letBlockWithRange ((Node _ letDeclaration) as letDeclarationWithRange) rules =
+visitLetDeclaration scopeProvider scope letBlockWithRange ((Node _ letDeclaration) as letDeclarationWithRange) rules =
     let
         expressionNode : Node Expression
         expressionNode =
@@ -6766,19 +6861,21 @@ visitLetDeclaration letBlockWithRange ((Node _ letDeclaration) as letDeclaration
     in
     rules
         |> runLetDeclarationVisitorOnEnter letBlockWithRange letDeclarationWithRange
-        |> visitExpression expressionNode
+        |> visitExpression scopeProvider scope expressionNode
         |> runLetDeclarationVisitorOnExit letBlockWithRange letDeclarationWithRange
 
 
 visitCaseBranch :
-    Node Expression.CaseBlock
+    ScopeProvider
+    -> ScopeInternal.ScopeInfo
+    -> Node Expression.CaseBlock
     -> ( Node Pattern, Node Expression )
     -> RuleModuleVisitor
     -> RuleModuleVisitor
-visitCaseBranch caseBlockWithRange (( _, caseExpression ) as caseBranch) rules =
+visitCaseBranch scopeProvider scope caseBlockWithRange (( _, caseExpression ) as caseBranch) rules =
     rules
         |> runCaseBranchVisitorOnEnter caseBlockWithRange caseBranch
-        |> visitExpression caseExpression
+        |> visitExpression scopeProvider scope caseExpression
         |> runCaseBranchVisitorOnExit caseBlockWithRange caseBranch
 
 
@@ -6872,18 +6969,19 @@ type alias RuleProjectVisitorOperations =
 
 
 createRuleProjectVisitor : ProjectRuleSchemaData projectContext moduleContext -> ValidProject -> ChangeableRuleData -> RequestedData -> ProjectRuleCache projectContext -> RuleProjectVisitor
-createRuleProjectVisitor schema initialProject ruleData requestedData initialCache =
+createRuleProjectVisitor schema initialProject ruleData requestedDataFromContextCreators initialCache =
     let
-        moduleVisitor :
-            Maybe
-                ((ProjectRuleCache projectContext -> RuleProjectVisitor)
-                 -> RuleProjectVisitorHidden projectContext
-                 -> ValidProject
-                 -> OpaqueProjectModule
-                 -> Maybe (AvailableData -> RuleModuleVisitor)
-                )
-        moduleVisitor =
+        ( moduleVisitor, moduleRuleRequestedData ) =
             createModuleVisitorFromProjectVisitor schema
+
+        requestedData : RequestedData
+        requestedData =
+            case moduleRuleRequestedData of
+                Just moduleRuleRequestedData_ ->
+                    RequestedData.combineJust moduleRuleRequestedData_ requestedDataFromContextCreators
+
+                Nothing ->
+                    requestedDataFromContextCreators
 
         raise : RuleProjectVisitorHidden projectContext -> RuleProjectVisitor
         raise ({ cache } as hidden) =
@@ -7274,24 +7372,26 @@ createDataExtractVisitor schema raise cache =
 createModuleVisitorFromProjectVisitor :
     ProjectRuleSchemaData projectContext moduleContext
     ->
-        Maybe
+        ( Maybe
             ((ProjectRuleCache projectContext -> RuleProjectVisitor)
              -> RuleProjectVisitorHidden projectContext
              -> ValidProject
              -> OpaqueProjectModule
              -> Maybe (AvailableData -> RuleModuleVisitor)
             )
+        , Maybe RequestedData
+        )
 createModuleVisitorFromProjectVisitor schema =
     case schema.moduleContextCreator of
         Nothing ->
-            Nothing
+            ( Nothing, Nothing )
 
         Just moduleContextCreator ->
             case mergeModuleVisitors schema.name schema.moduleVisitors of
                 Nothing ->
-                    Nothing
+                    ( Nothing, Nothing )
 
-                Just moduleVisitors ->
+                Just ( moduleVisitors, requestedData ) ->
                     let
                         howToCreateModuleContext : HowToCreateModuleContextAndFolder projectContext moduleContext
                         howToCreateModuleContext =
@@ -7308,7 +7408,9 @@ createModuleVisitorFromProjectVisitor schema =
                                 ( SchemaRequireContextFromImportedIncludingIndirect, Just folder ) ->
                                     RequireContextFromImportedIncludingIndirect folder
                     in
-                    Just (\raise hidden -> createModuleVisitorFromProjectVisitorHelp schema raise hidden howToCreateModuleContext moduleVisitors moduleContextCreator)
+                    ( Just (\raise hidden -> createModuleVisitorFromProjectVisitorHelp schema raise hidden howToCreateModuleContext moduleVisitors moduleContextCreator)
+                    , Just requestedData
+                    )
 
 
 createModuleVisitorFromProjectVisitorHelp :
@@ -7469,6 +7571,8 @@ type alias RuleModuleVisitorOperations =
     , letDeclarationVisitorOnExit : Maybe (Node Expression.LetBlock -> Node Expression.LetDeclaration -> RuleModuleVisitor)
     , caseBranchVisitorOnEnter : Maybe (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> RuleModuleVisitor)
     , caseBranchVisitorOnExit : Maybe (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> RuleModuleVisitor)
+    , scopeVisitorsOnEnter : Maybe ({ child : Scope, parent : Scope, scopeProvider : ScopeProvider } -> Node Expression -> RuleModuleVisitor)
+    , scopeVisitorsOnExit : Maybe ({ child : Scope, parent : Scope, scopeProvider : ScopeProvider } -> Node Expression -> RuleModuleVisitor)
     , finalModuleEvaluation : Maybe (() -> RuleModuleVisitor)
     , toProjectVisitor : () -> RuleProjectVisitor
     }
@@ -7498,6 +7602,8 @@ createRuleModuleVisitor visitors params toRuleProjectVisitor initialContext =
                 , letDeclarationVisitorOnExit = createVisitor2 params raise errorsAndContext visitors.letDeclarationVisitorOnExit
                 , caseBranchVisitorOnEnter = createVisitor2 params raise errorsAndContext visitors.caseBranchVisitorOnEnter
                 , caseBranchVisitorOnExit = createVisitor2 params raise errorsAndContext visitors.caseBranchVisitorOnExit
+                , scopeVisitorsOnEnter = createVisitor2 params raise errorsAndContext visitors.scopeVisitorsOnEnter
+                , scopeVisitorsOnExit = createVisitor2 params raise errorsAndContext visitors.scopeVisitorsOnExit
                 , finalModuleEvaluation = createFinalModuleEvaluationVisitor params raise errorsAndContext visitors.finalEvaluationFn
                 , toProjectVisitor = \() -> toRuleProjectVisitor errorsAndContext
                 }
@@ -7663,6 +7769,26 @@ runDeclarationVisitorOnExit node ((RuleModuleVisitor ops) as original) =
     case ops.declarationVisitorOnExit of
         Just visitor ->
             visitor node
+
+        Nothing ->
+            original
+
+
+runScopeVisitorOnEnter : { child : Scope, parent : Scope, scopeProvider : ScopeProvider } -> Node Expression -> RuleModuleVisitor -> RuleModuleVisitor
+runScopeVisitorOnEnter scopes node ((RuleModuleVisitor ops) as original) =
+    case ops.scopeVisitorsOnEnter of
+        Just visitor ->
+            visitor scopes node
+
+        Nothing ->
+            original
+
+
+runScopeVisitorOnExit : { child : Scope, parent : Scope, scopeProvider : ScopeProvider } -> Node Expression -> RuleModuleVisitor -> RuleModuleVisitor
+runScopeVisitorOnExit scopes node ((RuleModuleVisitor ops) as original) =
+    case ops.scopeVisitorsOnExit of
+        Just visitor ->
+            visitor scopes node
 
         Nothing ->
             original
@@ -8062,6 +8188,19 @@ withTypes (ContextCreator fn (RequestedData requested)) =
         (RequestedData { requested | types = True })
 
 
+{-| REPLACEME
+-}
+withScopes :
+    ContextCreator
+        ScopeProvider
+        (from -> to)
+    -> ContextCreator from to
+withScopes (ContextCreator fn (RequestedData requested)) =
+    ContextCreator
+        (\data isFileIgnored isFileFixable -> fn data isFileIgnored isFileFixable data.scopeProvider)
+        (RequestedData { requested | moduleNameLookupTable = True })
+
+
 {-| Request the `docs.json` for every module imported by the current module,
 including those from modules of the project.
 
@@ -8400,6 +8539,7 @@ type alias AvailableData =
     , constructorToType : { implicitImports : Bool, dependencies : Bool } -> Dict ModuleName (Dict String String)
     , moduleNameLookupTable : ModuleNameLookupTable
     , getType : Range -> Result InferError Elm.TypeInference.Type.Type
+    , scopeProvider : ScopeProvider
     , extractSourceCode : Range -> String
     , filePath : FilePath
     , isInSourceDirectories : Bool

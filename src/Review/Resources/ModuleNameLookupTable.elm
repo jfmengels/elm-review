@@ -3,7 +3,7 @@ module Review.Resources.ModuleNameLookupTable exposing (compute)
 import Dict exposing (Dict)
 import Elm.Docs
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
-import Elm.Syntax.Exposing as Exposing exposing (TopLevelExpose)
+import Elm.Syntax.Exposing as Exposing exposing (Exposing, TopLevelExpose)
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.File
 import Elm.Syntax.Import exposing (Import)
@@ -18,31 +18,38 @@ import NonEmpty exposing (NonEmpty)
 import Review.Project.DocsModule as DocsModule exposing (DocsModule)
 import Review.Project.ProjectCache as ProjectCache exposing (ModuleCacheKey, ProjectCache)
 import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModule)
+import Review.Resources.Binding as Binding
+import Review.Resources.BindingId as BindingId
 import Review.Resources.ElmCorePrelude
+import Review.Resources.ImportBinding as ImportBinding
 import Review.Resources.Internal exposing (ModuleNameLookupTable)
 import Review.Resources.ModuleNameLookupTableBuilder as Builder exposing (ModuleNameLookupTableBuilder)
-import Set exposing (Set)
+import Review.Resources.Scope as Scope
+import Review.Resources.ScopeId as ScopeId
+import Review.Resources.ScopeInternal as ScopeInternal exposing (Binding, Reference, ScopeId, ScopeInfo)
+import Review.Resources.ScopeProvider exposing (ScopeProvider)
 import Vendor.ListExtra as ListExtra
 
 
 type alias Context =
-    { scopes : NonEmpty Scope
-    , localTypes : Set String
+    { scopeStack : NonEmpty ScopeInfo
+    , scopeIdCounter : ScopeId.Counter
+    , bindingIdCounter : BindingId.Counter
+    , valueReferences : Dict Int (List Reference)
+    , typeReferences : Dict Int (List Reference)
+    , qualifiedReferences : Dict ModuleName (List Reference)
+    , moduleReferences : Dict ModuleName (List Reference)
+    , scopes : Dict ScopeId ScopeInfo
     , importAliases : Dict String (NonEmpty ModuleName)
     , importedFunctions : Dict String ModuleName
-    , importedTypes : Dict String ModuleName
+    , importedTypes : Dict String ScopeInternal.ImportBinding
     , modules : Dict ModuleName Elm.Docs.Module
     , lookupTable : ModuleNameLookupTableBuilder
-    , branches : NonEmpty ( Range, Scope )
-    , caseToExit : NonEmpty Range
+    , branches : NonEmpty ( Range, ScopeInfo )
     }
 
 
-type alias Scope =
-    Set String
-
-
-compute : ModuleName -> OpaqueProjectModule -> ProjectCache -> ( ModuleNameLookupTable, ProjectCache )
+compute : ModuleName -> OpaqueProjectModule -> ProjectCache -> ( ModuleNameLookupTable, ScopeProvider, ProjectCache )
 compute moduleName module_ projectCache =
     -- Caching layer. Real computation is in computeHelp
     let
@@ -72,30 +79,38 @@ compute moduleName module_ projectCache =
             }
     in
     case reuseFromCache cacheKey moduleName projectCache.lookupTables of
-        Just lookupTable ->
-            ( lookupTable, projectCache )
+        Just { lookupTable, scopeProvider } ->
+            ( lookupTable, scopeProvider, projectCache )
 
         Nothing ->
             let
-                lookupTable : ModuleNameLookupTable
-                lookupTable =
-                    computeHelp moduleName module_ projectCache
+                ( lookupTable, scopeProvider ) =
+                    computeHelp moduleName (ProjectModule.ast module_) projectCache
             in
             ( lookupTable
-            , { projectCache | lookupTables = Dict.insert moduleName { key = cacheKey, lookupTable = lookupTable } projectCache.lookupTables }
+            , scopeProvider
+            , { projectCache
+                | lookupTables =
+                    Dict.insert moduleName
+                        { key = cacheKey
+                        , lookupTable = lookupTable
+                        , scopeProvider = scopeProvider
+                        }
+                        projectCache.lookupTables
+              }
             )
 
 
 reuseFromCache :
     ModuleCacheKey
     -> ModuleName
-    -> Dict ModuleName { key : ModuleCacheKey, lookupTable : ModuleNameLookupTable }
-    -> Maybe ModuleNameLookupTable
+    -> Dict ModuleName { key : ModuleCacheKey, lookupTable : ModuleNameLookupTable, scopeProvider : ScopeProvider }
+    -> Maybe { key : ModuleCacheKey, lookupTable : ModuleNameLookupTable, scopeProvider : ScopeProvider }
 reuseFromCache cacheKey moduleName lookupTables =
     case Dict.get moduleName lookupTables of
         Just cache ->
             if cache.key.contentHash == cacheKey.contentHash && cache.key.implicitImports == cacheKey.implicitImports then
-                Just cache.lookupTable
+                Just cache
 
             else
                 Nothing
@@ -104,30 +119,54 @@ reuseFromCache cacheKey moduleName lookupTables =
             Nothing
 
 
-computeHelp : ModuleName -> OpaqueProjectModule -> ProjectCache -> ModuleNameLookupTable
-computeHelp moduleName module_ projectCache =
+computeHelp : ModuleName -> Elm.Syntax.File.File -> ProjectCache -> ( ModuleNameLookupTable, ScopeProvider )
+computeHelp moduleName moduleAst projectCache =
     let
-        moduleAst : Elm.Syntax.File.File
-        moduleAst =
-            ProjectModule.ast module_
-
-        baseModuleContext : Context
-        baseModuleContext =
+        modules : Dict ModuleName Elm.Docs.Module
+        modules =
             Dict.foldl
                 (\key docs dict ->
                     Dict.insert key (DocsModule.mod docs) dict
                 )
                 projectCache.dependencies
                 projectCache.modules
-                |> computeBaseModule
+
+        importAcc : ImportAcc
+        importAcc =
+            List.foldl
+                (importVisitor modules)
+                (collectPreludeImports projectCache.dependencies)
+                moduleAst.imports
+
+        baseModuleContext : Context
+        baseModuleContext =
+            computeBaseModule
+                moduleName
+                modules
+                (declarationListVisitor moduleAst.declarations importAcc.bindingIdCounter)
+                importAcc
 
         moduleContext : Context
         moduleContext =
-            List.foldl importVisitor baseModuleContext moduleAst.imports
-                |> declarationListVisitor moduleAst.declarations
-                |> collectLookupTable moduleAst.declarations
+            collectReferences moduleAst.declarations baseModuleContext
+
+        topLevelScope : ScopeInfo
+        topLevelScope =
+            NonEmpty.head moduleContext.scopeStack
+
+        scopes : Dict ScopeId ScopeInfo
+        scopes =
+            Dict.insert topLevelScope.id topLevelScope moduleContext.scopes
     in
-    Builder.finalize moduleName moduleContext.lookupTable
+    ( Builder.finalize moduleName moduleContext.lookupTable
+    , ScopeInternal.create
+        topLevelScope
+        scopes
+        moduleContext.valueReferences
+        moduleContext.typeReferences
+        moduleContext.qualifiedReferences
+        moduleContext.moduleReferences
+    )
 
 
 computeImplicitlyImportedElements :
@@ -237,24 +276,71 @@ insertConstructors tags acc =
         tags
 
 
-computeBaseModule : Dict ModuleName Elm.Docs.Module -> Context
-computeBaseModule modules =
-    List.foldl importVisitor
-        { scopes = NonEmpty.fromElement Set.empty
-        , localTypes = Set.empty
-        , importAliases = Dict.empty
-        , importedFunctions = Dict.empty
-        , importedTypes = Dict.empty
-        , modules = modules
-        , lookupTable = Builder.empty
-        , branches = NonEmpty.fromElement ( Range.empty, Set.empty )
-        , caseToExit = NonEmpty.fromElement Range.empty
-        }
-        Review.Resources.ElmCorePrelude.elmCorePrelude
+computeBaseModule :
+    ModuleName
+    -> Dict ModuleName Elm.Docs.Module
+    -> { typeBindings : Dict String Binding, bindings : Dict String Binding, bindingIdCounter : BindingId.Counter }
+    -> ImportAcc
+    -> Context
+computeBaseModule moduleName modules { typeBindings, bindings, bindingIdCounter } importAcc =
+    let
+        topLevelScope : ScopeInfo
+        topLevelScope =
+            { id = ScopeId.topLevel
+            , moduleName = moduleName
+            , parentId = Nothing
+            , range = Range.empty -- TODO Use full range
+            , typeBindings = typeBindings
+            , valueBindings = bindings
+            , importValueBindings = importAcc.importedFunctions
+            , importTypeBindings = importAcc.importedTypes
+            , importAliases = importAcc.importAliases
+            , modules = modules
+            , parentBindings = []
+            , children = []
+            }
+    in
+    { scopeStack = NonEmpty.fromElement topLevelScope
+    , scopeIdCounter = ScopeId.counter
+    , bindingIdCounter = bindingIdCounter
+    , scopes = Dict.empty
+    , valueReferences = Dict.empty
+    , typeReferences = Dict.empty
+    , qualifiedReferences = Dict.empty
+    , moduleReferences = Dict.empty
+    , importAliases = importAcc.importAliases
+    , importedFunctions = importedFunctionsFromImportedBindings importAcc.importedFunctions
+    , importedTypes = importAcc.importedTypes
+    , modules = modules
+    , lookupTable = Builder.empty
+    , branches = NonEmpty.fromElement ( Range.empty, topLevelScope )
+    }
 
 
-collectLookupTable : List (Node Declaration) -> Context -> Context
-collectLookupTable declarations context =
+importedFunctionsFromImportedBindings : Dict String ScopeInternal.ImportBinding -> Dict String ModuleName
+importedFunctionsFromImportedBindings importedFunctions =
+    Dict.foldl (\name importBinding dict -> Dict.insert name (ImportBinding.moduleName importBinding) dict) Dict.empty importedFunctions
+
+
+createScope : { id : ScopeId, parent : ScopeInfo, range : Range, bindings : Dict String Binding } -> ScopeInfo
+createScope { id, parent, range, bindings } =
+    { id = id
+    , moduleName = parent.moduleName
+    , parentId = Just parent.id
+    , range = range
+    , valueBindings = bindings
+    , typeBindings = parent.typeBindings
+    , importValueBindings = parent.importValueBindings
+    , importTypeBindings = parent.importTypeBindings
+    , importAliases = parent.importAliases
+    , modules = parent.modules
+    , children = []
+    , parentBindings = parent.valueBindings :: parent.parentBindings
+    }
+
+
+collectReferences : List (Node Declaration) -> Context -> Context
+collectReferences declarations context =
     List.foldl
         (\((Node _ declaration) as node) ctx ->
             case declaration of
@@ -272,112 +358,251 @@ collectLookupTable declarations context =
 
 
 visitExpressions : Node Expression -> Context -> Context
-visitExpressions node context =
+visitExpressions ((Node range _) as node) context =
     -- IGNORE TCO
     let
-        newContext : Context
-        newContext =
-            context
-                |> popScopeEnter node
-                |> expressionEnterVisitor node
+        ( branchRange, scope ) =
+            NonEmpty.head context.branches
     in
-    List.foldl
-        visitExpressions
-        newContext
-        (expressionChildren node)
-        |> popScopeExit node
+    if range == branchRange then
+        List.foldl
+            visitExpressions
+            (context
+                |> enterScope scope
+                |> expressionEnterVisitor node
+            )
+            (expressionChildren node)
+            |> exitLetScope node
+            |> exitScope
+
+    else
+        List.foldl
+            visitExpressions
+            (expressionEnterVisitor node context)
+            (expressionChildren node)
+            |> exitLetScope node
 
 
-declarationListVisitor : List (Node Declaration) -> Context -> Context
-declarationListVisitor declarations context =
-    List.foldl registerDeclaration context declarations
+enterScope : ScopeInfo -> Context -> Context
+enterScope scope context =
+    { context
+        | scopeStack = NonEmpty.cons scope context.scopeStack
+        , branches = NonEmpty.pop context.branches
+    }
 
 
-registerDeclaration : Node Declaration -> Context -> Context
-registerDeclaration (Node _ declaration) context =
+exitScope : Context -> Context
+exitScope context =
+    let
+        scope : ScopeInfo
+        scope =
+            NonEmpty.head context.scopeStack
+    in
+    { context
+        | scopeStack = NonEmpty.popThenMap (\parent -> { parent | children = ScopeInternal.Scope scope :: parent.children }) context.scopeStack
+        , scopes = Dict.insert scope.id scope context.scopes
+    }
+
+
+exitLetScope : Node Expression -> Context -> Context
+exitLetScope (Node _ expr) context =
+    case expr of
+        Expression.LetExpression _ ->
+            exitScope context
+
+        _ ->
+            context
+
+
+declarationListVisitor :
+    List (Node Declaration)
+    -> BindingId.Counter
+    -> { typeBindings : Dict String Binding, bindings : Dict String Binding, bindingIdCounter : BindingId.Counter }
+declarationListVisitor declarations bindingIdCounter =
+    List.foldl registerDeclaration
+        { typeBindings = Dict.empty
+        , bindings = Dict.empty
+        , bindingIdCounter = bindingIdCounter
+        }
+        declarations
+
+
+registerDeclaration :
+    Node Declaration
+    -> { typeBindings : Dict String Binding, bindings : Dict String Binding, bindingIdCounter : BindingId.Counter }
+    -> { typeBindings : Dict String Binding, bindings : Dict String Binding, bindingIdCounter : BindingId.Counter }
+registerDeclaration (Node _ declaration) acc =
     case declaration of
         Declaration.FunctionDeclaration function ->
-            let
-                name : String
-                name =
-                    function.declaration
-                        |> Node.value
-                        |> .name
-                        |> Node.value
-            in
-            addToScope name context
+            addBinding
+                (Node.value function.declaration).name
+                ScopeInternal.valueRealm
+                acc
 
         Declaration.AliasDeclaration alias ->
             let
-                name : String
-                name =
-                    Node.value alias.name
+                (Node range name) =
+                    alias.name
 
-                registerAlias : Context -> Context
-                registerAlias ctx =
-                    case alias.typeAnnotation of
-                        Node _ (TypeAnnotation.Record _) ->
-                            addToScope name ctx
-
-                        _ ->
-                            ctx
+                createBinding_ : ScopeInternal.Realm -> ( Binding, BindingId.Counter )
+                createBinding_ realm =
+                    BindingId.new
+                        (\id ->
+                            ScopeInternal.Binding
+                                { id = id
+                                , name = name
+                                , range = range
+                                , realm = realm
+                                }
+                        )
+                        acc.bindingIdCounter
             in
-            { context | localTypes = Set.insert name context.localTypes }
-                |> registerAlias
+            case alias.typeAnnotation of
+                Node _ (TypeAnnotation.Record _) ->
+                    let
+                        ( binding, bindingIdCounter ) =
+                            createBinding_ (ScopeInternal.valueRealm + ScopeInternal.typeRealm)
+                    in
+                    { typeBindings = Dict.insert name binding acc.typeBindings
+                    , bindings = Dict.insert name binding acc.bindings
+                    , bindingIdCounter = bindingIdCounter
+                    }
+
+                _ ->
+                    let
+                        ( binding, bindingIdCounter ) =
+                            createBinding_ ScopeInternal.typeRealm
+                    in
+                    { typeBindings = Dict.insert name binding acc.typeBindings
+                    , bindings = acc.bindings
+                    , bindingIdCounter = bindingIdCounter
+                    }
 
         Declaration.CustomTypeDeclaration customType ->
+            let
+                ( typeBindings, bindingIdCounter ) =
+                    createBinding customType.name ScopeInternal.typeRealm acc.typeBindings acc.bindingIdCounter
+            in
             List.foldl
                 (\(Node _ constructor) context_ ->
-                    addToScope (Node.value constructor.name) context_
+                    addBinding constructor.name ScopeInternal.valueRealm context_
                 )
-                { context | localTypes = Set.insert (Node.value customType.name) context.localTypes }
+                { typeBindings = typeBindings, bindings = acc.bindings, bindingIdCounter = bindingIdCounter }
                 customType.constructors
 
         Declaration.PortDeclaration signature ->
-            let
-                name : String
-                name =
-                    Node.value signature.name
-            in
-            addToScope name context
+            addBinding signature.name ScopeInternal.valueRealm acc
 
         Declaration.InfixDeclaration infix_ ->
-            let
-                name : String
-                name =
-                    Node.value infix_.operator
-            in
-            addToScope name context
+            addBinding infix_.operator ScopeInternal.valueRealm acc
 
         Declaration.Destructuring _ _ ->
             -- Not possible in 0.19 code
-            context
+            acc
 
 
-addToScope : String -> Context -> Context
-addToScope name context =
+addBinding :
+    Node String
+    -> ScopeInternal.Realm
+    -> { typeBindings : Dict String Binding, bindings : Dict String Binding, bindingIdCounter : BindingId.Counter }
+    -> { typeBindings : Dict String Binding, bindings : Dict String Binding, bindingIdCounter : BindingId.Counter }
+addBinding node realm acc =
     let
-        newScopes : NonEmpty Scope
-        newScopes =
-            NonEmpty.mapHead
-                (\scope -> Set.insert name scope)
-                context.scopes
+        ( bindings, bindingIdCounter ) =
+            createBinding node realm acc.bindings acc.bindingIdCounter
     in
-    { context | scopes = newScopes }
+    { typeBindings = acc.typeBindings
+    , bindings = bindings
+    , bindingIdCounter = bindingIdCounter
+    }
+
+
+createBinding : Node String -> ScopeInternal.Realm -> Dict String Binding -> BindingId.Counter -> ( Dict String Binding, BindingId.Counter )
+createBinding (Node range name) realm bindings bindingIdCounter =
+    BindingId.new
+        (\id ->
+            Dict.insert name
+                (ScopeInternal.Binding
+                    { id = id
+                    , name = name
+                    , range = range
+                    , realm = realm
+                    }
+                )
+                bindings
+        )
+        bindingIdCounter
+
+
+insertImportBinding :
+    String
+    -> ModuleName
+    -> ( Dict String ScopeInternal.ImportBinding, BindingId.Counter )
+    -> ( Dict String ScopeInternal.ImportBinding, BindingId.Counter )
+insertImportBinding name moduleName ( acc, bindingIdCounter ) =
+    BindingId.new
+        (\id ->
+            Dict.insert name
+                (ScopeInternal.ImportBinding
+                    { id = id
+                    , name = name
+                    , moduleName = moduleName
+                    }
+                )
+                acc
+        )
+        bindingIdCounter
 
 
 
 -- IMPORT VISITOR
 
 
-importVisitor : Node Import -> Context -> Context
-importVisitor (Node _ import_) context =
+type alias ImportAcc =
+    { importedFunctions : Dict String ScopeInternal.ImportBinding
+    , importedTypes : Dict String ScopeInternal.ImportBinding
+    , importAliases : Dict String (NonEmpty ModuleName)
+    , bindingIdCounter : BindingId.Counter
+    }
+
+
+collectPreludeImports : Dict ModuleName Elm.Docs.Module -> ImportAcc
+collectPreludeImports dependencies =
+    List.foldl
+        (\import_ acc -> registerImportedFunctionsAndTypes dependencies import_.moduleName import_.exposingList acc)
+        { importedFunctions = Dict.empty
+        , importedTypes = Dict.empty
+        , importAliases = Review.Resources.ElmCorePrelude.importAliases
+        , bindingIdCounter = BindingId.counter
+        }
+        Review.Resources.ElmCorePrelude.modulesWithExposingList
+
+
+importVisitor : Dict ModuleName Elm.Docs.Module -> Node Import -> ImportAcc -> ImportAcc
+importVisitor modules (Node _ import_) context =
     let
         importAliases : Dict String (NonEmpty ModuleName)
         importAliases =
             registerImportAlias import_ context.importAliases
     in
-    registerImportedFunctionsAndTypes import_ { context | importAliases = importAliases }
+    case import_.exposingList of
+        Nothing ->
+            { importedFunctions = context.importedFunctions
+            , importedTypes = context.importedTypes
+            , importAliases = importAliases
+            , bindingIdCounter = context.bindingIdCounter
+            }
+
+        Just (Node _ exposing_) ->
+            registerImportedFunctionsAndTypes
+                modules
+                (Node.value import_.moduleName)
+                exposing_
+                { importedFunctions = context.importedFunctions
+                , importedTypes = context.importedTypes
+                , importAliases = importAliases
+                , bindingIdCounter = context.bindingIdCounter
+                }
 
 
 registerImportAlias : Import -> Dict String (NonEmpty ModuleName) -> Dict String (NonEmpty ModuleName)
@@ -408,112 +633,173 @@ registerImportAlias import_ importAliases =
     Dict.insert qualifier toInsert importAliases
 
 
-registerImportedFunctionsAndTypes : Import -> Context -> Context
-registerImportedFunctionsAndTypes import_ context =
-    case import_.exposingList of
-        Nothing ->
-            context
+registerImportedFunctionsAndTypes :
+    Dict ModuleName Elm.Docs.Module
+    -> ModuleName
+    -> Exposing
+    -> ImportAcc
+    -> ImportAcc
+registerImportedFunctionsAndTypes modules moduleName exposing_ context =
+    let
+        module_ : Elm.Docs.Module
+        module_ =
+            case Dict.get moduleName modules of
+                Just mod ->
+                    mod
 
-        Just (Node _ exposing_) ->
+                Nothing ->
+                    { name = joinModuleName moduleName
+                    , comment = ""
+                    , unions = []
+                    , values = []
+                    , aliases = []
+                    , binops = []
+                    }
+    in
+    case exposing_ of
+        Exposing.All _ ->
+            registerImportedFunctionsAndTypesWhenExposingAll moduleName module_ context
+
+        Exposing.Explicit topLevelExposeList ->
+            registerImportedFunctionsAndTypesWithExplicit moduleName module_ topLevelExposeList context
+
+
+registerImportedFunctionsAndTypesWhenExposingAll :
+    ModuleName
+    -> Elm.Docs.Module
+    -> ImportAcc
+    -> ImportAcc
+registerImportedFunctionsAndTypesWhenExposingAll moduleName module_ importAcc =
+    let
+        ( importedTypes, bindingIdCounter ) =
+            ( importAcc.importedTypes, importAcc.bindingIdCounter )
+                |> collectBindings moduleName module_.unions
+                |> collectBindings moduleName module_.aliases
+
+        ( importedFunctions, finalCounter ) =
+            ( importAcc.importedFunctions, bindingIdCounter )
+                |> collectBindings moduleName module_.values
+                |> collectBindings moduleName module_.binops
+                |> foldCustomTypesIntoDict moduleName module_.unions
+    in
+    addRecordAliases moduleName
+        module_.aliases
+        { importedFunctions = importedFunctions
+        , importedTypes = importedTypes
+        , importAliases = importAcc.importAliases
+        , bindingIdCounter = finalCounter
+        }
+
+
+collectBindings :
+    ModuleName
+    -> List { a | name : String }
+    -> ( Dict String ScopeInternal.ImportBinding, BindingId.Counter )
+    -> ( Dict String ScopeInternal.ImportBinding, BindingId.Counter )
+collectBindings moduleName list initial =
+    List.foldl
+        (\{ name } acc ->
+            insertImportBinding name moduleName acc
+        )
+        initial
+        list
+
+
+foldCustomTypesIntoDict :
+    ModuleName
+    -> List Elm.Docs.Union
+    -> ( Dict String ScopeInternal.ImportBinding, BindingId.Counter )
+    -> ( Dict String ScopeInternal.ImportBinding, BindingId.Counter )
+foldCustomTypesIntoDict moduleName unions initial =
+    List.foldl
+        (\union outerAcc ->
+            List.foldl
+                (\( name, _ ) acc ->
+                    insertImportBinding name moduleName acc
+                )
+                outerAcc
+                union.tags
+        )
+        initial
+        unions
+
+
+addRecordAliases : ModuleName -> List Elm.Docs.Alias -> ImportAcc -> ImportAcc
+addRecordAliases moduleName list initial =
+    List.foldl
+        (\{ name, tipe } acc ->
             let
-                moduleName : ModuleName
-                moduleName =
-                    Node.value import_.moduleName
+                ( typeAliasBinding, bindingIdCounter ) =
+                    BindingId.new
+                        (\id ->
+                            ScopeInternal.ImportBinding
+                                { id = id
+                                , name = name
+                                , moduleName = moduleName
+                                }
+                        )
+                        acc.bindingIdCounter
+            in
+            case tipe of
+                Elm.Type.Record _ Nothing ->
+                    { importedFunctions = Dict.insert name typeAliasBinding acc.importedFunctions
+                    , importedTypes = Dict.insert name typeAliasBinding acc.importedTypes
+                    , importAliases = acc.importAliases
+                    , bindingIdCounter = bindingIdCounter
+                    }
 
-                module_ : Elm.Docs.Module
-                module_ =
-                    case Dict.get moduleName context.modules of
-                        Just mod ->
-                            mod
+                _ ->
+                    { importedFunctions = acc.importedFunctions
+                    , importedTypes = Dict.insert name typeAliasBinding acc.importedTypes
+                    , importAliases = acc.importAliases
+                    , bindingIdCounter = bindingIdCounter
+                    }
+        )
+        initial
+        list
+
+
+registerImportedFunctionsAndTypesWithExplicit :
+    ModuleName
+    -> Elm.Docs.Module
+    -> List (Node TopLevelExpose)
+    -> ImportAcc
+    -> ImportAcc
+registerImportedFunctionsAndTypesWithExplicit moduleName module_ topLevelExposeList context =
+    let
+        ( importedFunctions, bindingIdCounter ) =
+            valuesFromExposingList
+                moduleName
+                module_
+                topLevelExposeList
+                ( context.importedFunctions, context.bindingIdCounter )
+
+        ( importedTypes, finalCounter ) =
+            List.foldl
+                (\topLevelExpose acc ->
+                    case typesFromExposingList topLevelExpose of
+                        Just name ->
+                            insertImportBinding name moduleName acc
 
                         Nothing ->
-                            { name = joinModuleName moduleName
-                            , comment = ""
-                            , unions = []
-                            , values = []
-                            , aliases = []
-                            , binops = []
-                            }
-            in
-            case exposing_ of
-                Exposing.All _ ->
-                    let
-                        foldIntoDict : List { a | name : comparable } -> Dict comparable ModuleName -> Dict comparable ModuleName
-                        foldIntoDict list dict =
-                            List.foldl (\{ name } acc -> Dict.insert name moduleName acc) dict list
-
-                        addRecordAliases : List Elm.Docs.Alias -> Dict String ModuleName -> Dict String ModuleName
-                        addRecordAliases list dict =
-                            List.foldl
-                                (\{ name, tipe } acc ->
-                                    if isPlainRecordType tipe then
-                                        Dict.insert name moduleName acc
-
-                                    else
-                                        acc
-                                )
-                                dict
-                                list
-
-                        foldCustomTypesIntoDict : List { a | tags : List ( String, b ) } -> Dict String ModuleName -> Dict String ModuleName
-                        foldCustomTypesIntoDict unions dict =
-                            List.foldl
-                                (\union acc ->
-                                    List.foldl (\( name, _ ) subAcc -> Dict.insert name moduleName subAcc) acc union.tags
-                                )
-                                dict
-                                unions
-
-                        importedFunctions : Dict String ModuleName
-                        importedFunctions =
-                            context.importedFunctions
-                                |> foldIntoDict module_.values
-                                |> foldIntoDict module_.binops
-                                |> addRecordAliases module_.aliases
-                                |> foldCustomTypesIntoDict module_.unions
-
-                        importedTypes : Dict String ModuleName
-                        importedTypes =
-                            context.importedTypes
-                                |> foldIntoDict module_.unions
-                                |> foldIntoDict module_.aliases
-                    in
-                    { context
-                        | importedFunctions = importedFunctions
-                        , importedTypes = importedTypes
-                    }
-
-                Exposing.Explicit topLevelExposeList ->
-                    let
-                        importedFunctions : Dict String ModuleName
-                        importedFunctions =
-                            valuesFromExposingList
-                                moduleName
-                                module_
-                                topLevelExposeList
-                                context.importedFunctions
-
-                        importedTypes : Dict String ModuleName
-                        importedTypes =
-                            List.foldl
-                                (\topLevelExpose acc ->
-                                    case typesFromExposingList topLevelExpose of
-                                        Just name ->
-                                            Dict.insert name moduleName acc
-
-                                        Nothing ->
-                                            acc
-                                )
-                                context.importedTypes
-                                topLevelExposeList
-                    in
-                    { context
-                        | importedFunctions = importedFunctions
-                        , importedTypes = importedTypes
-                    }
+                            acc
+                )
+                ( context.importedTypes, bindingIdCounter )
+                topLevelExposeList
+    in
+    { importedFunctions = importedFunctions
+    , bindingIdCounter = finalCounter
+    , importedTypes = importedTypes
+    , importAliases = context.importAliases
+    }
 
 
-valuesFromExposingList : ModuleName -> Elm.Docs.Module -> List (Node TopLevelExpose) -> Dict String ModuleName -> Dict String ModuleName
+valuesFromExposingList :
+    ModuleName
+    -> Elm.Docs.Module
+    -> List (Node TopLevelExpose)
+    -> ( Dict String ScopeInternal.ImportBinding, BindingId.Counter )
+    -> ( Dict String ScopeInternal.ImportBinding, BindingId.Counter )
 valuesFromExposingList moduleName module_ topLevelExposeList acc =
     case topLevelExposeList of
         [] ->
@@ -521,11 +807,17 @@ valuesFromExposingList moduleName module_ topLevelExposeList acc =
 
         (Node _ topLevelExpose) :: rest ->
             case topLevelExpose of
-                Exposing.InfixExpose operator ->
-                    valuesFromExposingList moduleName module_ rest (Dict.insert operator moduleName acc)
+                Exposing.InfixExpose name ->
+                    valuesFromExposingList moduleName
+                        module_
+                        rest
+                        (insertImportBinding name moduleName acc)
 
-                Exposing.FunctionExpose function ->
-                    valuesFromExposingList moduleName module_ rest (Dict.insert function moduleName acc)
+                Exposing.FunctionExpose name ->
+                    valuesFromExposingList moduleName
+                        module_
+                        rest
+                        (insertImportBinding name moduleName acc)
 
                 Exposing.TypeOrAliasExpose name ->
                     if
@@ -533,7 +825,10 @@ valuesFromExposingList moduleName module_ topLevelExposeList acc =
                             |> Maybe.map (\alias -> isPlainRecordType alias.tipe)
                             |> Maybe.withDefault False
                     then
-                        valuesFromExposingList moduleName module_ rest (Dict.insert name moduleName acc)
+                        valuesFromExposingList moduleName
+                            module_
+                            rest
+                            (insertImportBinding name moduleName acc)
 
                     else
                         -- Type is a custom type
@@ -542,17 +837,21 @@ valuesFromExposingList moduleName module_ topLevelExposeList acc =
                 Exposing.TypeExpose { name, open } ->
                     case open of
                         Just _ ->
-                            let
-                                newAcc : Dict String ModuleName
-                                newAcc =
-                                    case ListExtra.find (\union -> union.name == name) module_.unions of
-                                        Just union ->
-                                            List.foldl (\( tag, _ ) dict -> Dict.insert tag moduleName dict) acc union.tags
-
-                                        Nothing ->
+                            case ListExtra.find (\union -> union.name == name) module_.unions of
+                                Just union ->
+                                    valuesFromExposingList moduleName
+                                        module_
+                                        rest
+                                        (List.foldl
+                                            (\( tag, _ ) subAcc ->
+                                                insertImportBinding tag moduleName subAcc
+                                            )
                                             acc
-                            in
-                            valuesFromExposingList moduleName module_ rest newAcc
+                                            union.tags
+                                        )
+
+                                Nothing ->
+                                    valuesFromExposingList moduleName module_ rest acc
 
                         Nothing ->
                             valuesFromExposingList moduleName module_ rest acc
@@ -585,106 +884,128 @@ typesFromExposingList (Node _ topLevelExpose) =
 
 
 declarationEnterVisitor : Node Declaration -> Context -> Context
-declarationEnterVisitor (Node _ node) context =
+declarationEnterVisitor (Node nodeRange node) context =
     case node of
         Declaration.FunctionDeclaration function ->
             let
-                (Node _ functionDeclaration) =
+                (Node functionRange functionDeclaration) =
                     function.declaration
-
-                newScope : Scope
-                newScope =
-                    parameters functionDeclaration.arguments
 
                 newContext : Context
                 newContext =
-                    { context | scopes = NonEmpty.cons newScope context.scopes }
+                    context
+                        |> collectModuleNamesFromPattern functionDeclaration.arguments
+                        |> (\ctx ->
+                                case function.signature of
+                                    Just (Node _ signature) ->
+                                        collectModuleNamesFromTypeAnnotation
+                                            [ signature.typeAnnotation ]
+                                            ctx
 
-                lookupTableAfterArguments : ModuleNameLookupTableBuilder
-                lookupTableAfterArguments =
-                    collectModuleNamesFromPattern newContext functionDeclaration.arguments newContext.lookupTable
-
-                finalLookupTable : ModuleNameLookupTableBuilder
-                finalLookupTable =
-                    case function.signature of
-                        Just (Node _ signature) ->
-                            collectModuleNamesFromTypeAnnotation
-                                context
-                                [ signature.typeAnnotation ]
-                                lookupTableAfterArguments
-
-                        Nothing ->
-                            lookupTableAfterArguments
+                                    Nothing ->
+                                        ctx
+                           )
             in
-            { newContext | lookupTable = finalLookupTable }
+            case functionDeclaration.arguments of
+                [] ->
+                    newContext
+
+                _ ->
+                    let
+                        ( bindings, bindingIdCounter ) =
+                            collectNamesFromPattern functionDeclaration.arguments ( Dict.empty, newContext.bindingIdCounter )
+
+                        ( scopeId, scopeIdCounter ) =
+                            ScopeId.new newContext.scopeIdCounter
+
+                        scope : ScopeInfo
+                        scope =
+                            createScope
+                                { id = scopeId
+                                , parent = NonEmpty.head newContext.scopeStack
+                                , range = functionRange
+                                , bindings = bindings
+                                }
+                    in
+                    { newContext
+                        | scopeIdCounter = scopeIdCounter
+                        , bindingIdCounter = bindingIdCounter
+                        , scopeStack = NonEmpty.cons scope newContext.scopeStack
+                    }
 
         Declaration.CustomTypeDeclaration { constructors } ->
-            { context
-                | lookupTable =
-                    List.foldl
-                        (\(Node _ constructor) acc ->
-                            collectModuleNamesFromTypeAnnotation context constructor.arguments acc
-                        )
-                        context.lookupTable
-                        constructors
-            }
+            List.foldl
+                (\(Node _ constructor) ctx ->
+                    collectModuleNamesFromTypeAnnotation constructor.arguments ctx
+                )
+                context
+                constructors
 
         Declaration.AliasDeclaration { typeAnnotation } ->
-            { context | lookupTable = collectModuleNamesFromTypeAnnotation context [ typeAnnotation ] context.lookupTable }
+            collectModuleNamesFromTypeAnnotation [ typeAnnotation ] context
 
         Declaration.PortDeclaration signature ->
-            { context | lookupTable = collectModuleNamesFromTypeAnnotation context [ signature.typeAnnotation ] context.lookupTable }
+            collectModuleNamesFromTypeAnnotation [ signature.typeAnnotation ] context
 
-        _ ->
+        Declaration.InfixDeclaration signature ->
+            let
+                (Node range name) =
+                    signature.function
+            in
+            addValueReference [] name range (ScopeInternal.InfixReference (Node nodeRange signature)) context
+
+        Declaration.Destructuring _ _ ->
             context
 
 
 declarationExitVisitor : Node Declaration -> Context -> Context
 declarationExitVisitor (Node _ node) context =
     case node of
-        Declaration.FunctionDeclaration _ ->
-            { context | scopes = NonEmpty.pop context.scopes }
+        Declaration.FunctionDeclaration function ->
+            case (Node.value function.declaration).arguments of
+                [] ->
+                    context
+
+                _ ->
+                    exitScope context
 
         _ ->
             context
 
 
-parameters : List (Node Pattern) -> Scope
-parameters patterns =
-    collectNamesFromPattern patterns Set.empty
-
-
-collectNamesFromPattern : List (Node Pattern) -> Scope -> Scope
-collectNamesFromPattern patternsToVisit acc =
+collectNamesFromPattern : List (Node Pattern) -> ( Dict String Binding, BindingId.Counter ) -> ( Dict String Binding, BindingId.Counter )
+collectNamesFromPattern patternsToVisit (( bindings, bindingIdCounter ) as acc) =
     case patternsToVisit of
-        (Node _ pattern) :: restOfPatternsToVisit ->
+        (Node patternRange pattern) :: restOfPatternsToVisit ->
             case pattern of
                 Pattern.VarPattern name ->
                     collectNamesFromPattern
                         restOfPatternsToVisit
-                        (Set.insert name acc)
+                        (createBinding (Node patternRange name) ScopeInternal.valueRealm bindings bindingIdCounter)
 
                 Pattern.NamedPattern _ subPatterns ->
-                    collectNamesFromPattern (List.append subPatterns restOfPatternsToVisit) acc
+                    collectNamesFromPattern
+                        (List.append subPatterns restOfPatternsToVisit)
+                        acc
 
                 Pattern.RecordPattern names ->
                     collectNamesFromPattern
                         restOfPatternsToVisit
                         (List.foldl
-                            (\(Node _ name) subAcc ->
-                                Set.insert name subAcc
+                            (\node ( subAcc, counter ) ->
+                                createBinding node ScopeInternal.valueRealm subAcc counter
                             )
-                            acc
+                            ( bindings, bindingIdCounter )
                             names
                         )
 
                 Pattern.ParenthesizedPattern subPattern ->
                     collectNamesFromPattern (subPattern :: restOfPatternsToVisit) acc
 
-                Pattern.AsPattern subPattern (Node _ aliasName) ->
+                Pattern.AsPattern subPattern alias ->
                     collectNamesFromPattern
                         (subPattern :: restOfPatternsToVisit)
-                        (Set.insert aliasName acc)
+                        (createBinding alias ScopeInternal.valueRealm bindings bindingIdCounter)
 
                 Pattern.TuplePattern subPatterns ->
                     collectNamesFromPattern (List.append subPatterns restOfPatternsToVisit) acc
@@ -702,161 +1023,192 @@ collectNamesFromPattern patternsToVisit acc =
             acc
 
 
-collectModuleNamesFromPattern : Context -> List (Node Pattern) -> ModuleNameLookupTableBuilder -> ModuleNameLookupTableBuilder
-collectModuleNamesFromPattern context patternsToVisit acc =
+collectModuleNamesFromPattern : List (Node Pattern) -> Context -> Context
+collectModuleNamesFromPattern patternsToVisit context =
     case patternsToVisit of
-        (Node range pattern) :: restOfPatternsToVisit ->
+        ((Node range pattern) as node) :: restOfPatternsToVisit ->
             case pattern of
                 Pattern.NamedPattern { moduleName, name } subPatterns ->
                     collectModuleNamesFromPattern
-                        context
                         (List.append subPatterns restOfPatternsToVisit)
-                        (Builder.add range (moduleNameForValue context name moduleName) acc)
+                        (addValueReference moduleName
+                            name
+                            range
+                            (ScopeInternal.Pattern node)
+                            { context
+                                | lookupTable = Builder.add range (moduleNameForValue context name moduleName) context.lookupTable
+                            }
+                        )
 
                 Pattern.UnConsPattern left right ->
-                    collectModuleNamesFromPattern context (left :: right :: restOfPatternsToVisit) acc
+                    collectModuleNamesFromPattern (left :: right :: restOfPatternsToVisit) context
 
                 Pattern.TuplePattern subPatterns ->
-                    collectModuleNamesFromPattern context (List.append subPatterns restOfPatternsToVisit) acc
+                    collectModuleNamesFromPattern (List.append subPatterns restOfPatternsToVisit) context
 
                 Pattern.ParenthesizedPattern subPattern ->
-                    collectModuleNamesFromPattern context (subPattern :: restOfPatternsToVisit) acc
+                    collectModuleNamesFromPattern (subPattern :: restOfPatternsToVisit) context
 
                 Pattern.AsPattern subPattern _ ->
-                    collectModuleNamesFromPattern context (subPattern :: restOfPatternsToVisit) acc
+                    collectModuleNamesFromPattern (subPattern :: restOfPatternsToVisit) context
 
                 Pattern.ListPattern subPatterns ->
-                    collectModuleNamesFromPattern context (List.append subPatterns restOfPatternsToVisit) acc
+                    collectModuleNamesFromPattern (List.append subPatterns restOfPatternsToVisit) context
 
                 _ ->
-                    collectModuleNamesFromPattern context restOfPatternsToVisit acc
+                    collectModuleNamesFromPattern restOfPatternsToVisit context
 
         [] ->
-            acc
-
-
-popScopeEnter : Node Expression -> Context -> Context
-popScopeEnter (Node range _) context =
-    let
-        ( branchRange, scope ) =
-            NonEmpty.head context.branches
-    in
-    if range == branchRange then
-        { context
-            | scopes = NonEmpty.cons scope context.scopes
-            , caseToExit = NonEmpty.cons range context.caseToExit
-            , branches = NonEmpty.pop context.branches
-        }
-
-    else
-        context
-
-
-popScopeExit : Node Expression -> Context -> Context
-popScopeExit (Node range _) context =
-    if range == NonEmpty.head context.caseToExit then
-        { context
-            | scopes = NonEmpty.pop context.scopes
-            , caseToExit = NonEmpty.pop context.caseToExit
-        }
-
-    else
-        context
+            context
 
 
 expressionEnterVisitor : Node Expression -> Context -> Context
-expressionEnterVisitor (Node nodeRange node) context =
-    case node of
+expressionEnterVisitor ((Node nodeRange expr) as node) context =
+    case expr of
         Expression.LetExpression letExpression ->
             let
-                let_ : { scope : Scope, branches : NonEmpty ( Range, Scope ) }
-                let_ =
+                ( letScopeId, scopeIdCounter ) =
+                    ScopeId.new context.scopeIdCounter
+
+                letScope : ScopeInfo
+                letScope =
+                    createScope
+                        { id = letScopeId
+                        , parent = NonEmpty.head context.scopeStack
+                        , range = nodeRange
+                        , bindings = letBlockBindings
+                        }
+
+                ( letBlockBindings, letBlockBindingIdCounter ) =
                     List.foldr
-                        (\(Node _ declaration) { scope, branches } ->
+                        (\(Node _ declaration) (( bindings, bindingIdCounter ) as acc) ->
                             case declaration of
                                 Expression.LetFunction function ->
-                                    let
-                                        { name, expression, arguments } =
-                                            Node.value function.declaration
-
-                                        newScope : Scope
-                                        newScope =
-                                            Set.insert (Node.value name) scope
-
-                                        namesInBranch : Scope
-                                        namesInBranch =
-                                            collectNamesFromPattern arguments Set.empty
-                                    in
-                                    { scope = newScope
-                                    , branches = NonEmpty.cons ( Node.range expression, namesInBranch ) branches
-                                    }
+                                    createBinding
+                                        (Node.value function.declaration).name
+                                        ScopeInternal.valueRealm
+                                        bindings
+                                        bindingIdCounter
 
                                 Expression.LetDestructuring pattern _ ->
-                                    { scope = collectNamesFromPattern [ pattern ] scope
-                                    , branches = branches
-                                    }
+                                    collectNamesFromPattern [ pattern ] acc
                         )
-                        { scope = Set.empty, branches = context.branches }
+                        ( Dict.empty, context.bindingIdCounter )
                         letExpression.declarations
 
-                newContext : Context
-                newContext =
-                    { context
-                        | scopes = NonEmpty.cons let_.scope context.scopes
-                        , branches = let_.branches
+                let_ :
+                    { branches : NonEmpty ( Range, ScopeInfo )
+                    , scopeIdCounter : ScopeId.Counter
+                    , bindingIdCounter : BindingId.Counter
                     }
-
-                lookupTable : ModuleNameLookupTableBuilder
-                lookupTable =
-                    List.foldl
+                let_ =
+                    List.foldr
                         (\(Node _ declaration) acc ->
                             case declaration of
                                 Expression.LetFunction function ->
                                     let
-                                        withDeclarationModuleName : ModuleNameLookupTableBuilder
-                                        withDeclarationModuleName =
-                                            collectModuleNamesFromPattern newContext
-                                                (Node.value function.declaration).arguments
-                                                acc
+                                        { arguments, expression } =
+                                            Node.value function.declaration
                                     in
+                                    case arguments of
+                                        [] ->
+                                            acc
+
+                                        _ ->
+                                            let
+                                                ( scopeId, scopeIdCounter_ ) =
+                                                    ScopeId.new acc.scopeIdCounter
+
+                                                ( bindings, bindingIdCounter ) =
+                                                    collectNamesFromPattern arguments ( Dict.empty, acc.bindingIdCounter )
+
+                                                scope : ScopeInfo
+                                                scope =
+                                                    createScope
+                                                        { id = scopeId
+                                                        , parent = letScope
+                                                        , range = Node.range expression
+                                                        , bindings = bindings
+                                                        }
+                                            in
+                                            { branches = NonEmpty.cons ( Node.range expression, scope ) acc.branches
+                                            , scopeIdCounter = scopeIdCounter_
+                                            , bindingIdCounter = bindingIdCounter
+                                            }
+
+                                Expression.LetDestructuring _ _ ->
+                                    acc
+                        )
+                        { branches = context.branches
+                        , scopeIdCounter = scopeIdCounter
+                        , bindingIdCounter = letBlockBindingIdCounter
+                        }
+                        letExpression.declarations
+
+                newContext : Context
+                newContext =
+                    List.foldl
+                        (\(Node _ declaration) ctx ->
+                            case declaration of
+                                Expression.LetFunction function ->
                                     case function.signature of
                                         Just (Node _ signature) ->
-                                            collectModuleNamesFromTypeAnnotation
-                                                newContext
-                                                [ signature.typeAnnotation ]
-                                                withDeclarationModuleName
+                                            ctx
+                                                |> collectModuleNamesFromPattern (Node.value function.declaration).arguments
+                                                |> collectModuleNamesFromTypeAnnotation [ signature.typeAnnotation ]
 
                                         Nothing ->
-                                            withDeclarationModuleName
+                                            collectModuleNamesFromPattern (Node.value function.declaration).arguments ctx
 
                                 Expression.LetDestructuring pattern _ ->
-                                    collectModuleNamesFromPattern newContext [ pattern ] acc
+                                    collectModuleNamesFromPattern [ pattern ] ctx
                         )
-                        newContext.lookupTable
+                        { context
+                            | scopeStack =
+                                NonEmpty.cons letScope context.scopeStack
+                        }
                         letExpression.declarations
             in
-            { newContext | lookupTable = lookupTable }
+            { newContext
+                | branches = let_.branches
+                , scopeIdCounter = let_.scopeIdCounter
+                , bindingIdCounter = let_.bindingIdCounter
+            }
 
         Expression.CaseExpression caseBlock ->
             let
-                ( branches, lookupTable ) =
-                    List.foldr
-                        (\( pattern, Node expressionRange _ ) ( branchesAcc, lookupTableAcc ) ->
-                            ( NonEmpty.cons
-                                ( expressionRange
-                                , collectNamesFromPattern [ pattern ] Set.empty
-                                )
-                                branchesAcc
-                            , collectModuleNamesFromPattern context [ pattern ] lookupTableAcc
-                            )
-                        )
-                        ( context.branches, context.lookupTable )
-                        caseBlock.cases
+                parent : ScopeInfo
+                parent =
+                    NonEmpty.head context.scopeStack
             in
-            { context
-                | branches = branches
-                , lookupTable = lookupTable
-            }
+            List.foldr
+                (\( pattern, Node expressionRange _ ) ctx ->
+                    let
+                        ( scopeId, newScopeIdCounter ) =
+                            ScopeId.new ctx.scopeIdCounter
+
+                        ( bindings, bindingIdCounter_ ) =
+                            collectNamesFromPattern [ pattern ] ( Dict.empty, ctx.bindingIdCounter )
+                    in
+                    { ctx
+                        | branches =
+                            NonEmpty.cons
+                                ( expressionRange
+                                , createScope
+                                    { id = scopeId
+                                    , parent = parent
+                                    , range = expressionRange
+                                    , bindings = bindings
+                                    }
+                                )
+                                ctx.branches
+                        , scopeIdCounter = newScopeIdCounter
+                        , bindingIdCounter = bindingIdCounter_
+                    }
+                        |> collectModuleNamesFromPattern [ pattern ]
+                )
+                context
+                caseBlock.cases
 
         Expression.FunctionOrValue moduleName name ->
             { context
@@ -866,6 +1218,7 @@ expressionEnterVisitor (Node nodeRange node) context =
                         (moduleNameForValue context name moduleName)
                         context.lookupTable
             }
+                |> addValueReference moduleName name nodeRange (ScopeInternal.Expression node)
 
         Expression.RecordUpdateExpression (Node range name) _ ->
             { context
@@ -875,6 +1228,7 @@ expressionEnterVisitor (Node nodeRange node) context =
                         (moduleNameForValue context name [])
                         context.lookupTable
             }
+                |> addValueReference [] name range (ScopeInternal.Expression node)
 
         Expression.LambdaExpression { args, expression } ->
             let
@@ -882,15 +1236,28 @@ expressionEnterVisitor (Node nodeRange node) context =
                 range =
                     Node.range expression
 
-                names : Scope
-                names =
-                    collectNamesFromPattern args Set.empty
+                ( scopeId, scopeIdCounter ) =
+                    ScopeId.new context.scopeIdCounter
+
+                ( bindings, bindingIdCounter ) =
+                    collectNamesFromPattern args ( Dict.empty, context.bindingIdCounter )
             in
             { context
-                | lookupTable = collectModuleNamesFromPattern context args context.lookupTable
-                , branches = NonEmpty.cons ( range, names ) context.branches
-                , caseToExit = NonEmpty.cons range context.caseToExit
+                | scopeIdCounter = scopeIdCounter
+                , bindingIdCounter = bindingIdCounter
+                , branches =
+                    NonEmpty.cons
+                        ( range
+                        , createScope
+                            { id = scopeId
+                            , parent = NonEmpty.head context.scopeStack
+                            , range = range
+                            , bindings = bindings
+                            }
+                        )
+                        context.branches
             }
+                |> collectModuleNamesFromPattern args
 
         Expression.PrefixOperator op ->
             { context
@@ -900,6 +1267,7 @@ expressionEnterVisitor (Node nodeRange node) context =
                         (moduleNameForValue context op [])
                         context.lookupTable
             }
+                |> addValueReference [] op nodeRange (ScopeInternal.Expression node)
 
         Expression.OperatorApplication op _ _ _ ->
             { context
@@ -909,54 +1277,52 @@ expressionEnterVisitor (Node nodeRange node) context =
                         (moduleNameForValue context op [])
                         context.lookupTable
             }
+                -- TODO Figure out exact position of operator
+                |> addValueReference [] op nodeRange (ScopeInternal.Expression node)
 
         _ ->
             context
 
 
-collectModuleNamesFromTypeAnnotation : Context -> List (Node TypeAnnotation) -> ModuleNameLookupTableBuilder -> ModuleNameLookupTableBuilder
-collectModuleNamesFromTypeAnnotation context typeAnnotationsToVisit acc =
+collectModuleNamesFromTypeAnnotation : List (Node TypeAnnotation) -> Context -> Context
+collectModuleNamesFromTypeAnnotation typeAnnotationsToVisit context =
     case typeAnnotationsToVisit of
-        (Node _ typeAnnotationNode) :: remainingTypeAnnotationsToVisit ->
+        ((Node nodeRange typeAnnotationNode) as node) :: remainingTypeAnnotationsToVisit ->
             case typeAnnotationNode of
                 TypeAnnotation.Typed (Node range ( moduleName, name )) args ->
                     collectModuleNamesFromTypeAnnotation
-                        context
                         (List.append args remainingTypeAnnotationsToVisit)
-                        (Builder.add range (moduleNameForType context name moduleName) acc)
+                        ({ context | lookupTable = Builder.add range (moduleNameForType context name moduleName) context.lookupTable }
+                            |> addTypeReference moduleName name nodeRange node
+                        )
 
                 TypeAnnotation.Tupled nodes ->
                     collectModuleNamesFromTypeAnnotation
-                        context
                         (List.append nodes remainingTypeAnnotationsToVisit)
-                        acc
+                        context
 
                 TypeAnnotation.Record fields ->
                     collectModuleNamesFromTypeAnnotation
-                        context
                         (ListExtra.orderIndependentMapAppend (\(Node _ ( _, value )) -> value) fields remainingTypeAnnotationsToVisit)
-                        acc
+                        context
 
                 TypeAnnotation.GenericRecord _ (Node _ fields) ->
                     collectModuleNamesFromTypeAnnotation
-                        context
                         (ListExtra.orderIndependentMapAppend (\(Node _ ( _, value )) -> value) fields remainingTypeAnnotationsToVisit)
-                        acc
+                        context
 
                 TypeAnnotation.FunctionTypeAnnotation left right ->
                     collectModuleNamesFromTypeAnnotation
-                        context
                         (left :: right :: remainingTypeAnnotationsToVisit)
-                        acc
+                        context
 
                 _ ->
                     collectModuleNamesFromTypeAnnotation
-                        context
                         remainingTypeAnnotationsToVisit
-                        acc
+                        context
 
         [] ->
-            acc
+            context
 
 
 {-| Get the name of the module where a value was defined.
@@ -985,7 +1351,7 @@ moduleNameForValue : Context -> String -> ModuleName -> ModuleName
 moduleNameForValue context valueName moduleName =
     case moduleName of
         [] ->
-            if isInScope valueName context.scopes then
+            if isInScope valueName context.scopeStack then
                 []
 
             else
@@ -1013,6 +1379,133 @@ moduleNameForValue context valueName moduleName =
             moduleName
 
 
+addValueReference : ModuleName -> String -> Range -> ScopeInternal.Kind -> Context -> Context
+addValueReference moduleName valueName range kind context =
+    case moduleName of
+        [] ->
+            let
+                scope : ScopeInfo
+                scope =
+                    NonEmpty.head context.scopeStack
+            in
+            case Scope.valueBinding (ScopeInternal.Scope scope) valueName of
+                Just binding ->
+                    let
+                        (BindingId.Id bindingId) =
+                            Binding.id binding
+
+                        reference : Reference
+                        reference =
+                            ScopeInternal.Reference
+                                { target = ScopeInternal.LocalBinding binding
+                                , qualifier = []
+                                , range = range
+                                , kind = kind
+                                }
+                    in
+                    { context | valueReferences = dictInsertCons bindingId reference context.valueReferences }
+
+                Nothing ->
+                    case Dict.get valueName scope.importValueBindings of
+                        Just importBinding ->
+                            let
+                                (BindingId.Id bindingId) =
+                                    ImportBinding.id importBinding
+
+                                reference : Reference
+                                reference =
+                                    ScopeInternal.Reference
+                                        { target = ScopeInternal.ImportBinding_ importBinding
+                                        , qualifier = []
+                                        , range = range
+                                        , kind = kind
+                                        }
+                            in
+                            { context
+                                | valueReferences = dictInsertCons bindingId reference context.valueReferences
+                                , moduleReferences = dictInsertCons (ImportBinding.moduleName importBinding) reference context.moduleReferences
+                            }
+
+                        Nothing ->
+                            context
+
+        _ ->
+            let
+                realModuleName : ModuleName
+                realModuleName =
+                    moduleNameForValue context valueName moduleName
+
+                moduleReference : Reference
+                moduleReference =
+                    ScopeInternal.Reference
+                        { target = ScopeInternal.QualifiedReference { name = valueName, moduleName = realModuleName }
+                        , qualifier = moduleName
+                        , range = range
+                        , kind = kind
+                        }
+            in
+            { context
+                | qualifiedReferences = dictInsertCons moduleName moduleReference context.qualifiedReferences
+                , moduleReferences = dictInsertCons realModuleName moduleReference context.moduleReferences
+            }
+
+
+addTypeReference : ModuleName -> String -> Range -> Node TypeAnnotation -> Context -> Context
+addTypeReference moduleName name range node context =
+    case getTarget context name moduleName of
+        Nothing ->
+            context
+
+        Just ( target, maybeBindingId ) ->
+            let
+                realModuleName : ModuleName
+                realModuleName =
+                    moduleNameForType context name moduleName
+
+                typeReference : Reference
+                typeReference =
+                    ScopeInternal.Reference
+                        { target = target
+                        , qualifier = moduleName
+                        , range = range
+                        , kind = ScopeInternal.Type node
+                        }
+            in
+            case maybeBindingId of
+                Just (BindingId.Id bindingId) ->
+                    { context
+                        | typeReferences = dictInsertCons bindingId typeReference context.typeReferences
+                        , moduleReferences =
+                            case realModuleName of
+                                [] ->
+                                    context.moduleReferences
+
+                                _ ->
+                                    dictInsertCons realModuleName typeReference context.moduleReferences
+                    }
+
+                Nothing ->
+                    { context
+                        | qualifiedReferences =
+                            if List.isEmpty moduleName then
+                                context.qualifiedReferences
+
+                            else
+                                dictInsertCons moduleName typeReference context.qualifiedReferences
+                        , moduleReferences = dictInsertCons realModuleName typeReference context.moduleReferences
+                    }
+
+
+dictInsertCons : comparable -> v -> Dict comparable (List v) -> Dict comparable (List v)
+dictInsertCons key v dict =
+    case Dict.get key dict of
+        Just previous ->
+            Dict.insert key (v :: previous) dict
+
+        Nothing ->
+            Dict.insert key [ v ] dict
+
+
 {-| Get the name of the module where a type was defined.
 A type can be either a custom type or a type alias.
 
@@ -1024,15 +1517,19 @@ moduleNameForType : Context -> String -> ModuleName -> ModuleName
 moduleNameForType context typeName moduleName =
     case moduleName of
         [] ->
-            if Set.member typeName context.localTypes then
+            if Dict.member typeName (NonEmpty.head context.scopeStack).typeBindings then
                 []
 
             else
-                Dict.get typeName context.importedTypes
-                    |> Maybe.withDefault []
+                case Dict.get typeName context.importedTypes of
+                    Just importBinding ->
+                        ImportBinding.moduleName importBinding
 
-        _ :: [] ->
-            case Dict.get (joinModuleName moduleName) context.importAliases of
+                    Nothing ->
+                        []
+
+        [ moduleNameOrAlias ] ->
+            case Dict.get moduleNameOrAlias context.importAliases of
                 Just aliases ->
                     NonEmpty.findWithHeadAsDefault
                         (\aliasedModuleName ->
@@ -1052,6 +1549,48 @@ moduleNameForType context typeName moduleName =
             moduleName
 
 
+getTarget : Context -> String -> ModuleName -> Maybe ( ScopeInternal.Target, Maybe BindingId.Id )
+getTarget context typeName moduleName =
+    case moduleName of
+        [] ->
+            case Dict.get typeName (NonEmpty.head context.scopeStack).typeBindings of
+                Just binding ->
+                    Just ( ScopeInternal.LocalBinding binding, Just (Binding.id binding) )
+
+                Nothing ->
+                    case Dict.get typeName (NonEmpty.head context.scopeStack).importTypeBindings of
+                        Just importBinding ->
+                            Just ( ScopeInternal.ImportBinding_ importBinding, Just (ImportBinding.id importBinding) )
+
+                        Nothing ->
+                            Nothing
+
+        _ :: [] ->
+            let
+                targetModuleName : ModuleName
+                targetModuleName =
+                    case Dict.get (joinModuleName moduleName) context.importAliases of
+                        Just aliases ->
+                            NonEmpty.findWithHeadAsDefault
+                                (\aliasedModuleName ->
+                                    case Dict.get aliasedModuleName context.modules of
+                                        Just module_ ->
+                                            isTypeDeclaredInModule typeName module_
+
+                                        Nothing ->
+                                            False
+                                )
+                                aliases
+
+                        Nothing ->
+                            moduleName
+            in
+            Just ( ScopeInternal.QualifiedReference { moduleName = targetModuleName, name = typeName }, Nothing )
+
+        _ ->
+            Just ( ScopeInternal.QualifiedReference { moduleName = moduleName, name = typeName }, Nothing )
+
+
 isValueDeclaredInModule : String -> Elm.Docs.Module -> Bool
 isValueDeclaredInModule valueName module_ =
     List.any (.name >> (==) valueName) module_.values
@@ -1067,9 +1606,9 @@ isTypeDeclaredInModule typeName module_ =
         || List.any (.name >> (==) typeName) module_.unions
 
 
-isInScope : String -> NonEmpty Scope -> Bool
+isInScope : String -> NonEmpty ScopeInfo -> Bool
 isInScope name scopes =
-    NonEmpty.any (Set.member name) scopes
+    NonEmpty.any (\{ valueBindings } -> Dict.member name valueBindings) scopes
 
 
 joinModuleName : ModuleName -> String
