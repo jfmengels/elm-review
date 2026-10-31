@@ -95,7 +95,7 @@ moduleNameForValue (Internal.Scope scope) moduleName name =
                         []
 
         [ moduleNameOrAlias ] ->
-            case Dict.get moduleNameOrAlias scope.importAliases of
+            case Dict.get moduleNameOrAlias scope.aliasToModuleName of
                 Just aliases ->
                     NonEmpty.findWithHeadAsDefault
                         (\aliasedModuleName ->
@@ -150,7 +150,7 @@ moduleNameForType (Internal.Scope scope) moduleName typeName =
                         []
 
         [ moduleNameOrAlias ] ->
-            case Dict.get moduleNameOrAlias scope.importAliases of
+            case Dict.get moduleNameOrAlias scope.aliasToModuleName of
                 Just aliases ->
                     NonEmpty.findWithHeadAsDefault
                         (\aliasedModuleName ->
