@@ -1,6 +1,6 @@
 module Review.Resources.ScopeProvider exposing
     ( ScopeProvider, topLevel
-    , Reference, at, for, fullModuleNameForType, fullModuleNameForValue, importTypeBinding, importValueBinding, moduleNameForType, moduleNameForValue, moduleReferences, parent, qualifiedReferences, typeBinding, typeReferences, valueReferences
+    , Reference, at, for, fullModuleNameForType, fullModuleNameForValue, importTypeBinding, importValueBinding, moduleNameForType, moduleNameForValue, moduleReferences, parent, qualifiedReferences, qualifyModuleNameForType, typeBinding, typeReferences, valueReferences
     )
 
 {-| REPLACEME
@@ -14,7 +14,7 @@ import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node exposing (Node(..))
 import Elm.Syntax.Range exposing (Location, Range)
 import Review.Resources.BindingId as BindingId
-import Review.Resources.ImportBinding exposing (ImportBinding)
+import Review.Resources.ImportBinding as ImportBinding exposing (ImportBinding)
 import Review.Resources.Scope as Scope exposing (Scope)
 import Review.Resources.ScopeInternal as Internal exposing (Binding, ScopeInfo)
 
@@ -193,3 +193,8 @@ fullModuleNameForValue ((Internal.ScopeProvider s) as scopeProvider) range modul
         )
         moduleName
         typeName
+
+
+qualifyModuleNameForType : ScopeProvider -> ModuleName -> String -> ModuleName
+qualifyModuleNameForType (Internal.ScopeProvider scopeProvider) moduleName typeName =
+    Scope.qualifyModuleNameForType (Internal.Scope scopeProvider.topLevel) moduleName typeName
