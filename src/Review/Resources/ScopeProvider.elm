@@ -5,6 +5,7 @@ module Review.Resources.ScopeProvider exposing
     , importValueBinding, importTypeBinding
     , typeBinding
     , Reference, typeReferences, valueReferences, moduleReferences, qualifiedReferences
+    , qualifyType
     )
 
 {-| REPLACEME
@@ -15,6 +16,7 @@ module Review.Resources.ScopeProvider exposing
 @docs importValueBinding, importTypeBinding
 @docs typeBinding
 @docs Reference, typeReferences, valueReferences, moduleReferences, qualifiedReferences
+@docs qualifyType
 
 -}
 
@@ -184,3 +186,8 @@ fullModuleNameForValue ((Internal.ScopeProvider s) as scopeProvider) range modul
         )
         moduleName
         typeName
+
+
+qualifyType : ScopeProvider -> ModuleName -> String -> ModuleName
+qualifyType (Internal.ScopeProvider scopeProvider) moduleName typeName =
+    Scope.qualifyType (Internal.Scope scopeProvider.topLevel) moduleName typeName
