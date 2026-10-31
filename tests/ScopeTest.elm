@@ -26,6 +26,14 @@ import Vendor.ListExtra as ListExtra
 
 all : Test
 all =
+    describe "Scope & ScopeProvider"
+        [ scopeTest
+        , qualifyModuleNameForTypeTest
+        ]
+
+
+scopeTest : Test
+scopeTest =
     describe "Scope"
         [ test "should list all known top-level elements" <|
             \() ->
@@ -275,6 +283,136 @@ fn1 a =
                     |> getScopeProvider
                     |> (\_ -> Expect.pass)
         ]
+
+
+qualifyModuleNameForTypeTest : Test
+qualifyModuleNameForTypeTest =
+    describe "qualifyModuleNameForType"
+        [ test "should return [] for types from Basics" <|
+            \() ->
+                """module A exposing (..)
+a = 1
+"""
+                    |> qualifyModuleNameForType [ "Basics" ] "Bool"
+                    |> Expect.equal []
+        , test "should return Basics for types from Basics that are shadowed by local custom type" <|
+            \() ->
+                """module A exposing (..)
+type Bool = Bool
+"""
+                    |> qualifyModuleNameForType [ "Basics" ] "Bool"
+                    |> Expect.equal [ "Basics" ]
+        , test "should return Basics for types from Basics that are shadowed by local type alias" <|
+            \() ->
+                """module A exposing (..)
+type alias Bool = Bool
+"""
+                    |> qualifyModuleNameForType [ "Basics" ] "Bool"
+                    |> Expect.equal [ "Basics" ]
+        , test "should return module alias when module is aliased and a qualified import is needed (prelude)" <|
+            \() ->
+                """module A exposing (..)
+import Basics as B
+type alias Bool = Bool
+"""
+                    |> qualifyModuleNameForType [ "Basics" ] "Bool"
+                    |> Expect.equal [ "B" ]
+        , test "should return [] for types for a local type when requested module is []" <|
+            \() ->
+                """module A exposing (..)
+type Local = Local
+"""
+                    |> qualifyModuleNameForType [] "Local"
+                    |> Expect.equal []
+        , test "should return [] for types for a local type when requested module is the current module name" <|
+            \() ->
+                """module A exposing (..)
+type Local = Local
+"""
+                    |> qualifyModuleNameForType [ "A" ] "Local"
+                    |> Expect.equal []
+        , test "should return the module name itself for an imported type" <|
+            \() ->
+                """module A exposing (..)
+import B
+type Bool = Bool
+"""
+                    |> qualifyModuleNameForType [ "B" ] "Type"
+                    |> Expect.equal [ "B" ]
+        , test "should return the module alias itself for an imported type when one is present" <|
+            \() ->
+                """module A exposing (..)
+import B as C
+type Bool = Bool
+"""
+                    |> qualifyModuleNameForType [ "B" ] "Type"
+                    |> Expect.equal [ "C" ]
+        , test "should return [] if the type is explicitly imported from module" <|
+            \() ->
+                """module A exposing (..)
+import B exposing (Type)
+type Bool = Bool
+"""
+                    |> qualifyModuleNameForType [ "B" ] "Type"
+                    |> Expect.equal []
+        , test "should return module name if the type is explicitly imported but shadowed by local custom type" <|
+            \() ->
+                """module A exposing (..)
+import B exposing (Type)
+type Type = Type
+"""
+                    |> qualifyModuleNameForType [ "B" ] "Type"
+                    |> Expect.equal [ "B" ]
+        , test "should return module name if the type is explicitly imported but shadowed by local type alias" <|
+            \() ->
+                """module A exposing (..)
+import B exposing (Type)
+type alias Type = Type
+"""
+                    |> qualifyModuleNameForType [ "B" ] "Type"
+                    |> Expect.equal [ "B" ]
+        , test "should return [] if the type is imported by `exposing (..)`" <|
+            \() ->
+                """module A exposing (..)
+import List exposing (..)
+a = 1
+"""
+                    |> qualifyModuleNameForType [ "List" ] "List"
+                    |> Expect.equal []
+        , test "should return module name if the type is imported by `exposing (..)` but shadowed by local custom type" <|
+            \() ->
+                """module A exposing (..)
+import List exposing (..)
+type List = List
+"""
+                    |> qualifyModuleNameForType [ "List" ] "List"
+                    |> Expect.equal [ "List" ]
+        , test "should return module name if the type is imported by `exposing (..)` but shadowed by type alias" <|
+            \() ->
+                """module A exposing (..)
+import List exposing (..)
+type alias List = List
+"""
+                    |> qualifyModuleNameForType [ "List" ] "List"
+                    |> Expect.equal [ "List" ]
+        , test "should return the module name if the type is imported but by another module" <|
+            \() ->
+                """module A exposing (..)
+import B
+import C exposing (Type)
+type alias List = List
+"""
+                    |> qualifyModuleNameForType [ "B" ] "Type"
+                    |> Expect.equal [ "B" ]
+        ]
+
+
+qualifyModuleNameForType : ModuleName -> String -> String -> ModuleName
+qualifyModuleNameForType moduleName typeName source =
+    ScopeProvider.qualifyModuleNameForType
+        (getScopeProvider source)
+        moduleName
+        typeName
 
 
 getScopeProvider : String -> ScopeProvider
