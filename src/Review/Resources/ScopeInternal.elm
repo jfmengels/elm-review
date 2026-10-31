@@ -58,6 +58,7 @@ type alias ScopeInfo =
     , importValueBindings : Dict String ImportBinding
     , importTypeBindings : Dict String ImportBinding
     , aliasToModuleName : Dict String (NonEmpty ModuleName)
+    , moduleQualifiers : Dict ModuleName ModuleName
     , modules : Dict ModuleName Elm.Docs.Module
     , children : List Scope
     }
@@ -133,6 +134,7 @@ empty moduleName =
             , importTypeBindings = Dict.empty
             , parentBindings = []
             , aliasToModuleName = Dict.empty
+            , moduleQualifiers = Dict.empty
             , modules = Dict.empty
             , children = []
             }
