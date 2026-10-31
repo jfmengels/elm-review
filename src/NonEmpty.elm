@@ -4,8 +4,8 @@ module NonEmpty exposing
     , head
     , findWithHeadAsDefault
     , any
-    , cons, pop
-    , mapHead, mapHeadThenCons
+    , cons, pop, popThenMap
+    , mapHeadThenCons
     )
 
 {-| INLINED NONEMPTYLIST
@@ -41,12 +41,12 @@ available.
 
 # Convert
 
-@docs cons, pop
+@docs cons, pop, popThenMap
 
 
 # Map
 
-@docs mapHead, mapHeadThenCons
+@docs mapHeadThenCons
 
 
 # Original copyright notice
@@ -137,11 +137,14 @@ pop ((Nonempty _ xs) as nonEmpty) =
             Nonempty y ys
 
 
-{-| Map the head to a value of the same type
--}
-mapHead : (a -> a) -> NonEmpty a -> NonEmpty a
-mapHead fn (Nonempty x xs) =
-    Nonempty (fn x) xs
+popThenMap : (a -> a) -> NonEmpty a -> NonEmpty a
+popThenMap mapper ((Nonempty _ xs) as nonEmpty) =
+    case xs of
+        [] ->
+            nonEmpty
+
+        y :: ys ->
+            Nonempty (mapper y) ys
 
 
 {-| Map the head to a value of the same type, then cons another element.

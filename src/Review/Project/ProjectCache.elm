@@ -16,6 +16,7 @@ import Elm.TypeInference as TypeInference
 import Review.Cache.ContentHash exposing (ContentHash)
 import Review.ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Project.DocsModule exposing (DocsModule)
+import Review.Resources.ScopeInternal exposing (ScopeProvider)
 
 
 type alias ProjectCache =
@@ -23,7 +24,7 @@ type alias ProjectCache =
     , dependencies : Dict ModuleName Elm.Docs.Module
     , types : Maybe TypeInference.Project
     , modules : Dict ModuleName DocsModule
-    , lookupTables : Dict ModuleName { key : ModuleCacheKey, lookupTable : ModuleNameLookupTable }
+    , lookupTables : Dict ModuleName { key : ModuleCacheKey, lookupTable : ModuleNameLookupTable, scopeProvider : ScopeProvider }
     }
 
 
