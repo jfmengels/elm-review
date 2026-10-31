@@ -299,6 +299,7 @@ computeBaseModule moduleName modules { typeBindings, bindings, bindingIdCounter 
             , importValueBindings = importAcc.importedFunctions
             , importTypeBindings = importAcc.importedTypes
             , aliasToModuleName = importAcc.aliasToModuleName
+            , moduleQualifiers = importAcc.moduleQualifiers
             , modules = modules
             , parentBindings = []
             , children = []
@@ -337,6 +338,7 @@ createScope { id, parent, range, bindings } =
     , importValueBindings = parent.importValueBindings
     , importTypeBindings = parent.importTypeBindings
     , aliasToModuleName = parent.aliasToModuleName
+    , moduleQualifiers = parent.moduleQualifiers
     , modules = parent.modules
     , children = []
     , parentBindings = parent.valueBindings :: parent.parentBindings
@@ -566,6 +568,7 @@ type alias ImportAcc =
     { importedFunctions : Dict String ScopeInternal.ImportBinding
     , importedTypes : Dict String ScopeInternal.ImportBinding
     , aliasToModuleName : Dict String (NonEmpty ModuleName)
+    , moduleQualifiers : Dict ModuleName ModuleName
     , bindingIdCounter : BindingId.Counter
     }
 
@@ -577,6 +580,7 @@ collectPreludeImports dependencies =
         { importedFunctions = Dict.empty
         , importedTypes = Dict.empty
         , aliasToModuleName = Review.Resources.ElmCorePrelude.aliasToModuleName
+        , moduleQualifiers = Review.Resources.ElmCorePrelude.moduleQualifiers
         , bindingIdCounter = BindingId.counter
         }
         Review.Resources.ElmCorePrelude.modulesWithExposingList
@@ -588,12 +592,20 @@ importVisitor modules (Node _ import_) context =
         aliasToModuleName : Dict String (NonEmpty ModuleName)
         aliasToModuleName =
             registerImportAlias import_ context.aliasToModuleName
+
+        (Node _ qualifier) =
+            Maybe.withDefault import_.moduleName import_.moduleAlias
+
+        moduleQualifiers : Dict ModuleName ModuleName
+        moduleQualifiers =
+            Dict.insert (Node.value import_.moduleName) qualifier context.moduleQualifiers
     in
     case import_.exposingList of
         Nothing ->
             { importedFunctions = context.importedFunctions
             , importedTypes = context.importedTypes
             , aliasToModuleName = aliasToModuleName
+            , moduleQualifiers = moduleQualifiers
             , bindingIdCounter = context.bindingIdCounter
             }
 
@@ -605,6 +617,7 @@ importVisitor modules (Node _ import_) context =
                 { importedFunctions = context.importedFunctions
                 , importedTypes = context.importedTypes
                 , aliasToModuleName = aliasToModuleName
+                , moduleQualifiers = moduleQualifiers
                 , bindingIdCounter = context.bindingIdCounter
                 }
 
@@ -691,6 +704,7 @@ registerImportedFunctionsAndTypesWhenExposingAll moduleName module_ importAcc =
         { importedFunctions = importedFunctions
         , importedTypes = importedTypes
         , aliasToModuleName = importAcc.aliasToModuleName
+        , moduleQualifiers = importAcc.moduleQualifiers
         , bindingIdCounter = finalCounter
         }
 
@@ -749,6 +763,7 @@ addRecordAliases moduleName list initial =
                     { importedFunctions = Dict.insert name typeAliasBinding acc.importedFunctions
                     , importedTypes = Dict.insert name typeAliasBinding acc.importedTypes
                     , aliasToModuleName = acc.aliasToModuleName
+                    , moduleQualifiers = acc.moduleQualifiers
                     , bindingIdCounter = bindingIdCounter
                     }
 
@@ -756,6 +771,7 @@ addRecordAliases moduleName list initial =
                     { importedFunctions = acc.importedFunctions
                     , importedTypes = Dict.insert name typeAliasBinding acc.importedTypes
                     , aliasToModuleName = acc.aliasToModuleName
+                    , moduleQualifiers = acc.moduleQualifiers
                     , bindingIdCounter = bindingIdCounter
                     }
         )
@@ -795,6 +811,7 @@ registerImportedFunctionsAndTypesWithExplicit moduleName module_ topLevelExposeL
     , bindingIdCounter = finalCounter
     , importedTypes = importedTypes
     , aliasToModuleName = context.aliasToModuleName
+    , moduleQualifiers = context.moduleQualifiers
     }
 
 
