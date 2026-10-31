@@ -57,7 +57,7 @@ type alias ScopeInfo =
     , parentBindings : List (Dict String Binding)
     , importValueBindings : Dict String ImportBinding
     , importTypeBindings : Dict String ImportBinding
-    , importAliases : Dict String (NonEmpty ModuleName)
+    , aliasToModuleName : Dict String (NonEmpty ModuleName)
     , modules : Dict ModuleName Elm.Docs.Module
     , children : List Scope
     }
@@ -132,7 +132,7 @@ empty moduleName =
             , importValueBindings = Dict.empty
             , importTypeBindings = Dict.empty
             , parentBindings = []
-            , importAliases = Dict.empty
+            , aliasToModuleName = Dict.empty
             , modules = Dict.empty
             , children = []
             }

@@ -40,7 +40,7 @@ type alias Context =
     , qualifiedReferences : Dict ModuleName (List Reference)
     , moduleReferences : Dict ModuleName (List Reference)
     , scopes : Dict ScopeId ScopeInfo
-    , importAliases : Dict String (NonEmpty ModuleName)
+    , aliasToModuleName : Dict String (NonEmpty ModuleName)
     , importedFunctions : Dict String ModuleName
     , importedTypes : Dict String ScopeInternal.ImportBinding
     , modules : Dict ModuleName Elm.Docs.Module
@@ -298,7 +298,7 @@ computeBaseModule moduleName modules { typeBindings, bindings, bindingIdCounter 
             , valueBindings = bindings
             , importValueBindings = importAcc.importedFunctions
             , importTypeBindings = importAcc.importedTypes
-            , importAliases = importAcc.importAliases
+            , aliasToModuleName = importAcc.aliasToModuleName
             , modules = modules
             , parentBindings = []
             , children = []
@@ -312,7 +312,7 @@ computeBaseModule moduleName modules { typeBindings, bindings, bindingIdCounter 
     , typeReferences = Dict.empty
     , qualifiedReferences = Dict.empty
     , moduleReferences = Dict.empty
-    , importAliases = importAcc.importAliases
+    , aliasToModuleName = importAcc.aliasToModuleName
     , importedFunctions = importedFunctionsFromImportedBindings importAcc.importedFunctions
     , importedTypes = importAcc.importedTypes
     , modules = modules
@@ -336,7 +336,7 @@ createScope { id, parent, range, bindings } =
     , typeBindings = parent.typeBindings
     , importValueBindings = parent.importValueBindings
     , importTypeBindings = parent.importTypeBindings
-    , importAliases = parent.importAliases
+    , aliasToModuleName = parent.aliasToModuleName
     , modules = parent.modules
     , children = []
     , parentBindings = parent.valueBindings :: parent.parentBindings
@@ -565,7 +565,7 @@ insertImportBinding name moduleName ( acc, bindingIdCounter ) =
 type alias ImportAcc =
     { importedFunctions : Dict String ScopeInternal.ImportBinding
     , importedTypes : Dict String ScopeInternal.ImportBinding
-    , importAliases : Dict String (NonEmpty ModuleName)
+    , aliasToModuleName : Dict String (NonEmpty ModuleName)
     , bindingIdCounter : BindingId.Counter
     }
 
@@ -576,7 +576,7 @@ collectPreludeImports dependencies =
         (\import_ acc -> registerImportedFunctionsAndTypes dependencies import_.moduleName import_.exposingList acc)
         { importedFunctions = Dict.empty
         , importedTypes = Dict.empty
-        , importAliases = Review.Resources.ElmCorePrelude.importAliases
+        , aliasToModuleName = Review.Resources.ElmCorePrelude.aliasToModuleName
         , bindingIdCounter = BindingId.counter
         }
         Review.Resources.ElmCorePrelude.modulesWithExposingList
@@ -585,15 +585,15 @@ collectPreludeImports dependencies =
 importVisitor : Dict ModuleName Elm.Docs.Module -> Node Import -> ImportAcc -> ImportAcc
 importVisitor modules (Node _ import_) context =
     let
-        importAliases : Dict String (NonEmpty ModuleName)
-        importAliases =
-            registerImportAlias import_ context.importAliases
+        aliasToModuleName : Dict String (NonEmpty ModuleName)
+        aliasToModuleName =
+            registerImportAlias import_ context.aliasToModuleName
     in
     case import_.exposingList of
         Nothing ->
             { importedFunctions = context.importedFunctions
             , importedTypes = context.importedTypes
-            , importAliases = importAliases
+            , aliasToModuleName = aliasToModuleName
             , bindingIdCounter = context.bindingIdCounter
             }
 
@@ -604,13 +604,13 @@ importVisitor modules (Node _ import_) context =
                 exposing_
                 { importedFunctions = context.importedFunctions
                 , importedTypes = context.importedTypes
-                , importAliases = importAliases
+                , aliasToModuleName = aliasToModuleName
                 , bindingIdCounter = context.bindingIdCounter
                 }
 
 
 registerImportAlias : Import -> Dict String (NonEmpty ModuleName) -> Dict String (NonEmpty ModuleName)
-registerImportAlias import_ importAliases =
+registerImportAlias import_ aliasToModuleName =
     let
         moduleName : ModuleName
         moduleName =
@@ -627,14 +627,14 @@ registerImportAlias import_ importAliases =
 
         toInsert : NonEmpty ModuleName
         toInsert =
-            case Dict.get qualifier importAliases of
+            case Dict.get qualifier aliasToModuleName of
                 Just previousValue ->
                     NonEmpty.cons moduleName previousValue
 
                 Nothing ->
                     NonEmpty.fromElement moduleName
     in
-    Dict.insert qualifier toInsert importAliases
+    Dict.insert qualifier toInsert aliasToModuleName
 
 
 registerImportedFunctionsAndTypes :
@@ -690,7 +690,7 @@ registerImportedFunctionsAndTypesWhenExposingAll moduleName module_ importAcc =
         module_.aliases
         { importedFunctions = importedFunctions
         , importedTypes = importedTypes
-        , importAliases = importAcc.importAliases
+        , aliasToModuleName = importAcc.aliasToModuleName
         , bindingIdCounter = finalCounter
         }
 
@@ -748,14 +748,14 @@ addRecordAliases moduleName list initial =
                 Elm.Type.Record _ Nothing ->
                     { importedFunctions = Dict.insert name typeAliasBinding acc.importedFunctions
                     , importedTypes = Dict.insert name typeAliasBinding acc.importedTypes
-                    , importAliases = acc.importAliases
+                    , aliasToModuleName = acc.aliasToModuleName
                     , bindingIdCounter = bindingIdCounter
                     }
 
                 _ ->
                     { importedFunctions = acc.importedFunctions
                     , importedTypes = Dict.insert name typeAliasBinding acc.importedTypes
-                    , importAliases = acc.importAliases
+                    , aliasToModuleName = acc.aliasToModuleName
                     , bindingIdCounter = bindingIdCounter
                     }
         )
@@ -794,7 +794,7 @@ registerImportedFunctionsAndTypesWithExplicit moduleName module_ topLevelExposeL
     { importedFunctions = importedFunctions
     , bindingIdCounter = finalCounter
     , importedTypes = importedTypes
-    , importAliases = context.importAliases
+    , aliasToModuleName = context.aliasToModuleName
     }
 
 
@@ -1363,7 +1363,7 @@ moduleNameForValue context valueName moduleName =
                     |> Maybe.withDefault []
 
         moduleNameOrAlias :: [] ->
-            case Dict.get moduleNameOrAlias context.importAliases of
+            case Dict.get moduleNameOrAlias context.aliasToModuleName of
                 Just aliases ->
                     NonEmpty.findWithHeadAsDefault
                         (\aliasedModuleName ->
@@ -1533,7 +1533,7 @@ moduleNameForType context typeName moduleName =
                         []
 
         [ moduleNameOrAlias ] ->
-            case Dict.get moduleNameOrAlias context.importAliases of
+            case Dict.get moduleNameOrAlias context.aliasToModuleName of
                 Just aliases ->
                     NonEmpty.findWithHeadAsDefault
                         (\aliasedModuleName ->
@@ -1573,7 +1573,7 @@ getTarget context typeName moduleName =
             let
                 targetModuleName : ModuleName
                 targetModuleName =
-                    case Dict.get (joinModuleName moduleName) context.importAliases of
+                    case Dict.get (joinModuleName moduleName) context.aliasToModuleName of
                         Just aliases ->
                             NonEmpty.findWithHeadAsDefault
                                 (\aliasedModuleName ->

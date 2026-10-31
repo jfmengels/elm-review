@@ -126,7 +126,7 @@ computeImportedModulesDocs project moduleName projectCache =
 type alias Context =
     { moduleName : ModuleName
     , localTypes : Set String
-    , importAliases : Dict String (NonEmpty ModuleName)
+    , aliasToModuleName : Dict String (NonEmpty ModuleName)
     , importedTypes : Dict String ModuleName
     , modules : Dict ModuleName DocsModule
     , dependencies : Dict ModuleName Elm.Docs.Module
@@ -205,7 +205,7 @@ computeBaseModule moduleName dependencies modules =
     in
     { moduleName = moduleName
     , localTypes = Set.empty
-    , importAliases = ElmCorePrelude.importAliases
+    , aliasToModuleName = ElmCorePrelude.aliasToModuleName
     , importedTypes = importedTypes
     , modules = modules
     , dependencies = dependencies
@@ -271,9 +271,9 @@ findModuleDocumentationBeforeCutOffLine cutOffLine comments =
 collectModuleDocs : ModuleName -> Elm.Syntax.File.File -> Context -> Elm.TypeInference.Project -> ( Elm.Docs.Module, Elm.TypeInference.Project )
 collectModuleDocs moduleName ast context types =
     let
-        importAliases : Dict String (NonEmpty ModuleName)
-        importAliases =
-            List.foldl (\(Node _ import_) acc -> registerImportAlias import_ acc) context.importAliases ast.imports
+        aliasToModuleName : Dict String (NonEmpty ModuleName)
+        aliasToModuleName =
+            List.foldl (\(Node _ import_) acc -> registerImportAlias import_ acc) context.aliasToModuleName ast.imports
 
         importedTypes : Dict String ModuleName
         importedTypes =
@@ -309,7 +309,7 @@ collectModuleDocs moduleName ast context types =
         docsAcc =
             declarationListVisitor ast.declarations
                 { context
-                    | importAliases = importAliases
+                    | aliasToModuleName = aliasToModuleName
                     , importedTypes = importedTypes
                     , exposesEverything = exposed.exposesEverything
                     , exposedNames = exposed.exposedNames
@@ -698,7 +698,7 @@ exposedElements nodes =
 
 
 registerImportAlias : Import -> Dict String (NonEmpty ModuleName) -> Dict String (NonEmpty ModuleName)
-registerImportAlias import_ importAliases =
+registerImportAlias import_ aliasToModuleName =
     let
         moduleName : ModuleName
         moduleName =
@@ -715,14 +715,14 @@ registerImportAlias import_ importAliases =
 
         toInsert : NonEmpty ModuleName
         toInsert =
-            case Dict.get qualifier importAliases of
+            case Dict.get qualifier aliasToModuleName of
                 Just previousValue ->
                     NonEmpty.cons moduleName previousValue
 
                 Nothing ->
                     NonEmpty.fromElement moduleName
     in
-    Dict.insert qualifier toInsert importAliases
+    Dict.insert qualifier toInsert aliasToModuleName
 
 
 registerImportedTypes :
@@ -848,7 +848,7 @@ moduleNameForType context typeName moduleName =
                     |> Maybe.withDefault []
 
         _ :: [] ->
-            case Dict.get (joinModuleName moduleName) context.importAliases of
+            case Dict.get (joinModuleName moduleName) context.aliasToModuleName of
                 Just aliases ->
                     NonEmpty.findWithHeadAsDefault
                         (\aliasedModuleName ->

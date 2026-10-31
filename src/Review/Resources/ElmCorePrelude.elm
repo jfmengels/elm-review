@@ -1,5 +1,5 @@
 module Review.Resources.ElmCorePrelude exposing
-    ( importAliases
+    ( aliasToModuleName
     , moduleNames
     , modulesWithExposingList
     )
@@ -94,8 +94,8 @@ moduleNames =
     ]
 
 
-importAliases : Dict String (NonEmpty ModuleName)
-importAliases =
+aliasToModuleName : Dict String (NonEmpty ModuleName)
+aliasToModuleName =
     Dict.fromList
         [ ( "Basics", NonEmpty.fromElement [ "Basics" ] )
         , ( "List", NonEmpty.fromElement [ "List" ] )
