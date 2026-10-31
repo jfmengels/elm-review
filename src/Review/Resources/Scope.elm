@@ -2,6 +2,7 @@ module Review.Resources.Scope exposing
     ( Scope
     , children, parentId
     , moduleNameForType, moduleNameForValue, fullModuleNameForType, fullModuleNameForValue
+    , qualifyType
     , canIntroduceName
     , valueBindings, valueBinding
     , names, range, origin
@@ -12,6 +13,7 @@ module Review.Resources.Scope exposing
 @docs Scope
 @docs children, parentId
 @docs moduleNameForType, moduleNameForValue, fullModuleNameForType, fullModuleNameForValue
+@docs qualifyType
 @docs canIntroduceName
 @docs valueBindings, valueBinding
 @docs names, range, origin
@@ -215,3 +217,37 @@ isValueInScope : Internal.ScopeInfo -> String -> Bool
 isValueInScope scope name =
     Dict.member name scope.valueBindings
         || List.any (Dict.member name) scope.parentBindings
+
+
+qualifyType : Scope -> ModuleName -> String -> ModuleName
+qualifyType (Internal.Scope scope) moduleName typeName =
+    if List.isEmpty moduleName || moduleName == scope.moduleName then
+        []
+
+    else
+        case Dict.get typeName scope.typeBindings of
+            Just _ ->
+                -- Type is shadowed locally, therefore use a qualified import
+                getModuleQualifier scope moduleName
+
+            Nothing ->
+                case Dict.get typeName scope.importTypeBindings of
+                    Just importBinding ->
+                        -- Type has been imported
+                        if ImportBinding.moduleName importBinding == moduleName then
+                            -- by the target module
+                            []
+
+                        else
+                            -- by another module, therefore use a qualified import
+                            getModuleQualifier scope moduleName
+
+                    Nothing ->
+                        -- Type is not imported through `exposing (..)` or `exposing (Type)`, therefore use a qualified import
+                        getModuleQualifier scope moduleName
+
+
+getModuleQualifier : Internal.ScopeInfo -> ModuleName -> ModuleName
+getModuleQualifier scope moduleName =
+    Dict.get moduleName scope.moduleQualifiers
+        |> Maybe.withDefault moduleName
