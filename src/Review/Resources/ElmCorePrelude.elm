@@ -1,6 +1,7 @@
 module Review.Resources.ElmCorePrelude exposing
     ( aliasToModuleName
     , moduleNames
+    , moduleQualifiers
     , modulesWithExposingList
     )
 
@@ -108,4 +109,21 @@ aliasToModuleName =
         , ( "Platform", NonEmpty.fromElement [ "Platform" ] )
         , ( "Cmd", NonEmpty.fromElement [ "Platform", "Cmd" ] )
         , ( "Sub", NonEmpty.fromElement [ "Platform", "Sub" ] )
+        ]
+
+
+moduleQualifiers : Dict ModuleName ModuleName
+moduleQualifiers =
+    Dict.fromList
+        [ ( [ "Basics" ], [ "Basics" ] )
+        , ( [ "List" ], [ "List" ] )
+        , ( [ "Maybe" ], [ "Maybe" ] )
+        , ( [ "Result" ], [ "Result" ] )
+        , ( [ "String" ], [ "String" ] )
+        , ( [ "Char" ], [ "Char" ] )
+        , ( [ "Tuple" ], [ "Tuple" ] )
+        , ( [ "Debug" ], [ "Debug" ] )
+        , ( [ "Platform" ], [ "Platform" ] )
+        , ( [ "Platform", "Cmd" ], [ "Cmd" ] )
+        , ( [ "Platform", "Sub" ], [ "Sub" ] )
         ]
