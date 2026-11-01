@@ -195,6 +195,7 @@ isTypeDeclaredInModule typeName module_ =
 
 canIntroduceName : Scope -> String -> Bool
 canIntroduceName (Internal.Scope scope) name =
+    -- TODO Should check for bindings in children as well
     not (isValueInScope scope name)
         && not (isNameInScopeOrChildren name scope.children)
 
