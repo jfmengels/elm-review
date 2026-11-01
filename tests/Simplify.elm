@@ -2040,6 +2040,8 @@ import Fn.Tuple
 import Review.Fix as Fix exposing (Fix)
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Project.Dependency as Dependency exposing (Dependency)
+import Review.Resources.Scope as Scope exposing (Scope)
+import Review.Resources.ScopeProvider as ScopeProvider exposing (ScopeProvider)
 import Review.Rule as Rule exposing (Error, Rule)
 import Set exposing (Set)
 import Simplify.AstHelpers as AstHelpers exposing (emptyStringAsString, qualifiedToString)
@@ -2075,6 +2077,8 @@ moduleVisitor config schema =
     schema
         |> Rule.withCommentsVisitor (\comments context -> ( [], commentsVisitor comments context ))
         |> Rule.withDeclarationListVisitor (\decls context -> ( [], declarationListVisitor decls context ))
+        |> Rule.withScopeVisitor scopeVisitor
+        |> Rule.withScopeExitVisitor scopeExitVisitor
         |> Rule.withDeclarationEnterVisitor (\node context -> ( [], declarationVisitor node context ))
         |> Rule.withExpressionEnterVisitor (\expressionNode context -> expressionVisitor expressionNode config context)
         |> Rule.withExpressionExitVisitor (\node context -> ( [], expressionExitVisitor node context ))
@@ -2254,6 +2258,7 @@ type alias ModuleContext =
     , extractSourceCode : Range -> String
     , exposedVariants : Set String
     , importLookup : ImportLookup
+    , scope : Scope
     }
 
 
@@ -2266,19 +2271,7 @@ type alias ImportLookup =
 
 
 type alias QualifyResources a =
-    { a
-        | importLookup : ImportLookup
-        , moduleBindings : Set String
-        , localBindings : RangeDict (Set String)
-    }
-
-
-defaultQualifyResources : QualifyResources {}
-defaultQualifyResources =
-    { importLookup = implicitImports
-    , localBindings = RangeDict.empty
-    , moduleBindings = Set.empty
-    }
+    { a | scope : Scope }
 
 
 type ExposingContext
@@ -2374,7 +2367,7 @@ fromModuleToProject =
 fromProjectToModule : Rule.ContextCreator ProjectContext ModuleContext
 fromProjectToModule =
     Rule.initContextCreator
-        (\lookupTable metadata extractSourceCode fullAst projectContext ->
+        (\lookupTable metadata extractSourceCode fullAst scopeProvider projectContext ->
             let
                 imports : ImportLookup
                 imports =
@@ -2411,12 +2404,14 @@ fromProjectToModule =
             , inferredConstants = ( Infer.empty, [] )
             , extractSourceCode = extractSourceCode
             , exposedVariants = Set.empty
+            , scope = ScopeProvider.topLevel scopeProvider
             }
         )
         |> Rule.withModuleNameLookupTable
         |> Rule.withMetadata
         |> Rule.withSourceCodeExtractor
         |> Rule.withFullAst
+        |> Rule.withScopes
 
 
 importContext : Node Import -> { moduleName : ModuleName, exposed : Exposed, alias : Maybe ModuleName }
@@ -2825,6 +2820,16 @@ declarationListVisitor declarationList context =
     }
 
 
+scopeVisitor : { child : Scope, parent : Scope, scopeProvider : ScopeProvider } -> Node Expression -> ModuleContext -> ( List (Error {}), ModuleContext )
+scopeVisitor { child } _ context =
+    ( [], { context | scope = child } )
+
+
+scopeExitVisitor : { child : Scope, parent : Scope, scopeProvider : ScopeProvider } -> Node Expression -> ModuleContext -> ( List (Error {}), ModuleContext )
+scopeExitVisitor { parent } _ context =
+    ( [], { context | scope = parent } )
+
+
 
 -- DECLARATION VISITOR
 
@@ -2922,6 +2927,7 @@ expressionVisitor node config context =
               , extractSourceCode = context.extractSourceCode
               , exposedVariants = context.exposedVariants
               , importLookup = context.importLookup
+              , scope = context.scope
               }
             )
 
@@ -2978,6 +2984,7 @@ expressionVisitor node config context =
                             , extractSourceCode = context.extractSourceCode
                             , exposedVariants = context.exposedVariants
                             , importLookup = context.importLookup
+                            , scope = context.scope
                             }
 
                         Just currentBranchLocalBindings ->
@@ -3008,6 +3015,7 @@ expressionVisitor node config context =
                             , extractSourceCode = context.extractSourceCode
                             , exposedVariants = context.exposedVariants
                             , importLookup = context.importLookup
+                            , scope = context.scope
                             }
 
                 expressionChecked : { error : Maybe (Error {}), subRangeToIgnore : Maybe Range, rightSidesOfPlusPlus : RangeDict (), inferredConstants : List ( Range, Infer.Inferred ) }
@@ -3052,6 +3060,7 @@ expressionVisitor node config context =
               , extractSourceCode = contextWithInferredConstantsAndLocalBindings.extractSourceCode
               , exposedVariants = contextWithInferredConstantsAndLocalBindings.exposedVariants
               , importLookup = contextWithInferredConstantsAndLocalBindings.importLookup
+              , scope = contextWithInferredConstantsAndLocalBindings.scope
               }
             )
 
@@ -3126,49 +3135,40 @@ exposedMerge exposedA exposedB =
                     ExposedSome (Set.union aSet bSet)
 
 
-qualify : ( ModuleName, String ) -> QualifyResources a -> ( ModuleName, String )
-qualify ( moduleName, name ) qualifyResources =
+qualify : ( ModuleName, String ) -> Scope -> ( ModuleName, String )
+qualify ( moduleName, name ) scope =
+    ( Scope.qualifyValue scope moduleName name
+    , name
+    )
+
+
+defaultQualify : ( ModuleName, String ) -> ( ModuleName, String )
+defaultQualify ( moduleName, name ) =
     let
         qualification : ModuleName
         qualification =
-            case qualifyResources.importLookup |> Dict.get moduleName of
+            case Dict.get moduleName implicitImports of
                 Nothing ->
                     moduleName
 
                 Just import_ ->
-                    let
-                        moduleImportedName : ModuleName
-                        moduleImportedName =
-                            import_.alias |> Maybe.withDefault moduleName
-                    in
-                    if not (isExposedFrom import_.exposed name) then
-                        moduleImportedName
+                    if isExposedFrom import_.exposed name then
+                        []
 
                     else
-                        let
-                            isShadowed : Bool
-                            isShadowed =
-                                isBindingInScope qualifyResources name
-                        in
-                        if isShadowed then
-                            moduleImportedName
-
-                        else
-                            []
+                        import_.alias |> Maybe.withDefault moduleName
     in
     ( qualification, name )
 
 
-isBindingInScope :
-    { a
-        | moduleBindings : Set String
-        , localBindings : RangeDict (Set String)
-    }
-    -> String
-    -> Bool
-isBindingInScope resources name =
-    Set.member name resources.moduleBindings
-        || RangeDict.any (\bindings -> Set.member name bindings) resources.localBindings
+maybeQualify : ( ModuleName, String ) -> Maybe Scope -> ( ModuleName, String )
+maybeQualify target maybe =
+    case maybe of
+        Just scope ->
+            qualify target scope
+
+        Nothing ->
+            defaultQualify target
 
 
 {-| Whenever you add ranges on expression enter, the same ranges should be removed on expression exit.
@@ -3273,6 +3273,7 @@ expressionExitVisitor (Node expressionRange _) context =
     , extractSourceCode = context.extractSourceCode
     , exposedVariants = context.exposedVariants
     , importLookup = context.importLookup
+    , scope = context.scope
     }
 
 
@@ -3671,6 +3672,7 @@ expressionVisitorHelp (Node expressionRange expression) config context =
                     , right = right
                     , rightRange = rightRange
                     , isOnTheRightSideOfPlusPlus = RangeDict.member expressionRange context.rightSidesOfPlusPlus
+                    , scope = context.scope
                     }
             , subRangeToIgnore = Nothing
             , rightSidesOfPlusPlus =
@@ -3727,6 +3729,7 @@ expressionVisitorHelp (Node expressionRange expression) config context =
                     , importCustomTypes = context.importCustomTypes
                     , moduleBindings = context.moduleBindings
                     , localBindings = context.localBindings
+                    , scope = context.scope
                     }
             in
             case ifChecks ifCheckInfo of
@@ -3753,14 +3756,12 @@ expressionVisitorHelp (Node expressionRange expression) config context =
             onlyMaybeError
                 (caseOfChecks
                     { lookupTable = context.lookupTable
-                    , importLookup = context.importLookup
                     , moduleCustomTypes = context.moduleCustomTypes
                     , importCustomTypes = context.importCustomTypes
                     , extractSourceCode = context.extractSourceCode
                     , customTypesToReportInCases = context.customTypesToReportInCases
                     , inferredConstants = context.inferredConstants
-                    , moduleBindings = context.moduleBindings
-                    , localBindings = context.localBindings
+                    , scope = context.scope
                     , parentRange = expressionRange
                     , caseOf = caseBlock
                     }
@@ -3883,6 +3884,7 @@ toCallCheckInfo config context checkInfo =
             , localBindings = context.localBindings
             , commentRanges = context.commentRanges
             , inferredConstants = context.inferredConstants
+            , scope = context.scope
             }
 
         -- [] | [ _ ] ->
@@ -3904,6 +3906,7 @@ toCallCheckInfo config context checkInfo =
             , localBindings = context.localBindings
             , commentRanges = context.commentRanges
             , inferredConstants = context.inferredConstants
+            , scope = context.scope
             }
 
 
@@ -3941,6 +3944,7 @@ toCompositionCheckInfo config context compositionSpecific =
     , earlier = innerComposition.earlier
     , later = innerComposition.later
     , isEmbeddedInComposition = innerComposition.isEmbeddedInComposition
+    , scope = context.scope
     }
 
 
@@ -3975,6 +3979,7 @@ type alias OperatorApplicationCheckInfo =
     , right : Node Expression
     , rightRange : Range
     , isOnTheRightSideOfPlusPlus : Bool
+    , scope : Scope
     }
 
 
@@ -4061,6 +4066,7 @@ type alias CallCheckInfo =
     , callStyle : FunctionCallStyle
     , firstArg : Node Expression
     , argsAfterFirst : List (Node Expression)
+    , scope : Scope
     }
 
 
@@ -4119,6 +4125,7 @@ type alias CompositionIntoCheckInfo =
         , removeRange : Range
         }
     , isEmbeddedInComposition : Bool
+    , scope : Scope
     }
 
 
@@ -4434,6 +4441,7 @@ type alias CompositionCheckInfo =
         , removeRange : Range
         }
     , isEmbeddedInComposition : Bool
+    , scope : Scope
     }
 
 
@@ -4501,6 +4509,7 @@ valueOrFnOrFnCallThenAnyCompositionChecks earlier checkInfo =
                                     }
                                 , earlier = earlier
                                 , isEmbeddedInComposition = checkInfo.isEmbeddedInComposition
+                                , scope = checkInfo.scope
                                 }
                                 |> Maybe.map (\e -> Rule.errorWithFix e.info laterFnOrCall.fnRange e.fix)
 
@@ -4523,12 +4532,9 @@ valueOrFnOrFnCallThenAnyCompositionChecks earlier checkInfo =
                         Just operator ->
                             valueOrFnOrFnCallThenOperatorCallCompositionChecks
                                 { lookupTable = checkInfo.lookupTable
-                                , importLookup = checkInfo.importLookup
                                 , inferredConstants = checkInfo.inferredConstants
                                 , importCustomTypes = checkInfo.importCustomTypes
                                 , moduleCustomTypes = checkInfo.moduleCustomTypes
-                                , moduleBindings = checkInfo.moduleBindings
-                                , localBindings = checkInfo.localBindings
                                 , earlier = earlier
                                 , later =
                                     { range = Node.range checkInfo.later.node
@@ -4536,6 +4542,7 @@ valueOrFnOrFnCallThenAnyCompositionChecks earlier checkInfo =
                                     , arg = laterSingleArgCall.arg
                                     , removeRange = checkInfo.later.removeRange
                                     }
+                                , scope = checkInfo.scope
                                 }
                                 |> Maybe.map
                                     (\e ->
@@ -4635,13 +4642,13 @@ elementCountFnThenCompareSpecificIntOperationChecks config checkInfo =
                             { info = { message = error.message, details = error.details }
                             , fix =
                                 [ Fix.replaceRangeBy checkInfo.earlier.range
-                                    (qualifiedToString (qualify error.isEmptyFn checkInfo))
+                                    (qualifiedToString (qualify error.isEmptyFn checkInfo.scope))
                                 , if config.isEmpty then
                                     Fix.removeRange checkInfo.later.removeRange
 
                                   else
                                     Fix.replaceRangeBy checkInfo.later.range
-                                        (qualifiedToString (qualify Fn.Basics.not checkInfo))
+                                        (qualifiedToString (qualify Fn.Basics.not checkInfo.scope))
                                 ]
                             }
 
@@ -5479,12 +5486,12 @@ compareNumberIntervalsResultsInOperationCheck config checkInfo =
                                     "("
                                         ++ checkInfo.operator
                                         ++ ") comparison will result in "
-                                        ++ qualifiedToString (qualify result defaultQualifyResources)
+                                        ++ qualifiedToString (defaultQualify result)
                                 , details =
                                     [ "Based on the values and/or the context, we can determine that the interval of the left number is always "
                                         ++ boundsOrderToDescription boundsOrder
                                         ++ " the interval of the right number. As a result, this operation can be replaced by "
-                                        ++ qualifiedToString (qualify result defaultQualifyResources)
+                                        ++ qualifiedToString (defaultQualify result)
                                         ++ "."
                                     , "The left number was determined to be "
                                         ++ numberBoundsToDescription leftNumberBounds
@@ -5495,7 +5502,7 @@ compareNumberIntervalsResultsInOperationCheck config checkInfo =
                                 }
                                 checkInfo.operatorRange
                                 [ Fix.replaceRangeBy checkInfo.parentRange
-                                    (qualifiedToString (qualify result checkInfo))
+                                    (qualifiedToString (qualify result checkInfo.scope))
                                 ]
                             )
 
@@ -5559,7 +5566,7 @@ compareElementCountToSpecificIntOperationOneSidedChecks config checkInfo =
                                 let
                                     isEmptyFnQualifiedString : String
                                     isEmptyFnQualifiedString =
-                                        qualifiedToString (qualify error.isEmptyFn checkInfo)
+                                        qualifiedToString (qualify error.isEmptyFn checkInfo.scope)
                                 in
                                 Just
                                     (Rule.errorWithFix { message = error.message, details = error.details }
@@ -5573,7 +5580,7 @@ compareElementCountToSpecificIntOperationOneSidedChecks config checkInfo =
                                                     let
                                                         notFn : String
                                                         notFn =
-                                                            qualifiedToString (qualify Fn.Basics.not checkInfo)
+                                                            qualifiedToString (qualify Fn.Basics.not checkInfo.scope)
                                                     in
                                                     case call.callStyle of
                                                         CallStyle.Application ->
@@ -5643,7 +5650,7 @@ collectionCompareElementCountCheck collection checkInfo =
         let
             isEmptyFnDescription : String
             isEmptyFnDescription =
-                qualifiedToString (qualify collection.isEmptyFn defaultQualifyResources)
+                qualifiedToString (defaultQualify collection.isEmptyFn)
 
             replacementDescription : String
             replacementDescription =
@@ -5691,7 +5698,7 @@ comparisonWithEmptyChecks isEqual checkInfo =
             let
                 fnName : String
                 fnName =
-                    qualifiedToString (qualify isEmptyFn checkInfo)
+                    qualifiedToString (qualify isEmptyFn checkInfo.scope)
             in
             if isEqual then
                 if needsParens expr then
@@ -5701,10 +5708,10 @@ comparisonWithEmptyChecks isEqual checkInfo =
                     ( fnName ++ " ", "" )
 
             else if needsParens expr then
-                ( qualifiedToString (qualify Fn.Basics.not checkInfo) ++ " (" ++ fnName ++ " (", "))" )
+                ( qualifiedToString (qualify Fn.Basics.not checkInfo.scope) ++ " (" ++ fnName ++ " (", "))" )
 
             else
-                ( qualifiedToString (qualify Fn.Basics.not checkInfo) ++ " (" ++ fnName ++ " ", ")" )
+                ( qualifiedToString (qualify Fn.Basics.not checkInfo.scope) ++ " (" ++ fnName ++ " ", ")" )
     in
     case getEmptyCollection checkInfo.lookupTable checkInfo.right of
         Just emptyCollection ->
@@ -5754,7 +5761,7 @@ toComparisonWithEmptyErrorInfo emptyCollection =
     let
         modIsEmpty : String
         modIsEmpty =
-            qualifiedToString (qualify emptyCollection.isEmptyFn defaultQualifyResources)
+            qualifiedToString (defaultQualify emptyCollection.isEmptyFn)
     in
     { message = "Comparison with an empty " ++ emptyCollection.represents ++ " can be replaced by a call to " ++ modIsEmpty
     , details = [ "You can replace this comparison to an empty " ++ emptyCollection.represents ++ " with a call to " ++ modIsEmpty ++ ", which is more efficient." ]
@@ -5768,7 +5775,7 @@ comparisonWithEmptyCheckInPrefixOperator lookupTable operatorRange arg =
             let
                 modIsEmpty : String
                 modIsEmpty =
-                    qualifiedToString (qualify emptyCollection.isEmptyFn defaultQualifyResources)
+                    qualifiedToString (defaultQualify emptyCollection.isEmptyFn)
             in
             Just
                 (Rule.errorWithFix
@@ -5867,7 +5874,7 @@ lessThanChecks checkInfo =
                                 }
                                 checkInfo.operatorRange
                                 [ Fix.replaceRangeBy checkInfo.parentRange
-                                    (qualifiedToString (qualify Fn.Basics.falseVariant checkInfo))
+                                    (qualifiedToString (qualify Fn.Basics.falseVariant checkInfo.scope))
                                 ]
                             )
 
@@ -5944,7 +5951,7 @@ lessThanOrEqualToChecks checkInfo =
                                     }
                                     checkInfo.operatorRange
                                     [ Fix.replaceRangeBy checkInfo.parentRange
-                                        (qualifiedToString (qualify Fn.Basics.trueVariant checkInfo))
+                                        (qualifiedToString (qualify Fn.Basics.trueVariant checkInfo.scope))
                                     ]
                                 )
 
@@ -6031,7 +6038,7 @@ greaterThanChecks checkInfo =
                                     }
                                     checkInfo.operatorRange
                                     [ Fix.replaceRangeBy checkInfo.parentRange
-                                        (qualifiedToString (qualify Fn.Basics.falseVariant checkInfo))
+                                        (qualifiedToString (qualify Fn.Basics.falseVariant checkInfo.scope))
                                     ]
                                 )
 
@@ -6099,7 +6106,7 @@ greaterThanOrEqualToChecks checkInfo =
                                 }
                                 checkInfo.operatorRange
                                 [ Fix.replaceRangeBy checkInfo.parentRange
-                                    (qualifiedToString (qualify Fn.Basics.trueVariant checkInfo))
+                                    (qualifiedToString (qualify Fn.Basics.trueVariant checkInfo.scope))
                                 ]
                             )
 
@@ -6166,16 +6173,16 @@ comparisonOperatorCheck config checkInfo =
                             ++ ") with a left value "
                             ++ orderToCompareOperationDescription order
                             ++ " the right results in "
-                            ++ qualifiedToString (qualify resultReference defaultQualifyResources)
+                            ++ qualifiedToString (defaultQualify resultReference)
                     , details =
                         [ "You can replace this call by "
-                            ++ qualifiedToString (qualify resultReference defaultQualifyResources)
+                            ++ qualifiedToString (defaultQualify resultReference)
                             ++ "."
                         ]
                     }
                     checkInfo.operatorRange
                     [ Fix.replaceRangeBy checkInfo.parentRange
-                        (qualifiedToString (qualify resultReference checkInfo))
+                        (qualifiedToString (qualify resultReference checkInfo.scope))
                     ]
                 )
 
@@ -6216,7 +6223,7 @@ comparisonError bool checkInfo =
         }
         checkInfo.parentRange
         [ Fix.replaceRangeBy checkInfo.parentRange
-            (qualifiedToString (qualify ( [ "Basics" ], boolAsString ) checkInfo))
+            (qualifiedToString (qualify ( [ "Basics" ], boolAsString ) checkInfo.scope))
         ]
 
 
@@ -6383,7 +6390,7 @@ basicsNotOSpecificFnTakingFunctionIntoNotCanBeCombinedWithFunctionWithoutNotChec
                                             [ "You can replace this composition by "
                                                 ++ qualifiedToString config.combinedFn
                                                 ++ (if functionIntoNot.isStandaloneNot then
-                                                        " " ++ qualifiedToString (qualify Fn.Basics.identity defaultQualifyResources)
+                                                        " " ++ qualifiedToString (defaultQualify Fn.Basics.identity)
 
                                                     else
                                                         " with the function given to "
@@ -6397,7 +6404,7 @@ basicsNotOSpecificFnTakingFunctionIntoNotCanBeCombinedWithFunctionWithoutNotChec
                                     , fix =
                                         Fix.removeRange checkInfo.later.removeRange
                                             :: Fix.replaceRangeBy checkInfo.earlier.fnRange
-                                                (qualifiedToString (qualify config.combinedFn checkInfo))
+                                                (qualifiedToString (qualify config.combinedFn checkInfo.scope))
                                             :: functionIntoNot.removeFix
                                     }
 
@@ -6437,7 +6444,7 @@ basicsNotOSpecificFnTakingFunctionIntoNotCanBeCombinedWithFunctionWithoutNotChec
                                         [ "You can replace this call by "
                                             ++ qualifiedToString config.combinedFn
                                             ++ (if functionIntoNot.isStandaloneNot then
-                                                    " " ++ qualifiedToString (qualify Fn.Basics.identity defaultQualifyResources)
+                                                    " " ++ qualifiedToString (defaultQualify Fn.Basics.identity)
 
                                                 else
                                                     " with the function given to "
@@ -6450,7 +6457,7 @@ basicsNotOSpecificFnTakingFunctionIntoNotCanBeCombinedWithFunctionWithoutNotChec
                                     }
                                     checkInfo.fnRange
                                     (Fix.replaceRangeBy filterCall.fnRange
-                                        (qualifiedToString (qualify config.combinedFn checkInfo))
+                                        (qualifiedToString (qualify config.combinedFn checkInfo.scope))
                                         :: replaceCallBySubExpressionFix checkInfo.parentRange
                                             checkInfo.callStyle
                                             checkInfo.firstArg
@@ -6476,7 +6483,7 @@ notOnKnownBoolCheck checkInfo =
                     }
                     checkInfo.fnRange
                     [ Fix.replaceRangeBy checkInfo.parentRange
-                        (qualifiedToString (qualify ( [ "Basics" ], notBoolAsString ) checkInfo))
+                        (qualifiedToString (qualify ( [ "Basics" ], notBoolAsString ) checkInfo.scope))
                     ]
                 )
 
@@ -6552,7 +6559,7 @@ basicsToFloatChecks =
                 Just _ ->
                     Just
                         (Rule.errorWithFix
-                            { message = "Unnecessary " ++ qualifiedToString (qualify checkInfo.fn defaultQualifyResources) ++ " on a literal number"
+                            { message = "Unnecessary " ++ qualifiedToString (defaultQualify checkInfo.fn) ++ " on a literal number"
                             , details =
                                 [ "A literal integer is considered a number which means it can be used as both an Int and a Float and there is no need to explicitly convert it to a Float."
                                 , "You can replace this function call by the literal number."
@@ -6628,7 +6635,7 @@ absOnNegatedChecks =
                                 ++ qualifiedToString checkInfo.later.fn
                         , details =
                             [ "You can replace this composition by "
-                                ++ qualifiedToString (qualify Fn.Basics.negate defaultQualifyResources)
+                                ++ qualifiedToString (defaultQualify Fn.Basics.negate)
                                 ++ "."
                             ]
                         }
@@ -6648,7 +6655,7 @@ absOnNegatedChecks =
                                     ++ " on a negated value makes the negation unnecessary"
                             , details =
                                 [ "You can remove the negation of the value given to the "
-                                    ++ qualifiedToString (qualify checkInfo.fn defaultQualifyResources)
+                                    ++ qualifiedToString (defaultQualify checkInfo.fn)
                                     ++ " call."
                                 ]
                             }
@@ -6722,7 +6729,7 @@ basicsMinChecks =
                                                 }
                                                 checkInfo.fnRange
                                                 (Fix.replaceRangeBy checkInfo.fnRange
-                                                    (qualifiedToString (qualify Fn.Basics.abs checkInfo))
+                                                    (qualifiedToString (qualify Fn.Basics.abs checkInfo.scope))
                                                     :: keepOnlyAndSurroundWithFix
                                                         { parentRange = checkInfo.parentRange
                                                         , keep = Range.combine [ checkInfo.fnRange, Node.range checkInfo.firstArg ]
@@ -6783,7 +6790,7 @@ basicsMaxChecks =
                                                 }
                                                 checkInfo.fnRange
                                                 (Fix.replaceRangeBy checkInfo.fnRange
-                                                    (qualifiedToString (qualify Fn.Basics.abs checkInfo))
+                                                    (qualifiedToString (qualify Fn.Basics.abs checkInfo.scope))
                                                     :: keepOnlyAndParenthesizeFix
                                                         { parentRange = checkInfo.parentRange
                                                         , keep = Range.combine [ checkInfo.fnRange, Node.range checkInfo.firstArg ]
@@ -6826,7 +6833,7 @@ basicsCompareChecks =
                                         }
                                         checkInfo.fnRange
                                         [ Fix.replaceRangeBy checkInfo.parentRange
-                                            (qualifiedToString (qualify Fn.Basics.eQVariant checkInfo))
+                                            (qualifiedToString (qualify Fn.Basics.eQVariant checkInfo.scope))
                                         ]
                                     )
 
@@ -6843,7 +6850,7 @@ basicsCompareChecks =
 
                                         resultAsString : String
                                         resultAsString =
-                                            qualifiedToString (qualify resultReference checkInfo)
+                                            qualifiedToString (qualify resultReference checkInfo.scope)
                                     in
                                     Just
                                         (Rule.errorWithFix
@@ -6852,7 +6859,7 @@ basicsCompareChecks =
                                                     ++ " with a left value "
                                                     ++ orderToCompareOperationDescription result
                                                     ++ " the right results in "
-                                                    ++ qualifiedToString (qualify resultReference defaultQualifyResources)
+                                                    ++ qualifiedToString (defaultQualify resultReference)
                                             , details = [ "You can replace this call by " ++ resultAsString ++ "." ]
                                             }
                                             checkInfo.fnRange
@@ -7075,7 +7082,7 @@ operationWithAbsorbingSideChecks forOperationProperties side checkInfo =
             (Rule.errorWithFix
                 { message = "(" ++ checkInfo.operator ++ ") with any side being " ++ forOperationProperties.absorbing.description ++ " will result in " ++ forOperationProperties.absorbing.description
                 , details =
-                    [ "You can replace this operation by " ++ forOperationProperties.absorbing.asString defaultQualifyResources ++ "."
+                    [ "You can replace this operation by " ++ forOperationProperties.absorbing.asString Nothing ++ "."
                     , "Maybe you have hardcoded a value or mistyped a condition?"
                     ]
                 }
@@ -7125,7 +7132,7 @@ areSimilarConditionsError :
 areSimilarConditionsError resources operator nodeToCompareTo ( redundantConditionResolution, nodeToLookAt ) =
     case Normalize.compare resources nodeToCompareTo nodeToLookAt of
         Normalize.ConfirmedEquality ->
-            Just (errorForRedundantCondition operator redundantConditionResolution nodeToLookAt resources)
+            Just (errorForRedundantCondition operator redundantConditionResolution nodeToLookAt resources.scope)
 
         Normalize.ConfirmedInequality ->
             Nothing
@@ -7134,11 +7141,11 @@ areSimilarConditionsError resources operator nodeToCompareTo ( redundantConditio
             Nothing
 
 
-errorForRedundantCondition : String -> RedundantConditionResolution -> Node a -> QualifyResources b -> Error {}
-errorForRedundantCondition operator redundantConditionResolution node qualifyResources =
+errorForRedundantCondition : String -> RedundantConditionResolution -> Node a -> Scope -> Error {}
+errorForRedundantCondition operator redundantConditionResolution node scope =
     let
         ( range, fix ) =
-            rangeAndFixForRedundantCondition redundantConditionResolution node qualifyResources
+            rangeAndFixForRedundantCondition redundantConditionResolution node scope
     in
     Rule.errorWithFix
         { message = "Condition is redundant"
@@ -7150,8 +7157,8 @@ errorForRedundantCondition operator redundantConditionResolution node qualifyRes
         fix
 
 
-rangeAndFixForRedundantCondition : RedundantConditionResolution -> Node a -> QualifyResources b -> ( Range, List Fix )
-rangeAndFixForRedundantCondition redundantConditionResolution (Node nodeRange _) qualifyResources =
+rangeAndFixForRedundantCondition : RedundantConditionResolution -> Node a -> Scope -> ( Range, List Fix )
+rangeAndFixForRedundantCondition redundantConditionResolution (Node nodeRange _) scope =
     case redundantConditionResolution of
         RemoveFrom locationOfPrevElement ->
             let
@@ -7168,7 +7175,7 @@ rangeAndFixForRedundantCondition redundantConditionResolution (Node nodeRange _)
         ReplaceByNoop noopValue ->
             ( nodeRange
             , [ Fix.replaceRangeBy nodeRange
-                    (qualifiedToString (qualify ( [ "Basics" ], AstHelpers.boolToString noopValue ) qualifyResources))
+                    (qualifiedToString (qualify ( [ "Basics" ], AstHelpers.boolToString noopValue ) scope))
               ]
             )
 
@@ -7219,7 +7226,7 @@ tuplePairChecks =
                         LT ->
                             Just
                                 (Rule.errorWithFix
-                                    { message = "Fully constructed " ++ qualifiedToString (qualify checkInfo.fn defaultQualifyResources) ++ " can be replaced by tuple literal"
+                                    { message = "Fully constructed " ++ qualifiedToString (defaultQualify checkInfo.fn) ++ " can be replaced by tuple literal"
                                     , details = [ "You can replace this call by a tuple literal ( _, _ ). Consistently using ( _, _ ) to create a tuple is more idiomatic in elm." ]
                                     }
                                     checkInfo.fnRange
@@ -7274,12 +7281,12 @@ tupleFirstChecks =
                     ( ( [ "Tuple" ], "pair" ), first :: [] ) ->
                         Just
                             { info =
-                                { message = qualifiedToString (qualify checkInfo.earlier.fn defaultQualifyResources) ++ " with a first part, then " ++ qualifiedToString (qualify checkInfo.later.fn defaultQualifyResources) ++ " will always result in that first part"
-                                , details = [ "You can replace this call by always with the first argument given to " ++ qualifiedToString (qualify checkInfo.earlier.fn defaultQualifyResources) ++ "." ]
+                                { message = qualifiedToString (defaultQualify checkInfo.earlier.fn) ++ " with a first part, then " ++ qualifiedToString (defaultQualify checkInfo.later.fn) ++ " will always result in that first part"
+                                , details = [ "You can replace this call by always with the first argument given to " ++ qualifiedToString (defaultQualify checkInfo.earlier.fn) ++ "." ]
                                 }
                             , fix =
                                 Fix.insertAt checkInfo.earlier.range.start
-                                    (qualifiedToString (qualify Fn.Basics.always checkInfo) ++ " ")
+                                    (qualifiedToString (qualify Fn.Basics.always checkInfo.scope) ++ " ")
                                     :: Fix.removeRange checkInfo.later.removeRange
                                     :: replaceBySubExpressionFix checkInfo.earlier.range first
                             }
@@ -7312,7 +7319,7 @@ tupleSecondChecks =
                     ( ( [ "Tuple" ], "pair" ), _ :: [] ) ->
                         Just
                             (compositionAlwaysReturnsIncomingError
-                                (qualifiedToString (qualify checkInfo.earlier.fn defaultQualifyResources) ++ " with a first part, then " ++ qualifiedToString (qualify checkInfo.later.fn defaultQualifyResources) ++ " will always result in the incoming second part")
+                                (qualifiedToString (defaultQualify checkInfo.earlier.fn) ++ " with a first part, then " ++ qualifiedToString (defaultQualify checkInfo.later.fn) ++ " will always result in the incoming second part")
                                 checkInfo
                             )
 
@@ -7342,7 +7349,7 @@ tuplePartChecks partConfig =
                 Maybe.map
                     (\tuple ->
                         Rule.errorWithFix
-                            { message = qualifiedToString (qualify checkInfo.fn defaultQualifyResources) ++ " on a known tuple will result in the tuple's " ++ partConfig.description ++ " part"
+                            { message = qualifiedToString (defaultQualify checkInfo.fn) ++ " on a known tuple will result in the tuple's " ++ partConfig.description ++ " part"
                             , details = [ "You can replace this call by the tuple's " ++ partConfig.description ++ " part." ]
                             }
                             checkInfo.fnRange
@@ -7401,7 +7408,7 @@ tuplePartOnMapPartCheck mapPartFn =
                                     checkInfo.fnRange
                                     (Fix.insertAt (Node.range tupleArg).start
                                         ("("
-                                            ++ qualifiedToString (qualify checkInfo.fn checkInfo)
+                                            ++ qualifiedToString (qualify checkInfo.fn checkInfo.scope)
                                             ++ " "
                                             ++ (if tupleArgNeedsParens then
                                                     "("
@@ -7459,7 +7466,7 @@ tuplePartOnMapPartCheck mapPartFn =
                             , fix =
                                 Fix.removeRange checkInfo.later.removeRange
                                     :: composeWithEarlierFix
-                                        { earlier = qualifiedToString (qualify checkInfo.later.fn checkInfo)
+                                        { earlier = qualifiedToString (qualify checkInfo.later.fn checkInfo.scope)
                                         , direction = compositionCheckInfoDirection checkInfo
                                         , range = checkInfo.earlier.range
                                         }
@@ -7511,12 +7518,12 @@ fnCompositionString :
     , earlier : ( ModuleName, String )
     , later : ( ModuleName, String )
     }
-    -> QualifyResources a
+    -> Scope
     -> String
-fnCompositionString config resources =
+fnCompositionString config scope =
     compositionString
-        { earlier = qualifiedToString (qualify config.earlier resources)
-        , later = qualifiedToString (qualify config.later resources)
+        { earlier = qualifiedToString (qualify config.earlier scope)
+        , later = qualifiedToString (qualify config.later scope)
         , direction = config.direction
         }
 
@@ -7564,7 +7571,7 @@ tuplePartMapOnMapBothCheck config =
                                             checkInfo.fnRange
                                             (Fix.insertAt (Node.range tupleArg).start
                                                 ("("
-                                                    ++ qualifiedToString (qualify checkInfo.fn checkInfo)
+                                                    ++ qualifiedToString (qualify checkInfo.fn checkInfo.scope)
                                                     ++ " "
                                                 )
                                                 :: Fix.insertAt (Node.range tupleArg).end
@@ -7621,7 +7628,7 @@ tuplePartMapOnMapBothCheck config =
                                     :: (if Range.compareLocations checkInfo.earlier.range.start checkInfo.later.range.start == LT then
                                             [ Fix.insertAt checkInfo.earlier.range.start
                                                 ("("
-                                                    ++ qualifiedToString (qualify checkInfo.later.fn checkInfo)
+                                                    ++ qualifiedToString (qualify checkInfo.later.fn checkInfo.scope)
                                                     ++ " >> "
                                                 )
                                             , Fix.insertAt checkInfo.earlier.range.end ")"
@@ -7632,7 +7639,7 @@ tuplePartMapOnMapBothCheck config =
                                                 "("
                                             , Fix.insertAt checkInfo.earlier.range.end
                                                 (" << "
-                                                    ++ qualifiedToString (qualify checkInfo.later.fn checkInfo)
+                                                    ++ qualifiedToString (qualify checkInfo.later.fn checkInfo.scope)
                                                     ++ ")"
                                                 )
                                             ]
@@ -8035,7 +8042,7 @@ stringUnconsChecks =
     intoFnCheckOnlyCall
         (\checkInfo ->
             callOnEmptyReturnsCheck
-                { resultAsString = \res -> qualifiedToString (qualify Fn.Maybe.nothingVariant res) }
+                { resultAsString = \res -> qualifiedToString (maybeQualify Fn.Maybe.nothingVariant res) }
                 stringCollection
                 checkInfo
         )
@@ -8135,7 +8142,7 @@ mapWrapErrorInfo mapFn wrapper =
     let
         wrapFnInErrorInfo : String
         wrapFnInErrorInfo =
-            qualifiedToString (qualify wrapper.wrap.fn defaultQualifyResources)
+            qualifiedToString (defaultQualify wrapper.wrap.fn)
     in
     { message = qualifiedToString mapFn ++ " on " ++ constructWithOneValueDescriptionIndefinite wrapper.wrap.description ++ " will result in " ++ wrapFnInErrorInfo ++ " with the function applied to the value inside"
     , details = [ "You can replace this call by " ++ wrapFnInErrorInfo ++ " with the function directly applied to the value inside " ++ constructWithOneValueDescriptionDefinite "the" wrapper.wrap.description ++ " itself." ]
@@ -8184,9 +8191,9 @@ resultToMaybeChecks =
                                 }
                             , fix =
                                 compositionReplaceByFix
-                                    (qualifiedToString (qualify Fn.Basics.always checkInfo)
+                                    (qualifiedToString (qualify Fn.Basics.always checkInfo.scope)
                                         ++ " "
-                                        ++ qualifiedToString (qualify Fn.Maybe.nothingVariant checkInfo)
+                                        ++ qualifiedToString (qualify Fn.Maybe.nothingVariant checkInfo.scope)
                                     )
                                     checkInfo
                             }
@@ -8294,7 +8301,7 @@ listHeadChecks =
                                         }
                                         checkInfo.fnRange
                                         (Fix.replaceRangeBy checkInfo.fnRange
-                                            (qualifiedToString (qualify Fn.Maybe.justVariant checkInfo))
+                                            (qualifiedToString (qualify Fn.Maybe.justVariant checkInfo.scope))
                                             :: replaceBySubExpressionFix (Node.range checkInfo.firstArg) listArgHead
                                         )
                                 )
@@ -8314,7 +8321,7 @@ listHeadChecks =
                                                         }
                                                         checkInfo.fnRange
                                                         (Fix.replaceRangeBy checkInfo.fnRange
-                                                            (qualifiedToString (qualify Fn.List.maximum checkInfo))
+                                                            (qualifiedToString (qualify Fn.List.maximum checkInfo.scope))
                                                             :: replaceBySubExpressionFix (Node.range checkInfo.firstArg) sortCall.firstArg
                                                         )
                                                 )
@@ -8561,7 +8568,7 @@ compositionEarlierOperationCanBeMovedAfterAsForPerformanceError config checkInfo
     , fix =
         Fix.removeRange checkInfo.later.removeRange
             :: Fix.replaceRangeBy checkInfo.earlier.fnRange
-                (qualifiedToString (qualify config.asLaterFn checkInfo))
+                (qualifiedToString (qualify config.asLaterFn checkInfo.scope))
             :: composeWithEarlierFix
                 { earlier = checkInfo.extractSourceCode checkInfo.later.range
                 , direction = compositionCheckInfoDirection checkInfo
@@ -8645,7 +8652,7 @@ callEarlierOperationCanBeMovedAfterAsForPerformanceError config checkInfo =
             |> consIf (config.earlierFn /= config.asLaterFn)
                 (\() ->
                     Fix.replaceRangeBy config.earlierFnRange
-                        (qualifiedToString (qualify config.asLaterFn checkInfo))
+                        (qualifiedToString (qualify config.asLaterFn checkInfo.scope))
                 )
         )
 
@@ -8754,7 +8761,7 @@ listTailExistsError replaceListArgByTailFix checkInfo =
         }
         checkInfo.fnRange
         (Fix.replaceRangeBy checkInfo.fnRange
-            (qualifiedToString (qualify Fn.Maybe.justVariant checkInfo))
+            (qualifiedToString (qualify Fn.Maybe.justVariant checkInfo.scope))
             :: replaceListArgByTailFix
         )
 
@@ -8797,7 +8804,7 @@ listTailChecks =
                                         checkInfo.fnRange
                                         [ Fix.replaceRangeBy (Node.range checkInfo.firstArg) "[]"
                                         , Fix.replaceRangeBy checkInfo.fnRange
-                                            (qualifiedToString (qualify Fn.Maybe.justVariant checkInfo))
+                                            (qualifiedToString (qualify Fn.Maybe.justVariant checkInfo.scope))
                                         ]
                                     )
 
@@ -8870,7 +8877,7 @@ listMapTupleFirstOnArrayToIndexedListCheck =
                                         }
                                         checkInfo.fnRange
                                         [ Fix.replaceRangeBy checkInfo.fnRange
-                                            (qualifiedToString (qualify Fn.List.range checkInfo))
+                                            (qualifiedToString (qualify Fn.List.range checkInfo.scope))
                                         , Fix.replaceRangeBy (Node.range checkInfo.firstArg)
                                             "0"
                                         , Fix.insertAt (Node.range unmappedListArg).start
@@ -8892,7 +8899,7 @@ listMapTupleFirstOnArrayToIndexedListCheck =
                                                 ++ " - 1)"
                                             )
                                         , Fix.replaceRangeBy arrayToIndexedListCall.fnRange
-                                            (qualifiedToString (qualify Fn.Array.length checkInfo))
+                                            (qualifiedToString (qualify Fn.Array.length checkInfo.scope))
                                         ]
                                     )
 
@@ -8926,13 +8933,13 @@ listMapTupleFirstOnArrayToIndexedListCheck =
                                     }
                                 , fix =
                                     [ Fix.replaceRangeBy checkInfo.later.fnRange
-                                        (qualifiedToString (qualify Fn.List.range checkInfo))
+                                        (qualifiedToString (qualify Fn.List.range checkInfo.scope))
                                     , Fix.replaceRangeBy (Node.range mapFunctionArg)
                                         "0"
                                     , Fix.replaceRangeBy checkInfo.earlier.range
                                         ("("
                                             ++ compositionString
-                                                { earlier = qualifiedToString (qualify Fn.Array.length checkInfo)
+                                                { earlier = qualifiedToString (qualify Fn.Array.length checkInfo.scope)
                                                 , later = "(+) -1"
                                                 , direction = compositionCheckInfoDirection checkInfo
                                                 }
@@ -9052,7 +9059,7 @@ listMemberChecks =
         [ intoFnCheckOnlyCall
             (\checkInfo ->
                 callOnEmptyReturnsCheck
-                    { resultAsString = \res -> qualifiedToString (qualify Fn.Basics.falseVariant res) }
+                    { resultAsString = \res -> qualifiedToString (maybeQualify Fn.Basics.falseVariant res) }
                     listCollection
                     checkInfo
                     |> onNothing (\() -> knownMemberChecks listCollection checkInfo)
@@ -9208,7 +9215,7 @@ containsElementOnConversionFnCallCanBeCombinedCheck config =
                                             }
                                             checkInfo.fnRange
                                             (Fix.replaceRangeBy checkInfo.fnRange
-                                                (qualifiedToString (qualify config.combinedFn checkInfo))
+                                                (qualifiedToString (qualify config.combinedFn checkInfo.scope))
                                                 :: replaceBySubExpressionFix conversionCall.nodeRange conversionCall.firstArg
                                             )
                                         )
@@ -9236,7 +9243,7 @@ containsElementOnConversionFnCallCanBeCombinedCheck config =
                         }
                     , fix =
                         [ Fix.replaceRangeBy checkInfo.later.fnRange
-                            (qualifiedToString (qualify config.combinedFn checkInfo))
+                            (qualifiedToString (qualify config.combinedFn checkInfo.scope))
                         , Fix.removeRange checkInfo.earlier.removeRange
                         ]
                     }
@@ -9334,7 +9341,7 @@ listMinimumChecks =
                                             }
                                             checkInfo.fnRange
                                             (Fix.replaceRangeBy checkInfo.fnRange
-                                                (qualifiedToString (qualify Fn.Maybe.justVariant checkInfo))
+                                                (qualifiedToString (qualify Fn.Maybe.justVariant checkInfo.scope))
                                                 :: replaceBySubExpressionFix
                                                     (Node.range checkInfo.firstArg)
                                                     listRangeCall.start
@@ -9376,7 +9383,7 @@ listMaximumChecks =
                                             }
                                             checkInfo.fnRange
                                             (Fix.replaceRangeBy checkInfo.fnRange
-                                                (qualifiedToString (qualify Fn.Maybe.justVariant checkInfo))
+                                                (qualifiedToString (qualify Fn.Maybe.justVariant checkInfo.scope))
                                                 :: replaceBySubExpressionFix
                                                     (Node.range checkInfo.firstArg)
                                                     listRangeCall.end
@@ -9557,7 +9564,7 @@ listFoldChecks foldFnName reverseFoldFnName =
                                                 { start = checkInfo.fnRange.start
                                                 , end = (Node.range initialArg).end
                                                 }
-                                                (qualifiedToString (qualify ( listModuleName, operation.list ) checkInfo))
+                                                (qualifiedToString (qualify ( listModuleName, operation.list ) checkInfo.scope))
                                             ]
                                         )
 
@@ -9578,7 +9585,7 @@ listFoldChecks foldFnName reverseFoldFnName =
                                                                 { start = checkInfo.fnRange.start
                                                                 , end = (Node.range checkInfo.firstArg).end
                                                                 }
-                                                                (qualifiedToString (qualify ( listModuleName, operation.list ) checkInfo) ++ ")")
+                                                                (qualifiedToString (qualify ( listModuleName, operation.list ) checkInfo.scope) ++ ")")
                                                             , Fix.insertAt checkInfo.parentRange.start "(("
                                                             ]
                                                         )
@@ -9593,7 +9600,7 @@ listFoldChecks foldFnName reverseFoldFnName =
                                                                 (" "
                                                                     ++ operation.two
                                                                     ++ " ("
-                                                                    ++ qualifiedToString (qualify ( listModuleName, operation.list ) checkInfo)
+                                                                    ++ qualifiedToString (qualify ( listModuleName, operation.list ) checkInfo.scope)
                                                                 )
                                                             , Fix.removeRange
                                                                 { start = checkInfo.fnRange.start
@@ -9612,7 +9619,7 @@ listFoldChecks foldFnName reverseFoldFnName =
                                     in
                                     alwaysResultsInUnparenthesizedConstantError
                                         (qualifiedToString checkInfo.fn ++ " with (" ++ operation.two ++ ") and the initial accumulator " ++ determiningAsString)
-                                        { replacement = \res -> qualifiedToString (qualify ( [ "Basics" ], determiningAsString ) res) }
+                                        { replacement = \res -> qualifiedToString (maybeQualify ( [ "Basics" ], determiningAsString ) res) }
                                         checkInfo
 
                                 else
@@ -9629,9 +9636,9 @@ listFoldChecks foldFnName reverseFoldFnName =
                                         checkInfo.fnRange
                                         [ Fix.replaceRangeBy
                                             { start = checkInfo.fnRange.start, end = (Node.range initialArg).end }
-                                            (qualifiedToString (qualify ( listModuleName, operation.list ) checkInfo)
+                                            (qualifiedToString (qualify ( listModuleName, operation.list ) checkInfo.scope)
                                                 ++ " "
-                                                ++ qualifiedToString (qualify Fn.Basics.identity checkInfo)
+                                                ++ qualifiedToString (qualify Fn.Basics.identity checkInfo.scope)
                                             )
                                         ]
                         in
@@ -9699,9 +9706,9 @@ listFoldOnDictEntryPartListChecks config =
                                     }
                                 , fix =
                                     Fix.replaceRangeBy checkInfo.later.fnRange
-                                        (qualifiedToString (qualify config.combinedFn checkInfo))
+                                        (qualifiedToString (qualify config.combinedFn checkInfo.scope))
                                         :: Fix.removeRange checkInfo.earlier.removeRange
-                                        :: ignoreFirstIncomingFix checkInfo reduceArg
+                                        :: ignoreFirstIncomingFix checkInfo.scope reduceArg
                                 }
 
                         ( [ "Dict" ], "keys" ) ->
@@ -9716,9 +9723,9 @@ listFoldOnDictEntryPartListChecks config =
                                     }
                                 , fix =
                                     Fix.replaceRangeBy checkInfo.later.fnRange
-                                        (qualifiedToString (qualify config.combinedFn checkInfo))
+                                        (qualifiedToString (qualify config.combinedFn checkInfo.scope))
                                         :: Fix.removeRange checkInfo.earlier.removeRange
-                                        :: ignoreSecondIncomingFix checkInfo reduceArg
+                                        :: ignoreSecondIncomingFix checkInfo.scope reduceArg
                                 }
 
                         ( [ "Dict" ], "toList" ) ->
@@ -9738,7 +9745,7 @@ listFoldOnDictEntryPartListChecks config =
                                             }
                                         , fix =
                                             Fix.replaceRangeBy checkInfo.later.fnRange
-                                                (qualifiedToString (qualify config.combinedFn checkInfo))
+                                                (qualifiedToString (qualify config.combinedFn checkInfo.scope))
                                                 :: Fix.removeRange checkInfo.earlier.removeRange
                                                 :: spreadPatternTuplePartsFix tuplePattern
                                         }
@@ -9768,8 +9775,8 @@ listFoldOnDictEntryPartListChecks config =
                                     }
                                     checkInfo.fnRange
                                     (Fix.replaceRangeBy checkInfo.fnRange
-                                        (qualifiedToString (qualify config.combinedFn checkInfo))
-                                        :: ignoreFirstIncomingFix checkInfo checkInfo.firstArg
+                                        (qualifiedToString (qualify config.combinedFn checkInfo.scope))
+                                        :: ignoreFirstIncomingFix checkInfo.scope checkInfo.firstArg
                                         ++ replaceBySubExpressionFix
                                             (Node.range foldedOverArg)
                                             dictValuesCall.firstArg
@@ -9794,8 +9801,8 @@ listFoldOnDictEntryPartListChecks config =
                                                 }
                                                 checkInfo.fnRange
                                                 (Fix.replaceRangeBy checkInfo.fnRange
-                                                    (qualifiedToString (qualify config.combinedFn checkInfo))
-                                                    :: ignoreSecondIncomingFix checkInfo checkInfo.firstArg
+                                                    (qualifiedToString (qualify config.combinedFn checkInfo.scope))
+                                                    :: ignoreSecondIncomingFix checkInfo.scope checkInfo.firstArg
                                                     ++ replaceBySubExpressionFix
                                                         (Node.range foldedOverArg)
                                                         dictKeysCall.firstArg
@@ -9825,7 +9832,7 @@ listFoldOnDictEntryPartListChecks config =
                                                         }
                                                         checkInfo.fnRange
                                                         (Fix.replaceRangeBy checkInfo.fnRange
-                                                            (qualifiedToString (qualify config.combinedFn checkInfo))
+                                                            (qualifiedToString (qualify config.combinedFn checkInfo.scope))
                                                             :: spreadPatternTuplePartsFix tuplePattern
                                                             ++ replaceBySubExpressionFix
                                                                 (Node.range foldedOverArg)
@@ -9878,8 +9885,8 @@ getLambdaDestructuringFirstIncomingTuple expressionNode =
             Nothing
 
 
-ignoreFirstIncomingFix : QualifyResources a -> Node Expression -> List Fix
-ignoreFirstIncomingFix resources functionExpressionNode =
+ignoreFirstIncomingFix : Scope -> Node Expression -> List Fix
+ignoreFirstIncomingFix scope functionExpressionNode =
     case sameInAllBranches getLambda functionExpressionNode of
         Nothing ->
             -- not \_ -> to preserve eager evaluation of the function expression
@@ -9890,7 +9897,7 @@ ignoreFirstIncomingFix resources functionExpressionNode =
             in
             [ Fix.insertAt (Node.range functionExpressionNode).start
                 ("("
-                    ++ qualifiedToString (qualify Fn.Basics.always resources)
+                    ++ qualifiedToString (qualify Fn.Basics.always scope)
                     ++ " "
                     ++ (if functionExpressionNeedsParens then
                             "("
@@ -9918,8 +9925,8 @@ ignoreFirstIncomingFix resources functionExpressionNode =
                     )
 
 
-ignoreSecondIncomingFix : QualifyResources a -> Node Expression -> List Fix
-ignoreSecondIncomingFix resources functionExpressionNode =
+ignoreSecondIncomingFix : Scope -> Node Expression -> List Fix
+ignoreSecondIncomingFix scope functionExpressionNode =
     case sameInAllBranches getLambda functionExpressionNode of
         Nothing ->
             -- don't fix to a lambda to preserve eager evaluation of the function expression
@@ -9938,7 +9945,7 @@ ignoreSecondIncomingFix resources functionExpressionNode =
                 --> \a -> \_ -> reduce a
                 --> \a _ acc -> reduce a acc
                 ("("
-                    ++ qualifiedToString (qualify Fn.Basics.always resources)
+                    ++ qualifiedToString (qualify Fn.Basics.always scope)
                     ++ " << "
                     ++ (if functionExpressionNeedsParens then
                             "("
@@ -10007,7 +10014,7 @@ onConversionFnCallCanBeCombinedCheck config =
                                     }
                                     checkInfo.fnRange
                                     (Fix.replaceRangeBy checkInfo.fnRange
-                                        (qualifiedToString (qualify config.combinedFn checkInfo))
+                                        (qualifiedToString (qualify config.combinedFn checkInfo.scope))
                                         :: replaceBySubExpressionFix conversionCall.nodeRange conversionCall.firstArg
                                     )
                                 )
@@ -10034,7 +10041,7 @@ onConversionFnCallCanBeCombinedCheck config =
                         }
                     , fix =
                         [ Fix.replaceRangeBy checkInfo.later.fnRange
-                            (qualifiedToString (qualify config.combinedFn checkInfo))
+                            (qualifiedToString (qualify config.combinedFn checkInfo.scope))
                         , Fix.removeRange checkInfo.earlier.removeRange
                         ]
                     }
@@ -10116,7 +10123,7 @@ listIsEmptyOnListFilterChecks =
                                             [ "You can replace this composition by "
                                                 ++ qualifiedToString Fn.List.all
                                                 ++ (if functionIntoNot.isStandaloneNot then
-                                                        " " ++ qualifiedToString (qualify Fn.Basics.identity defaultQualifyResources)
+                                                        " " ++ qualifiedToString (defaultQualify Fn.Basics.identity)
 
                                                     else
                                                         " with the function given to "
@@ -10130,7 +10137,7 @@ listIsEmptyOnListFilterChecks =
                                     , fix =
                                         Fix.removeRange checkInfo.later.removeRange
                                             :: Fix.replaceRangeBy checkInfo.earlier.fnRange
-                                                (qualifiedToString (qualify Fn.List.all checkInfo))
+                                                (qualifiedToString (qualify Fn.List.all checkInfo.scope))
                                             :: functionIntoNot.removeFix
                                     }
 
@@ -10156,9 +10163,9 @@ listIsEmptyOnListFilterChecks =
                                         }
                                     , fix =
                                         [ Fix.replaceRangeBy checkInfo.later.fnRange
-                                            (qualifiedToString (qualify Fn.Basics.not checkInfo))
+                                            (qualifiedToString (qualify Fn.Basics.not checkInfo.scope))
                                         , Fix.replaceRangeBy checkInfo.earlier.fnRange
-                                            (qualifiedToString (qualify Fn.List.any checkInfo))
+                                            (qualifiedToString (qualify Fn.List.any checkInfo.scope))
                                         ]
                                     }
                             )
@@ -10196,7 +10203,7 @@ listIsEmptyOnListFilterChecks =
                                         [ "You can replace this call by "
                                             ++ qualifiedToString Fn.List.all
                                             ++ (if functionIntoNot.isStandaloneNot then
-                                                    " " ++ qualifiedToString (qualify Fn.Basics.identity defaultQualifyResources)
+                                                    " " ++ qualifiedToString (defaultQualify Fn.Basics.identity)
 
                                                 else
                                                     " with the function given to "
@@ -10209,7 +10216,7 @@ listIsEmptyOnListFilterChecks =
                                     }
                                     checkInfo.fnRange
                                     (Fix.replaceRangeBy filterCall.fnRange
-                                        (qualifiedToString (qualify Fn.List.all checkInfo))
+                                        (qualifiedToString (qualify Fn.List.all checkInfo.scope))
                                         :: replaceCallBySubExpressionFix checkInfo.parentRange
                                             checkInfo.callStyle
                                             checkInfo.firstArg
@@ -10238,9 +10245,9 @@ listIsEmptyOnListFilterChecks =
                                     }
                                     checkInfo.fnRange
                                     [ Fix.replaceRangeBy checkInfo.fnRange
-                                        (qualifiedToString (qualify Fn.Basics.not checkInfo))
+                                        (qualifiedToString (qualify Fn.Basics.not checkInfo.scope))
                                     , Fix.replaceRangeBy filterCall.fnRange
-                                        (qualifiedToString (qualify Fn.List.any checkInfo))
+                                        (qualifiedToString (qualify Fn.List.any checkInfo.scope))
                                     ]
                         )
     }
@@ -10265,7 +10272,7 @@ getFunctionIntoNot resources expressionNode =
             { isStandaloneNot = True
             , removeFix =
                 [ Fix.replaceRangeBy (Node.range expressionNode)
-                    (qualifiedToString (qualify Fn.Basics.identity resources))
+                    (qualifiedToString (qualify Fn.Basics.identity resources.scope))
                 ]
             }
 
@@ -10849,9 +10856,9 @@ arrayFromListChecks =
                                                             (Fix.insertAt listRangeEndArgRange.start "(("
                                                                 :: Fix.insertAt listRangeEndArgRange.end ") + 1)"
                                                                 :: Fix.replaceRangeBy listRangeCall.fnRange
-                                                                    (qualifiedToString (qualify Fn.Array.initialize checkInfo))
+                                                                    (qualifiedToString (qualify Fn.Array.initialize checkInfo.scope))
                                                                 :: Fix.insertAt checkInfo.parentRange.end
-                                                                    (" " ++ qualifiedToString (qualify Fn.Basics.identity checkInfo))
+                                                                    (" " ++ qualifiedToString (qualify Fn.Basics.identity checkInfo.scope))
                                                                 :: replaceBySubExpressionFix checkInfo.parentRange
                                                                     checkInfo.firstArg
                                                                 ++ keepOnlyFix
@@ -10908,7 +10915,7 @@ arrayFromListChecks =
                                                                             (Fix.insertAt listRangeEndArgRange.start "(("
                                                                                 :: Fix.insertAt listRangeEndArgRange.end ") + 1)"
                                                                                 :: Fix.replaceRangeBy listRangeCall.fnRange
-                                                                                    (qualifiedToString (qualify Fn.Array.initialize checkInfo))
+                                                                                    (qualifiedToString (qualify Fn.Array.initialize checkInfo.scope))
                                                                                 :: Fix.insertAt checkInfo.parentRange.end
                                                                                     (" "
                                                                                         ++ parenthesizeIf (needsParens (Node.value listMapCall.firstArg))
@@ -10983,7 +10990,7 @@ arrayInitializeIsTheSameAsRepeatCheck =
                                     }
                                     checkInfo.fnRange
                                     (Fix.replaceRangeBy checkInfo.fnRange
-                                        (qualifiedToString (qualify Fn.Array.repeat checkInfo))
+                                        (qualifiedToString (qualify Fn.Array.repeat checkInfo.scope))
                                         :: replaceBySubExpressionFix (Node.range indexToElementArg)
                                             repeatedElement
                                     )
@@ -11010,7 +11017,7 @@ arrayInitializeIsTheSameAsRepeatCheck =
                         }
                     , fix =
                         [ Fix.replaceRangeBy checkInfo.later.fnRange
-                            (qualifiedToString (qualify Fn.Array.repeat checkInfo))
+                            (qualifiedToString (qualify Fn.Array.repeat checkInfo.scope))
                         , Fix.removeRange checkInfo.earlier.removeRange
                         ]
                     }
@@ -11053,7 +11060,7 @@ arrayMapChecks =
                                                             ++ " with the length given to the original "
                                                             ++ qualifiedToString Fn.Array.initialize
                                                             ++ " and the function given to "
-                                                            ++ qualifiedToString (qualify checkInfo.fn checkInfo)
+                                                            ++ qualifiedToString (qualify checkInfo.fn checkInfo.scope)
                                                             ++ "."
                                                         ]
                                                     }
@@ -11177,15 +11184,15 @@ arrayLengthOnArrayRepeatOrInitializeChecks checkInfo =
             let
                 maxFn : String
                 maxFn =
-                    qualifiedToString (qualify Fn.Basics.max defaultQualifyResources)
+                    qualifiedToString (defaultQualify Fn.Basics.max)
             in
             Just
                 (Rule.errorWithFix
-                    { message = qualifiedToString (qualify checkInfo.fn checkInfo) ++ " on an array created by " ++ qualifiedToString (qualify ( [ "Array" ], fnName ) defaultQualifyResources) ++ " with a given length will result in that length"
+                    { message = qualifiedToString (qualify checkInfo.fn checkInfo.scope) ++ " on an array created by " ++ qualifiedToString (defaultQualify ( [ "Array" ], fnName )) ++ " with a given length will result in that length"
                     , details = [ "You can replace this call by " ++ maxFn ++ " 0 with the given length. " ++ maxFn ++ " 0 makes sure that negative given lengths return 0." ]
                     }
                     checkInfo.fnRange
-                    (Fix.insertAt checkInfo.parentRange.start (qualifiedToString (qualify Fn.Basics.max checkInfo) ++ " 0 ")
+                    (Fix.insertAt checkInfo.parentRange.start (qualifiedToString (qualify Fn.Basics.max checkInfo.scope) ++ " 0 ")
                         :: keepOnlyFix { parentRange = checkInfo.parentRange, keep = Node.range call.firstArg }
                     )
                 )
@@ -11389,7 +11396,7 @@ setMemberChecks =
         [ intoFnCheckOnlyCall
             (\checkInfo ->
                 callOnEmptyReturnsCheck
-                    { resultAsString = \res -> qualifiedToString (qualify Fn.Basics.falseVariant res) }
+                    { resultAsString = \res -> qualifiedToString (maybeQualify Fn.Basics.falseVariant res) }
                     setCollection
                     checkInfo
                     |> onNothing (\() -> knownMemberChecks setCollection checkInfo)
@@ -11442,7 +11449,7 @@ setFilterChecks =
                                         ]
                                     }
                                     checkInfo.fnRange
-                                    (Fix.replaceRangeBy checkInfo.fnRange (qualifiedToString (qualify Fn.Set.remove checkInfo))
+                                    (Fix.replaceRangeBy checkInfo.fnRange (qualifiedToString (qualify Fn.Set.remove checkInfo.scope))
                                         :: replaceBySubExpressionFix (Node.range checkInfo.firstArg) inequalityTo.constant
                                     )
                                 )
@@ -11495,7 +11502,7 @@ setUnionChecks =
 
                                         replacement : String
                                         replacement =
-                                            qualifiedToString (qualify Fn.Set.insert checkInfo)
+                                            qualifiedToString (qualify Fn.Set.insert checkInfo.scope)
                                                 ++ (if insertedElementRange.start.row == insertedElementRange.end.row then
                                                         " "
 
@@ -11722,7 +11729,7 @@ dictFromListOnRepeatCheck checkInfo =
                                             ++ String.repeat (checkInfo.parentRange.start.column - 1) " "
                                             ++ "else\n"
                                             ++ branchIndentation
-                                            ++ qualifiedToString (qualify Fn.Dict.empty checkInfo)
+                                            ++ qualifiedToString (qualify Fn.Dict.empty checkInfo.scope)
                                             ++ ")"
                                         )
                                     :: keepOnlyAndSurroundWithFix
@@ -11826,7 +11833,7 @@ dictMemberChecks =
         [ intoFnCheckOnlyCall
             (\checkInfo ->
                 callOnEmptyReturnsCheck
-                    { resultAsString = \res -> qualifiedToString (qualify Fn.Basics.falseVariant res) }
+                    { resultAsString = \res -> qualifiedToString (maybeQualify Fn.Basics.falseVariant res) }
                     dictCollection
                     checkInfo
                     |> onNothing
@@ -11884,10 +11891,10 @@ dictMemberOnFromListToListAnyChecks =
                                             }
                                             checkInfo.fnRange
                                             (Fix.replaceRangeBy checkInfo.fnRange
-                                                (qualifiedToString (qualify Fn.List.any checkInfo))
+                                                (qualifiedToString (qualify Fn.List.any checkInfo.scope))
                                                 :: Fix.insertAt needleArgRange.start
                                                     ("("
-                                                        ++ qualifiedToString (qualify Fn.Tuple.first checkInfo)
+                                                        ++ qualifiedToString (qualify Fn.Tuple.first checkInfo.scope)
                                                         ++ " >> (==)"
                                                         ++ (if needleArgRange.start.row == needleArgRange.end.row then
                                                                 " "
@@ -11935,10 +11942,10 @@ dictMemberOnFromListToListAnyChecks =
                             , fix =
                                 [ Fix.removeRange checkInfo.earlier.removeRange
                                 , Fix.replaceRangeBy checkInfo.later.fnRange
-                                    (qualifiedToString (qualify Fn.List.any checkInfo))
+                                    (qualifiedToString (qualify Fn.List.any checkInfo.scope))
                                 , Fix.insertAt needleArgRange.start
                                     ("("
-                                        ++ qualifiedToString (qualify Fn.Tuple.first checkInfo)
+                                        ++ qualifiedToString (qualify Fn.Tuple.first checkInfo.scope)
                                         ++ " >> (==) ("
                                         ++ (if needleArgRange.start.row == needleArgRange.end.row then
                                                 ""
@@ -12026,7 +12033,7 @@ dictUpdateChecks =
                                             checkInfo.fnRange
                                             (Fix.replaceRangeBy
                                                 checkInfo.fnRange
-                                                (qualifiedToString (qualify replacementFn checkInfo))
+                                                (qualifiedToString (qualify replacementFn checkInfo.scope))
                                                 :: keepOnlyFix
                                                     { parentRange =
                                                         Range.combine
@@ -12072,7 +12079,7 @@ dictUpdateChecks =
                                                     checkInfo.fnRange
                                                     (Fix.replaceRangeBy
                                                         checkInfo.fnRange
-                                                        (qualifiedToString (qualify replacementFn checkInfo))
+                                                        (qualifiedToString (qualify replacementFn checkInfo.scope))
                                                         :: replaceBySubExpressionFix
                                                             (Node.range updateFunctionArgument)
                                                             updateFunctionArgumentAlwaysResultJustCall.firstArg
@@ -12123,7 +12130,7 @@ dictFilterChecks =
                                                 ]
                                             }
                                             checkInfo.fnRange
-                                            (Fix.replaceRangeBy checkInfo.fnRange (qualifiedToString (qualify Fn.Dict.remove checkInfo))
+                                            (Fix.replaceRangeBy checkInfo.fnRange (qualifiedToString (qualify Fn.Dict.remove checkInfo.scope))
                                                 :: replaceBySubExpressionFix (Node.range checkInfo.firstArg) inequalityTo.constant
                                             )
                                         )
@@ -12496,7 +12503,7 @@ mapAfterConvertMapIdentityCanBeCombinedCheck config =
                             [ "You can replace this composition by "
                                 ++ qualifiedToString config.convertMapFn
                                 ++ " with the function given to "
-                                ++ qualifiedToString (qualify checkInfo.later.fn checkInfo)
+                                ++ qualifiedToString (qualify checkInfo.later.fn checkInfo.scope)
                                 ++ "."
                             ]
                         }
@@ -12504,7 +12511,7 @@ mapAfterConvertMapIdentityCanBeCombinedCheck config =
                         [ Fix.removeRange checkInfo.earlier.removeRange
                         , Fix.replaceRangeBy
                             checkInfo.later.fnRange
-                            (qualifiedToString (qualify config.convertMapFn checkInfo))
+                            (qualifiedToString (qualify config.convertMapFn checkInfo.scope))
                         ]
                     }
 
@@ -12536,14 +12543,14 @@ mapAfterConvertMapIdentityCanBeCombinedCheck config =
                                                     [ "You can replace these operations by "
                                                         ++ qualifiedToString config.convertMapFn
                                                         ++ " with the function given to "
-                                                        ++ qualifiedToString (qualify checkInfo.fn checkInfo)
+                                                        ++ qualifiedToString (qualify checkInfo.fn checkInfo.scope)
                                                         ++ "."
                                                     ]
                                                 }
                                                 checkInfo.fnRange
                                                 (Fix.replaceRangeBy
                                                     checkInfo.fnRange
-                                                    (qualifiedToString (qualify config.convertMapFn checkInfo))
+                                                    (qualifiedToString (qualify config.convertMapFn checkInfo.scope))
                                                     :: replaceBySubExpressionFix
                                                         (Node.range cmdArg)
                                                         toConvertArg
@@ -12692,7 +12699,7 @@ htmlAttributesClassListChecks =
                                                 }
                                                 checkInfo.fnRange
                                                 (Fix.replaceRangeBy checkInfo.fnRange
-                                                    (qualifiedToString (qualify replacementFn checkInfo))
+                                                    (qualifiedToString (qualify replacementFn checkInfo.scope))
                                                     :: replaceBySubExpressionFix (Node.range checkInfo.firstArg) tuple.first
                                                 )
                                             )
@@ -13092,7 +13099,7 @@ type TypeSubsetKindProperties
 
 type alias ConstantProperties =
     { description : String
-    , asString : QualifyResources {} -> String
+    , asString : Maybe Scope -> String
     , is : Normalize.Resources {} -> Node Expression -> Bool
     }
 
@@ -13153,12 +13160,12 @@ typeSubsetDescriptionWithoutArticle typeSubsetProperties =
 -}
 constantFnProperties : ( ModuleName, String ) -> ConstantProperties
 constantFnProperties fullyQualified =
-    { description = qualifiedToString (qualify fullyQualified defaultQualifyResources)
+    { description = qualifiedToString (defaultQualify fullyQualified)
     , is =
         \res expr ->
             AstHelpers.isSpecificValueReference res.lookupTable fullyQualified expr
     , asString =
-        \res -> qualifiedToString (qualify fullyQualified res)
+        \res -> qualifiedToString (maybeQualify fullyQualified res)
     }
 
 
@@ -13264,14 +13271,6 @@ constructWithOneValueDescriptionWithoutArticle referenceArgDescription =
             description
 
 
-extractQualifyResources : QualifyResources a -> QualifyResources {}
-extractQualifyResources resources =
-    { importLookup = resources.importLookup
-    , moduleBindings = resources.moduleBindings
-    , localBindings = resources.localBindings
-    }
-
-
 extractNormalizeResources :
     Normalize.Resources a
     -> Normalize.Resources {}
@@ -13280,6 +13279,7 @@ extractNormalizeResources resources =
     , inferredConstants = resources.inferredConstants
     , moduleCustomTypes = resources.moduleCustomTypes
     , importCustomTypes = resources.importCustomTypes
+    , scope = resources.scope
     }
 
 
@@ -13295,7 +13295,7 @@ extractReduceLambdaResources resources =
 
 emptyAsString : QualifyResources a -> EmptiableProperties ConstantProperties otherProperties -> String
 emptyAsString qualifyResources emptiable =
-    emptiable.empty.specific.asString (extractQualifyResources qualifyResources)
+    emptiable.empty.specific.asString (Just qualifyResources.scope)
 
 
 boolForAndProperties : TypeProperties (EmptiableProperties ConstantProperties (AbsorbableProperties {}))
@@ -13318,9 +13318,9 @@ boolForOrProperties =
 
 boolTrueConstant : ConstantProperties
 boolTrueConstant =
-    { description = qualifiedToString (qualify Fn.Basics.trueVariant defaultQualifyResources)
+    { description = qualifiedToString (defaultQualify Fn.Basics.trueVariant)
     , is = \res expr -> Normalize.getBool res expr == justTrue
-    , asString = \res -> qualifiedToString (qualify Fn.Basics.trueVariant res)
+    , asString = \res -> qualifiedToString (maybeQualify Fn.Basics.trueVariant res)
     }
 
 
@@ -13331,9 +13331,9 @@ justTrue =
 
 boolFalseConstant : ConstantProperties
 boolFalseConstant =
-    { description = qualifiedToString (qualify Fn.Basics.falseVariant defaultQualifyResources)
+    { description = qualifiedToString (defaultQualify Fn.Basics.falseVariant)
     , is = \res expr -> Normalize.getBool res expr == justFalse
-    , asString = \res -> qualifiedToString (qualify Fn.Basics.falseVariant res)
+    , asString = \res -> qualifiedToString (maybeQualify Fn.Basics.falseVariant res)
     }
 
 
@@ -14098,7 +14098,7 @@ oneOfConstantsWithOneAndRestListChecks wrapper checkInfo =
                         }
                         checkInfo.fnRange
                         (Fix.replaceRangeBy checkInfo.fnRange
-                            (qualifiedToString (qualify wrapper.wrap.fn checkInfo))
+                            (qualifiedToString (qualify wrapper.wrap.fn checkInfo.scope))
                             :: keepOnlyFix
                                 { parentRange = checkInfo.parentRange
                                 , keep = Range.combine [ checkInfo.fnRange, Node.range checkInfo.firstArg ]
@@ -14140,7 +14140,7 @@ oneOfWeightedConstantsWithOneAndRestChecks wrapper checkInfo =
                         (case AstHelpers.getTuple2 checkInfo.lookupTable checkInfo.firstArg of
                             Just tuple ->
                                 Fix.replaceRangeBy checkInfo.fnRange
-                                    (qualifiedToString (qualify wrapper.wrap.fn checkInfo))
+                                    (qualifiedToString (qualify wrapper.wrap.fn checkInfo.scope))
                                     :: keepOnlyFix
                                         { parentRange = checkInfo.parentRange
                                         , keep = Range.combine [ checkInfo.fnRange, Node.range checkInfo.firstArg ]
@@ -14154,7 +14154,7 @@ oneOfWeightedConstantsWithOneAndRestChecks wrapper checkInfo =
                                         Node.range checkInfo.firstArg
                                 in
                                 Fix.replaceRangeBy checkInfo.fnRange
-                                    (qualifiedToString (qualify wrapper.wrap.fn checkInfo))
+                                    (qualifiedToString (qualify wrapper.wrap.fn checkInfo.scope))
                                     :: Fix.insertAt tupleArgRange.start
                                         ("(" ++ qualifiedToString Fn.Tuple.first ++ " ")
                                     :: Fix.insertAt tupleArgRange.end ")"
@@ -14205,17 +14205,17 @@ onRepeatReturnsWrapElementIfCountIsPositiveOtherwiseAlwaysFn config =
                                         ++ " on "
                                         ++ qualifiedToString config.repeatFn
                                         ++ " will result in "
-                                        ++ qualifiedToString (qualify config.wrapFnOnRepeatCountPositive defaultQualifyResources)
+                                        ++ qualifiedToString (defaultQualify config.wrapFnOnRepeatCountPositive)
                                         ++ " the repeated element if the count is positive and "
-                                        ++ qualifiedToString (qualify config.fnOnRepeatCountNotPositive defaultQualifyResources)
+                                        ++ qualifiedToString (defaultQualify config.fnOnRepeatCountNotPositive)
                                         ++ " otherwise"
                                 , details =
                                     [ "You can replace this composition by if (the count argument given to "
                                         ++ qualifiedToString config.repeatFn
                                         ++ ") >= 1 then "
-                                        ++ qualifiedToString (qualify config.wrapFnOnRepeatCountPositive defaultQualifyResources)
+                                        ++ qualifiedToString (defaultQualify config.wrapFnOnRepeatCountPositive)
                                         ++ " else always "
-                                        ++ qualifiedToString (qualify config.fnOnRepeatCountNotPositive defaultQualifyResources)
+                                        ++ qualifiedToString (defaultQualify config.fnOnRepeatCountNotPositive)
                                         ++ "."
                                     ]
                                 }
@@ -14231,15 +14231,15 @@ onRepeatReturnsWrapElementIfCountIsPositiveOtherwiseAlwaysFn config =
                                         ++ " >= 1 then\n"
                                         ++ ifIndentation
                                         ++ "    "
-                                        ++ qualifiedToString (qualify config.wrapFnOnRepeatCountPositive checkInfo)
+                                        ++ qualifiedToString (qualify config.wrapFnOnRepeatCountPositive checkInfo.scope)
                                         ++ "\n\n"
                                         ++ ifIndentation
                                         ++ "else\n"
                                         ++ ifIndentation
                                         ++ "    "
-                                        ++ qualifiedToString (qualify Fn.Basics.always checkInfo)
+                                        ++ qualifiedToString (qualify Fn.Basics.always checkInfo.scope)
                                         ++ " "
-                                        ++ qualifiedToString (qualify config.fnOnRepeatCountNotPositive checkInfo)
+                                        ++ qualifiedToString (qualify config.fnOnRepeatCountNotPositive checkInfo.scope)
                                         ++ ")"
                                     )
                                 ]
@@ -14276,19 +14276,19 @@ onRepeatReturnsWrapElementIfCountIsPositiveOtherwiseAlwaysFn config =
                                                     ++ " on "
                                                     ++ qualifiedToString config.repeatFn
                                                     ++ " will result in "
-                                                    ++ qualifiedToString (qualify config.wrapFnOnRepeatCountPositive defaultQualifyResources)
+                                                    ++ qualifiedToString (defaultQualify config.wrapFnOnRepeatCountPositive)
                                                     ++ " the repeated element if the count is positive and "
-                                                    ++ qualifiedToString (qualify config.fnOnRepeatCountNotPositive defaultQualifyResources)
+                                                    ++ qualifiedToString (defaultQualify config.fnOnRepeatCountNotPositive)
                                                     ++ " otherwise"
                                             , details =
                                                 [ "You can replace this call by if (the count argument given to "
                                                     ++ qualifiedToString config.repeatFn
                                                     ++ ") >= 1 then "
-                                                    ++ qualifiedToString (qualify config.wrapFnOnRepeatCountPositive defaultQualifyResources)
+                                                    ++ qualifiedToString (defaultQualify config.wrapFnOnRepeatCountPositive)
                                                     ++ " (the element to repeat argument given to "
                                                     ++ qualifiedToString config.repeatFn
                                                     ++ ") else "
-                                                    ++ qualifiedToString (qualify config.fnOnRepeatCountNotPositive defaultQualifyResources)
+                                                    ++ qualifiedToString (defaultQualify config.fnOnRepeatCountNotPositive)
                                                     ++ "."
                                                 ]
                                             }
@@ -14302,7 +14302,7 @@ onRepeatReturnsWrapElementIfCountIsPositiveOtherwiseAlwaysFn config =
                                                         )
                                                     ++ " >= 1 then\n"
                                                     ++ branchIndentation
-                                                    ++ qualifiedToString (qualify config.wrapFnOnRepeatCountPositive checkInfo)
+                                                    ++ qualifiedToString (qualify config.wrapFnOnRepeatCountPositive checkInfo.scope)
                                                     ++ " "
                                                 )
                                                 :: Fix.insertAt checkInfo.parentRange.end
@@ -14310,7 +14310,7 @@ onRepeatReturnsWrapElementIfCountIsPositiveOtherwiseAlwaysFn config =
                                                         ++ String.repeat (checkInfo.parentRange.start.column - 1) " "
                                                         ++ "else\n"
                                                         ++ branchIndentation
-                                                        ++ qualifiedToString (qualify config.fnOnRepeatCountNotPositive checkInfo)
+                                                        ++ qualifiedToString (qualify config.fnOnRepeatCountNotPositive checkInfo.scope)
                                                         ++ ")"
                                                     )
                                                 :: replaceBySubExpressionFix checkInfo.parentRange
@@ -14582,19 +14582,19 @@ mapOnWrappedChecks wrapper =
                                                 CallStyle.Pipe CallStyle.LeftToRight ->
                                                     Fix.removeRange { start = checkInfo.fnRange.start, end = mappingArgRange.start }
                                                         :: Fix.insertAt mappingArgRange.end
-                                                            (" |> " ++ qualifiedToString (qualify wrapper.wrap.fn checkInfo))
+                                                            (" |> " ++ qualifiedToString (qualify wrapper.wrap.fn checkInfo.scope))
                                                         :: removeWrapCalls
 
                                                 CallStyle.Pipe CallStyle.RightToLeft ->
                                                     Fix.replaceRangeBy
                                                         { start = checkInfo.parentRange.start, end = mappingArgRange.start }
-                                                        (qualifiedToString (qualify wrapper.wrap.fn checkInfo) ++ " <| ")
+                                                        (qualifiedToString (qualify wrapper.wrap.fn checkInfo.scope) ++ " <| ")
                                                         :: removeWrapCalls
 
                                                 CallStyle.Application ->
                                                     Fix.replaceRangeBy
                                                         { start = checkInfo.parentRange.start, end = mappingArgRange.start }
-                                                        (qualifiedToString (qualify wrapper.wrap.fn checkInfo) ++ " (")
+                                                        (qualifiedToString (qualify wrapper.wrap.fn checkInfo.scope) ++ " (")
                                                         :: Fix.insertAt checkInfo.parentRange.end ")"
                                                         :: removeWrapCalls
                                             )
@@ -14614,7 +14614,7 @@ mapOnWrappedChecks wrapper =
                             { info = mapWrapErrorInfo checkInfo.later.fn wrapper
                             , fix =
                                 [ Fix.replaceRangeBy checkInfo.later.range
-                                    (qualifiedToString (qualify wrapper.wrap.fn checkInfo))
+                                    (qualifiedToString (qualify wrapper.wrap.fn checkInfo.scope))
                                 , Fix.replaceRangeBy checkInfo.earlier.range
                                     (checkInfo.extractSourceCode mapperFunctionRange)
                                 ]
@@ -14668,9 +14668,9 @@ nonEmptiableWrapperMapAlwaysChecks wrapper =
                                     checkInfo.fnRange
                                     [ Fix.replaceRangeBy
                                         { start = checkInfo.parentRange.start, end = alwaysMapResultRange.start }
-                                        (qualifiedToString (qualify Fn.Basics.always checkInfo)
+                                        (qualifiedToString (qualify Fn.Basics.always checkInfo.scope)
                                             ++ " ("
-                                            ++ qualifiedToString (qualify wrapper.wrap.fn checkInfo)
+                                            ++ qualifiedToString (qualify wrapper.wrap.fn checkInfo.scope)
                                             ++ " "
                                             ++ leftParenIfRequired
                                         )
@@ -14687,7 +14687,7 @@ nonEmptiableWrapperMapAlwaysChecks wrapper =
                                     checkInfo.fnRange
                                     [ Fix.replaceRangeBy
                                         { start = checkInfo.parentRange.start, end = alwaysMapResultRange.start }
-                                        (qualifiedToString (qualify wrapper.wrap.fn checkInfo)
+                                        (qualifiedToString (qualify wrapper.wrap.fn checkInfo.scope)
                                             ++ " "
                                             ++ leftParenIfRequired
                                         )
@@ -14715,9 +14715,9 @@ nonEmptiableWrapperMapAlwaysChecks wrapper =
                             }
                         , fix =
                             [ Fix.replaceRangeBy checkInfo.earlier.fnRange
-                                (qualifiedToString (qualify wrapper.wrap.fn checkInfo))
+                                (qualifiedToString (qualify wrapper.wrap.fn checkInfo.scope))
                             , Fix.replaceRangeBy checkInfo.later.fnRange
-                                (qualifiedToString (qualify Fn.Basics.always checkInfo))
+                                (qualifiedToString (qualify Fn.Basics.always checkInfo.scope))
                             ]
                         }
 
@@ -14836,7 +14836,7 @@ wrapperFlatMapChecks wrapper =
                 if AstHelpers.isSpecificValueOrFn wrapper.wrap.fn checkInfo checkInfo.firstArg then
                     Just
                         (alwaysReturnsLastArgError
-                            (qualifiedToString checkInfo.fn ++ " with a function equivalent to " ++ qualifiedToString (qualify wrapper.wrap.fn defaultQualifyResources))
+                            (qualifiedToString checkInfo.fn ++ " with a function equivalent to " ++ qualifiedToString (defaultQualify wrapper.wrap.fn))
                             wrapper
                             checkInfo
                         )
@@ -14855,7 +14855,7 @@ wrapperFlatMapChecks wrapper =
                                 }
                                 checkInfo.fnRange
                                 (Fix.replaceRangeBy checkInfo.fnRange
-                                    (qualifiedToString (qualify wrapper.mapFn checkInfo))
+                                    (qualifiedToString (qualify wrapper.mapFn checkInfo.scope))
                                     :: withoutWrap
                                 )
                             )
@@ -14962,7 +14962,7 @@ unwrapToMaybeChecks emptiableWrapper =
         [ onWrappedReturnsJustItsValueCheck emptiableWrapper
         , intoFnCheckOnlyCall
             (callOnEmptyReturnsCheck
-                { resultAsString = \res -> qualifiedToString (qualify Fn.Maybe.nothingVariant res) }
+                { resultAsString = \res -> qualifiedToString (maybeQualify Fn.Maybe.nothingVariant res) }
                 emptiableWrapper
             )
         ]
@@ -14978,12 +14978,12 @@ fromMaybeWithEmptyValueOnNothingCheck wrapper =
                         if trueInAllBranches (\branch -> AstHelpers.isSpecificValueOrFn Fn.Maybe.nothingVariant checkInfo branch) maybeArg then
                             Just
                                 (Rule.errorWithFix
-                                    { message = qualifiedToString checkInfo.fn ++ " on Nothing will result in " ++ qualifiedToString (qualify wrapper.empty.specific.fn checkInfo) ++ " with the given first value"
-                                    , details = [ "You can replace this call by " ++ qualifiedToString (qualify wrapper.empty.specific.fn checkInfo) ++ " with the given first value." ]
+                                    { message = qualifiedToString checkInfo.fn ++ " on Nothing will result in " ++ qualifiedToString (qualify wrapper.empty.specific.fn checkInfo.scope) ++ " with the given first value"
+                                    , details = [ "You can replace this call by " ++ qualifiedToString (qualify wrapper.empty.specific.fn checkInfo.scope) ++ " with the given first value." ]
                                     }
                                     checkInfo.fnRange
                                     (Fix.replaceRangeBy checkInfo.fnRange
-                                        (qualifiedToString (qualify wrapper.empty.specific.fn checkInfo))
+                                        (qualifiedToString (qualify wrapper.empty.specific.fn checkInfo.scope))
                                         :: keepOnlyFix
                                             { parentRange = checkInfo.parentRange
                                             , keep = Range.combine [ checkInfo.fnRange, Node.range checkInfo.firstArg ]
@@ -15013,15 +15013,15 @@ fromMaybeWithEmptyValueOnNothingCheck wrapper =
                                 Just justCalls ->
                                     Just
                                         (Rule.errorWithFix
-                                            { message = qualifiedToString checkInfo.fn ++ " on a just maybe will result in " ++ qualifiedToString (qualify wrapper.wrap.fn checkInfo) ++ " with the value inside"
-                                            , details = [ "You can replace this call by " ++ qualifiedToString (qualify wrapper.wrap.fn checkInfo) ++ " with the value inside the given just maybe." ]
+                                            { message = qualifiedToString checkInfo.fn ++ " on a just maybe will result in " ++ qualifiedToString (qualify wrapper.wrap.fn checkInfo.scope) ++ " with the value inside"
+                                            , details = [ "You can replace this call by " ++ qualifiedToString (qualify wrapper.wrap.fn checkInfo.scope) ++ " with the value inside the given just maybe." ]
                                             }
                                             checkInfo.fnRange
                                             (keepOnlyFix { parentRange = checkInfo.parentRange, keep = Node.range maybeArg }
                                                 ++ List.map
                                                     (\justCall ->
                                                         Fix.replaceRangeBy justCall.fnRange
-                                                            (qualifiedToString (qualify wrapper.wrap.fn checkInfo))
+                                                            (qualifiedToString (qualify wrapper.wrap.fn checkInfo.scope))
                                                     )
                                                     justCalls
                                             )
@@ -15038,12 +15038,12 @@ fromMaybeWithEmptyValueOnNothingCheck wrapper =
                         ( ( [ "Maybe" ], "Just" ), _ :: [] ) ->
                             Just
                                 { info =
-                                    { message = qualifiedToString checkInfo.later.fn ++ " on a just maybe will result in " ++ qualifiedToString (qualify wrapper.wrap.fn checkInfo) ++ " with the value inside"
-                                    , details = [ "You can replace this call by " ++ qualifiedToString (qualify wrapper.wrap.fn checkInfo) ++ "." ]
+                                    { message = qualifiedToString checkInfo.later.fn ++ " on a just maybe will result in " ++ qualifiedToString (qualify wrapper.wrap.fn checkInfo.scope) ++ " with the value inside"
+                                    , details = [ "You can replace this call by " ++ qualifiedToString (qualify wrapper.wrap.fn checkInfo.scope) ++ "." ]
                                     }
                                 , fix =
                                     [ Fix.removeRange checkInfo.later.removeRange
-                                    , Fix.replaceRangeBy checkInfo.earlier.range (qualifiedToString (qualify wrapper.wrap.fn checkInfo))
+                                    , Fix.replaceRangeBy checkInfo.earlier.range (qualifiedToString (qualify wrapper.wrap.fn checkInfo.scope))
                                     ]
                                 }
 
@@ -15089,7 +15089,7 @@ emptiableFlatFromListChecks emptiable =
         , intoFnCheckOnlyCall (callOnEmptyReturnsCheck { resultAsString = emptiable.empty.specific.asString } listCollection)
         , intoFnCheckOnlyCall
             (\checkInfo ->
-                callOnFromListWithIrrelevantEmptyElement (qualifiedToString (qualify checkInfo.fn defaultQualifyResources))
+                callOnFromListWithIrrelevantEmptyElement (qualifiedToString (defaultQualify checkInfo.fn))
                     ( listCollection, emptiable )
                     checkInfo
             )
@@ -15136,7 +15136,7 @@ flatFromListsSpreadFlatFromListElementsCheck checkInfo =
                     let
                         flatFromListOnLiteralDescription : String
                         flatFromListOnLiteralDescription =
-                            qualifiedToString (qualify checkInfo.fn defaultQualifyResources) ++ " call"
+                            qualifiedToString (defaultQualify checkInfo.fn) ++ " call"
                     in
                     Just
                         (Rule.errorWithFix
@@ -15402,7 +15402,7 @@ operationWithFirstArgIsEquivalentToFnError config checkInfo =
         checkInfo.fnRange
         [ Fix.replaceRangeBy
             (Range.combine [ checkInfo.fnRange, Node.range checkInfo.firstArg ])
-            (qualifiedToString (qualify config.replacementFn checkInfo))
+            (qualifiedToString (qualify config.replacementFn checkInfo.scope))
         ]
 
 
@@ -15432,13 +15432,13 @@ operationWithSpecificArgsIsEquivalentToFnError config checkInfo =
                     , style = checkInfo.callStyle
                     , argRange = checkInfo.parentRange
                     }
-                    checkInfo
+                    checkInfo.scope
                     :: replaceBySubExpressionFix checkInfo.parentRange
                         lastArg
 
             Nothing ->
                 [ Fix.replaceRangeBy checkInfo.parentRange
-                    (qualifiedToString (qualify config.replacementFn checkInfo))
+                    (qualifiedToString (qualify config.replacementFn checkInfo.scope))
                 ]
         )
 
@@ -15483,13 +15483,13 @@ wrapInApplicationFix config =
 
 fixToCall :
     { fn : ( ModuleName, String ), style : FunctionCallStyle, argRange : Range }
-    -> QualifyResources a
+    -> Scope
     -> Fix
-fixToCall config resources =
+fixToCall config scope =
     let
         fnAsString : String
         fnAsString =
-            qualifiedToString (qualify config.fn resources)
+            qualifiedToString (qualify config.fn scope)
     in
     case config.style of
         CallStyle.Application ->
@@ -15504,13 +15504,13 @@ fixToCall config resources =
 
 callOnExistingCallFix :
     { fn : ( ModuleName, String ), style : FunctionCallStyle, range : Range }
-    -> QualifyResources a
+    -> Scope
     -> List Fix
-callOnExistingCallFix config resources =
+callOnExistingCallFix config scope =
     let
         fnAsString : String
         fnAsString =
-            qualifiedToString (qualify config.fn resources)
+            qualifiedToString (qualify config.fn scope)
     in
     case config.style of
         CallStyle.Application ->
@@ -15544,7 +15544,7 @@ operationWithExtraArgChecks config checkInfo =
                     }
                     checkInfo.fnRange
                     (Fix.replaceRangeBy checkInfo.fnRange
-                        (qualifiedToString (qualify config.operationWithoutExtraArg checkInfo))
+                        (qualifiedToString (qualify config.operationWithoutExtraArg checkInfo.scope))
                         :: replaceAlwaysByFunctionResult
                     )
                 )
@@ -15667,7 +15667,7 @@ knownMemberChecks collection checkInfo =
                                         ++ " which contains the given "
                                         ++ collection.elements.elementDescription
                                     )
-                                    (\res -> qualifiedToString (qualify Fn.Basics.trueVariant res))
+                                    (\res -> qualifiedToString (maybeQualify Fn.Basics.trueVariant res))
                                     checkInfo
                                 )
 
@@ -15687,7 +15687,7 @@ knownMemberChecks collection checkInfo =
                                         ++ " which does not contain the given "
                                         ++ collection.elements.elementDescription
                                     )
-                                    (\res -> qualifiedToString (qualify Fn.Basics.falseVariant res))
+                                    (\res -> qualifiedToString (maybeQualify Fn.Basics.falseVariant res))
                                     checkInfo
                                 )
 
@@ -15732,7 +15732,7 @@ callOnCollectionWithAbsorbingElementChecks situation ( collection, elementAbsorb
                         (Rule.errorWithFix
                             { message = situation ++ " on a " ++ collection.represents ++ " with " ++ elementAbsorbable.absorbing.description ++ " will result in " ++ elementAbsorbable.absorbing.description
                             , details =
-                                [ "You can replace this call by " ++ elementAbsorbable.absorbing.asString defaultQualifyResources ++ "." ]
+                                [ "You can replace this call by " ++ elementAbsorbable.absorbing.asString Nothing ++ "." ]
                             }
                             checkInfo.fnRange
                             (replaceBySubExpressionFix checkInfo.parentRange absorbingElement)
@@ -15764,7 +15764,7 @@ emptiableAllChecks :
     -> Maybe (Error {})
 emptiableAllChecks emptiable checkInfo =
     callOnEmptyReturnsCheck
-        { resultAsString = \res -> qualifiedToString (qualify Fn.Basics.trueVariant res) }
+        { resultAsString = \res -> qualifiedToString (maybeQualify Fn.Basics.trueVariant res) }
         emptiable
         checkInfo
         |> onNothing
@@ -15776,7 +15776,7 @@ emptiableAllChecks emptiable checkInfo =
                                 Just
                                     (alwaysResultsInUnparenthesizedConstantError
                                         (qualifiedToString checkInfo.fn ++ " with a function that will always return True")
-                                        { replacement = \res -> qualifiedToString (qualify Fn.Basics.trueVariant res) }
+                                        { replacement = \res -> qualifiedToString (maybeQualify Fn.Basics.trueVariant res) }
                                         checkInfo
                                     )
 
@@ -15806,7 +15806,7 @@ emptiableAllChecks emptiable checkInfo =
                                         }
                                         checkInfo.fnRange
                                         [ Fix.replaceRangeBy (Range.combine [ checkInfo.fnRange, Node.range checkInfo.firstArg ])
-                                            (qualifiedToString (qualify emptiable.isEmptyFn checkInfo))
+                                            (qualifiedToString (qualify emptiable.isEmptyFn checkInfo.scope))
                                         ]
                                     )
 
@@ -15848,7 +15848,7 @@ collectionAllChecks collection checkInfo =
                                         }
                                         checkInfo.fnRange
                                         [ Fix.replaceRangeBy checkInfo.parentRange
-                                            (qualifiedToString (qualify Fn.Basics.falseVariant checkInfo))
+                                            (qualifiedToString (qualify Fn.Basics.falseVariant checkInfo.scope))
                                         ]
                                     )
 
@@ -15880,7 +15880,7 @@ emptiableAnyChecks :
     -> Maybe (Error {})
 emptiableAnyChecks emptiable checkInfo =
     callOnEmptyReturnsCheck
-        { resultAsString = \res -> qualifiedToString (qualify Fn.Basics.falseVariant res) }
+        { resultAsString = \res -> qualifiedToString (maybeQualify Fn.Basics.falseVariant res) }
         emptiable
         checkInfo
         |> onNothing
@@ -15892,7 +15892,7 @@ emptiableAnyChecks emptiable checkInfo =
                                 Just
                                     (alwaysResultsInUnparenthesizedConstantError
                                         (qualifiedToString checkInfo.fn ++ " with a function that will always return False")
-                                        { replacement = \res -> qualifiedToString (qualify Fn.Basics.falseVariant res) }
+                                        { replacement = \res -> qualifiedToString (maybeQualify Fn.Basics.falseVariant res) }
                                         checkInfo
                                     )
 
@@ -15942,20 +15942,20 @@ emptiableAnyChecks emptiable checkInfo =
                                                                     CallStyle.Application ->
                                                                         CallStyle.RightToLeft
                                                             }
-                                                            checkInfo
+                                                            checkInfo.scope
                                                         ++ ")"
                                                     )
                                                 ]
 
                                             _ :: _ ->
                                                 Fix.replaceRangeBy (Range.combine [ checkInfo.fnRange, Node.range checkInfo.firstArg ])
-                                                    (qualifiedToString (qualify emptiable.isEmptyFn checkInfo))
+                                                    (qualifiedToString (qualify emptiable.isEmptyFn checkInfo.scope))
                                                     :: callOnExistingCallFix
                                                         { fn = Fn.Basics.not
                                                         , range = checkInfo.parentRange
                                                         , style = checkInfo.callStyle
                                                         }
-                                                        checkInfo
+                                                        checkInfo.scope
                                         )
                                     )
 
@@ -15997,7 +15997,7 @@ collectionAnyChecks collection checkInfo =
                                         }
                                         checkInfo.fnRange
                                         [ Fix.replaceRangeBy checkInfo.parentRange
-                                            (qualifiedToString (qualify Fn.Basics.trueVariant checkInfo))
+                                            (qualifiedToString (qualify Fn.Basics.trueVariant checkInfo.scope))
                                         ]
                                     )
 
@@ -16045,7 +16045,7 @@ operationWithEqualsConstantIsEquivalentToFnWithThatConstantCheck replacementFn c
                     , details = [ "You can replace this call by " ++ qualifiedToString replacementFn ++ " with the specific value to find which is meant for this exact purpose." ]
                     }
                     checkInfo.fnRange
-                    (Fix.replaceRangeBy checkInfo.fnRange (qualifiedToString (qualify replacementFn checkInfo))
+                    (Fix.replaceRangeBy checkInfo.fnRange (qualifiedToString (qualify replacementFn checkInfo.scope))
                         :: replaceBySubExpressionFix (Node.range checkInfo.firstArg) equatedTo.constant
                     )
                 )
@@ -16325,7 +16325,7 @@ listOfWrapperSequenceChecks wrapper =
         [ intoFnCheckOnlyCall
             (callOnEmptyReturnsCheck
                 { resultAsString =
-                    \res -> qualifiedToString (qualify wrapper.wrap.fn res) ++ " []"
+                    \res -> qualifiedToString (maybeQualify wrapper.wrap.fn res) ++ " []"
                 }
                 listCollection
             )
@@ -16363,7 +16363,7 @@ sequenceOnCollectionWithAllElementsWrapped ( collection, elementWrapper ) checkI
                                 checkInfo.fnRange
                                 (Fix.replaceRangeBy
                                     checkInfo.fnRange
-                                    (qualifiedToString (qualify elementWrapper.wrap.fn checkInfo))
+                                    (qualifiedToString (qualify elementWrapper.wrap.fn checkInfo.scope))
                                     :: List.concatMap
                                         (\wrapped -> keepOnlyFix { parentRange = wrapped.nodeRange, keep = Node.range wrapped.value })
                                         wrappeds
@@ -16401,21 +16401,21 @@ sequenceRepeatChecks wrapper checkInfo =
             case lengthInt of
                 1 ->
                     let
-                        replacement : QualifyResources res -> String
-                        replacement res =
-                            qualifiedToString (qualify wrapper.mapFn res)
+                        replacement : Maybe Scope -> String
+                        replacement scope =
+                            qualifiedToString (maybeQualify wrapper.mapFn scope)
                                 ++ " "
-                                ++ qualifiedToString (qualify Fn.List.singleton res)
+                                ++ qualifiedToString (maybeQualify Fn.List.singleton scope)
                     in
                     Just
                         (Rule.errorWithFix
-                            { message = qualifiedToString checkInfo.fn ++ " 1 will result in " ++ replacement defaultQualifyResources
-                            , details = [ "You can replace this call by " ++ replacement defaultQualifyResources ++ "." ]
+                            { message = qualifiedToString checkInfo.fn ++ " 1 will result in " ++ replacement Nothing
+                            , details = [ "You can replace this call by " ++ replacement Nothing ++ "." ]
                             }
                             checkInfo.fnRange
                             [ Fix.replaceRangeBy
                                 (Range.combine [ checkInfo.fnRange, Node.range checkInfo.firstArg ])
-                                (replacement checkInfo)
+                                (replacement (Just checkInfo.scope))
                             ]
                         )
 
@@ -16425,7 +16425,7 @@ sequenceRepeatChecks wrapper checkInfo =
                             (\situation ->
                                 alwaysResultsInConstantError situation
                                     { replacement =
-                                        \res -> qualifiedToString (qualify Fn.Random.constant res) ++ " []"
+                                        \res -> qualifiedToString (maybeQualify Fn.Random.constant res) ++ " []"
                                     , replacementNeedsParens = True
                                     }
                                     checkInfo
@@ -16447,9 +16447,9 @@ sequenceRepeatChecks wrapper checkInfo =
                                         }
                                         checkInfo.fnRange
                                         (Fix.replaceRangeBy checkInfo.fnRange
-                                            (qualifiedToString (qualify Fn.List.repeat checkInfo))
+                                            (qualifiedToString (qualify Fn.List.repeat checkInfo.scope))
                                             :: Fix.insertAt checkInfo.parentRange.start
-                                                (qualifiedToString (qualify wrapper.wrap.fn checkInfo) ++ " (")
+                                                (qualifiedToString (qualify wrapper.wrap.fn checkInfo.scope) ++ " (")
                                             :: Fix.insertAt checkInfo.parentRange.end ")"
                                             :: replaceBySubExpressionFix wrapCall.nodeRange wrapCall.firstArg
                                         )
@@ -16603,7 +16603,7 @@ foldToUnchangedAccumulatorCheck typeProperties checkInfo =
                                 { description = "`always` because the incoming accumulator will be returned, no matter which " ++ typeProperties.represents ++ " is supplied next"
                                 , fix =
                                     [ Fix.replaceRangeBy checkInfo.parentRange
-                                        (qualifiedToString (qualify Fn.Basics.always checkInfo))
+                                        (qualifiedToString (qualify Fn.Basics.always checkInfo.scope))
                                     ]
                                 }
 
@@ -16613,7 +16613,7 @@ foldToUnchangedAccumulatorCheck typeProperties checkInfo =
                                 , fix =
                                     [ Fix.replaceRangeBy
                                         (Range.combine [ checkInfo.fnRange, Node.range checkInfo.firstArg ])
-                                        (qualifiedToString (qualify Fn.Basics.always checkInfo))
+                                        (qualifiedToString (qualify Fn.Basics.always checkInfo.scope))
                                     ]
                                 }
 
@@ -16684,7 +16684,7 @@ foldToUnchangedAccumulatorWithExtraArgCheck typeProperties checkInfo =
                                 { description = "`always` because the incoming accumulator will be returned, no matter which " ++ typeProperties.represents ++ " is supplied next"
                                 , fix =
                                     [ Fix.replaceRangeBy checkInfo.parentRange
-                                        (qualifiedToString (qualify Fn.Basics.always checkInfo))
+                                        (qualifiedToString (qualify Fn.Basics.always checkInfo.scope))
                                     ]
                                 }
 
@@ -16694,7 +16694,7 @@ foldToUnchangedAccumulatorWithExtraArgCheck typeProperties checkInfo =
                                 , fix =
                                     [ Fix.replaceRangeBy
                                         (Range.combine [ checkInfo.fnRange, Node.range checkInfo.firstArg ])
-                                        (qualifiedToString (qualify Fn.Basics.always checkInfo))
+                                        (qualifiedToString (qualify Fn.Basics.always checkInfo.scope))
                                     ]
                                 }
 
@@ -16748,7 +16748,7 @@ wrapperRepeatChecks wrapper checkInfo =
                     checkInfo.fnRange
                     [ Fix.replaceRangeBy
                         (Range.combine [ checkInfo.fnRange, Node.range checkInfo.firstArg ])
-                        (qualifiedToString (qualify wrapper.wrap.fn checkInfo))
+                        (qualifiedToString (qualify wrapper.wrap.fn checkInfo.scope))
                     ]
                 )
 
@@ -16792,7 +16792,7 @@ indexAccessChecks collection checkInfo n =
                                         }
                                         checkInfo.fnRange
                                         (Fix.replaceRangeBy (Range.combine [ checkInfo.fnRange, Node.range checkInfo.firstArg ])
-                                            (qualifiedToString (qualify Fn.Maybe.justVariant checkInfo))
+                                            (qualifiedToString (qualify Fn.Maybe.justVariant checkInfo.scope))
                                             :: replaceBySubExpressionFix (Node.range arg) element
                                         )
                                     )
@@ -16801,11 +16801,11 @@ indexAccessChecks collection checkInfo n =
                                 if literalElements.allKnown then
                                     Just
                                         (Rule.errorWithFix
-                                            { message = qualifiedToString checkInfo.fn ++ " with an index out of bounds of the given " ++ collection.represents ++ " will always return " ++ qualifiedToString (qualify Fn.Maybe.nothingVariant checkInfo)
+                                            { message = qualifiedToString checkInfo.fn ++ " with an index out of bounds of the given " ++ collection.represents ++ " will always return " ++ qualifiedToString (qualify Fn.Maybe.nothingVariant checkInfo.scope)
                                             , details = [ "You can replace this call by Nothing." ]
                                             }
                                             checkInfo.fnRange
-                                            [ Fix.replaceRangeBy checkInfo.parentRange (qualifiedToString (qualify Fn.Maybe.nothingVariant checkInfo)) ]
+                                            [ Fix.replaceRangeBy checkInfo.parentRange (qualifiedToString (qualify Fn.Maybe.nothingVariant checkInfo.scope)) ]
                                         )
 
                                 else
@@ -16832,19 +16832,19 @@ indexAccessChecks collection checkInfo n =
                                                                         }
                                                                         checkInfo.fnRange
                                                                         [ Fix.replaceRangeBy checkInfo.parentRange
-                                                                            (qualifiedToString (qualify Fn.Maybe.justVariant checkInfo) ++ " " ++ checkInfo.extractSourceCode (Node.range repeatSecondArg))
+                                                                            (qualifiedToString (qualify Fn.Maybe.justVariant checkInfo.scope) ++ " " ++ checkInfo.extractSourceCode (Node.range repeatSecondArg))
                                                                         ]
                                                                     )
 
                                                             else
                                                                 Just
                                                                     (Rule.errorWithFix
-                                                                        { message = qualifiedToString checkInfo.fn ++ " with an index out of bounds of the given " ++ collection.represents ++ " will always return " ++ qualifiedToString (qualify Fn.Maybe.nothingVariant checkInfo)
+                                                                        { message = qualifiedToString checkInfo.fn ++ " with an index out of bounds of the given " ++ collection.represents ++ " will always return " ++ qualifiedToString (qualify Fn.Maybe.nothingVariant checkInfo.scope)
                                                                         , details = [ "You can replace this call by Nothing." ]
                                                                         }
                                                                         checkInfo.fnRange
                                                                         [ Fix.replaceRangeBy checkInfo.parentRange
-                                                                            (qualifiedToString (qualify Fn.Maybe.nothingVariant checkInfo))
+                                                                            (qualifiedToString (qualify Fn.Maybe.nothingVariant checkInfo.scope))
                                                                         ]
                                                                     )
 
@@ -16871,19 +16871,19 @@ indexAccessChecks collection checkInfo n =
                                                                         }
                                                                         checkInfo.fnRange
                                                                         [ Fix.replaceRangeBy checkInfo.parentRange
-                                                                            (qualifiedToString (qualify Fn.Maybe.justVariant checkInfo) ++ " (" ++ checkInfo.extractSourceCode (Node.range repeatSecondArg) ++ " " ++ String.fromInt n ++ ")")
+                                                                            (qualifiedToString (qualify Fn.Maybe.justVariant checkInfo.scope) ++ " (" ++ checkInfo.extractSourceCode (Node.range repeatSecondArg) ++ " " ++ String.fromInt n ++ ")")
                                                                         ]
                                                                     )
 
                                                             else
                                                                 Just
                                                                     (Rule.errorWithFix
-                                                                        { message = qualifiedToString checkInfo.fn ++ " with an index out of bounds of the given " ++ collection.represents ++ " will always return " ++ qualifiedToString (qualify Fn.Maybe.nothingVariant checkInfo)
+                                                                        { message = qualifiedToString checkInfo.fn ++ " with an index out of bounds of the given " ++ collection.represents ++ " will always return " ++ qualifiedToString (qualify Fn.Maybe.nothingVariant checkInfo.scope)
                                                                         , details = [ "You can replace this call by Nothing." ]
                                                                         }
                                                                         checkInfo.fnRange
                                                                         [ Fix.replaceRangeBy checkInfo.parentRange
-                                                                            (qualifiedToString (qualify Fn.Maybe.nothingVariant checkInfo))
+                                                                            (qualifiedToString (qualify Fn.Maybe.nothingVariant checkInfo.scope))
                                                                         ]
                                                                     )
 
@@ -17184,7 +17184,7 @@ wrapperMapNChecks wrapper checkInfo =
                 let
                     wrapFnDescription : String
                     wrapFnDescription =
-                        qualifiedToString (qualify wrapper.wrap.fn defaultQualifyResources)
+                        qualifiedToString (defaultQualify wrapper.wrap.fn)
                 in
                 Just
                     (Rule.errorWithFix
@@ -17195,17 +17195,17 @@ wrapperMapNChecks wrapper checkInfo =
                         ((case checkInfo.callStyle of
                             CallStyle.Pipe CallStyle.LeftToRight ->
                                 [ Fix.insertAt checkInfo.parentRange.end
-                                    (" |> " ++ qualifiedToString (qualify wrapper.wrap.fn checkInfo))
+                                    (" |> " ++ qualifiedToString (qualify wrapper.wrap.fn checkInfo.scope))
                                 ]
 
                             CallStyle.Pipe CallStyle.RightToLeft ->
                                 [ Fix.insertAt checkInfo.parentRange.start
-                                    (qualifiedToString (qualify wrapper.wrap.fn checkInfo) ++ " <| ")
+                                    (qualifiedToString (qualify wrapper.wrap.fn checkInfo.scope) ++ " <| ")
                                 ]
 
                             CallStyle.Application ->
                                 [ Fix.insertAt checkInfo.parentRange.end ")"
-                                , Fix.insertAt checkInfo.parentRange.start (qualifiedToString (qualify wrapper.wrap.fn checkInfo) ++ " (")
+                                , Fix.insertAt checkInfo.parentRange.start (qualifiedToString (qualify wrapper.wrap.fn checkInfo.scope) ++ " (")
                                 ]
                          )
                             ++ keepOnlyFix
@@ -17279,7 +17279,7 @@ mapNOrFirstEmptyConstructionChecks emptiable checkInfo =
                                 { description =
                                     "always with " ++ typeSubsetDescriptionDefinite "the first" emptiable.empty
                                 , fix =
-                                    Fix.insertAt checkInfo.parentRange.start (qualifiedToString (qualify Fn.Basics.always checkInfo) ++ " ")
+                                    Fix.insertAt checkInfo.parentRange.start (qualifiedToString (qualify Fn.Basics.always checkInfo.scope) ++ " ")
                                         :: replaceBySubExpressionFix checkInfo.parentRange emptyAndBefore.found
                                 }
 
@@ -17344,7 +17344,7 @@ mapNOrFirstEmptyConstructionChecks emptiable checkInfo =
                                     { fix =
                                         [ Fix.removeRange
                                             { start = keptRange.end, end = checkInfo.parentRange.end }
-                                        , Fix.replaceRangeBy checkInfo.fnRange (qualifiedToString (qualify replacementMap checkInfo))
+                                        , Fix.replaceRangeBy checkInfo.fnRange (qualifiedToString (qualify replacementMap checkInfo.scope))
                                         , Fix.removeRange
                                             { start = checkInfo.parentRange.start, end = keptRange.start }
                                         ]
@@ -17358,12 +17358,12 @@ mapNOrFirstEmptyConstructionChecks emptiable checkInfo =
                                         [ Fix.replaceRangeBy
                                             { start = keptRange.end, end = checkInfo.parentRange.end }
                                             ")"
-                                        , Fix.replaceRangeBy checkInfo.fnRange (qualifiedToString (qualify replacementMap checkInfo))
+                                        , Fix.replaceRangeBy checkInfo.fnRange (qualifiedToString (qualify replacementMap checkInfo.scope))
                                         , Fix.replaceRangeBy
                                             { start = checkInfo.parentRange.start
                                             , end = keptRange.start
                                             }
-                                            (qualifiedToString (qualify Fn.Basics.always checkInfo) ++ " (")
+                                            (qualifiedToString (qualify Fn.Basics.always checkInfo.scope) ++ " (")
                                         ]
                                     , description =
                                         "always with " ++ qualifiedToString replacementMap ++ " with the same arguments until " ++ typeSubsetDescriptionDefinite "the first" emptiable.empty
@@ -17380,7 +17380,7 @@ mapNOrFirstEmptyConstructionChecks emptiable checkInfo =
                                         [ Fix.replaceRangeBy
                                             { start = keptRange.end, end = checkInfo.parentRange.end }
                                             ")"
-                                        , Fix.replaceRangeBy checkInfo.fnRange (qualifiedToString (qualify replacementMap checkInfo))
+                                        , Fix.replaceRangeBy checkInfo.fnRange (qualifiedToString (qualify replacementMap checkInfo.scope))
                                         , Fix.replaceRangeBy
                                             { start = checkInfo.parentRange.start, end = keptRange.start }
                                             ("(" ++ lambdaStart)
@@ -17424,7 +17424,7 @@ emptiableWrapperFilterMapChecks emptiableWrapper =
                                 }
                                 checkInfo.fnRange
                                 (Fix.replaceRangeBy checkInfo.fnRange
-                                    (qualifiedToString (qualify emptiableWrapper.mapFn checkInfo))
+                                    (qualifiedToString (qualify emptiableWrapper.mapFn checkInfo.scope))
                                     :: List.concatMap (\call -> replaceBySubExpressionFix call.nodeRange call.firstArg) justCalls
                                 )
                             )
@@ -17489,13 +17489,13 @@ maybeNothingProperties =
 identityFunctionProperties :
     { description : String
     , is : AstHelpers.ReduceLambdaResources isRes -> Node Expression -> Bool
-    , asString : QualifyResources asStringRes -> String
+    , asString : Scope -> String
     , fn : ( ModuleName, String )
     }
 identityFunctionProperties =
     { description = "an identity function"
     , is = \res expr -> AstHelpers.isIdentity res expr
-    , asString = \res -> qualifiedToString (qualify Fn.Basics.identity res)
+    , asString = \scope -> qualifiedToString (qualify Fn.Basics.identity scope)
     , fn = Fn.Basics.identity
     }
 
@@ -17503,28 +17503,28 @@ identityFunctionProperties =
 tupleFirstAccessFunctionProperties :
     { description : String
     , is : AstHelpers.ReduceLambdaResources isRes -> Node Expression -> Bool
-    , asString : QualifyResources asStringRes -> String
+    , asString : Scope -> String
     , fn : ( ModuleName, String )
     }
 tupleFirstAccessFunctionProperties =
     { description = "Tuple.first"
     , fn = Fn.Tuple.first
     , is = \res expr -> AstHelpers.isTupleFirstAccess res expr
-    , asString = \res -> qualifiedToString (qualify Fn.Tuple.first res)
+    , asString = \scope -> qualifiedToString (qualify Fn.Tuple.first scope)
     }
 
 
 tupleSecondAccessFunctionProperties :
     { description : String
     , is : AstHelpers.ReduceLambdaResources isRes -> Node Expression -> Bool
-    , asString : QualifyResources asStringRes -> String
+    , asString : Scope -> String
     , fn : ( ModuleName, String )
     }
 tupleSecondAccessFunctionProperties =
     { description = "Tuple.second"
     , fn = Fn.Tuple.second
     , is = \res expr -> AstHelpers.isTupleSecondAccess res expr
-    , asString = \res -> qualifiedToString (qualify Fn.Tuple.second res)
+    , asString = \scope -> qualifiedToString (qualify Fn.Tuple.second scope)
     }
 
 
@@ -17576,10 +17576,10 @@ onSpecificFnCallCanBeCombinedCheck config =
         laterOperationDescription laterFn =
             case config.args of
                 [] ->
-                    qualifiedToString (qualify laterFn defaultQualifyResources)
+                    qualifiedToString (defaultQualify laterFn)
 
                 firstArg :: argsAfterFirst ->
-                    qualifiedToString (qualify laterFn defaultQualifyResources)
+                    qualifiedToString (defaultQualify laterFn)
                         ++ " with "
                         ++ firstArg.description
                         ++ String.concat (List.map (\arg -> " and " ++ arg.description) argsAfterFirst)
@@ -17626,7 +17626,7 @@ onSpecificFnCallCanBeCombinedCheck config =
                                 checkInfo.fnRange
                                 (Fix.replaceRangeBy
                                     fromFnCall.fnRange
-                                    (qualifiedToString (qualify config.combinedFn checkInfo))
+                                    (qualifiedToString (qualify config.combinedFn checkInfo.scope))
                                     :: keepOnlyFix { parentRange = checkInfo.parentRange, keep = fromFnCall.nodeRange }
                                 )
                             )
@@ -17665,7 +17665,7 @@ onSpecificFnCallCanBeCombinedCheck config =
                     , fix =
                         [ Fix.replaceRangeBy
                             checkInfo.earlier.fnRange
-                            (qualifiedToString (qualify config.combinedFn checkInfo))
+                            (qualifiedToString (qualify config.combinedFn checkInfo.scope))
                         , Fix.removeRange checkInfo.later.removeRange
                         ]
                     }
@@ -17713,20 +17713,20 @@ onWrappedIsEquivalentToMapWrapOnValueCheck ( wrapper, valueMappable ) =
                     case wrapper.wrap.getValue checkInfo.lookupTable lastArg of
                         Just wrappedValue ->
                             let
-                                replacement : QualifyResources a -> String
-                                replacement qualifyResources =
-                                    qualifiedToString (qualify valueMappable.mapFn qualifyResources)
+                                replacement : Maybe Scope -> String
+                                replacement scope =
+                                    qualifiedToString (maybeQualify valueMappable.mapFn scope)
                                         ++ " "
-                                        ++ qualifiedToString (qualify wrapper.wrap.fn qualifyResources)
+                                        ++ qualifiedToString (maybeQualify wrapper.wrap.fn scope)
                             in
                             Just
                                 (Rule.errorWithFix
-                                    { message = qualifiedToString checkInfo.fn ++ " on " ++ constructWithOneValueDescriptionIndefinite wrapper.wrap.description ++ " is the same as " ++ replacement defaultQualifyResources ++ " on the value inside"
-                                    , details = [ "You can replace this call by " ++ replacement defaultQualifyResources ++ " on the value inside the singleton list." ]
+                                    { message = qualifiedToString checkInfo.fn ++ " on " ++ constructWithOneValueDescriptionIndefinite wrapper.wrap.description ++ " is the same as " ++ replacement Nothing ++ " on the value inside"
+                                    , details = [ "You can replace this call by " ++ replacement Nothing ++ " on the value inside the singleton list." ]
                                     }
                                     checkInfo.fnRange
                                     (Fix.replaceRangeBy checkInfo.fnRange
-                                        (replacement checkInfo)
+                                        (replacement (Just checkInfo.scope))
                                         :: replaceBySubExpressionFix (Node.range lastArg) wrappedValue
                                     )
                                 )
@@ -17740,18 +17740,18 @@ onWrappedIsEquivalentToMapWrapOnValueCheck ( wrapper, valueMappable ) =
         \checkInfo ->
             if onlyLastArgIsCurried checkInfo.later && (checkInfo.earlier.fn == wrapper.wrap.fn) then
                 let
-                    replacement : QualifyResources a -> String
-                    replacement qualifyResources =
-                        qualifiedToString (qualify valueMappable.mapFn qualifyResources)
+                    replacement : Maybe Scope -> String
+                    replacement scope =
+                        qualifiedToString (maybeQualify valueMappable.mapFn scope)
                             ++ " "
-                            ++ qualifiedToString (qualify wrapper.wrap.fn qualifyResources)
+                            ++ qualifiedToString (maybeQualify wrapper.wrap.fn scope)
                 in
                 Just
                     { info =
-                        { message = qualifiedToString checkInfo.later.fn ++ " on " ++ constructWithOneValueDescriptionIndefinite wrapper.wrap.description ++ " is the same as " ++ replacement defaultQualifyResources ++ " on the value inside"
-                        , details = [ "You can replace this call by " ++ replacement defaultQualifyResources ++ "." ]
+                        { message = qualifiedToString checkInfo.later.fn ++ " on " ++ constructWithOneValueDescriptionIndefinite wrapper.wrap.description ++ " is the same as " ++ replacement Nothing ++ " on the value inside"
+                        , details = [ "You can replace this call by " ++ replacement Nothing ++ "." ]
                         }
-                    , fix = compositionReplaceByFix (replacement checkInfo) checkInfo
+                    , fix = compositionReplaceByFix (replacement (Just checkInfo.scope)) checkInfo
                     }
 
             else
@@ -18885,7 +18885,7 @@ unnecessaryOnEmptyCheck emptiable =
 
 
 callOnEmptyReturnsCheck :
-    { resultAsString : QualifyResources {} -> String }
+    { resultAsString : Maybe Scope -> String }
     -> EmptiableProperties empty otherProperties
     -> CallCheckInfo
     -> Maybe (Error {})
@@ -18896,16 +18896,16 @@ callOnEmptyReturnsCheck config collection checkInfo =
                 let
                     resultDescription : String
                     resultDescription =
-                        config.resultAsString defaultQualifyResources
+                        config.resultAsString Nothing
                 in
                 Just
                     (Rule.errorWithFix
-                        { message = qualifiedToString (qualify checkInfo.fn defaultQualifyResources) ++ " on " ++ typeSubsetDescriptionIndefinite collection.empty ++ " will result in " ++ resultDescription
+                        { message = qualifiedToString (defaultQualify checkInfo.fn) ++ " on " ++ typeSubsetDescriptionIndefinite collection.empty ++ " will result in " ++ resultDescription
                         , details = [ "You can replace this call by " ++ resultDescription ++ "." ]
                         }
                         checkInfo.fnRange
                         [ Fix.replaceRangeBy checkInfo.parentRange
-                            (config.resultAsString (extractQualifyResources checkInfo))
+                            (config.resultAsString (Just checkInfo.scope))
                         ]
                     )
 
@@ -18925,7 +18925,7 @@ unnecessaryCompositionAfterCheck construct checkInfo =
         Just
             { info =
                 { message = qualifiedToString checkInfo.later.fn ++ " on " ++ constructWithOneValueDescriptionIndefinite construct.description ++ " will result in " ++ constructWithOneValueDescriptionDefinite "the unchanged" construct.description
-                , details = [ "You can replace this composition by " ++ qualifiedToString (qualify construct.fn checkInfo) ++ "." ]
+                , details = [ "You can replace this composition by " ++ qualifiedToString (qualify construct.fn checkInfo.scope) ++ "." ]
                 }
             , fix =
                 [ Fix.removeRange checkInfo.later.removeRange ]
@@ -18938,7 +18938,7 @@ unnecessaryCompositionAfterCheck construct checkInfo =
 callWithNonPositiveIntCanBeReplacedByCheck :
     { int : number
     , intDescription : String
-    , replacement : QualifyResources {} -> String
+    , replacement : Maybe Scope -> String
     }
     -> CallCheckInfo
     -> Maybe (Error {})
@@ -19027,7 +19027,7 @@ onWrappedReturnsItsValueCheck wrapper =
                         Just wraps ->
                             Just
                                 (Rule.errorWithFix
-                                    { message = qualifiedToString (qualify checkInfo.fn defaultQualifyResources) ++ " on " ++ constructWithOneValueDescriptionIndefinite wrapper.wrap.description ++ " will result in the value inside"
+                                    { message = qualifiedToString (defaultQualify checkInfo.fn) ++ " on " ++ constructWithOneValueDescriptionIndefinite wrapper.wrap.description ++ " will result in the value inside"
                                     , details = [ "You can replace this call by the value inside " ++ constructWithOneValueDescriptionDefinite "the" wrapper.wrap.description ++ "." ]
                                     }
                                     checkInfo.fnRange
@@ -19043,7 +19043,7 @@ onWrappedReturnsItsValueCheck wrapper =
             if onlyLastArgIsCurried checkInfo.later && (checkInfo.earlier.fn == wrapper.wrap.fn) then
                 Just
                     (compositionAlwaysReturnsIncomingError
-                        (qualifiedToString (qualify checkInfo.later.fn defaultQualifyResources) ++ " on " ++ constructWithOneValueDescriptionIndefinite wrapper.wrap.description ++ " will always result in the value inside")
+                        (qualifiedToString (defaultQualify checkInfo.later.fn) ++ " on " ++ constructWithOneValueDescriptionIndefinite wrapper.wrap.description ++ " will always result in the value inside")
                         checkInfo
                     )
 
@@ -19084,7 +19084,7 @@ onWrappedReturnsJustItsValueCheck wrapper =
                                     }
                                     checkInfo.fnRange
                                     (Fix.replaceRangeBy { start = checkInfo.parentRange.start, end = (Node.range withWrapArg).start }
-                                        (qualifiedToString (qualify Fn.Maybe.justVariant checkInfo) ++ " ")
+                                        (qualifiedToString (qualify Fn.Maybe.justVariant checkInfo.scope) ++ " ")
                                         :: Fix.removeRange { start = (Node.range withWrapArg).end, end = checkInfo.parentRange.end }
                                         :: List.concatMap (\wrap -> replaceBySubExpressionFix wrap.nodeRange wrap.value) wraps
                                     )
@@ -19338,7 +19338,7 @@ collectionUnionChecks config collection checkInfo =
                 if isInTypeSubset collection.empty checkInfo secondArg_ then
                     Just
                         (Rule.errorWithFix
-                            { message = "Unnecessary " ++ qualifiedToString (qualify checkInfo.fn defaultQualifyResources) ++ " with " ++ typeSubsetDescriptionIndefinite collection.empty
+                            { message = "Unnecessary " ++ qualifiedToString (defaultQualify checkInfo.fn) ++ " with " ++ typeSubsetDescriptionIndefinite collection.empty
                             , details = [ "You can replace this call by the given first " ++ collection.represents ++ "." ]
                             }
                             checkInfo.fnRange
@@ -19350,7 +19350,7 @@ collectionUnionChecks config collection checkInfo =
                         { first = checkInfo.firstArg
                         , second = secondArg_
                         , operationRange = checkInfo.fnRange
-                        , operation = qualifiedToString (qualify checkInfo.fn defaultQualifyResources)
+                        , operation = qualifiedToString (defaultQualify checkInfo.fn)
                         }
                         collection
                         checkInfo
@@ -19411,7 +19411,7 @@ unionWithFirstArgWrappedCanBeCombinedInto config =
                             }
                             checkInfo.fnRange
                             [ Fix.replaceRangeBy wrapCall.fnRange
-                                (qualifiedToString (qualify config.combinedFn checkInfo))
+                                (qualifiedToString (qualify config.combinedFn checkInfo.scope))
                             , Fix.removeRange
                                 (rangeFromInclusiveToExclusive
                                     { fromInclusive = checkInfo.fnRange
@@ -19455,7 +19455,7 @@ unionWithFirstArgWrappedCanBeCombinedInto config =
                         }
                     , fix =
                         [ Fix.replaceRangeBy checkInfo.earlier.fnRange
-                            (qualifiedToString (qualify config.combinedFn checkInfo))
+                            (qualifiedToString (qualify config.combinedFn checkInfo.scope))
                         , Fix.removeRange
                             checkInfo.later.removeRange
                         ]
@@ -19544,7 +19544,7 @@ collectionInsertChecks collection =
                                     }
                                     checkInfo.fnRange
                                     (Fix.insertAt checkInfo.parentRange.start
-                                        (qualifiedToString (qualify collection.wrap.fn checkInfo) ++ " ")
+                                        (qualifiedToString (qualify collection.wrap.fn checkInfo.scope) ++ " ")
                                         :: replaceBySubExpressionFix checkInfo.parentRange checkInfo.firstArg
                                     )
                                 )
@@ -19569,7 +19569,7 @@ collectionIsEmptyChecks collection checkInfo =
         Just
             (resultsInConstantError
                 (qualifiedToString checkInfo.fn ++ " on this " ++ collection.represents)
-                (\res -> qualifiedToString (qualify Fn.Basics.falseVariant res))
+                (\res -> qualifiedToString (maybeQualify Fn.Basics.falseVariant res))
                 checkInfo
             )
 
@@ -19579,7 +19579,7 @@ collectionIsEmptyChecks collection checkInfo =
                 Just
                     (resultsInConstantError
                         (qualifiedToString checkInfo.fn ++ " on " ++ typeSubsetDescriptionIndefinite collection.empty)
-                        (\res -> qualifiedToString (qualify Fn.Basics.trueVariant res))
+                        (\res -> qualifiedToString (maybeQualify Fn.Basics.trueVariant res))
                         checkInfo
                     )
 
@@ -19668,7 +19668,7 @@ wrapperFromListSingletonChecks wrapper =
                             , details = [ "You can replace this call by " ++ qualifiedToString wrapper.wrap.fn ++ " with the value inside the singleton list." ]
                             }
                             checkInfo.fnRange
-                            (Fix.replaceRangeBy checkInfo.fnRange (qualifiedToString (qualify wrapper.wrap.fn checkInfo))
+                            (Fix.replaceRangeBy checkInfo.fnRange (qualifiedToString (qualify wrapper.wrap.fn checkInfo.scope))
                                 :: replaceBySubExpressionFix (Node.range checkInfo.firstArg) listSingletonValue
                             )
                         )
@@ -19765,7 +19765,7 @@ partitionWithConstantFunctionResult constantFunctionResult collection checkInfo 
                         Nothing ->
                             [ Fix.replaceRangeBy checkInfo.parentRange
                                 ("("
-                                    ++ qualifiedToString (qualify Fn.Tuple.pair checkInfo)
+                                    ++ qualifiedToString (qualify Fn.Tuple.pair checkInfo.scope)
                                     ++ " "
                                     ++ emptyAsString checkInfo collection
                                     ++ ")"
@@ -20749,6 +20749,7 @@ type alias IfCheckInfo =
     , condition : Node Expression
     , trueBranch : Node Expression
     , falseBranch : Node Expression
+    , scope : Scope
     }
 
 
@@ -20815,7 +20816,7 @@ ifChecks checkInfo =
                                         }
                                         (targetIfKeyword checkInfo.nodeRange)
                                         (Fix.insertAt checkInfo.nodeRange.start
-                                            (qualifiedToString (qualify Fn.Basics.not checkInfo) ++ " ")
+                                            (qualifiedToString (qualify Fn.Basics.not checkInfo.scope) ++ " ")
                                             :: replaceBySubExpressionFix checkInfo.nodeRange checkInfo.condition
                                         )
                                     )
@@ -20906,7 +20907,7 @@ caseElementCountOf0Checks checkInfo =
                                                 thisCaseKeywordRange
                                                 [ Fix.replaceRangeBy thisCaseKeywordRange "if"
                                                 , Fix.replaceRangeBy call.fnRange
-                                                    (qualifiedToString (qualify error.isEmptyFn checkInfo))
+                                                    (qualifiedToString (qualify error.isEmptyFn checkInfo.scope))
                                                 , Fix.replaceRangeBy
                                                     { start = (Node.range checkInfo.caseOf.expression).end
                                                     , end = (Node.range firstCaseResult).start
@@ -20952,6 +20953,7 @@ type alias CaseOfCheckInfo =
                 )
         , extractSourceCode : Range -> String
         , inferredConstants : ( Infer.Inferred, List Infer.Inferred )
+        , scope : Scope
         , parentRange : Range
         , caseOf : Expression.CaseBlock
         }
@@ -21563,7 +21565,7 @@ caseMultiVariantWithUnreachableCasesError variantCaseOf checkInfo =
     { message = "Unreachable case branches"
     , details =
         [ "The value between case ... of is a known "
-            ++ qualifiedToString (qualify ( variantCaseOf.cased.moduleName, variantCaseOf.cased.name ) defaultQualifyResources)
+            ++ qualifiedToString (defaultQualify ( variantCaseOf.cased.moduleName, variantCaseOf.cased.name ))
             ++ " variant. However, the "
             ++ (variantCaseOf.cases
                     |> listIndexedFilterMap
@@ -22452,7 +22454,7 @@ accessingRecordCompositionChecks checkInfo =
                                                         (Node.range checkInfo.later.node)
                                                         [ Fix.removeRange checkInfo.earlier.removeRange
                                                         , Fix.replaceRangeBy (Node.range checkInfo.later.node)
-                                                            (qualifiedToString (qualify Fn.Basics.identity checkInfo))
+                                                            (qualifiedToString (qualify Fn.Basics.identity checkInfo.scope))
                                                         ]
                                                     )
 
@@ -22482,7 +22484,7 @@ accessingRecordCompositionChecks checkInfo =
                                                                 }
                                                                 (Node.range checkInfo.later.node)
                                                                 (Fix.insertAt (Node.range checkInfo.earlier.node).start
-                                                                    (qualifiedToString (qualify Fn.Basics.always checkInfo) ++ " ")
+                                                                    (qualifiedToString (qualify Fn.Basics.always checkInfo.scope) ++ " ")
                                                                     :: Fix.removeRange checkInfo.later.removeRange
                                                                     :: replaceBySubExpressionFix (Node.range checkInfo.earlier.node) accessedFieldExpressionNode
                                                                 )
@@ -23410,7 +23412,7 @@ use `alwaysResultsInConstantError` with `replacementNeedsParens = True`.
 -}
 alwaysResultsInUnparenthesizedConstantError :
     String
-    -> { replacement : QualifyResources {} -> String }
+    -> { replacement : Maybe Scope -> String }
     -> CallCheckInfo
     -> Error {}
 alwaysResultsInUnparenthesizedConstantError usingSituation config checkInfo =
@@ -23432,7 +23434,7 @@ like `List.range 1 0`, use `resultsInConstantError`
 alwaysResultsInConstantError :
     String
     ->
-        { replacement : QualifyResources {} -> String
+        { replacement : Maybe Scope -> String
         , replacementNeedsParens : Bool
         }
     -> CallCheckInfo
@@ -23443,34 +23445,34 @@ alwaysResultsInConstantError usingSituation config checkInfo =
         remainingArgCount =
             checkInfo.argCount - (1 + List.length checkInfo.argsAfterFirst)
 
-        replacement : QualifyResources {} -> String
-        replacement res =
+        replacement : Maybe Scope -> String
+        replacement scope =
             case remainingArgCount of
                 -- fully applied
                 0 ->
-                    config.replacement res
+                    config.replacement scope
 
                 -- one arg curried
                 1 ->
-                    qualifiedToString (qualify Fn.Basics.always res)
+                    qualifiedToString (maybeQualify Fn.Basics.always scope)
                         ++ " "
                         ++ (if config.replacementNeedsParens then
-                                "(" ++ config.replacement res ++ ")"
+                                "(" ++ config.replacement scope ++ ")"
 
                             else
-                                config.replacement res
+                                config.replacement scope
                            )
 
                 -- multiple args curried
                 atLeast2 ->
-                    "(\\" ++ String.repeat atLeast2 "_ " ++ "-> " ++ config.replacement res ++ ")"
+                    "(\\" ++ String.repeat atLeast2 "_ " ++ "-> " ++ config.replacement scope ++ ")"
     in
     Rule.errorWithFix
-        { message = usingSituation ++ " will always result in " ++ config.replacement defaultQualifyResources
-        , details = [ "You can replace this call by " ++ replacement defaultQualifyResources ++ "." ]
+        { message = usingSituation ++ " will always result in " ++ config.replacement Nothing
+        , details = [ "You can replace this call by " ++ replacement Nothing ++ "." ]
         }
         checkInfo.fnRange
-        [ Fix.replaceRangeBy checkInfo.parentRange (replacement (extractQualifyResources checkInfo)) ]
+        [ Fix.replaceRangeBy checkInfo.parentRange (replacement (Just checkInfo.scope)) ]
 
 
 {-| The result in the given situation is determined to be a given constant.
@@ -23481,14 +23483,14 @@ If your function also always returns a constant but has an irrelevant next argum
 like `List.repeat 0`, use `alwaysResultsInConstantError`
 
 -}
-resultsInConstantError : String -> (QualifyResources {} -> String) -> CallCheckInfo -> Error {}
+resultsInConstantError : String -> (Maybe Scope -> String) -> CallCheckInfo -> Error {}
 resultsInConstantError usingSituation replacement checkInfo =
     Rule.errorWithFix
-        { message = usingSituation ++ " will result in " ++ replacement defaultQualifyResources
-        , details = [ "You can replace this call by " ++ replacement defaultQualifyResources ++ "." ]
+        { message = usingSituation ++ " will result in " ++ replacement Nothing
+        , details = [ "You can replace this call by " ++ replacement Nothing ++ "." ]
         }
         checkInfo.fnRange
-        [ Fix.replaceRangeBy checkInfo.parentRange (replacement (extractQualifyResources checkInfo)) ]
+        [ Fix.replaceRangeBy checkInfo.parentRange (replacement (Just checkInfo.scope)) ]
 
 
 compositionReplaceByFix :
@@ -23506,7 +23508,7 @@ compositionReplaceByFnFix :
     -> QualifyResources { checkInfo | later : { later | range : Range }, earlier : { earlier | removeRange : Range } }
     -> List Fix
 compositionReplaceByFnFix replacementFn checkInfo =
-    compositionReplaceByFix (qualifiedToString (qualify replacementFn checkInfo)) checkInfo
+    compositionReplaceByFix (qualifiedToString (qualify replacementFn checkInfo.scope)) checkInfo
 
 
 operationDoesNotChangeSpecificLastArgErrorInfo : { fn : ( ModuleName, String ), specific : TypeSubsetProperties otherTypeSubsetProperties } -> { message : String, details : List String }
@@ -23541,25 +23543,25 @@ alwaysReturnsLastArgError usingSpecificSituation lastArgProperties checkInfo =
         Nothing ->
             -- Not enough arguments
             let
-                replacement : QualifyResources res -> String
+                replacement : Maybe Scope -> String
                 replacement =
                     case checkInfo.argCount - (1 + List.length checkInfo.argsAfterFirst) - 1 of
                         0 ->
-                            \res -> qualifiedToString (qualify Fn.Basics.identity res)
+                            \scope -> qualifiedToString (maybeQualify Fn.Basics.identity scope)
 
                         1 ->
-                            \res -> qualifiedToString (qualify Fn.Basics.always res) ++ " " ++ qualifiedToString (qualify Fn.Basics.identity res)
+                            \scope -> qualifiedToString (maybeQualify Fn.Basics.always scope) ++ " " ++ qualifiedToString (maybeQualify Fn.Basics.identity scope)
 
                         atLeast2 ->
-                            \res -> "(\\" ++ String.repeat atLeast2 "_ " ++ "-> " ++ qualifiedToString (qualify Fn.Basics.identity res) ++ ")"
+                            \res -> "(\\" ++ String.repeat atLeast2 "_ " ++ "-> " ++ qualifiedToString (maybeQualify Fn.Basics.identity res) ++ ")"
             in
             Rule.errorWithFix
                 { message = usingSpecificSituation ++ " will always return the same given " ++ lastArgProperties.represents
                 , details =
-                    [ "You can replace this call by " ++ replacement defaultQualifyResources ++ "." ]
+                    [ "You can replace this call by " ++ replacement Nothing ++ "." ]
                 }
                 checkInfo.fnRange
-                [ Fix.replaceRangeBy checkInfo.parentRange (replacement checkInfo) ]
+                [ Fix.replaceRangeBy checkInfo.parentRange (replacement (Just checkInfo.scope)) ]
 
 
 {-| In your specific situation, the given arg will always be returned unchanged.
