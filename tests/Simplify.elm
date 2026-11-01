@@ -3155,8 +3155,11 @@ qualify2 ( moduleName, name ) { scope } =
 
 
 qualify : ( ModuleName, String ) -> QualifyResources a -> ( ModuleName, String )
-qualify ( moduleName, name ) qualifyResources =
+qualify ( moduleName, name ) _ =
     let
+        qualifyResources =
+            defaultQualifyResources
+
         qualification : ModuleName
         qualification =
             case qualifyResources.importLookup |> Dict.get moduleName of
