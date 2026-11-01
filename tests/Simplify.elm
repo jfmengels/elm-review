@@ -2040,6 +2040,8 @@ import Fn.Tuple
 import Review.Fix as Fix exposing (Fix)
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Project.Dependency as Dependency exposing (Dependency)
+import Review.Resources.Scope exposing (Scope)
+import Review.Resources.ScopeProvider as ScopeProvider exposing (ScopeProvider)
 import Review.Rule as Rule exposing (Error, Rule)
 import Set exposing (Set)
 import Simplify.AstHelpers as AstHelpers exposing (emptyStringAsString, qualifiedToString)
@@ -2075,6 +2077,8 @@ moduleVisitor config schema =
     schema
         |> Rule.withCommentsVisitor (\comments context -> ( [], commentsVisitor comments context ))
         |> Rule.withDeclarationListVisitor (\decls context -> ( [], declarationListVisitor decls context ))
+        |> Rule.withScopeVisitor scopeVisitor
+        |> Rule.withScopeExitVisitor scopeExitVisitor
         |> Rule.withDeclarationEnterVisitor (\node context -> ( [], declarationVisitor node context ))
         |> Rule.withExpressionEnterVisitor (\expressionNode context -> expressionVisitor expressionNode config context)
         |> Rule.withExpressionExitVisitor (\node context -> ( [], expressionExitVisitor node context ))
@@ -2254,6 +2258,7 @@ type alias ModuleContext =
     , extractSourceCode : Range -> String
     , exposedVariants : Set String
     , importLookup : ImportLookup
+    , scope : Scope
     }
 
 
@@ -2374,7 +2379,7 @@ fromModuleToProject =
 fromProjectToModule : Rule.ContextCreator ProjectContext ModuleContext
 fromProjectToModule =
     Rule.initContextCreator
-        (\lookupTable metadata extractSourceCode fullAst projectContext ->
+        (\lookupTable metadata extractSourceCode fullAst scopeProvider projectContext ->
             let
                 imports : ImportLookup
                 imports =
@@ -2411,12 +2416,14 @@ fromProjectToModule =
             , inferredConstants = ( Infer.empty, [] )
             , extractSourceCode = extractSourceCode
             , exposedVariants = Set.empty
+            , scope = ScopeProvider.topLevel scopeProvider
             }
         )
         |> Rule.withModuleNameLookupTable
         |> Rule.withMetadata
         |> Rule.withSourceCodeExtractor
         |> Rule.withFullAst
+        |> Rule.withScopes
 
 
 importContext : Node Import -> { moduleName : ModuleName, exposed : Exposed, alias : Maybe ModuleName }
@@ -2825,6 +2832,16 @@ declarationListVisitor declarationList context =
     }
 
 
+scopeVisitor : { child : Scope, parent : Scope, scopeProvider : ScopeProvider } -> Node Expression -> ModuleContext -> ( List (Error {}), ModuleContext )
+scopeVisitor { child } _ context =
+    ( [], { context | scope = child } )
+
+
+scopeExitVisitor : { child : Scope, parent : Scope, scopeProvider : ScopeProvider } -> Node Expression -> ModuleContext -> ( List (Error {}), ModuleContext )
+scopeExitVisitor { parent } _ context =
+    ( [], { context | scope = parent } )
+
+
 
 -- DECLARATION VISITOR
 
@@ -2922,6 +2939,7 @@ expressionVisitor node config context =
               , extractSourceCode = context.extractSourceCode
               , exposedVariants = context.exposedVariants
               , importLookup = context.importLookup
+              , scope = context.scope
               }
             )
 
@@ -2978,6 +2996,7 @@ expressionVisitor node config context =
                             , extractSourceCode = context.extractSourceCode
                             , exposedVariants = context.exposedVariants
                             , importLookup = context.importLookup
+                            , scope = context.scope
                             }
 
                         Just currentBranchLocalBindings ->
@@ -3008,6 +3027,7 @@ expressionVisitor node config context =
                             , extractSourceCode = context.extractSourceCode
                             , exposedVariants = context.exposedVariants
                             , importLookup = context.importLookup
+                            , scope = context.scope
                             }
 
                 expressionChecked : { error : Maybe (Error {}), subRangeToIgnore : Maybe Range, rightSidesOfPlusPlus : RangeDict (), inferredConstants : List ( Range, Infer.Inferred ) }
@@ -3052,6 +3072,7 @@ expressionVisitor node config context =
               , extractSourceCode = contextWithInferredConstantsAndLocalBindings.extractSourceCode
               , exposedVariants = contextWithInferredConstantsAndLocalBindings.exposedVariants
               , importLookup = contextWithInferredConstantsAndLocalBindings.importLookup
+              , scope = contextWithInferredConstantsAndLocalBindings.scope
               }
             )
 
@@ -3273,6 +3294,7 @@ expressionExitVisitor (Node expressionRange _) context =
     , extractSourceCode = context.extractSourceCode
     , exposedVariants = context.exposedVariants
     , importLookup = context.importLookup
+    , scope = context.scope
     }
 
 
