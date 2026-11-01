@@ -1148,7 +1148,7 @@ expressionEnterVisitor ((Node nodeRange expr) as node) context =
                                                     createScope
                                                         { id = scopeId
                                                         , parent = letScope
-                                                        , range = declRange
+                                                        , range = Node.range expression
                                                         , bindings = bindings
                                                         }
                                             in
