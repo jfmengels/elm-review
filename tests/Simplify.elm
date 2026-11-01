@@ -3693,6 +3693,7 @@ expressionVisitorHelp (Node expressionRange expression) config context =
                     , right = right
                     , rightRange = rightRange
                     , isOnTheRightSideOfPlusPlus = RangeDict.member expressionRange context.rightSidesOfPlusPlus
+                    , scope = context.scope
                     }
             , subRangeToIgnore = Nothing
             , rightSidesOfPlusPlus =
@@ -3749,6 +3750,7 @@ expressionVisitorHelp (Node expressionRange expression) config context =
                     , importCustomTypes = context.importCustomTypes
                     , moduleBindings = context.moduleBindings
                     , localBindings = context.localBindings
+                    , scope = context.scope
                     }
             in
             case ifChecks ifCheckInfo of
@@ -3783,6 +3785,7 @@ expressionVisitorHelp (Node expressionRange expression) config context =
                     , inferredConstants = context.inferredConstants
                     , moduleBindings = context.moduleBindings
                     , localBindings = context.localBindings
+                    , scope = context.scope
                     , parentRange = expressionRange
                     , caseOf = caseBlock
                     }
@@ -3905,6 +3908,7 @@ toCallCheckInfo config context checkInfo =
             , localBindings = context.localBindings
             , commentRanges = context.commentRanges
             , inferredConstants = context.inferredConstants
+            , scope = context.scope
             }
 
         -- [] | [ _ ] ->
@@ -3926,6 +3930,7 @@ toCallCheckInfo config context checkInfo =
             , localBindings = context.localBindings
             , commentRanges = context.commentRanges
             , inferredConstants = context.inferredConstants
+            , scope = context.scope
             }
 
 
@@ -3963,6 +3968,7 @@ toCompositionCheckInfo config context compositionSpecific =
     , earlier = innerComposition.earlier
     , later = innerComposition.later
     , isEmbeddedInComposition = innerComposition.isEmbeddedInComposition
+    , scope = context.scope
     }
 
 
@@ -3997,6 +4003,7 @@ type alias OperatorApplicationCheckInfo =
     , right : Node Expression
     , rightRange : Range
     , isOnTheRightSideOfPlusPlus : Bool
+    , scope : Scope
     }
 
 
@@ -4083,6 +4090,7 @@ type alias CallCheckInfo =
     , callStyle : FunctionCallStyle
     , firstArg : Node Expression
     , argsAfterFirst : List (Node Expression)
+    , scope : Scope
     }
 
 
@@ -4141,6 +4149,7 @@ type alias CompositionIntoCheckInfo =
         , removeRange : Range
         }
     , isEmbeddedInComposition : Bool
+    , scope : Scope
     }
 
 
@@ -4456,6 +4465,7 @@ type alias CompositionCheckInfo =
         , removeRange : Range
         }
     , isEmbeddedInComposition : Bool
+    , scope : Scope
     }
 
 
@@ -4523,6 +4533,7 @@ valueOrFnOrFnCallThenAnyCompositionChecks earlier checkInfo =
                                     }
                                 , earlier = earlier
                                 , isEmbeddedInComposition = checkInfo.isEmbeddedInComposition
+                                , scope = checkInfo.scope
                                 }
                                 |> Maybe.map (\e -> Rule.errorWithFix e.info laterFnOrCall.fnRange e.fix)
 
@@ -4558,6 +4569,7 @@ valueOrFnOrFnCallThenAnyCompositionChecks earlier checkInfo =
                                     , arg = laterSingleArgCall.arg
                                     , removeRange = checkInfo.later.removeRange
                                     }
+                                , scope = checkInfo.scope
                                 }
                                 |> Maybe.map
                                     (\e ->
@@ -13302,6 +13314,7 @@ extractNormalizeResources resources =
     , inferredConstants = resources.inferredConstants
     , moduleCustomTypes = resources.moduleCustomTypes
     , importCustomTypes = resources.importCustomTypes
+    , scope = resources.scope
     }
 
 
@@ -20771,6 +20784,7 @@ type alias IfCheckInfo =
     , condition : Node Expression
     , trueBranch : Node Expression
     , falseBranch : Node Expression
+    , scope : Scope
     }
 
 
@@ -20974,6 +20988,7 @@ type alias CaseOfCheckInfo =
                 )
         , extractSourceCode : Range -> String
         , inferredConstants : ( Infer.Inferred, List Infer.Inferred )
+        , scope : Scope
         , parentRange : Range
         , caseOf : Expression.CaseBlock
         }

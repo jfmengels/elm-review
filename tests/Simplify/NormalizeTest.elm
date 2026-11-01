@@ -799,6 +799,7 @@ normalizeSourceCode moduleNames inferred source =
             , inferredConstants = ( inferred, [] )
             , moduleCustomTypes = Dict.empty
             , importCustomTypes = Dict.empty
+            , scope = Debug.todo "scope"
             }
 
 
