@@ -29,6 +29,7 @@ all =
     describe "Scope & ScopeProvider"
         [ scopeTest
         , qualifyModuleNameForTypeTest
+        , qualifyModuleNameForValueTest
         ]
 
 
@@ -411,6 +412,195 @@ qualifyModuleNameForType : ModuleName -> String -> String -> ModuleName
 qualifyModuleNameForType moduleName typeName source =
     ScopeProvider.qualifyModuleNameForType
         (getScopeProvider source)
+        moduleName
+        typeName
+
+
+
+-- TODO Check for constructor names as well
+
+
+qualifyModuleNameForValueTest : Test
+qualifyModuleNameForValueTest =
+    describe "qualifyModuleNameForValue"
+        [ test "should return [] for values from Basics" <|
+            \() ->
+                """module A exposing (..)
+a = 1
+"""
+                    |> qualifyModuleNameForValue [ "Basics" ] "max"
+                    |> Expect.equal []
+        , test "should return Basics for values from Basics that are shadowed by top-level declaration" <|
+            \() ->
+                """module A exposing (..)
+max = 10
+"""
+                    |> qualifyModuleNameForValue [ "Basics" ] "max"
+                    |> Expect.equal [ "Basics" ]
+        , test "should return Basics for values from Basics that are shadowed by a parameter" <|
+            \() ->
+                """module A exposing (..)
+fn max =
+  max
+    + 10
+"""
+                    |> qualifyModuleNameForValueAt { start = { row = 2, column = 2 }, end = { row = 2, column = 5 } } [ "Basics" ] "max"
+                    |> Expect.equal [ "Basics" ]
+        , test "should return [] for values from Basics that are shadowed by a parameter but not in the requested scope" <|
+            \() ->
+                """module A exposing (..)
+fn max =
+  max
+    + 10
+"""
+                    |> qualifyModuleNameForValue [ "Basics" ] "max"
+                    |> Expect.equal []
+        , test "should return module alias when module is aliased and a qualified import is needed (prelude)" <|
+            \() ->
+                """module A exposing (..)
+import Basics as B
+max = 10
+"""
+                    |> qualifyModuleNameForValue [ "Basics" ] "max"
+                    |> Expect.equal [ "B" ]
+        , test "should return [] for values for a local value when requested module is []" <|
+            \() ->
+                """module A exposing (..)
+xyz = 1
+"""
+                    |> qualifyModuleNameForValue [] "xyz"
+                    |> Expect.equal []
+        , test "should return [] for values for a local value when requested module is the current module name" <|
+            \() ->
+                """module A exposing (..)
+xyz = 1
+"""
+                    |> qualifyModuleNameForValue [ "A" ] "xyz"
+                    |> Expect.equal []
+        , test "should return the module name itself for an imported value" <|
+            \() ->
+                """module A exposing (..)
+import B
+max = 10
+"""
+                    |> qualifyModuleNameForValue [ "B" ] "max"
+                    |> Expect.equal [ "B" ]
+        , test "should return the module alias itself for an imported value when one is present" <|
+            \() ->
+                """module A exposing (..)
+import B as C
+max = 10
+"""
+                    |> qualifyModuleNameForValue [ "B" ] "max"
+                    |> Expect.equal [ "C" ]
+        , test "should return [] if the value is explicitly imported from module" <|
+            \() ->
+                """module A exposing (..)
+import B exposing (max)
+a = 1
+"""
+                    |> qualifyModuleNameForValue [ "B" ] "max"
+                    |> Expect.equal []
+        , test "should return module name if the value is explicitly imported but shadowed by top-level declaration" <|
+            \() ->
+                """module A exposing (..)
+import B exposing (max)
+max = 10
+"""
+                    |> qualifyModuleNameForValue [ "B" ] "max"
+                    |> Expect.equal [ "B" ]
+        , test "should return module name if the value is explicitly imported but shadowed by parameter" <|
+            \() ->
+                """module A exposing (..)
+import B exposing (max)
+fn max =
+  max
+    + 10
+"""
+                    |> qualifyModuleNameForValueAt { start = { row = 3, column = 2 }, end = { row = 3, column = 5 } } [ "B" ] "max"
+                    |> Expect.equal [ "B" ]
+        , test "should return module name if the value is explicitly imported but shadowed by parameter in a parent non-toplevel scope" <|
+            \() ->
+                """module A exposing (..)
+import B exposing (max)
+fn max =
+  let a = 1
+  in
+  max
+    + a
+"""
+                    |> qualifyModuleNameForValueAt { start = { row = 6, column = 2 }, end = { row = 6, column = 5 } } [ "B" ] "max"
+                    |> Expect.equal [ "B" ]
+        , test "should return [] if the value is explicitly imported but shadowed by a parameter though not in the requested scope" <|
+            \() ->
+                """module A exposing (..)
+import B exposing (max)
+fn max =
+  max
+    + 10
+"""
+                    |> qualifyModuleNameForValue [ "B" ] "max"
+                    |> Expect.equal []
+        , test "should return [] if the value is imported by `exposing (..)`" <|
+            \() ->
+                """module A exposing (..)
+import List exposing (..)
+a = 1
+"""
+                    |> qualifyModuleNameForValue [ "List" ] "map"
+                    |> Expect.equal []
+        , test "should return module name if the value is imported by `exposing (..)` but shadowed by top-level declaration" <|
+            \() ->
+                """module A exposing (..)
+import List exposing (..)
+map = []
+"""
+                    |> qualifyModuleNameForValue [ "List" ] "map"
+                    |> Expect.equal [ "List" ]
+        , test "should return module name if the value is imported by `exposing (..)` but shadowed by parameter" <|
+            \() ->
+                """module A exposing (..)
+import List exposing (..)
+fn map =
+  map
+    + 10
+"""
+                    |> qualifyModuleNameForValueAt { start = { row = 3, column = 2 }, end = { row = 3, column = 5 } } [ "List" ] "map"
+                    |> Expect.equal [ "List" ]
+        , test "should return [] if the value is imported by `exposing (..)` and shadowed by parameter but not in the requested scope" <|
+            \() ->
+                """module A exposing (..)
+import List exposing (..)
+fn map =
+  map
+    + 10
+"""
+                    |> qualifyModuleNameForValue [ "List" ] "map"
+                    |> Expect.equal []
+        , test "should return the module name if the value is imported but by another module" <|
+            \() ->
+                """module A exposing (..)
+import B
+import C exposing (max)
+a = 1
+"""
+                    |> qualifyModuleNameForValue [ "B" ] "max"
+                    |> Expect.equal [ "B" ]
+        ]
+
+
+qualifyModuleNameForValue : ModuleName -> String -> String -> ModuleName
+qualifyModuleNameForValue moduleName typeName source =
+    Scope.qualifyModuleNameForValue
+        (ScopeProvider.topLevel (getScopeProvider source))
+        moduleName
+        typeName
+
+
+qualifyModuleNameForValueAt : Range -> ModuleName -> String -> String -> ModuleName
+qualifyModuleNameForValueAt range moduleName typeName source =
+    Scope.qualifyModuleNameForValue
+        (ScopeProvider.at (getScopeProvider source) range)
         moduleName
         typeName
 
