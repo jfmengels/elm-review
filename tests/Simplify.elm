@@ -2275,6 +2275,7 @@ type alias QualifyResources a =
         | importLookup : ImportLookup
         , moduleBindings : Set String
         , localBindings : RangeDict (Set String)
+        , scope : Scope
     }
 
 
@@ -2283,6 +2284,7 @@ defaultQualifyResources =
     { importLookup = implicitImports
     , localBindings = RangeDict.empty
     , moduleBindings = Set.empty
+    , scope = Debug.todo "Add dummy scope"
     }
 
 
@@ -6260,7 +6262,7 @@ comparisonError bool checkInfo =
         }
         checkInfo.parentRange
         [ Fix.replaceRangeBy checkInfo.parentRange
-            (qualifiedToString (qualify ( [ "Basics" ], boolAsString ) checkInfo))
+            (qualifiedToString (qualify2 ( [ "Basics" ], boolAsString ) checkInfo))
         ]
 
 
@@ -6520,7 +6522,7 @@ notOnKnownBoolCheck checkInfo =
                     }
                     checkInfo.fnRange
                     [ Fix.replaceRangeBy checkInfo.parentRange
-                        (qualifiedToString (qualify ( [ "Basics" ], notBoolAsString ) checkInfo))
+                        (qualifiedToString (qualify2 ( [ "Basics" ], notBoolAsString ) checkInfo))
                     ]
                 )
 
@@ -7212,7 +7214,7 @@ rangeAndFixForRedundantCondition redundantConditionResolution (Node nodeRange _)
         ReplaceByNoop noopValue ->
             ( nodeRange
             , [ Fix.replaceRangeBy nodeRange
-                    (qualifiedToString (qualify ( [ "Basics" ], AstHelpers.boolToString noopValue ) qualifyResources))
+                    (qualifiedToString (qualify2 ( [ "Basics" ], AstHelpers.boolToString noopValue ) qualifyResources))
               ]
             )
 
@@ -7559,8 +7561,8 @@ fnCompositionString :
     -> String
 fnCompositionString config resources =
     compositionString
-        { earlier = qualifiedToString (qualify config.earlier resources)
-        , later = qualifiedToString (qualify config.later resources)
+        { earlier = qualifiedToString (qualify2 config.earlier resources)
+        , later = qualifiedToString (qualify2 config.later resources)
         , direction = config.direction
         }
 
@@ -8079,7 +8081,7 @@ stringUnconsChecks =
     intoFnCheckOnlyCall
         (\checkInfo ->
             callOnEmptyReturnsCheck
-                { resultAsString = \res -> qualifiedToString (qualify Fn.Maybe.nothingVariant res) }
+                { resultAsString = \res -> qualifiedToString (qualify2 Fn.Maybe.nothingVariant res) }
                 stringCollection
                 checkInfo
         )
@@ -9096,7 +9098,7 @@ listMemberChecks =
         [ intoFnCheckOnlyCall
             (\checkInfo ->
                 callOnEmptyReturnsCheck
-                    { resultAsString = \res -> qualifiedToString (qualify Fn.Basics.falseVariant res) }
+                    { resultAsString = \res -> qualifiedToString (qualify2 Fn.Basics.falseVariant res) }
                     listCollection
                     checkInfo
                     |> onNothing (\() -> knownMemberChecks listCollection checkInfo)
@@ -9601,7 +9603,7 @@ listFoldChecks foldFnName reverseFoldFnName =
                                                 { start = checkInfo.fnRange.start
                                                 , end = (Node.range initialArg).end
                                                 }
-                                                (qualifiedToString (qualify ( listModuleName, operation.list ) checkInfo))
+                                                (qualifiedToString (qualify2 ( listModuleName, operation.list ) checkInfo))
                                             ]
                                         )
 
@@ -9622,7 +9624,7 @@ listFoldChecks foldFnName reverseFoldFnName =
                                                                 { start = checkInfo.fnRange.start
                                                                 , end = (Node.range checkInfo.firstArg).end
                                                                 }
-                                                                (qualifiedToString (qualify ( listModuleName, operation.list ) checkInfo) ++ ")")
+                                                                (qualifiedToString (qualify2 ( listModuleName, operation.list ) checkInfo) ++ ")")
                                                             , Fix.insertAt checkInfo.parentRange.start "(("
                                                             ]
                                                         )
@@ -9637,7 +9639,7 @@ listFoldChecks foldFnName reverseFoldFnName =
                                                                 (" "
                                                                     ++ operation.two
                                                                     ++ " ("
-                                                                    ++ qualifiedToString (qualify ( listModuleName, operation.list ) checkInfo)
+                                                                    ++ qualifiedToString (qualify2 ( listModuleName, operation.list ) checkInfo)
                                                                 )
                                                             , Fix.removeRange
                                                                 { start = checkInfo.fnRange.start
@@ -9656,7 +9658,7 @@ listFoldChecks foldFnName reverseFoldFnName =
                                     in
                                     alwaysResultsInUnparenthesizedConstantError
                                         (qualifiedToString checkInfo.fn ++ " with (" ++ operation.two ++ ") and the initial accumulator " ++ determiningAsString)
-                                        { replacement = \res -> qualifiedToString (qualify ( [ "Basics" ], determiningAsString ) res) }
+                                        { replacement = \res -> qualifiedToString (qualify2 ( [ "Basics" ], determiningAsString ) res) }
                                         checkInfo
 
                                 else
@@ -9673,7 +9675,7 @@ listFoldChecks foldFnName reverseFoldFnName =
                                         checkInfo.fnRange
                                         [ Fix.replaceRangeBy
                                             { start = checkInfo.fnRange.start, end = (Node.range initialArg).end }
-                                            (qualifiedToString (qualify ( listModuleName, operation.list ) checkInfo)
+                                            (qualifiedToString (qualify2 ( listModuleName, operation.list ) checkInfo)
                                                 ++ " "
                                                 ++ qualifiedToString (qualify2 Fn.Basics.identity checkInfo)
                                             )
@@ -23550,7 +23552,7 @@ compositionReplaceByFix replacement checkInfo =
 
 compositionReplaceByFnFix :
     ( ModuleName, String )
-    -> QualifyResources { checkInfo | later : { later | range : Range }, earlier : { earlier | removeRange : Range }, scope : Scope }
+    -> QualifyResources { checkInfo | later : { later | range : Range }, earlier : { earlier | removeRange : Range } }
     -> List Fix
 compositionReplaceByFnFix replacementFn checkInfo =
     compositionReplaceByFix (qualifiedToString (qualify2 replacementFn checkInfo)) checkInfo
