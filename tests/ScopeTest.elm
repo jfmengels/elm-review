@@ -586,6 +586,13 @@ a = 1
 """
                     |> qualifyValue [ "B" ] "max"
                     |> Expect.equal [ "B" ]
+        , test "should return [] if the value is a custom type constructor implicitly imported by the prelude" <|
+            \() ->
+                """module A exposing (..)
+a = 10
+"""
+                    |> qualifyValue [ "Basics" ] "True"
+                    |> Expect.equal []
         ]
 
 
