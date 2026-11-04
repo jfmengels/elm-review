@@ -8,6 +8,7 @@ module Review.Resources.Reference exposing
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Range exposing (Range)
 import Review.Resources.ScopeInternal as Internal
+import Review.Resources.Target exposing (Target)
 
 
 type alias Reference =
@@ -24,6 +25,6 @@ qualifier (Internal.Reference reference) =
     reference.qualifier
 
 
-target : Internal.Reference -> Internal.Target
+target : Internal.Reference -> Target
 target (Internal.Reference reference) =
     reference.target
