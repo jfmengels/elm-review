@@ -29,6 +29,7 @@ import Review.Resources.Scope as Scope
 import Review.Resources.ScopeId as ScopeId
 import Review.Resources.ScopeInternal as ScopeInternal exposing (Reference, ScopeId, ScopeInfo)
 import Review.Resources.ScopeProvider exposing (ScopeProvider)
+import Review.Resources.Target as Target exposing (Target)
 import Vendor.ListExtra as ListExtra
 
 
@@ -1419,7 +1420,7 @@ addValueReference moduleName valueName range kind context =
                         reference : Reference
                         reference =
                             ScopeInternal.Reference
-                                { target = ScopeInternal.LocalBinding binding
+                                { target = Target.LocalBinding binding
                                 , qualifier = []
                                 , range = range
                                 , kind = kind
@@ -1437,7 +1438,7 @@ addValueReference moduleName valueName range kind context =
                                 reference : Reference
                                 reference =
                                     ScopeInternal.Reference
-                                        { target = ScopeInternal.ImportBinding_ importBinding
+                                        { target = Target.ImportBinding_ importBinding
                                         , qualifier = []
                                         , range = range
                                         , kind = kind
@@ -1460,7 +1461,7 @@ addValueReference moduleName valueName range kind context =
                 moduleReference : Reference
                 moduleReference =
                     ScopeInternal.Reference
-                        { target = ScopeInternal.QualifiedReference { name = valueName, moduleName = realModuleName }
+                        { target = Target.QualifiedReference { name = valueName, moduleName = realModuleName }
                         , qualifier = moduleName
                         , range = range
                         , kind = kind
@@ -1571,18 +1572,18 @@ moduleNameForType context typeName moduleName =
             moduleName
 
 
-getTarget : Context -> String -> ModuleName -> Maybe ( ScopeInternal.Target, Maybe BindingId.Id )
+getTarget : Context -> String -> ModuleName -> Maybe ( Target, Maybe BindingId.Id )
 getTarget context typeName moduleName =
     case moduleName of
         [] ->
             case Dict.get typeName (NonEmpty.head context.scopeStack).typeBindings of
                 Just binding ->
-                    Just ( ScopeInternal.LocalBinding binding, Just (Binding.id binding) )
+                    Just ( Target.LocalBinding binding, Just (Binding.id binding) )
 
                 Nothing ->
                     case Dict.get typeName (NonEmpty.head context.scopeStack).importTypeBindings of
                         Just importBinding ->
-                            Just ( ScopeInternal.ImportBinding_ importBinding, Just (ImportBinding.id importBinding) )
+                            Just ( Target.ImportBinding_ importBinding, Just (ImportBinding.id importBinding) )
 
                         Nothing ->
                             Nothing
@@ -1607,10 +1608,10 @@ getTarget context typeName moduleName =
                         Nothing ->
                             moduleName
             in
-            Just ( ScopeInternal.QualifiedReference { moduleName = targetModuleName, name = typeName }, Nothing )
+            Just ( Target.QualifiedReference { moduleName = targetModuleName, name = typeName }, Nothing )
 
         _ ->
-            Just ( ScopeInternal.QualifiedReference { moduleName = moduleName, name = typeName }, Nothing )
+            Just ( Target.QualifiedReference { moduleName = moduleName, name = typeName }, Nothing )
 
 
 isValueDeclaredInModule : String -> Elm.Docs.Module -> Bool
