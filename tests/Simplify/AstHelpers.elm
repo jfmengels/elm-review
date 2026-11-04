@@ -14,7 +14,7 @@ module Simplify.AstHelpers exposing
     , getTuple2, getTuple2Literal
     , boolToString, emptyStringAsString
     , moduleNameFromString, qualifiedModuleName, qualifiedToString
-    , declarationListBindings, patternBindings, patternListBindings, typeUsesVariable
+    , patternBindings, patternListBindings, typeUsesVariable
     , nameOfExpose
     , couldBeValueContainingNaN
     )
@@ -70,7 +70,6 @@ module Simplify.AstHelpers exposing
 -}
 
 import Dict exposing (Dict)
-import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Exposing as Exposing
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.ModuleName exposing (ModuleName)
@@ -1338,35 +1337,6 @@ patternBindings pattern =
             Set.empty
 
         Pattern.FloatPattern _ ->
-            Set.empty
-
-
-declarationListBindings : List (Node Declaration) -> Set String
-declarationListBindings declarationList =
-    List.foldl
-        (\(Node _ declaration) soFar ->
-            Set.union (declarationBindings declaration) soFar
-        )
-        Set.empty
-        declarationList
-
-
-declarationBindings : Declaration -> Set String
-declarationBindings declaration =
-    case declaration of
-        Declaration.CustomTypeDeclaration variantType ->
-            variantType.constructors
-                |> List.foldl
-                    (\(Node _ variant) soFar ->
-                        Set.insert (Node.value variant.name) soFar
-                    )
-                    Set.empty
-
-        Declaration.FunctionDeclaration functionDeclaration ->
-            Set.singleton
-                (Node.value (Node.value functionDeclaration.declaration).name)
-
-        _ ->
             Set.empty
 
 
