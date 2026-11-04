@@ -24,11 +24,12 @@ import Dict
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node exposing (Node(..))
 import Elm.Syntax.Range as Range exposing (Range)
+import Review.Resources.Binding exposing (Binding)
 import Review.Resources.BindingId as BindingId
 import Review.Resources.ImportBinding exposing (ImportBinding)
 import Review.Resources.Reference as Reference
 import Review.Resources.Scope as Scope exposing (Scope)
-import Review.Resources.ScopeInternal as Internal exposing (Binding, ScopeInfo)
+import Review.Resources.ScopeInternal as Internal exposing (ScopeInfo)
 
 
 type alias ScopeProvider =

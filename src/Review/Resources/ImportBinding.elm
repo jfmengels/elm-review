@@ -7,7 +7,7 @@ module Review.Resources.ImportBinding exposing
 
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Review.Resources.BindingId as BindingId
-import Review.Resources.ScopeInternal as Internal
+import Review.Resources.Internal.Bindings as Internal
 
 
 type alias ImportBinding =

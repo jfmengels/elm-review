@@ -7,7 +7,7 @@ module Review.Resources.Binding exposing
 
 import Elm.Syntax.Range exposing (Range)
 import Review.Resources.BindingId as BindingId
-import Review.Resources.ScopeInternal as Internal
+import Review.Resources.Internal.Bindings as Internal
 
 
 type alias Binding =

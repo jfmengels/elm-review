@@ -1,8 +1,5 @@
 module Review.Resources.ScopeInternal exposing
-    ( Binding(..)
-    , ImportBinding(..)
-    , Kind(..)
-    , Realm
+    ( Kind(..)
     , Reference(..)
     , Scope(..)
     , ScopeId
@@ -11,8 +8,6 @@ module Review.Resources.ScopeInternal exposing
     , Target(..)
     , create
     , empty
-    , typeRealm
-    , valueRealm
     )
 
 import Dict exposing (Dict)
@@ -25,7 +20,7 @@ import Elm.Syntax.Pattern exposing (Pattern)
 import Elm.Syntax.Range as Range exposing (Range)
 import Elm.Syntax.TypeAnnotation exposing (TypeAnnotation)
 import NonEmpty exposing (NonEmpty)
-import Review.Resources.BindingId as BindingId
+import Review.Resources.Internal.Bindings exposing (Binding, ImportBinding)
 import Review.Resources.ScopeOrigin as ScopeOrigin exposing (ScopeOrigin)
 
 
@@ -64,40 +59,6 @@ type alias ScopeInfo =
     , modules : Dict ModuleName Elm.Docs.Module
     , children : List Scope
     }
-
-
-type Binding
-    = Binding
-        { id : BindingId.Id
-        , name : String
-        , range : Range
-        , realm : Realm
-        }
-
-
-type alias Realm =
-    -- valueRealm for values
-    -- | typeRealm for types
-    -- can be both
-    Int
-
-
-valueRealm : Realm
-valueRealm =
-    1
-
-
-typeRealm : Realm
-typeRealm =
-    2
-
-
-type ImportBinding
-    = ImportBinding
-        { id : BindingId.Id
-        , name : String
-        , moduleName : ModuleName
-        }
 
 
 type Reference

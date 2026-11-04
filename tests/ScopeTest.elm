@@ -12,10 +12,11 @@ import Review.Project.Valid as ValidProject
 import Review.Resources.Binding as Binding
 import Review.Resources.BindingId as BindingId
 import Review.Resources.ImportBinding as ImportBinding
+import Review.Resources.Internal.Bindings exposing (Binding)
 import Review.Resources.ModuleNameLookupTable as ModuleNameLookupTable
 import Review.Resources.Reference as Reference exposing (Reference)
 import Review.Resources.Scope as Scope
-import Review.Resources.ScopeInternal as Internal exposing (Binding, Scope(..), ScopeInfo)
+import Review.Resources.ScopeInternal as Internal exposing (Scope(..), ScopeInfo)
 import Review.Resources.ScopeProvider as ScopeProvider exposing (ScopeProvider)
 import Review.Test.Dependencies
 import Set
