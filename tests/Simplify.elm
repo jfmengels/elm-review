@@ -2010,7 +2010,6 @@ import Elm.Docs
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Exposing as Exposing
 import Elm.Syntax.Expression as Expression exposing (Expression)
-import Elm.Syntax.Import exposing (Import)
 import Elm.Syntax.Module
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node(..))
@@ -2209,7 +2208,6 @@ expectNaN (Configuration config) =
 
 type alias ProjectContext =
     { customTypesToReportInCases : Set ( ModuleName, ConstructorName )
-    , exposedVariants : Dict ModuleName (Set String)
     , exposedRecordTypeAliases : Dict ModuleName (Dict String (List String))
     , exposedCustomTypes :
         Dict
@@ -2225,7 +2223,6 @@ type alias ProjectContext =
 
 type alias ModuleContext =
     { lookupTable : ModuleNameLookupTable
-    , moduleName : ModuleName
     , exposed : ExposingContext
     , commentRanges : List Range
     , importRecordTypeAliases : Dict ModuleName (Dict String (List String))
@@ -2245,19 +2242,12 @@ type alias ModuleContext =
             { variantNames : Set String
             , allParametersAreUsedInVariants : Bool
             }
-    , moduleBindings : Set String
-    , localBindings : RangeDict (Set String)
-    , branchLocalBindings : RangeDict (Set String)
     , rangesToIgnore : List Range
     , rightSidesOfPlusPlus : RangeDict ()
     , customTypesToReportInCases : Set ( ModuleName, ConstructorName )
-    , localIgnoredCustomTypes : List Constructor
-    , constructorsToIgnore : Set ( ModuleName, String )
     , inferredConstantsDict : RangeDict Infer.Inferred
     , inferredConstants : ( Infer.Inferred, List Infer.Inferred )
     , extractSourceCode : Range -> String
-    , exposedVariants : Set String
-    , importLookup : ImportLookup
     , scope : Scope
     }
 
@@ -2298,17 +2288,9 @@ type alias ConstructorName =
     String
 
 
-type alias Constructor =
-    { moduleName : ModuleName
-    , name : String
-    , constructors : List String
-    }
-
-
 initialContext : ProjectContext
 initialContext =
     { customTypesToReportInCases = Set.empty
-    , exposedVariants = Dict.empty
     , exposedRecordTypeAliases = Dict.empty
     , exposedCustomTypes = Dict.empty
     }
@@ -2317,13 +2299,10 @@ initialContext =
 fromModuleToProject : Rule.ContextCreator ModuleContext ProjectContext
 fromModuleToProject =
     Rule.initContextCreator
-        (\moduleContext ->
+        (\moduleName moduleContext ->
             { customTypesToReportInCases = Set.empty
-            , exposedVariants =
-                Dict.singleton moduleContext.moduleName
-                    moduleContext.exposedVariants
             , exposedRecordTypeAliases =
-                Dict.singleton moduleContext.moduleName
+                Dict.singleton moduleName
                     (case moduleContext.exposed of
                         ExposingAllContext ->
                             moduleContext.moduleRecordTypeAliases
@@ -2342,7 +2321,7 @@ fromModuleToProject =
                                 exposingSomeContext.potentialTypeAliases
                     )
             , exposedCustomTypes =
-                Dict.singleton moduleContext.moduleName
+                Dict.singleton moduleName
                     (case moduleContext.exposed of
                         ExposingAllContext ->
                             moduleContext.moduleCustomTypes
@@ -2362,115 +2341,34 @@ fromModuleToProject =
                     )
             }
         )
+        |> Rule.withModuleName
 
 
 fromProjectToModule : Rule.ContextCreator ProjectContext ModuleContext
 fromProjectToModule =
     Rule.initContextCreator
-        (\lookupTable metadata extractSourceCode fullAst scopeProvider projectContext ->
-            let
-                imports : ImportLookup
-                imports =
-                    List.foldl
-                        (\import_ importLookup ->
-                            insertImport (importContext import_) importLookup
-                        )
-                        implicitImports
-                        fullAst.imports
-            in
+        (\lookupTable extractSourceCode fullAst scopeProvider projectContext ->
             { lookupTable = lookupTable
-            , moduleName = Rule.moduleNameFromMetadata metadata
             , exposed =
                 moduleExposingContext (Elm.Syntax.Module.exposingList (Node.value fullAst.moduleDefinition))
-            , importLookup =
-                createImportLookup
-                    { imports = imports
-                    , importExposedVariants = projectContext.exposedVariants
-                    }
             , commentRanges = []
             , importRecordTypeAliases = projectContext.exposedRecordTypeAliases
             , moduleRecordTypeAliases = Dict.empty
             , importCustomTypes = projectContext.exposedCustomTypes
             , moduleCustomTypes = Dict.empty
-            , moduleBindings = Set.empty
-            , localBindings = RangeDict.empty
-            , branchLocalBindings = RangeDict.empty
             , rangesToIgnore = []
             , rightSidesOfPlusPlus = RangeDict.empty
-            , localIgnoredCustomTypes = []
             , customTypesToReportInCases = projectContext.customTypesToReportInCases
-            , constructorsToIgnore = Set.empty
             , inferredConstantsDict = RangeDict.empty
             , inferredConstants = ( Infer.empty, [] )
             , extractSourceCode = extractSourceCode
-            , exposedVariants = Set.empty
             , scope = ScopeProvider.topLevel scopeProvider
             }
         )
         |> Rule.withModuleNameLookupTable
-        |> Rule.withMetadata
         |> Rule.withSourceCodeExtractor
         |> Rule.withFullAst
         |> Rule.withScopes
-
-
-importContext : Node Import -> { moduleName : ModuleName, exposed : Exposed, alias : Maybe ModuleName }
-importContext importNode =
-    let
-        import_ : Import
-        import_ =
-            Node.value importNode
-    in
-    { moduleName = import_.moduleName |> Node.value
-    , alias =
-        import_.moduleAlias |> Maybe.map Node.value
-    , exposed =
-        case import_.exposingList of
-            Nothing ->
-                ExposedSome Set.empty
-
-            Just (Node _ existingExposing) ->
-                case existingExposing of
-                    Exposing.All _ ->
-                        ExposedAll
-
-                    Exposing.Explicit exposes ->
-                        ExposedSome
-                            (List.foldl
-                                (\(Node _ expose) soFar ->
-                                    Set.insert (AstHelpers.nameOfExpose expose) soFar
-                                )
-                                Set.empty
-                                exposes
-                            )
-    }
-
-
-createImportLookup :
-    { imports : Dict ModuleName { alias : Maybe ModuleName, exposed : Exposed }
-    , importExposedVariants : Dict ModuleName (Set String)
-    }
-    -> ImportLookup
-createImportLookup context =
-    context.imports
-        |> Dict.map
-            (\moduleName import_ ->
-                case import_.exposed of
-                    ExposedAll ->
-                        import_
-
-                    ExposedSome some ->
-                        case Dict.get moduleName context.importExposedVariants of
-                            Nothing ->
-                                import_
-
-                            Just importExposedVariants ->
-                                { alias = import_.alias
-                                , exposed =
-                                    ExposedSome
-                                        (Set.union some importExposedVariants)
-                                }
-            )
 
 
 moduleExposingContext : Exposing.Exposing -> ExposingContext
@@ -2520,7 +2418,6 @@ exposingSomeContextEmpty =
 foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext
 foldProjectContexts newContext previousContext =
     { customTypesToReportInCases = Set.empty
-    , exposedVariants = Dict.union newContext.exposedVariants previousContext.exposedVariants
     , exposedRecordTypeAliases = Dict.union newContext.exposedRecordTypeAliases previousContext.exposedRecordTypeAliases
     , exposedCustomTypes = Dict.union newContext.exposedCustomTypes previousContext.exposedCustomTypes
     }
@@ -2591,23 +2488,7 @@ updateContextWithModuleInterface typeNamesAsStrings moduleDocs withDependencySoF
         moduleName =
             AstHelpers.moduleNameFromString moduleDocs.name
     in
-    { exposedVariants =
-        Dict.insert
-            (AstHelpers.moduleNameFromString moduleDocs.name)
-            (moduleDocs.unions
-                |> List.foldl
-                    (\union moduleVariantNamesSoFar ->
-                        union.tags
-                            |> List.foldl
-                                (\( variantName, _ ) withVariantsSoFar ->
-                                    Set.insert variantName withVariantsSoFar
-                                )
-                                moduleVariantNamesSoFar
-                    )
-                    Set.empty
-            )
-            withDependencySoFar.exposedVariants
-    , customTypesToReportInCases =
+    { customTypesToReportInCases =
         moduleDocs.unions
             |> List.foldl
                 (\union withModuleUnionsSoFar ->
@@ -2762,8 +2643,7 @@ commentsVisitor comments context =
 declarationListVisitor : List (Node Declaration) -> ModuleContext -> ModuleContext
 declarationListVisitor declarationList context =
     { context
-        | moduleBindings = AstHelpers.declarationListBindings declarationList
-        , moduleRecordTypeAliases =
+        | moduleRecordTypeAliases =
             List.foldl
                 (\(Node _ declaration) soFar ->
                     case declaration of
@@ -2837,40 +2717,11 @@ scopeExitVisitor { parent } _ context =
 declarationVisitor : Node Declaration -> ModuleContext -> ModuleContext
 declarationVisitor declarationNode context =
     case Node.value declarationNode of
-        Declaration.CustomTypeDeclaration variantType ->
-            let
-                variantsAreExposed : Bool
-                variantsAreExposed =
-                    case context.exposed of
-                        ExposingAllContext ->
-                            True
-
-                        ExposingSomeContext exposingSome ->
-                            Set.member (Node.value variantType.name) exposingSome.typesExposingVariants
-            in
-            if variantsAreExposed then
-                let
-                    exposedVariants : Set String
-                    exposedVariants =
-                        List.foldl
-                            (\(Node _ variant) acc -> Set.insert (Node.value variant.name) acc)
-                            context.exposedVariants
-                            variantType.constructors
-                in
-                { context | exposedVariants = exposedVariants }
-
-            else
-                context
-
-        Declaration.FunctionDeclaration functionDeclaration ->
+        Declaration.FunctionDeclaration _ ->
             { context
                 | rangesToIgnore = []
                 , rightSidesOfPlusPlus = RangeDict.empty
                 , inferredConstantsDict = RangeDict.empty
-                , localBindings =
-                    RangeDict.singleton
-                        (Node.range functionDeclaration.declaration)
-                        (AstHelpers.patternListBindings (Node.value functionDeclaration.declaration).arguments)
             }
 
         _ ->
@@ -2909,24 +2760,16 @@ expressionVisitor node config context =
               --
               , rightSidesOfPlusPlus = context.rightSidesOfPlusPlus
               , inferredConstantsDict = context.inferredConstantsDict
-              , localBindings = context.localBindings
-              , branchLocalBindings = context.branchLocalBindings
               , inferredConstants = context.inferredConstants
               , lookupTable = context.lookupTable
-              , moduleName = context.moduleName
               , exposed = context.exposed
               , commentRanges = context.commentRanges
               , importRecordTypeAliases = context.importRecordTypeAliases
               , moduleRecordTypeAliases = context.moduleRecordTypeAliases
               , importCustomTypes = context.importCustomTypes
               , moduleCustomTypes = context.moduleCustomTypes
-              , moduleBindings = context.moduleBindings
               , customTypesToReportInCases = context.customTypesToReportInCases
-              , localIgnoredCustomTypes = context.localIgnoredCustomTypes
-              , constructorsToIgnore = context.constructorsToIgnore
               , extractSourceCode = context.extractSourceCode
-              , exposedVariants = context.exposedVariants
-              , importLookup = context.importLookup
               , scope = context.scope
               }
             )
@@ -2946,81 +2789,27 @@ expressionVisitor node config context =
                             in
                             ( inferredConstants, previous :: previousStack )
 
-                expression : Expression
-                expression =
-                    Node.value node
-
-                withNewBranchLocalBindings : RangeDict (Set String)
-                withNewBranchLocalBindings =
-                    expressionBranchLocalBindingsInto context.branchLocalBindings expression
-
-                contextWithInferredConstantsAndLocalBindings : ModuleContext
-                contextWithInferredConstantsAndLocalBindings =
-                    case RangeDict.get expressionRange context.branchLocalBindings of
-                        Nothing ->
-                            { localBindings =
-                                RangeDict.insert expressionRange
-                                    (expressionSurfaceBindingsInto Set.empty expression)
-                                    context.localBindings
-                            , branchLocalBindings = withNewBranchLocalBindings
-                            , inferredConstants = newInferredConstants
-
-                            --
-                            , lookupTable = context.lookupTable
-                            , moduleName = context.moduleName
-                            , exposed = context.exposed
-                            , commentRanges = context.commentRanges
-                            , importRecordTypeAliases = context.importRecordTypeAliases
-                            , moduleRecordTypeAliases = context.moduleRecordTypeAliases
-                            , importCustomTypes = context.importCustomTypes
-                            , moduleCustomTypes = context.moduleCustomTypes
-                            , moduleBindings = context.moduleBindings
-                            , rangesToIgnore = context.rangesToIgnore
-                            , rightSidesOfPlusPlus = context.rightSidesOfPlusPlus
-                            , customTypesToReportInCases = context.customTypesToReportInCases
-                            , localIgnoredCustomTypes = context.localIgnoredCustomTypes
-                            , constructorsToIgnore = context.constructorsToIgnore
-                            , inferredConstantsDict = context.inferredConstantsDict
-                            , extractSourceCode = context.extractSourceCode
-                            , exposedVariants = context.exposedVariants
-                            , importLookup = context.importLookup
-                            , scope = context.scope
-                            }
-
-                        Just currentBranchLocalBindings ->
-                            { localBindings =
-                                RangeDict.insert expressionRange
-                                    (expressionSurfaceBindingsInto currentBranchLocalBindings expression)
-                                    context.localBindings
-                            , branchLocalBindings =
-                                RangeDict.remove expressionRange withNewBranchLocalBindings
-                            , inferredConstants = newInferredConstants
-
-                            --
-                            , lookupTable = context.lookupTable
-                            , moduleName = context.moduleName
-                            , exposed = context.exposed
-                            , commentRanges = context.commentRanges
-                            , importRecordTypeAliases = context.importRecordTypeAliases
-                            , moduleRecordTypeAliases = context.moduleRecordTypeAliases
-                            , importCustomTypes = context.importCustomTypes
-                            , moduleCustomTypes = context.moduleCustomTypes
-                            , moduleBindings = context.moduleBindings
-                            , rangesToIgnore = context.rangesToIgnore
-                            , rightSidesOfPlusPlus = context.rightSidesOfPlusPlus
-                            , customTypesToReportInCases = context.customTypesToReportInCases
-                            , localIgnoredCustomTypes = context.localIgnoredCustomTypes
-                            , constructorsToIgnore = context.constructorsToIgnore
-                            , inferredConstantsDict = context.inferredConstantsDict
-                            , extractSourceCode = context.extractSourceCode
-                            , exposedVariants = context.exposedVariants
-                            , importLookup = context.importLookup
-                            , scope = context.scope
-                            }
+                contextWithInferredConstants : ModuleContext
+                contextWithInferredConstants =
+                    { inferredConstants = newInferredConstants
+                    , lookupTable = context.lookupTable
+                    , exposed = context.exposed
+                    , commentRanges = context.commentRanges
+                    , importRecordTypeAliases = context.importRecordTypeAliases
+                    , moduleRecordTypeAliases = context.moduleRecordTypeAliases
+                    , importCustomTypes = context.importCustomTypes
+                    , moduleCustomTypes = context.moduleCustomTypes
+                    , rangesToIgnore = context.rangesToIgnore
+                    , rightSidesOfPlusPlus = context.rightSidesOfPlusPlus
+                    , customTypesToReportInCases = context.customTypesToReportInCases
+                    , inferredConstantsDict = context.inferredConstantsDict
+                    , extractSourceCode = context.extractSourceCode
+                    , scope = context.scope
+                    }
 
                 expressionChecked : { error : Maybe (Error {}), subRangeToIgnore : Maybe Range, rightSidesOfPlusPlus : RangeDict (), inferredConstants : List ( Range, Infer.Inferred ) }
                 expressionChecked =
-                    expressionVisitorHelp node config contextWithInferredConstantsAndLocalBindings
+                    expressionVisitorHelp node config contextWithInferredConstants
             in
             ( case expressionChecked.error of
                 Nothing ->
@@ -3042,25 +2831,17 @@ expressionVisitor node config context =
                         expressionChecked.inferredConstants
 
               --
-              , localBindings = contextWithInferredConstantsAndLocalBindings.localBindings
-              , branchLocalBindings = contextWithInferredConstantsAndLocalBindings.branchLocalBindings
-              , inferredConstants = contextWithInferredConstantsAndLocalBindings.inferredConstants
-              , lookupTable = contextWithInferredConstantsAndLocalBindings.lookupTable
-              , moduleName = contextWithInferredConstantsAndLocalBindings.moduleName
-              , exposed = contextWithInferredConstantsAndLocalBindings.exposed
-              , commentRanges = contextWithInferredConstantsAndLocalBindings.commentRanges
-              , importRecordTypeAliases = contextWithInferredConstantsAndLocalBindings.importRecordTypeAliases
-              , moduleRecordTypeAliases = contextWithInferredConstantsAndLocalBindings.moduleRecordTypeAliases
-              , importCustomTypes = contextWithInferredConstantsAndLocalBindings.importCustomTypes
-              , moduleCustomTypes = contextWithInferredConstantsAndLocalBindings.moduleCustomTypes
-              , moduleBindings = contextWithInferredConstantsAndLocalBindings.moduleBindings
-              , customTypesToReportInCases = contextWithInferredConstantsAndLocalBindings.customTypesToReportInCases
-              , localIgnoredCustomTypes = contextWithInferredConstantsAndLocalBindings.localIgnoredCustomTypes
-              , constructorsToIgnore = contextWithInferredConstantsAndLocalBindings.constructorsToIgnore
-              , extractSourceCode = contextWithInferredConstantsAndLocalBindings.extractSourceCode
-              , exposedVariants = contextWithInferredConstantsAndLocalBindings.exposedVariants
-              , importLookup = contextWithInferredConstantsAndLocalBindings.importLookup
-              , scope = contextWithInferredConstantsAndLocalBindings.scope
+              , inferredConstants = contextWithInferredConstants.inferredConstants
+              , lookupTable = contextWithInferredConstants.lookupTable
+              , exposed = contextWithInferredConstants.exposed
+              , commentRanges = contextWithInferredConstants.commentRanges
+              , importRecordTypeAliases = contextWithInferredConstants.importRecordTypeAliases
+              , moduleRecordTypeAliases = contextWithInferredConstants.moduleRecordTypeAliases
+              , importCustomTypes = contextWithInferredConstants.importCustomTypes
+              , moduleCustomTypes = contextWithInferredConstants.moduleCustomTypes
+              , customTypesToReportInCases = contextWithInferredConstants.customTypesToReportInCases
+              , extractSourceCode = contextWithInferredConstants.extractSourceCode
+              , scope = contextWithInferredConstants.scope
               }
             )
 
@@ -3102,39 +2883,6 @@ implicitImports =
         |> Dict.fromList
 
 
-{-| Merge a given new import with an existing import lookup.
-This is strongly preferred over Dict.insert since the implicit default imports can be overridden
--}
-insertImport : { moduleName : ModuleName, alias : Maybe ModuleName, exposed : Exposed } -> ImportLookup -> ImportLookup
-insertImport importInfoToAdd importLookup =
-    Dict.insert importInfoToAdd.moduleName
-        (case Dict.get importInfoToAdd.moduleName importLookup of
-            Nothing ->
-                { alias = importInfoToAdd.alias, exposed = importInfoToAdd.exposed }
-
-            Just import_ ->
-                { alias = import_.alias |> onNothing (\() -> importInfoToAdd.alias)
-                , exposed = exposedMerge import_.exposed importInfoToAdd.exposed
-                }
-        )
-        importLookup
-
-
-exposedMerge : Exposed -> Exposed -> Exposed
-exposedMerge exposedA exposedB =
-    case exposedA of
-        ExposedAll ->
-            ExposedAll
-
-        ExposedSome aSet ->
-            case exposedB of
-                ExposedAll ->
-                    ExposedAll
-
-                ExposedSome bSet ->
-                    ExposedSome (Set.union aSet bSet)
-
-
 qualify : ( ModuleName, String ) -> Scope -> ( ModuleName, String )
 qualify ( moduleName, name ) scope =
     ( Scope.qualifyModuleNameForValue scope moduleName name
@@ -3171,77 +2919,9 @@ maybeQualify target maybe =
             defaultQualify target
 
 
-{-| Whenever you add ranges on expression enter, the same ranges should be removed on expression exit.
-Having one function finding unique ranges and a function for extracting bindings there ensures said consistency.
-
-An alternative approach would be to use some kind of tree structure
-with parent and sub ranges and bindings as leaves (maybe a "trie", tho I've not seen one as an elm package).
-
-Removing all bindings for an expression's range on leave would then be trivial
-
--}
-expressionSurfaceBindingsInto : Set String -> Expression -> Set String
-expressionSurfaceBindingsInto soFar expression =
-    case expression of
-        Expression.LambdaExpression lambda ->
-            Set.union (AstHelpers.patternListBindings lambda.args) soFar
-
-        Expression.LetExpression letBlock ->
-            List.foldl insertLetDeclarationBindings soFar letBlock.declarations
-
-        _ ->
-            soFar
-
-
-insertLetDeclarationBindings : Node Expression.LetDeclaration -> Set String -> Set String
-insertLetDeclarationBindings (Node _ letDeclaration) soFar =
-    case letDeclaration of
-        Expression.LetFunction fun ->
-            Set.insert (fun.declaration |> Node.value |> .name |> Node.value) soFar
-
-        Expression.LetDestructuring (Node _ pattern) _ ->
-            Set.union (AstHelpers.patternBindings pattern) soFar
-
-
-expressionBranchLocalBindingsInto : RangeDict (Set String) -> Expression -> RangeDict (Set String)
-expressionBranchLocalBindingsInto existingBindings expression =
-    case expression of
-        Expression.CaseExpression caseBlock ->
-            List.foldl
-                (\( Node _ pattern, Node resultRange _ ) soFar ->
-                    soFar
-                        |> RangeDict.insert resultRange
-                            (AstHelpers.patternBindings pattern)
-                )
-                existingBindings
-                caseBlock.cases
-
-        Expression.LetExpression letBlock ->
-            List.foldl
-                (\(Node _ letDeclaration) acc ->
-                    case letDeclaration of
-                        Expression.LetFunction letFunctionOrValueDeclaration ->
-                            RangeDict.insert
-                                (Node.range (Node.value letFunctionOrValueDeclaration.declaration).expression)
-                                (AstHelpers.patternListBindings
-                                    (Node.value letFunctionOrValueDeclaration.declaration).arguments
-                                )
-                                acc
-
-                        _ ->
-                            acc
-                )
-                existingBindings
-                letBlock.declarations
-
-        _ ->
-            existingBindings
-
-
 expressionExitVisitor : Node Expression -> ModuleContext -> ModuleContext
 expressionExitVisitor (Node expressionRange _) context =
-    { localBindings = RangeDict.remove expressionRange context.localBindings
-    , inferredConstants =
+    { inferredConstants =
         if RangeDict.member expressionRange context.inferredConstantsDict then
             case Tuple.second context.inferredConstants of
                 inferredConstantsTopOfStack :: inferredConstantsRestOfStack ->
@@ -3255,24 +2935,17 @@ expressionExitVisitor (Node expressionRange _) context =
 
     --
     , lookupTable = context.lookupTable
-    , moduleName = context.moduleName
     , exposed = context.exposed
     , commentRanges = context.commentRanges
     , importRecordTypeAliases = context.importRecordTypeAliases
     , moduleRecordTypeAliases = context.moduleRecordTypeAliases
     , importCustomTypes = context.importCustomTypes
     , moduleCustomTypes = context.moduleCustomTypes
-    , moduleBindings = context.moduleBindings
-    , branchLocalBindings = context.branchLocalBindings
     , rangesToIgnore = context.rangesToIgnore
     , rightSidesOfPlusPlus = context.rightSidesOfPlusPlus
     , customTypesToReportInCases = context.customTypesToReportInCases
-    , localIgnoredCustomTypes = context.localIgnoredCustomTypes
-    , constructorsToIgnore = context.constructorsToIgnore
     , inferredConstantsDict = context.inferredConstantsDict
     , extractSourceCode = context.extractSourceCode
-    , exposedVariants = context.exposedVariants
-    , importLookup = context.importLookup
     , scope = context.scope
     }
 
@@ -3651,11 +3324,8 @@ expressionVisitorHelp (Node expressionRange expression) config context =
                     { lookupTable = context.lookupTable
                     , extractSourceCode = context.extractSourceCode
                     , expectNaN = config.expectNaN
-                    , importLookup = context.importLookup
                     , moduleCustomTypes = context.moduleCustomTypes
                     , importCustomTypes = context.importCustomTypes
-                    , moduleBindings = context.moduleBindings
-                    , localBindings = context.localBindings
                     , inferredConstants = context.inferredConstants
                     , parentRange = expressionRange
                     , operator = operator
@@ -3724,11 +3394,8 @@ expressionVisitorHelp (Node expressionRange expression) config context =
                     , falseBranch = falseBranch
                     , lookupTable = context.lookupTable
                     , inferredConstants = context.inferredConstants
-                    , importLookup = context.importLookup
                     , moduleCustomTypes = context.moduleCustomTypes
                     , importCustomTypes = context.importCustomTypes
-                    , moduleBindings = context.moduleBindings
-                    , localBindings = context.localBindings
                     , scope = context.scope
                     }
             in
@@ -3877,11 +3544,8 @@ toCallCheckInfo config context checkInfo =
             , lookupTable = context.lookupTable
             , expectNaN = config.expectNaN
             , extractSourceCode = context.extractSourceCode
-            , importLookup = context.importLookup
             , moduleCustomTypes = context.moduleCustomTypes
             , importCustomTypes = context.importCustomTypes
-            , moduleBindings = context.moduleBindings
-            , localBindings = context.localBindings
             , commentRanges = context.commentRanges
             , inferredConstants = context.inferredConstants
             , scope = context.scope
@@ -3899,11 +3563,8 @@ toCallCheckInfo config context checkInfo =
             , lookupTable = context.lookupTable
             , expectNaN = config.expectNaN
             , extractSourceCode = context.extractSourceCode
-            , importLookup = context.importLookup
             , moduleCustomTypes = context.moduleCustomTypes
             , importCustomTypes = context.importCustomTypes
-            , moduleBindings = context.moduleBindings
-            , localBindings = context.localBindings
             , commentRanges = context.commentRanges
             , inferredConstants = context.inferredConstants
             , scope = context.scope
@@ -3932,13 +3593,10 @@ toCompositionCheckInfo config context compositionSpecific =
     in
     { expectNaN = config.expectNaN
     , lookupTable = context.lookupTable
-    , importLookup = context.importLookup
     , importRecordTypeAliases = context.importRecordTypeAliases
     , moduleRecordTypeAliases = context.moduleRecordTypeAliases
     , moduleCustomTypes = context.moduleCustomTypes
     , importCustomTypes = context.importCustomTypes
-    , moduleBindings = context.moduleBindings
-    , localBindings = context.localBindings
     , extractSourceCode = context.extractSourceCode
     , inferredConstants = context.inferredConstants
     , earlier = innerComposition.earlier
@@ -3952,7 +3610,6 @@ type alias OperatorApplicationCheckInfo =
     { lookupTable : ModuleNameLookupTable
     , extractSourceCode : Range -> String
     , expectNaN : Bool
-    , importLookup : ImportLookup
     , importCustomTypes :
         Dict
             ModuleName
@@ -3968,8 +3625,6 @@ type alias OperatorApplicationCheckInfo =
             { variantNames : Set String
             , allParametersAreUsedInVariants : Bool
             }
-    , moduleBindings : Set String
-    , localBindings : RangeDict (Set String)
     , inferredConstants : ( Infer.Inferred, List Infer.Inferred )
     , parentRange : Range
     , operator : String
@@ -4038,7 +3693,6 @@ operatorApplicationChecks operator checkInfo =
 type alias CallCheckInfo =
     { lookupTable : ModuleNameLookupTable
     , expectNaN : Bool
-    , importLookup : ImportLookup
     , importCustomTypes :
         Dict
             ModuleName
@@ -4054,8 +3708,6 @@ type alias CallCheckInfo =
             { variantNames : Set String
             , allParametersAreUsedInVariants : Bool
             }
-    , moduleBindings : Set String
-    , localBindings : RangeDict (Set String)
     , extractSourceCode : Range -> String
     , commentRanges : List Range
     , inferredConstants : ( Infer.Inferred, List Infer.Inferred )
@@ -4088,7 +3740,6 @@ thirdArg checkInfo =
 type alias CompositionIntoCheckInfo =
     { expectNaN : Bool
     , lookupTable : ModuleNameLookupTable
-    , importLookup : ImportLookup
     , importCustomTypes :
         Dict
             ModuleName
@@ -4104,8 +3755,6 @@ type alias CompositionIntoCheckInfo =
             { variantNames : Set String
             , allParametersAreUsedInVariants : Bool
             }
-    , moduleBindings : Set String
-    , localBindings : RangeDict (Set String)
     , extractSourceCode : Range -> String
     , inferredConstants : ( Infer.Inferred, List Infer.Inferred )
     , later :
@@ -4410,7 +4059,6 @@ functionCallChecks =
 type alias CompositionCheckInfo =
     { expectNaN : Bool
     , lookupTable : ModuleNameLookupTable
-    , importLookup : ImportLookup
     , importRecordTypeAliases : Dict ModuleName (Dict String (List String))
     , moduleRecordTypeAliases : Dict String (List String)
     , importCustomTypes :
@@ -4428,8 +4076,6 @@ type alias CompositionCheckInfo =
             { variantNames : Set String
             , allParametersAreUsedInVariants : Bool
             }
-    , moduleBindings : Set String
-    , localBindings : RangeDict (Set String)
     , extractSourceCode : Range -> String
     , inferredConstants : ( Infer.Inferred, List Infer.Inferred )
     , earlier :
@@ -4492,11 +4138,8 @@ valueOrFnOrFnCallThenAnyCompositionChecks earlier checkInfo =
                             compositionIntoChecksForSpecificLater
                                 { expectNaN = checkInfo.expectNaN
                                 , lookupTable = checkInfo.lookupTable
-                                , importLookup = checkInfo.importLookup
                                 , importCustomTypes = checkInfo.importCustomTypes
                                 , moduleCustomTypes = checkInfo.moduleCustomTypes
-                                , moduleBindings = checkInfo.moduleBindings
-                                , localBindings = checkInfo.localBindings
                                 , extractSourceCode = checkInfo.extractSourceCode
                                 , inferredConstants = checkInfo.inferredConstants
                                 , later =
@@ -20727,7 +20370,6 @@ getUnnecessaryRecordUpdateSetter recordVariableName (Node setterRange ( Node _ f
 type alias IfCheckInfo =
     { lookupTable : ModuleNameLookupTable
     , inferredConstants : ( Infer.Inferred, List Infer.Inferred )
-    , importLookup : ImportLookup
     , importCustomTypes :
         Dict
             ModuleName
@@ -20743,8 +20385,6 @@ type alias IfCheckInfo =
             { variantNames : Set String
             , allParametersAreUsedInVariants : Bool
             }
-    , moduleBindings : Set String
-    , localBindings : RangeDict (Set String)
     , nodeRange : Range
     , condition : Node Expression
     , trueBranch : Node Expression

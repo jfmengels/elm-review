@@ -54,34 +54,6 @@ type Name
     | Type (Node ( ModuleName, String ))
 
 
-{-| This will apply the `nameVisitor` to every value and type in the module, you will get no information about whether the name is a value or type.
-
-    rule : Rule
-    rule =
-        Rule.newModuleRuleSchema "NoInconsistentAliases" initialContext
-            |> NameVisitor.withNameVisitor nameVisitor
-            |> Rule.fromModuleRuleSchema
-
-    nameVisitor : Node ( ModuleName, String ) -> context -> ( List (Error {}), context )
-    nameVisitor node context =
-        -- Do what you want with the name
-        ( [], context )
-
--}
-withNameVisitor :
-    (Node ( ModuleName, String ) -> context -> ( List (Error {}), context ))
-    -> Rule.ModuleRuleSchema state context
-    -> Rule.ModuleRuleSchema { state | hasAtLeastOneVisitor : () } context
-withNameVisitor nameVisitor rule =
-    let
-        visitor =
-            NameVisitor nameVisitor
-    in
-    rule
-        |> Rule.withDeclarationListVisitor (declarationListVisitor visitor)
-        |> Rule.withExpressionEnterVisitor (expressionVisitor visitor)
-
-
 {-| This will apply the `valueVisitor` to every value in the module, and ignore any types.
 
     rule : Rule
@@ -104,72 +76,6 @@ withValueVisitor valueVisitor rule =
     let
         visitor =
             ValueVisitor valueVisitor
-    in
-    rule
-        |> Rule.withDeclarationListVisitor (declarationListVisitor visitor)
-        |> Rule.withExpressionEnterVisitor (expressionVisitor visitor)
-
-
-{-| This will apply the `typeVisitor` to every type in the module, and ignore any values.
-
-    rule : Rule
-    rule =
-        Rule.newModuleRuleSchema "NoInconsistentAliases" initialContext
-            |> NameVisitor.withTypeVisitor typeVisitor
-            |> Rule.fromModuleRuleSchema
-
-    typeVisitor : Node ( ModuleName, String ) -> context -> ( List (Error {}), context )
-    typeVisitor node context =
-        -- Do what you want with the type
-        ( [], context )
-
--}
-withTypeVisitor :
-    (Node ( ModuleName, String ) -> context -> ( List (Error {}), context ))
-    -> Rule.ModuleRuleSchema state context
-    -> Rule.ModuleRuleSchema { state | hasAtLeastOneVisitor : () } context
-withTypeVisitor typeVisitor rule =
-    let
-        visitor =
-            TypeVisitor typeVisitor
-    in
-    rule
-        |> Rule.withDeclarationListVisitor (declarationListVisitor visitor)
-        |> Rule.withExpressionEnterVisitor (expressionVisitor visitor)
-
-
-{-| This will apply the `valueVisitor` to every value and the `typeVisitor` to every type in the module.
-
-    rule : Rule
-    rule =
-        Rule.newModuleRuleSchema "NoInconsistentAliases" initialContext
-            |> NameVisitor.withValueAndTypeVisitors
-                { valueVisitor = valueVisitor
-                , typeVisitor = typeVisitor
-                }
-            |> Rule.fromModuleRuleSchema
-
-    valueVisitor : Node ( ModuleName, String ) -> context -> ( List (Error {}), context )
-    valueVisitor node context =
-        -- Do what you want with the value
-        ( [], context )
-
-    typeVisitor : Node ( ModuleName, String ) -> context -> ( List (Error {}), context )
-    typeVisitor node context =
-        -- Do what you want with the type
-        ( [], context )
-
--}
-withValueAndTypeVisitors :
-    { valueVisitor : Node ( ModuleName, String ) -> context -> ( List (Error {}), context )
-    , typeVisitor : Node ( ModuleName, String ) -> context -> ( List (Error {}), context )
-    }
-    -> Rule.ModuleRuleSchema state context
-    -> Rule.ModuleRuleSchema { state | hasAtLeastOneVisitor : () } context
-withValueAndTypeVisitors { valueVisitor, typeVisitor } rule =
-    let
-        visitor =
-            ValueAndTypeVisitor valueVisitor typeVisitor
     in
     rule
         |> Rule.withDeclarationListVisitor (declarationListVisitor visitor)
