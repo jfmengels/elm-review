@@ -5,7 +5,6 @@ module Review.Resources.ScopeInternal exposing
     , ScopeId
     , ScopeInfo
     , ScopeProvider(..)
-    , Target(..)
     , create
     , empty
     )
@@ -22,6 +21,7 @@ import Elm.Syntax.TypeAnnotation exposing (TypeAnnotation)
 import NonEmpty exposing (NonEmpty)
 import Review.Resources.Internal.Bindings exposing (Binding, ImportBinding)
 import Review.Resources.ScopeOrigin as ScopeOrigin exposing (ScopeOrigin)
+import Review.Resources.Target exposing (Target)
 
 
 type ScopeProvider
@@ -75,12 +75,6 @@ type Kind
     | InfixReference (Node Infix)
     | Pattern (Node Pattern)
     | Type (Node TypeAnnotation)
-
-
-type Target
-    = LocalBinding Binding
-    | ImportBinding_ ImportBinding
-    | QualifiedReference { moduleName : ModuleName, name : String }
 
 
 empty : ModuleName -> ScopeProvider

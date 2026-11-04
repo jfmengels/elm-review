@@ -18,6 +18,7 @@ import Review.Resources.Reference as Reference exposing (Reference)
 import Review.Resources.Scope as Scope
 import Review.Resources.ScopeInternal as Internal exposing (Scope(..), ScopeInfo)
 import Review.Resources.ScopeProvider as ScopeProvider exposing (ScopeProvider)
+import Review.Resources.Target as Target
 import Review.Test.Dependencies
 import Set
 import Test exposing (Test, describe, test)
@@ -142,13 +143,13 @@ ignorer _ z =
 
                                     (Internal.Reference ref) :: _ ->
                                         ( case ref.target of
-                                            Internal.LocalBinding binding ->
+                                            Target.LocalBinding binding ->
                                                 Binding.name binding
 
-                                            Internal.ImportBinding_ importBinding ->
+                                            Target.ImportBinding_ importBinding ->
                                                 String.join "." (ImportBinding.moduleName importBinding) ++ "." ++ ImportBinding.name importBinding
 
-                                            Internal.QualifiedReference importBinding ->
+                                            Target.QualifiedReference importBinding ->
                                                 String.join "." importBinding.moduleName ++ "." ++ importBinding.name
                                         , List.map Reference.range refs
                                         )
@@ -163,13 +164,13 @@ ignorer _ z =
 
                                     (Internal.Reference ref) :: _ ->
                                         ( case ref.target of
-                                            Internal.LocalBinding binding ->
+                                            Target.LocalBinding binding ->
                                                 Binding.name binding
 
-                                            Internal.ImportBinding_ importBinding ->
+                                            Target.ImportBinding_ importBinding ->
                                                 String.join "." (ImportBinding.moduleName importBinding) ++ "." ++ ImportBinding.name importBinding
 
-                                            Internal.QualifiedReference importBinding ->
+                                            Target.QualifiedReference importBinding ->
                                                 String.join "." importBinding.moduleName ++ "." ++ importBinding.name
                                         , List.map Reference.range refs
                                         )
@@ -781,7 +782,7 @@ bindingIdsAreUnique scopeProvider seenBindings scopes =
 referencePointTo : Binding -> Reference -> Maybe String
 referencePointTo binding (Internal.Reference reference) =
     case reference.target of
-        Internal.LocalBinding localBinding ->
+        Target.LocalBinding localBinding ->
             if localBinding /= binding then
                 "Binding has a reference that doesn't point to itself!\n"
                     ++ Debug.toString binding

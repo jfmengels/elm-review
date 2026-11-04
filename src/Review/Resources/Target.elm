@@ -1,7 +1,8 @@
 module Review.Resources.Target exposing (Target(..))
 
 import Elm.Syntax.ModuleName exposing (ModuleName)
-import Review.Resources.Internal.Bindings exposing (Binding, ImportBinding)
+import Review.Resources.Binding exposing (Binding)
+import Review.Resources.ImportBinding exposing (ImportBinding)
 
 
 type Target
