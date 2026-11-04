@@ -23,10 +23,11 @@ import Review.Resources.BindingId as BindingId
 import Review.Resources.ElmCorePrelude
 import Review.Resources.ImportBinding as ImportBinding
 import Review.Resources.Internal exposing (ModuleNameLookupTable)
+import Review.Resources.Internal.Bindings as Bindings exposing (Binding(..), ImportBinding(..))
 import Review.Resources.ModuleNameLookupTableBuilder as Builder exposing (ModuleNameLookupTableBuilder)
 import Review.Resources.Scope as Scope
 import Review.Resources.ScopeId as ScopeId
-import Review.Resources.ScopeInternal as ScopeInternal exposing (Binding, Reference, ScopeId, ScopeInfo)
+import Review.Resources.ScopeInternal as ScopeInternal exposing (Reference, ScopeId, ScopeInfo)
 import Review.Resources.ScopeProvider exposing (ScopeProvider)
 import Vendor.ListExtra as ListExtra
 
@@ -42,7 +43,7 @@ type alias Context =
     , scopes : Dict ScopeId ScopeInfo
     , aliasToModuleName : Dict String (NonEmpty ModuleName)
     , importedFunctions : Dict String ModuleName
-    , importedTypes : Dict String ScopeInternal.ImportBinding
+    , importedTypes : Dict String ImportBinding
     , modules : Dict ModuleName Elm.Docs.Module
     , lookupTable : ModuleNameLookupTableBuilder
     , branches : NonEmpty ( Range, ScopeInfo )
@@ -322,7 +323,7 @@ computeBaseModule moduleName modules { typeBindings, bindings, bindingIdCounter 
     }
 
 
-importedFunctionsFromImportedBindings : Dict String ScopeInternal.ImportBinding -> Dict String ModuleName
+importedFunctionsFromImportedBindings : Dict String ImportBinding -> Dict String ModuleName
 importedFunctionsFromImportedBindings importedFunctions =
     Dict.foldl (\name importBinding dict -> Dict.insert name (ImportBinding.moduleName importBinding) dict) Dict.empty importedFunctions
 
@@ -442,7 +443,7 @@ registerDeclaration (Node _ declaration) acc =
         Declaration.FunctionDeclaration function ->
             addBinding
                 (Node.value function.declaration).name
-                ScopeInternal.valueRealm
+                Bindings.valueRealm
                 acc
 
         Declaration.AliasDeclaration alias ->
@@ -450,11 +451,11 @@ registerDeclaration (Node _ declaration) acc =
                 (Node range name) =
                     alias.name
 
-                createBinding_ : ScopeInternal.Realm -> ( Binding, BindingId.Counter )
+                createBinding_ : Bindings.Realm -> ( Binding, BindingId.Counter )
                 createBinding_ realm =
                     BindingId.new
                         (\id ->
-                            ScopeInternal.Binding
+                            Binding
                                 { id = id
                                 , name = name
                                 , range = range
@@ -467,7 +468,7 @@ registerDeclaration (Node _ declaration) acc =
                 Node _ (TypeAnnotation.Record _) ->
                     let
                         ( binding, bindingIdCounter ) =
-                            createBinding_ (ScopeInternal.valueRealm + ScopeInternal.typeRealm)
+                            createBinding_ (Bindings.valueRealm + Bindings.typeRealm)
                     in
                     { typeBindings = Dict.insert name binding acc.typeBindings
                     , bindings = Dict.insert name binding acc.bindings
@@ -477,7 +478,7 @@ registerDeclaration (Node _ declaration) acc =
                 _ ->
                     let
                         ( binding, bindingIdCounter ) =
-                            createBinding_ ScopeInternal.typeRealm
+                            createBinding_ Bindings.typeRealm
                     in
                     { typeBindings = Dict.insert name binding acc.typeBindings
                     , bindings = acc.bindings
@@ -487,20 +488,20 @@ registerDeclaration (Node _ declaration) acc =
         Declaration.CustomTypeDeclaration customType ->
             let
                 ( typeBindings, bindingIdCounter ) =
-                    createBinding customType.name ScopeInternal.typeRealm acc.typeBindings acc.bindingIdCounter
+                    createBinding customType.name Bindings.typeRealm acc.typeBindings acc.bindingIdCounter
             in
             List.foldl
                 (\(Node _ constructor) context_ ->
-                    addBinding constructor.name ScopeInternal.valueRealm context_
+                    addBinding constructor.name Bindings.valueRealm context_
                 )
                 { typeBindings = typeBindings, bindings = acc.bindings, bindingIdCounter = bindingIdCounter }
                 customType.constructors
 
         Declaration.PortDeclaration signature ->
-            addBinding signature.name ScopeInternal.valueRealm acc
+            addBinding signature.name Bindings.valueRealm acc
 
         Declaration.InfixDeclaration infix_ ->
-            addBinding infix_.operator ScopeInternal.valueRealm acc
+            addBinding infix_.operator Bindings.valueRealm acc
 
         Declaration.Destructuring _ _ ->
             -- Not possible in 0.19 code
@@ -509,7 +510,7 @@ registerDeclaration (Node _ declaration) acc =
 
 addBinding :
     Node String
-    -> ScopeInternal.Realm
+    -> Bindings.Realm
     -> { typeBindings : Dict String Binding, bindings : Dict String Binding, bindingIdCounter : BindingId.Counter }
     -> { typeBindings : Dict String Binding, bindings : Dict String Binding, bindingIdCounter : BindingId.Counter }
 addBinding node realm acc =
@@ -523,12 +524,12 @@ addBinding node realm acc =
     }
 
 
-createBinding : Node String -> ScopeInternal.Realm -> Dict String Binding -> BindingId.Counter -> ( Dict String Binding, BindingId.Counter )
+createBinding : Node String -> Bindings.Realm -> Dict String Binding -> BindingId.Counter -> ( Dict String Binding, BindingId.Counter )
 createBinding (Node range name) realm bindings bindingIdCounter =
     BindingId.new
         (\id ->
             Dict.insert name
-                (ScopeInternal.Binding
+                (Binding
                     { id = id
                     , name = name
                     , range = range
@@ -543,13 +544,13 @@ createBinding (Node range name) realm bindings bindingIdCounter =
 insertImportBinding :
     String
     -> ModuleName
-    -> ( Dict String ScopeInternal.ImportBinding, BindingId.Counter )
-    -> ( Dict String ScopeInternal.ImportBinding, BindingId.Counter )
+    -> ( Dict String ImportBinding, BindingId.Counter )
+    -> ( Dict String ImportBinding, BindingId.Counter )
 insertImportBinding name moduleName ( acc, bindingIdCounter ) =
     BindingId.new
         (\id ->
             Dict.insert name
-                (ScopeInternal.ImportBinding
+                (ImportBinding
                     { id = id
                     , name = name
                     , moduleName = moduleName
@@ -565,8 +566,8 @@ insertImportBinding name moduleName ( acc, bindingIdCounter ) =
 
 
 type alias ImportAcc =
-    { importedFunctions : Dict String ScopeInternal.ImportBinding
-    , importedTypes : Dict String ScopeInternal.ImportBinding
+    { importedFunctions : Dict String ImportBinding
+    , importedTypes : Dict String ImportBinding
     , aliasToModuleName : Dict String (NonEmpty ModuleName)
     , moduleQualifiers : Dict ModuleName ModuleName
     , bindingIdCounter : BindingId.Counter
@@ -712,8 +713,8 @@ registerImportedFunctionsAndTypesWhenExposingAll moduleName module_ importAcc =
 collectBindings :
     ModuleName
     -> List { a | name : String }
-    -> ( Dict String ScopeInternal.ImportBinding, BindingId.Counter )
-    -> ( Dict String ScopeInternal.ImportBinding, BindingId.Counter )
+    -> ( Dict String ImportBinding, BindingId.Counter )
+    -> ( Dict String ImportBinding, BindingId.Counter )
 collectBindings moduleName list initial =
     List.foldl
         (\{ name } acc ->
@@ -726,8 +727,8 @@ collectBindings moduleName list initial =
 foldCustomTypesIntoDict :
     ModuleName
     -> List Elm.Docs.Union
-    -> ( Dict String ScopeInternal.ImportBinding, BindingId.Counter )
-    -> ( Dict String ScopeInternal.ImportBinding, BindingId.Counter )
+    -> ( Dict String ImportBinding, BindingId.Counter )
+    -> ( Dict String ImportBinding, BindingId.Counter )
 foldCustomTypesIntoDict moduleName unions initial =
     List.foldl
         (\union outerAcc ->
@@ -750,7 +751,7 @@ addRecordAliases moduleName list initial =
                 ( typeAliasBinding, bindingIdCounter ) =
                     BindingId.new
                         (\id ->
-                            ScopeInternal.ImportBinding
+                            ImportBinding
                                 { id = id
                                 , name = name
                                 , moduleName = moduleName
@@ -819,8 +820,8 @@ valuesFromExposingList :
     ModuleName
     -> Elm.Docs.Module
     -> List (Node TopLevelExpose)
-    -> ( Dict String ScopeInternal.ImportBinding, BindingId.Counter )
-    -> ( Dict String ScopeInternal.ImportBinding, BindingId.Counter )
+    -> ( Dict String ImportBinding, BindingId.Counter )
+    -> ( Dict String ImportBinding, BindingId.Counter )
 valuesFromExposingList moduleName module_ topLevelExposeList acc =
     case topLevelExposeList of
         [] ->
@@ -1002,7 +1003,7 @@ collectNamesFromPattern patternsToVisit (( bindings, bindingIdCounter ) as acc) 
                 Pattern.VarPattern name ->
                     collectNamesFromPattern
                         restOfPatternsToVisit
-                        (createBinding (Node patternRange name) ScopeInternal.valueRealm bindings bindingIdCounter)
+                        (createBinding (Node patternRange name) Bindings.valueRealm bindings bindingIdCounter)
 
                 Pattern.NamedPattern _ subPatterns ->
                     collectNamesFromPattern
@@ -1014,7 +1015,7 @@ collectNamesFromPattern patternsToVisit (( bindings, bindingIdCounter ) as acc) 
                         restOfPatternsToVisit
                         (List.foldl
                             (\node ( subAcc, counter ) ->
-                                createBinding node ScopeInternal.valueRealm subAcc counter
+                                createBinding node Bindings.valueRealm subAcc counter
                             )
                             ( bindings, bindingIdCounter )
                             names
@@ -1026,7 +1027,7 @@ collectNamesFromPattern patternsToVisit (( bindings, bindingIdCounter ) as acc) 
                 Pattern.AsPattern subPattern alias ->
                     collectNamesFromPattern
                         (subPattern :: restOfPatternsToVisit)
-                        (createBinding alias ScopeInternal.valueRealm bindings bindingIdCounter)
+                        (createBinding alias Bindings.valueRealm bindings bindingIdCounter)
 
                 Pattern.TuplePattern subPatterns ->
                     collectNamesFromPattern (List.append subPatterns restOfPatternsToVisit) acc
@@ -1107,7 +1108,7 @@ expressionEnterVisitor ((Node nodeRange expr) as node) context =
                                 Expression.LetFunction function ->
                                     createBinding
                                         (Node.value function.declaration).name
-                                        ScopeInternal.valueRealm
+                                        Bindings.valueRealm
                                         bindings
                                         bindingIdCounter
 
