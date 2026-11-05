@@ -21024,11 +21024,11 @@ caseVariantOfWithUnreachableCasesChecks config checkInfo =
                                 Just [] ->
                                     Just { name = [], customTypes = checkInfo.moduleCustomTypes }
 
-                                Just (moduleNamePart0 :: moduleNamePart1Up) ->
-                                    Dict.get (moduleNamePart0 :: moduleNamePart1Up) checkInfo.importCustomTypes
+                                Just ((_ :: _) as moduleName) ->
+                                    Dict.get moduleName checkInfo.importCustomTypes
                                         |> Maybe.map
                                             (\customTypes ->
-                                                { name = moduleNamePart0 :: moduleNamePart1Up, customTypes = customTypes }
+                                                { name = moduleName, customTypes = customTypes }
                                             )
 
                                 Nothing ->
@@ -22304,8 +22304,8 @@ getRecordTypeAliasConstructorCall expressionNode checkInfo =
                                 }
                             )
 
-                Just (moduleNamePart0 :: moduleNamePart1Up) ->
-                    case Dict.get (moduleNamePart0 :: moduleNamePart1Up) checkInfo.importRecordTypeAliases of
+                Just ((_ :: _) as moduleName) ->
+                    case Dict.get moduleName checkInfo.importRecordTypeAliases of
                         Nothing ->
                             Nothing
 
