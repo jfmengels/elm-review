@@ -2223,7 +2223,6 @@ type alias ProjectContext =
 
 type alias ModuleContext =
     { lookupTable : ModuleNameLookupTable
-    , exposed : ExposingContext
     , commentRanges : List Range
     , importRecordTypeAliases : Dict ModuleName (Dict String (List String))
     , moduleRecordTypeAliases : Dict String (List String)
@@ -2299,11 +2298,16 @@ initialContext =
 fromModuleToProject : Rule.ContextCreator ModuleContext ProjectContext
 fromModuleToProject =
     Rule.initContextCreator
-        (\moduleName moduleContext ->
+        (\moduleName ast moduleContext ->
+            let
+                exposed : ExposingContext
+                exposed =
+                    moduleExposingContext (Elm.Syntax.Module.exposingList (Node.value ast.moduleDefinition))
+            in
             { customTypesToReportInCases = Set.empty
             , exposedRecordTypeAliases =
                 Dict.singleton moduleName
-                    (case moduleContext.exposed of
+                    (case exposed of
                         ExposingAllContext ->
                             moduleContext.moduleRecordTypeAliases
 
@@ -2322,7 +2326,7 @@ fromModuleToProject =
                     )
             , exposedCustomTypes =
                 Dict.singleton moduleName
-                    (case moduleContext.exposed of
+                    (case exposed of
                         ExposingAllContext ->
                             moduleContext.moduleCustomTypes
 
@@ -2342,15 +2346,14 @@ fromModuleToProject =
             }
         )
         |> Rule.withModuleName
+        |> Rule.withFullAst
 
 
 fromProjectToModule : Rule.ContextCreator ProjectContext ModuleContext
 fromProjectToModule =
     Rule.initContextCreator
-        (\lookupTable extractSourceCode fullAst scopeProvider projectContext ->
+        (\lookupTable extractSourceCode scopeProvider projectContext ->
             { lookupTable = lookupTable
-            , exposed =
-                moduleExposingContext (Elm.Syntax.Module.exposingList (Node.value fullAst.moduleDefinition))
             , commentRanges = []
             , importRecordTypeAliases = projectContext.exposedRecordTypeAliases
             , moduleRecordTypeAliases = Dict.empty
@@ -2367,7 +2370,6 @@ fromProjectToModule =
         )
         |> Rule.withModuleNameLookupTable
         |> Rule.withSourceCodeExtractor
-        |> Rule.withFullAst
         |> Rule.withScopes
 
 
@@ -2762,7 +2764,6 @@ expressionVisitor node config context =
               , inferredConstantsDict = context.inferredConstantsDict
               , inferredConstants = context.inferredConstants
               , lookupTable = context.lookupTable
-              , exposed = context.exposed
               , commentRanges = context.commentRanges
               , importRecordTypeAliases = context.importRecordTypeAliases
               , moduleRecordTypeAliases = context.moduleRecordTypeAliases
@@ -2793,7 +2794,6 @@ expressionVisitor node config context =
                 contextWithInferredConstants =
                     { inferredConstants = newInferredConstants
                     , lookupTable = context.lookupTable
-                    , exposed = context.exposed
                     , commentRanges = context.commentRanges
                     , importRecordTypeAliases = context.importRecordTypeAliases
                     , moduleRecordTypeAliases = context.moduleRecordTypeAliases
@@ -2833,7 +2833,6 @@ expressionVisitor node config context =
               --
               , inferredConstants = contextWithInferredConstants.inferredConstants
               , lookupTable = contextWithInferredConstants.lookupTable
-              , exposed = contextWithInferredConstants.exposed
               , commentRanges = contextWithInferredConstants.commentRanges
               , importRecordTypeAliases = contextWithInferredConstants.importRecordTypeAliases
               , moduleRecordTypeAliases = contextWithInferredConstants.moduleRecordTypeAliases
@@ -2935,7 +2934,6 @@ expressionExitVisitor (Node expressionRange _) context =
 
     --
     , lookupTable = context.lookupTable
-    , exposed = context.exposed
     , commentRanges = context.commentRanges
     , importRecordTypeAliases = context.importRecordTypeAliases
     , moduleRecordTypeAliases = context.moduleRecordTypeAliases
