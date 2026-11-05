@@ -802,7 +802,7 @@ getReducedLambda resources ((Node range _) as expressionNode) =
                 Nothing ->
                     Nothing
 
-        _ ->
+        Nothing ->
             Nothing
 
 
