@@ -26,7 +26,7 @@ import Elm.Syntax.Infix as Infix
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern as Pattern exposing (Pattern)
 import Elm.Writer
-import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
+import Review.Resources.Scope as Scope exposing (Scope)
 import Simplify.AstHelpers as AstHelpers
 import Simplify.Infer as Infer
 
@@ -61,7 +61,7 @@ normalizeExpressionNode resources node =
 
 
 normalizeExpression : Resources a -> Node Expression -> Expression
-normalizeExpression resources (Node expressionRange expression) =
+normalizeExpression resources (Node _ expression) =
     case expression of
         Expression.ParenthesizedExpression inParens ->
             normalizeExpression resources inParens
@@ -89,12 +89,10 @@ normalizeExpression resources (Node expressionRange expression) =
         Expression.OperatorApplication operator _ left right ->
             createOperation resources operator (normalizeExpressionNode resources left) (normalizeExpressionNode resources right)
 
-        Expression.FunctionOrValue rawModuleName string ->
+        Expression.FunctionOrValue moduleName name ->
             Expression.FunctionOrValue
-                (ModuleNameLookupTable.moduleNameAt resources.lookupTable expressionRange
-                    |> Maybe.withDefault rawModuleName
-                )
-                string
+                (Scope.moduleNameForValue resources.scope moduleName name)
+                name
                 |> infer resources
 
         Expression.IfBlock cond then_ else_ ->
@@ -142,14 +140,14 @@ normalizeExpression resources (Node expressionRange expression) =
                                                         { name =
                                                             -- possible improvement: assign indices and change the expression scope accordingly
                                                             Node.empty (Node.value declaration.name)
-                                                        , arguments = List.map (\param -> normalizePatternNode resources.lookupTable param) declaration.arguments
+                                                        , arguments = List.map (\param -> normalizePatternNode resources.scope param) declaration.arguments
                                                         , expression = normalizeExpressionNode resources declaration.expression
                                                         }
                                                 }
                                             )
 
                                     Expression.LetDestructuring pattern expr ->
-                                        Node.empty (Expression.LetDestructuring (normalizePatternNode resources.lookupTable pattern) (normalizeExpressionNode resources expr))
+                                        Node.empty (Expression.LetDestructuring (normalizePatternNode resources.scope pattern) (normalizeExpressionNode resources expr))
                             )
                         |> List.sortBy
                             (\(Node _ letDeclaration) ->
@@ -167,7 +165,7 @@ normalizeExpression resources (Node expressionRange expression) =
             Expression.CaseExpression
                 { cases =
                     caseBlock.cases
-                        |> List.map (\( pattern, expr ) -> ( normalizePatternNode resources.lookupTable pattern, normalizeExpressionNode resources expr ))
+                        |> List.map (\( pattern, expr ) -> ( normalizePatternNode resources.scope pattern, normalizeExpressionNode resources expr ))
                         |> List.sortBy (\( pattern, _ ) -> patternToComparable pattern)
                 , expression = normalizeExpressionNode resources caseBlock.expression
                 }
@@ -176,7 +174,7 @@ normalizeExpression resources (Node expressionRange expression) =
             let
                 lambdaPatternsNormalized : List (Node Pattern)
                 lambdaPatternsNormalized =
-                    List.map (\arg -> normalizePatternNode resources.lookupTable arg) lambda.args
+                    List.map (\arg -> normalizePatternNode resources.scope arg) lambda.args
             in
             reduceLambda resources
                 (case normalizeExpression resources lambda.expression of
@@ -605,19 +603,19 @@ reduceLambda resources lambda =
             Expression.LambdaExpression lambda
 
 
-normalizePatternNode : ModuleNameLookupTable -> Node Pattern -> Node Pattern
-normalizePatternNode lookupTable node =
-    Node.empty (normalizePattern lookupTable node)
+normalizePatternNode : Scope -> Node Pattern -> Node Pattern
+normalizePatternNode scope node =
+    Node.empty (normalizePattern scope node)
 
 
-normalizePattern : ModuleNameLookupTable -> Node Pattern -> Pattern
-normalizePattern lookupTable (Node patternRange pattern) =
+normalizePattern : Scope -> Node Pattern -> Pattern
+normalizePattern scope (Node _ pattern) =
     case pattern of
         Pattern.ParenthesizedPattern inParens ->
-            normalizePattern lookupTable inParens
+            normalizePattern scope inParens
 
         Pattern.TuplePattern patterns ->
-            Pattern.TuplePattern (List.map (\part -> normalizePatternNode lookupTable part) patterns)
+            Pattern.TuplePattern (List.map (\part -> normalizePatternNode scope part) patterns)
 
         Pattern.RecordPattern fields ->
             Pattern.RecordPattern
@@ -627,30 +625,28 @@ normalizePattern lookupTable (Node patternRange pattern) =
                 )
 
         Pattern.UnConsPattern element list ->
-            case normalizePattern lookupTable list of
+            case normalizePattern scope list of
                 Pattern.ListPattern elements ->
-                    Pattern.ListPattern (normalizePatternNode lookupTable element :: elements)
+                    Pattern.ListPattern (normalizePatternNode scope element :: elements)
 
                 normalizedList ->
-                    Pattern.UnConsPattern (normalizePatternNode lookupTable element) (Node.empty normalizedList)
+                    Pattern.UnConsPattern (normalizePatternNode scope element) (Node.empty normalizedList)
 
         Pattern.ListPattern elements ->
-            Pattern.ListPattern (List.map (\element -> normalizePatternNode lookupTable element) elements)
+            Pattern.ListPattern (List.map (\element -> normalizePatternNode scope element) elements)
 
         Pattern.NamedPattern qualifiedNameRef values ->
             let
                 nameRef : Pattern.QualifiedNameRef
                 nameRef =
-                    { moduleName =
-                        ModuleNameLookupTable.moduleNameAt lookupTable patternRange
-                            |> Maybe.withDefault qualifiedNameRef.moduleName
+                    { moduleName = Scope.moduleNameForValue scope qualifiedNameRef.moduleName qualifiedNameRef.name
                     , name = qualifiedNameRef.name
                     }
             in
-            Pattern.NamedPattern nameRef (List.map (\value -> normalizePatternNode lookupTable value) values)
+            Pattern.NamedPattern nameRef (List.map (\value -> normalizePatternNode scope value) values)
 
         Pattern.AsPattern aliasPattern (Node _ asName) ->
-            Pattern.AsPattern (normalizePatternNode lookupTable aliasPattern)
+            Pattern.AsPattern (normalizePatternNode scope aliasPattern)
                 -- possible improvement: assign indices and change the expression scope accordingly
                 (Node.empty asName)
 

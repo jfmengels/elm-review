@@ -107,7 +107,6 @@ import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Range exposing (Range)
 import Elm.Writer
-import Review.ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Resources.Scope exposing (Scope)
 
 
@@ -133,8 +132,7 @@ type Fact
 
 type alias Resources a =
     { a
-        | lookupTable : ModuleNameLookupTable
-        , inferredConstants : ( Inferred, List Inferred )
+        | inferredConstants : ( Inferred, List Inferred )
         , scope : Scope
     }
 
