@@ -89,25 +89,25 @@ import Simplify.CoreHelpers exposing (drop2EndingsWhile, list2AreSameLengthAndAl
 {-| Keep removing parens from the outside until we have something different from a `ParenthesizedExpression`
 -}
 removeParens : Node Expression -> Node Expression
-removeParens expressionNode =
-    case Node.value expressionNode of
+removeParens ((Node _ expr) as node) =
+    case expr of
         Expression.ParenthesizedExpression expressionInsideOnePairOfParensNode ->
             removeParens expressionInsideOnePairOfParensNode
 
         _ ->
-            expressionNode
+            node
 
 
 {-| Keep removing parens from the outside until we have something different from a `ParenthesizedPattern`
 -}
 removeParensFromPattern : Node Pattern -> Node Pattern
-removeParensFromPattern patternNode =
-    case Node.value patternNode of
+removeParensFromPattern ((Node _ pattern) as node) =
+    case pattern of
         Pattern.ParenthesizedPattern patternInsideOnePairOfParensNode ->
             removeParensFromPattern patternInsideOnePairOfParensNode
 
         _ ->
-            patternNode
+            node
 
 
 {-| Keep removing parens from the outside until we have something different from a `ParenthesizedExpression`.
@@ -483,11 +483,11 @@ getUnreducedValueOrFnOrFnCall :
             , args : List (Node Expression)
             , callStyle : FunctionCallStyle
             }
-getUnreducedValueOrFnOrFnCall baseNode =
+getUnreducedValueOrFnOrFnCall ((Node nodeRange _) as baseNode) =
     case removeParens baseNode of
         Node fnRange (Expression.FunctionOrValue fnQualification fnName) ->
             Just
-                { nodeRange = Node.range baseNode
+                { nodeRange = nodeRange
                 , fnRange = fnRange
                 , fnQualification = fnQualification
                 , fnName = fnName
@@ -498,7 +498,7 @@ getUnreducedValueOrFnOrFnCall baseNode =
         Node _ (Expression.Application (fedNode :: firstArg :: argsAfterFirst)) ->
             Maybe.map
                 (\fed ->
-                    { nodeRange = Node.range baseNode
+                    { nodeRange = nodeRange
                     , fnRange = fed.fnRange
                     , fnQualification = fed.fnQualification
                     , fnName = fed.fnName
@@ -511,7 +511,7 @@ getUnreducedValueOrFnOrFnCall baseNode =
         Node _ (Expression.OperatorApplication "|>" _ firstArg fedNode) ->
             Maybe.map
                 (\fed ->
-                    { nodeRange = Node.range baseNode
+                    { nodeRange = nodeRange
                     , fnRange = fed.fnRange
                     , fnQualification = fed.fnQualification
                     , fnName = fed.fnName
@@ -524,7 +524,7 @@ getUnreducedValueOrFnOrFnCall baseNode =
         Node _ (Expression.OperatorApplication "<|" _ fedNode firstArg) ->
             Maybe.map
                 (\fed ->
-                    { nodeRange = Node.range baseNode
+                    { nodeRange = nodeRange
                     , fnRange = fed.fnRange
                     , fnQualification = fed.fnQualification
                     , fnName = fed.fnName
@@ -726,7 +726,7 @@ getAlwaysResult context expressionNode =
 
 
 getIgnoreFirstLambdaResult : Node Expression -> Maybe (Node Expression)
-getIgnoreFirstLambdaResult expressionNode =
+getIgnoreFirstLambdaResult ((Node range _) as expressionNode) =
     case removeParens expressionNode of
         Node _ (Expression.LambdaExpression lambda) ->
             case lambda.args of
@@ -735,7 +735,7 @@ getIgnoreFirstLambdaResult expressionNode =
 
                 (Node _ Pattern.AllPattern) :: pattern1 :: pattern2Up ->
                     Just
-                        (Node (Node.range expressionNode)
+                        (Node range
                             (Expression.LambdaExpression
                                 { args = pattern1 :: pattern2Up
                                 , expression = lambda.expression
@@ -778,7 +778,7 @@ getReducedLambda :
             , lambdaPatterns : List (Node Pattern)
             , callStyle : FunctionCallStyle
             }
-getReducedLambda resources expressionNode =
+getReducedLambda resources ((Node range _) as expressionNode) =
     -- maybe a version of this is better located in Normalize?
     case getCollapsedLambda expressionNode of
         Just lambda ->
@@ -790,7 +790,7 @@ getReducedLambda resources expressionNode =
                             reduceLambda resources { args = lambda.patterns, expression = lambda.expression } call.args
                     in
                     Just
-                        { nodeRange = Node.range expressionNode
+                        { nodeRange = range
                         , fnQualification = call.fnQualification
                         , fnName = call.fnName
                         , fnRange = call.fnRange
@@ -821,14 +821,14 @@ reduceLambda resources lambda callArguments =
     let
         ( reducedCallArguments, reducedLambdaPatterns ) =
             drop2EndingsWhile
-                (\argument pattern ->
+                (\((Node argRange _) as argNode) ((Node _ pattern) as patternNode) ->
                     not
                         (expressionContainsAnyVariableInIgnoring
-                            (patternBindings (Node.value pattern))
-                            argument
+                            (patternBindings pattern)
+                            argRange
                             lambda.expression
                         )
-                        && expressionReconstructsDestructuringPattern resources argument pattern
+                        && expressionReconstructsDestructuringPattern resources argNode patternNode
                 )
                 callArguments
                 lambda.args
@@ -838,9 +838,9 @@ reduceLambda resources lambda callArguments =
     }
 
 
-expressionContainsAnyVariableInIgnoring : Set String -> Node Expression -> Node Expression -> Bool
-expressionContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnore (Node expressionToCheckRange expressionToCheck) =
-    if Node.range subToIgnore == expressionToCheckRange then
+expressionContainsAnyVariableInIgnoring : Set String -> Range -> Node Expression -> Bool
+expressionContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnoreRange (Node expressionToCheckRange expressionToCheck) =
+    if subToIgnoreRange == expressionToCheckRange then
         False
 
     else
@@ -882,65 +882,65 @@ expressionContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnore (Node exp
                 False
 
             Expression.Negation inNegation ->
-                expressionContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnore inNegation
+                expressionContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnoreRange inNegation
 
             Expression.ParenthesizedExpression inParens ->
-                expressionContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnore inParens
+                expressionContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnoreRange inParens
 
             Expression.LambdaExpression lambda ->
-                expressionContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnore lambda.expression
+                expressionContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnoreRange lambda.expression
 
             Expression.RecordAccess record _ ->
-                expressionContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnore record
+                expressionContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnoreRange record
 
             Expression.OperatorApplication _ _ left right ->
                 -- || TCO-ed
-                if expressionContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnore left then
+                if expressionContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnoreRange left then
                     True
 
                 else
-                    expressionContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnore right
+                    expressionContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnoreRange right
 
             Expression.IfBlock condition onTrue onFalse ->
                 -- || TCO-ed
                 if
-                    expressionContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnore condition
-                        || expressionContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnore onTrue
+                    expressionContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnoreRange condition
+                        || expressionContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnoreRange onTrue
                 then
                     True
 
                 else
-                    expressionContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnore onFalse
+                    expressionContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnoreRange onFalse
 
             Expression.Application parts ->
-                List.any (\part -> expressionContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnore part) parts
+                List.any (\part -> expressionContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnoreRange part) parts
 
             Expression.TupledExpression parts ->
-                List.any (\part -> expressionContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnore part) parts
+                List.any (\part -> expressionContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnoreRange part) parts
 
             Expression.ListExpr elements ->
-                List.any (\element -> expressionContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnore element) elements
+                List.any (\element -> expressionContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnoreRange element) elements
 
             Expression.LetExpression letIn ->
                 -- || TCO-ed
-                if List.any (\letDeclaration -> letDeclarationContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnore letDeclaration) letIn.declarations then
+                if List.any (\letDeclaration -> letDeclarationContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnoreRange letDeclaration) letIn.declarations then
                     True
 
                 else
-                    expressionContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnore letIn.expression
+                    expressionContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnoreRange letIn.expression
 
             Expression.CaseExpression caseOf ->
-                expressionContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnore caseOf.expression
+                expressionContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnoreRange caseOf.expression
                     || List.any
                         (\( _, fieldValue ) ->
-                            expressionContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnore fieldValue
+                            expressionContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnoreRange fieldValue
                         )
                         caseOf.cases
 
             Expression.RecordExpr fields ->
                 List.any
                     (\(Node _ ( _, fieldValue )) ->
-                        expressionContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnore fieldValue
+                        expressionContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnoreRange fieldValue
                     )
                     fields
 
@@ -948,7 +948,7 @@ expressionContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnore (Node exp
                 Set.member record bindingsToCheckFor
                     || List.any
                         (\(Node _ ( _, fieldValue )) ->
-                            expressionContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnore fieldValue
+                            expressionContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnoreRange fieldValue
                         )
                         fields
 
@@ -957,15 +957,15 @@ expressionContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnore (Node exp
                 True
 
 
-letDeclarationContainsAnyVariableInIgnoring : Set String -> Node Expression -> Node Expression.LetDeclaration -> Bool
-letDeclarationContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnore (Node _ letDeclaration) =
+letDeclarationContainsAnyVariableInIgnoring : Set String -> Range -> Node Expression.LetDeclaration -> Bool
+letDeclarationContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnoreRange (Node _ letDeclaration) =
     case letDeclaration of
         Expression.LetDestructuring _ destructuredExpression ->
-            expressionContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnore destructuredExpression
+            expressionContainsAnyVariableInIgnoring bindingsToCheckFor subToIgnoreRange destructuredExpression
 
         Expression.LetFunction valueOrFunctionDeclaration ->
             expressionContainsAnyVariableInIgnoring bindingsToCheckFor
-                subToIgnore
+                subToIgnoreRange
                 (Node.value valueOrFunctionDeclaration.declaration).expression
 
 
@@ -986,8 +986,8 @@ expressionReconstructsDestructuringPattern :
     -> Node Expression
     -> Node Pattern
     -> Bool
-expressionReconstructsDestructuringPattern context expressionNode patternNode =
-    case Node.value patternNode of
+expressionReconstructsDestructuringPattern context expressionNode (Node patternRange pattern) =
+    case pattern of
         Pattern.ParenthesizedPattern patternInParens ->
             expressionReconstructsDestructuringPattern context
                 expressionNode
@@ -1119,7 +1119,7 @@ expressionReconstructsDestructuringPattern context expressionNode patternNode =
                 patternVariantReferenceModuleOrigin : ModuleName
                 patternVariantReferenceModuleOrigin =
                     Maybe.withDefault patternVariantReference.moduleName
-                        (ModuleNameLookupTable.moduleNameAt context.lookupTable (Node.range patternNode))
+                        (ModuleNameLookupTable.moduleNameAt context.lookupTable patternRange)
 
                 maybeOriginChoiceTypeInfo : Maybe { name : String, variantNames : Set String, allParametersAreUsedInVariants : Bool }
                 maybeOriginChoiceTypeInfo =
@@ -1436,10 +1436,10 @@ getBool lookupTable expressionNode =
 
 
 getTuple2Literal : Node Expression -> Maybe { range : Range, first : Node Expression, second : Node Expression }
-getTuple2Literal expressionNode =
-    case Node.value expressionNode of
+getTuple2Literal (Node range expr) =
+    case expr of
         Expression.TupledExpression (first :: second :: []) ->
-            Just { range = Node.range expressionNode, first = first, second = second }
+            Just { range = range, first = first, second = second }
 
         _ ->
             Nothing
@@ -1524,8 +1524,8 @@ couldBeValueContainingNaN node =
 couldBeValueContainingNaNHelp : List (Node Expression) -> Bool
 couldBeValueContainingNaNHelp nodes =
     case nodes of
-        first :: rest ->
-            case Node.value first of
+        (Node _ first) :: rest ->
+            case first of
                 Expression.IfBlock condition thenBranch elseBranch ->
                     couldBeValueContainingNaNHelp (condition :: thenBranch :: elseBranch :: rest)
 

@@ -20607,7 +20607,7 @@ sameBodyForCaseOfChecks context =
         [] ->
             Nothing
 
-        ( firstPattern, firstBody ) :: rest ->
+        ( firstPattern, (Node firstBodyRange _) as firstBody ) :: rest ->
             let
                 restPatterns : List (Node Pattern)
                 restPatterns =
@@ -20620,11 +20620,6 @@ sameBodyForCaseOfChecks context =
                 Nothing
 
             else
-                let
-                    firstBodyRange : Range
-                    firstBodyRange =
-                        Node.range firstBody
-                in
                 Just
                     (Rule.errorWithFix
                         { message = "Unnecessary case expression"
@@ -20653,8 +20648,8 @@ introducesVariableOrUsesTypeConstructor resources nodesToLookAt =
         [] ->
             False
 
-        node :: remaining ->
-            case Node.value node of
+        (Node range node) :: remaining ->
+            case node of
                 Pattern.VarPattern _ ->
                     True
 
@@ -20677,7 +20672,7 @@ introducesVariableOrUsesTypeConstructor resources nodesToLookAt =
                     introducesVariableOrUsesTypeConstructor resources (nodes ++ remaining)
 
                 Pattern.NamedPattern variantQualified nodes ->
-                    case ModuleNameLookupTable.fullModuleNameFor resources.lookupTable node of
+                    case ModuleNameLookupTable.fullModuleNameAt resources.lookupTable range of
                         Just moduleName ->
                             if Set.member ( moduleName, variantQualified.name ) resources.customTypesToReportInCases then
                                 introducesVariableOrUsesTypeConstructor resources (nodes ++ remaining)
