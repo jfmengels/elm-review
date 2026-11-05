@@ -80,7 +80,7 @@ import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
 import Fn.Basics
 import Fn.List
 import Fn.Tuple
-import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
+import Review.Resources.Scope as Scope exposing (Scope)
 import Set exposing (Set)
 import Simplify.CallStyle as CallStyle exposing (FunctionCallStyle)
 import Simplify.CoreHelpers exposing (drop2EndingsWhile, list2AreSameLengthAndAll)
@@ -125,7 +125,7 @@ removeParensWithRanges ((Node range expr) as node) rangesSoFar =
 
 type alias ReduceLambdaResources context =
     { context
-        | lookupTable : ModuleNameLookupTable
+        | scope : Scope
         , importCustomTypes :
             Dict
                 ModuleName
@@ -149,10 +149,10 @@ Could be a call to `List.singleton` or a list literal with one element: `[ a ]`.
 Returns the inner element expression
 -}
 getListSingleton :
-    ModuleNameLookupTable
+    Scope
     -> Node Expression
     -> Maybe (Node Expression)
-getListSingleton lookupTable expressionNode =
+getListSingleton scope expressionNode =
     case removeParens expressionNode of
         Node _ (Expression.ListExpr elements) ->
             case elements of
@@ -164,7 +164,7 @@ getListSingleton lookupTable expressionNode =
 
         expressionUnparenthesizedNode ->
             Maybe.map .firstArg
-                (getSpecificUnreducedFnCall Fn.List.singleton lookupTable expressionUnparenthesizedNode)
+                (getSpecificUnreducedFnCall Fn.List.singleton scope expressionUnparenthesizedNode)
 
 
 {-| Parse a call or a lambda that is reducible to a call of a function with the given name.
@@ -183,7 +183,7 @@ getSpecificFnCall :
             , callStyle : FunctionCallStyle
             }
 getSpecificFnCall reference context expressionNode =
-    Maybe.andThen (\valOrFn -> valueOrFunctionCallToSpecificFnCall reference context.lookupTable valOrFn)
+    Maybe.andThen (\valOrFn -> valueOrFunctionCallToSpecificFnCall reference context.scope valOrFn)
         (getValueOrFnOrFnCall context expressionNode)
 
 
@@ -202,7 +202,7 @@ or `Tuple.first` (basically anything that returns a type variable directly)
 -}
 getSpecificUnreducedFnCall :
     ( ModuleName, String )
-    -> ModuleNameLookupTable
+    -> Scope
     -> Node Expression
     ->
         Maybe
@@ -212,15 +212,15 @@ getSpecificUnreducedFnCall :
             , argsAfterFirst : List (Node Expression)
             , callStyle : FunctionCallStyle
             }
-getSpecificUnreducedFnCall reference lookupTable expressionNode =
-    Maybe.andThen (\valOrFn -> valueOrFunctionCallToSpecificFnCall reference lookupTable valOrFn)
+getSpecificUnreducedFnCall reference scope expressionNode =
+    Maybe.andThen (\valOrFn -> valueOrFunctionCallToSpecificFnCall reference scope valOrFn)
         (getUnreducedValueOrFnOrFnCall expressionNode)
 
 
 {-| Like `getSpecificUnreducedFnCall` without returning any info
 -}
-isSpecificUnreducedFnCall : ( ModuleName, String ) -> ModuleNameLookupTable -> Node Expression -> Bool
-isSpecificUnreducedFnCall ( specificModuleOrigin, specificName ) lookupTable expressionNode =
+isSpecificUnreducedFnCall : ( ModuleName, String ) -> Scope -> Node Expression -> Bool
+isSpecificUnreducedFnCall ( specificModuleOrigin, specificName ) scope expressionNode =
     case getUnreducedValueOrFnOrFnCall expressionNode of
         Nothing ->
             False
@@ -228,15 +228,14 @@ isSpecificUnreducedFnCall ( specificModuleOrigin, specificName ) lookupTable exp
         Just valueOrFunctionCall ->
             Basics.not (List.isEmpty valueOrFunctionCall.args)
                 && (valueOrFunctionCall.fnName == specificName)
-                && (Maybe.withDefault valueOrFunctionCall.fnQualification
-                        (ModuleNameLookupTable.moduleNameAt lookupTable valueOrFunctionCall.fnRange)
+                && (Scope.moduleNameForValue scope valueOrFunctionCall.fnQualification valueOrFunctionCall.fnName
                         == specificModuleOrigin
                    )
 
 
 valueOrFunctionCallToSpecificFnCall :
     ( ModuleName, String )
-    -> ModuleNameLookupTable
+    -> Scope
     ->
         { nodeRange : Range
         , fnQualification : ModuleName
@@ -253,13 +252,12 @@ valueOrFunctionCallToSpecificFnCall :
             , argsAfterFirst : List (Node Expression)
             , callStyle : FunctionCallStyle
             }
-valueOrFunctionCallToSpecificFnCall ( specificModuleOrigin, specificName ) lookupTable valueOrFunctionCall =
+valueOrFunctionCallToSpecificFnCall ( specificModuleOrigin, specificName ) scope valueOrFunctionCall =
     case valueOrFunctionCall.args of
         firstArg :: argsAfterFirst ->
             if
                 (valueOrFunctionCall.fnName == specificName)
-                    && (Maybe.withDefault valueOrFunctionCall.fnQualification
-                            (ModuleNameLookupTable.moduleNameAt lookupTable valueOrFunctionCall.fnRange)
+                    && (Scope.moduleNameForValue scope valueOrFunctionCall.fnQualification valueOrFunctionCall.fnName
                             == specificModuleOrigin
                        )
             then
@@ -331,8 +329,7 @@ isSpecificValueOrFn ( specificModuleOrigin, specificName ) context expressionNod
     case getValueOrFn context expressionNode of
         Just valueOrFn ->
             (valueOrFn.name == specificName)
-                && (Maybe.withDefault valueOrFn.qualification
-                        (ModuleNameLookupTable.moduleNameAt context.lookupTable valueOrFn.range)
+                && (Scope.moduleNameForValue context.scope valueOrFn.qualification valueOrFn.name
                         == specificModuleOrigin
                    )
 
@@ -345,22 +342,21 @@ isSpecificValueOrFn ( specificModuleOrigin, specificName ) context expressionNod
 getValueOrFn :
     ReduceLambdaResources context
     -> Node Expression
-    -> Maybe { qualification : ModuleName, name : String, range : Range }
-getValueOrFn lookupTable expressionNode =
+    -> Maybe { qualification : ModuleName, name : String }
+getValueOrFn scope expressionNode =
     case removeParens expressionNode of
-        Node rangeInParens (Expression.FunctionOrValue qualification name) ->
-            Just { range = rangeInParens, qualification = qualification, name = name }
+        Node _ (Expression.FunctionOrValue qualification name) ->
+            Just { qualification = qualification, name = name }
 
         nonFunctionOrValueNode ->
-            case getReducedLambda lookupTable nonFunctionOrValueNode of
+            case getReducedLambda scope nonFunctionOrValueNode of
                 Just reducedLambdaToFn ->
                     if
                         List.isEmpty reducedLambdaToFn.lambdaPatterns
                             && List.isEmpty reducedLambdaToFn.callArguments
                     then
                         Just
-                            { range = reducedLambdaToFn.fnRange
-                            , qualification = reducedLambdaToFn.fnQualification
+                            { qualification = reducedLambdaToFn.fnQualification
                             , name = reducedLambdaToFn.fnName
                             }
 
@@ -376,16 +372,15 @@ that only works for variables holding a value that cannot be applied,
 like `True`, `Basics.e` or `Nothing`.
 -}
 isSpecificValueReference :
-    ModuleNameLookupTable
+    Scope
     -> ( ModuleName, String )
     -> Node Expression
     -> Bool
-isSpecificValueReference lookupTable ( moduleOriginToCheckFor, nameToCheckFor ) baseNode =
+isSpecificValueReference scope ( moduleOriginToCheckFor, nameToCheckFor ) baseNode =
     case removeParens baseNode of
-        Node fnRange (Expression.FunctionOrValue qualification name) ->
+        Node _ (Expression.FunctionOrValue qualification name) ->
             (name == nameToCheckFor)
-                && (Maybe.withDefault qualification
-                        (ModuleNameLookupTable.moduleNameAt lookupTable fnRange)
+                && (Scope.moduleNameForValue scope qualification name
                         == moduleOriginToCheckFor
                    )
 
@@ -986,7 +981,7 @@ expressionReconstructsDestructuringPattern :
     -> Node Expression
     -> Node Pattern
     -> Bool
-expressionReconstructsDestructuringPattern context expressionNode (Node patternRange pattern) =
+expressionReconstructsDestructuringPattern context expressionNode (Node _ pattern) =
     case pattern of
         Pattern.ParenthesizedPattern patternInParens ->
             expressionReconstructsDestructuringPattern context
@@ -1067,7 +1062,7 @@ expressionReconstructsDestructuringPattern context expressionNode (Node patternR
                             unparenthesizedAliasedPattern
 
         Pattern.TuplePattern [ patternPart0, patternPart1 ] ->
-            case getTuple2 context.lookupTable expressionNode of
+            case getTuple2 context.scope expressionNode of
                 Nothing ->
                     False
 
@@ -1118,8 +1113,7 @@ expressionReconstructsDestructuringPattern context expressionNode (Node patternR
             let
                 patternVariantReferenceModuleOrigin : ModuleName
                 patternVariantReferenceModuleOrigin =
-                    Maybe.withDefault patternVariantReference.moduleName
-                        (ModuleNameLookupTable.moduleNameAt context.lookupTable patternRange)
+                    Scope.moduleNameForValue context.scope patternVariantReference.moduleName patternVariantReference.name
 
                 maybeOriginChoiceTypeInfo : Maybe { name : String, variantNames : Set String, allParametersAreUsedInVariants : Bool }
                 maybeOriginChoiceTypeInfo =
@@ -1147,7 +1141,7 @@ expressionReconstructsDestructuringPattern context expressionNode (Node patternR
             if reconstructingVariantWillNeverIntroduceNewTypeParameters then
                 case valuePatterns of
                     [] ->
-                        isSpecificValueReference context.lookupTable
+                        isSpecificValueReference context.scope
                             ( patternVariantReferenceModuleOrigin, patternVariantReference.name )
                             expressionNode
 
@@ -1155,7 +1149,7 @@ expressionReconstructsDestructuringPattern context expressionNode (Node patternR
                         case
                             getSpecificUnreducedFnCall
                                 ( patternVariantReferenceModuleOrigin, patternVariantReference.name )
-                                context.lookupTable
+                                context.scope
                                 expressionNode
                         of
                             Nothing ->
@@ -1423,12 +1417,12 @@ getCollapsedCons expressionNode =
             Nothing
 
 
-getBool : ModuleNameLookupTable -> Node Expression -> Maybe Bool
-getBool lookupTable expressionNode =
-    if isSpecificValueReference lookupTable Fn.Basics.trueVariant expressionNode then
+getBool : Scope -> Node Expression -> Maybe Bool
+getBool scope expressionNode =
+    if isSpecificValueReference scope Fn.Basics.trueVariant expressionNode then
         Just True
 
-    else if isSpecificValueReference lookupTable Fn.Basics.falseVariant expressionNode then
+    else if isSpecificValueReference scope Fn.Basics.falseVariant expressionNode then
         Just False
 
     else
@@ -1445,14 +1439,14 @@ getTuple2Literal (Node range expr) =
             Nothing
 
 
-getTuple2 : ModuleNameLookupTable -> Node Expression -> Maybe { first : Node Expression, second : Node Expression }
-getTuple2 lookupTable expressionNode =
+getTuple2 : Scope -> Node Expression -> Maybe { first : Node Expression, second : Node Expression }
+getTuple2 scope expressionNode =
     case removeParens expressionNode of
         Node _ (Expression.TupledExpression (first :: second :: [])) ->
             Just { first = first, second = second }
 
         _ ->
-            case getSpecificUnreducedFnCall Fn.Tuple.pair lookupTable expressionNode of
+            case getSpecificUnreducedFnCall Fn.Tuple.pair scope expressionNode of
                 Just tuplePairCall ->
                     case tuplePairCall.argsAfterFirst of
                         second :: _ ->
@@ -1465,22 +1459,22 @@ getTuple2 lookupTable expressionNode =
                     Nothing
 
 
-getBoolPattern : ModuleNameLookupTable -> Node Pattern -> Maybe Bool
-getBoolPattern lookupTable basePatternNode =
+getBoolPattern : Scope -> Node Pattern -> Maybe Bool
+getBoolPattern scope basePatternNode =
     case removeParensFromPattern basePatternNode of
-        Node variantPatternRange (Pattern.NamedPattern variantPattern _) ->
+        Node _ (Pattern.NamedPattern variantPattern _) ->
             case variantPattern.name of
                 "True" ->
-                    case ModuleNameLookupTable.moduleNameAt lookupTable variantPatternRange of
-                        Just [ "Basics" ] ->
+                    case Scope.moduleNameForValue scope variantPattern.moduleName variantPattern.name of
+                        [ "Basics" ] ->
                             Just True
 
                         _ ->
                             Nothing
 
                 "False" ->
-                    case ModuleNameLookupTable.moduleNameAt lookupTable variantPatternRange of
-                        Just [ "Basics" ] ->
+                    case Scope.moduleNameForValue scope variantPattern.moduleName variantPattern.name of
+                        [ "Basics" ] ->
                             Just False
 
                         _ ->
@@ -1493,15 +1487,15 @@ getBoolPattern lookupTable basePatternNode =
             Nothing
 
 
-getOrder : ModuleNameLookupTable -> Node Expression -> Maybe Order
-getOrder lookupTable expressionNode =
-    if isSpecificValueReference lookupTable Fn.Basics.lTVariant expressionNode then
+getOrder : Scope -> Node Expression -> Maybe Order
+getOrder scope expressionNode =
+    if isSpecificValueReference scope Fn.Basics.lTVariant expressionNode then
         Just LT
 
-    else if isSpecificValueReference lookupTable Fn.Basics.eQVariant expressionNode then
+    else if isSpecificValueReference scope Fn.Basics.eQVariant expressionNode then
         Just EQ
 
-    else if isSpecificValueReference lookupTable Fn.Basics.gTVariant expressionNode then
+    else if isSpecificValueReference scope Fn.Basics.gTVariant expressionNode then
         Just GT
 
     else

@@ -833,16 +833,14 @@ a = True"""
                 Rule.applyContextCreator project
                     [ "A" ]
                     (Rule.initContextCreator
-                        (\scopeProvider lookupTable () ->
+                        (\scopeProvider () ->
                             { scope = ScopeProvider.topLevel scopeProvider
-                            , lookupTable = lookupTable
                             , inferredConstants = ( Infer.fromList inferred, [] )
                             , moduleCustomTypes = Dict.empty
                             , importCustomTypes = Dict.empty
                             }
                         )
                         |> Rule.withScopes
-                        |> Rule.withModuleNameLookupTable
                     )
             of
                 Ok ( _, resources_ ) ->
