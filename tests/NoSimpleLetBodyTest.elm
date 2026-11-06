@@ -43,7 +43,8 @@ a = 1
 a = let
         c = 2
         b = c
-    in b
+    in
+    b
 """
                     |> Review.Test.run rule
                     |> Review.Test.expectErrors
@@ -55,7 +56,7 @@ a = let
                                 ]
                             , under = "b"
                             }
-                            |> Review.Test.atExactly { start = { row = 5, column = 8 }, end = { row = 5, column = 9 } }
+                            |> Review.Test.atExactly { start = { row = 6, column = 5 }, end = { row = 6, column = 6 } }
                             |> Review.Test.whenFixed """module A exposing (..)
 a = let
         c = 2
@@ -69,7 +70,8 @@ a = let
 a = let
         b = c
         c = 2
-    in b
+    in
+    b
 """
                     |> Review.Test.run rule
                     |> Review.Test.expectErrors
@@ -81,7 +83,14 @@ a = let
                                 ]
                             , under = "b"
                             }
-                            |> Review.Test.atExactly { start = { row = 5, column = 8 }, end = { row = 5, column = 9 } }
+                            |> Review.Test.atExactly { start = { row = 6, column = 5 }, end = { row = 6, column = 6 } }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = let
+
+        c = 2
+    in
+    c
+"""
                         ]
         , test "should report an error but not suggest a fix when value is not the last declaration (last is destructuring)" <|
             \() ->
@@ -102,6 +111,12 @@ a = let
                             , under = "b"
                             }
                             |> Review.Test.atExactly { start = { row = 5, column = 8 }, end = { row = 5, column = 9 } }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = let
+
+        {c} = 2
+    in c
+"""
                         ]
         , test "should report an error but not suggest a fix when value is a function that takes arguments" <|
             \() ->
@@ -139,13 +154,139 @@ a = let b = 1
 """
                     |> Review.Test.run rule
                     |> Review.Test.expectNoErrors
-        , test "should not report an error if the return value was destructured in the let" <|
+        , test "should not report an error if the return value was partially destructured in the let" <|
             \() ->
                 """module A exposing (..)
 a1 = let (b, _) = 1
      in b
 a2 = let {b} = 1
      in b
+"""
+                    |> Review.Test.run rule
+                    |> Review.Test.expectNoErrors
+        , test "should report an error if the return value was fully destructured in the let" <|
+            \() ->
+                """module A exposing (..)
+a = let (b, c) = xyz
+    in ( b, c )
+"""
+                    |> Review.Test.run rule
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "The referenced value should be inlined."
+                            , details =
+                                [ "The name of the value is redundant with the surrounding expression."
+                                , "If you believe that the expression needs a name because it is too complex, consider splitting the expression up more or extracting it to a new function."
+                                ]
+                            , under = "( b, c )"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = xyz
+"""
+                        ]
+        , test "should not report an error if the return is the tuple in a different order than what was destructured" <|
+            \() ->
+                """module A exposing (..)
+a = let (b, c) = xyz
+    in ( c, b )
+"""
+                    |> Review.Test.run rule
+                    |> Review.Test.expectNoErrors
+        , test "should not report an error if the return is the tuple with less elements than what was destructured" <|
+            \() ->
+                """module A exposing (..)
+a = let (b, c, d ) = xyz
+    in ( b, c )
+"""
+                    |> Review.Test.run rule
+                    |> Review.Test.expectNoErrors
+        , test "should report an error if the return value was fully destructured in the let (body wrapped in parens)" <|
+            \() ->
+                """module A exposing (..)
+a = let (b, c) = xyz
+    in (( b, c ))
+"""
+                    |> Review.Test.run rule
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "The referenced value should be inlined."
+                            , details =
+                                [ "The name of the value is redundant with the surrounding expression."
+                                , "If you believe that the expression needs a name because it is too complex, consider splitting the expression up more or extracting it to a new function."
+                                ]
+                            , under = "(( b, c ))"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = xyz
+"""
+                        ]
+        , test "should report an error if the return value was fully destructured in the let (let pattern wrapped in parens)" <|
+            \() ->
+                """module A exposing (..)
+a = let ((b, c)) = xyz
+    in ( b, c )
+"""
+                    |> Review.Test.run rule
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "The referenced value should be inlined."
+                            , details =
+                                [ "The name of the value is redundant with the surrounding expression."
+                                , "If you believe that the expression needs a name because it is too complex, consider splitting the expression up more or extracting it to a new function."
+                                ]
+                            , under = "( b, c )"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = xyz
+"""
+                        ]
+        , test "should report an error if the return value was fully destructured in the let (named pattern)" <|
+            \() ->
+                """module A exposing (..)
+type A = A String
+a = let (A  b) = xyz
+    in A b
+"""
+                    |> Review.Test.run rule
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "The referenced value should be inlined."
+                            , details =
+                                [ "The name of the value is redundant with the surrounding expression."
+                                , "If you believe that the expression needs a name because it is too complex, consider splitting the expression up more or extracting it to a new function."
+                                ]
+                            , under = "A b"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+type A = A String
+a = xyz
+"""
+                        ]
+        , test "should not report named pattern when the type is unknown" <|
+            \() ->
+                """module A exposing (..)
+import B exposing (..)
+a = let (A b) = xyz
+    in A b
+"""
+                    |> Review.Test.run rule
+                    |> Review.Test.expectNoErrors
+        , test "should not report named pattern when the type has a phantom type variable" <|
+            \() ->
+                """module A exposing (..)
+type A b = A String
+a = let (A b) = xyz
+    in A b
+"""
+                    |> Review.Test.run rule
+                    |> Review.Test.expectNoErrors
+        , test "should report named pattern when the type has a non-phantom type variable" <|
+            -- TODO This should be reported (see https://github.com/jfmengels/elm-review-code-style/issues/6)
+            \() ->
+                """module A exposing (..)
+type A b = A b
+a = let (A b) = xyz
+    in A b
 """
                     |> Review.Test.run rule
                     |> Review.Test.expectNoErrors
