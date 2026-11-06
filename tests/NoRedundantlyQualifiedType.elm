@@ -6,22 +6,18 @@ module NoRedundantlyQualifiedType exposing (rule)
 
 -}
 
-import Dict exposing (Dict)
-import Elm.Docs
 import Elm.Syntax.Declaration exposing (Declaration(..))
-import Elm.Syntax.Exposing as Exposing exposing (Exposing(..))
+import Elm.Syntax.Exposing as Exposing
 import Elm.Syntax.Expression as Expression exposing (Function, LetDeclaration(..))
-import Elm.Syntax.File
 import Elm.Syntax.Import exposing (Import)
-import Elm.Syntax.Module as Module
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node(..))
-import Elm.Syntax.Range as Range exposing (Range)
+import Elm.Syntax.Range exposing (Range)
 import Elm.Syntax.TypeAnnotation exposing (RecordField, TypeAnnotation(..))
 import Review.Fix as Fix exposing (Fix)
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
-import Review.Project.Dependency
-import Review.Resources.ScopeProvider exposing (ScopeProvider)
+import Review.Resources.ImportBinding as ImportBinding
+import Review.Resources.ScopeProvider as ScopeProvider exposing (ScopeProvider)
 import Review.Rule as Rule exposing (Rule)
 import Set exposing (Set)
 
@@ -75,165 +71,34 @@ elm-review --template jfmengels/elm-review-code-style/example --rules NoRedundan
 -}
 rule : Rule
 rule =
-    Rule.newProjectRuleSchema "NoRedundantlyQualifiedType" initialContext
-        |> Rule.withModuleVisitor moduleVisitor
-        |> Rule.withDependenciesProjectVisitor dependenciesVisitor
-        |> Rule.withModuleContextUsingContextCreator
-            { fromProjectToModule = fromProjectToModule
-            , fromModuleToProject = fromModuleToProject
-            , foldProjectContexts = foldProjectContexts
-            }
-        |> Rule.withContextFromImportedModules
-        |> Rule.providesFixesForProjectRule
-        |> Rule.fromProjectRuleSchema
-
-
-moduleVisitor : Rule.ModuleRuleSchema schemaState ModuleContext -> Rule.ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } ModuleContext
-moduleVisitor schema =
-    schema
+    Rule.newModuleRuleSchemaUsingContextCreator "NoRedundantlyQualifiedType" initialContext
         |> Rule.withDeclarationEnterVisitor (\node context -> ( declarationVisitor node context, context ))
         |> Rule.withLetDeclarationEnterVisitor (\_ node context -> ( letDeclarationEnterVisitor node context, context ))
+        |> Rule.providesFixesForModuleRule
+        |> Rule.fromModuleRuleSchema
 
 
-type alias ProjectContext =
-    { exposedTypes : Dict ModuleName (Set String)
-    , preludeImportedTypes : Dict String ImportedType
-    }
-
-
-type alias ModuleContext =
+type alias Context =
     { scopeProvider : ScopeProvider
     , lookupTable : ModuleNameLookupTable
     , imports : List (Node Import)
     , typesDefinedInModule : Set String
-    , importedTypes : Dict String ImportedType
     }
 
 
-type ImportedType
-    = FromSingleModule ModuleName
-    | FromMultipleModules
-
-
-initialContext : ProjectContext
+initialContext : Rule.ContextCreator () Context
 initialContext =
-    { exposedTypes = Dict.empty
-    , preludeImportedTypes = Dict.empty
-    }
-
-
-fromProjectToModule : Rule.ContextCreator ProjectContext ModuleContext
-fromProjectToModule =
     Rule.initContextCreator
-        (\scopeProvider lookupTable ast projectContext ->
+        (\scopeProvider lookupTable ast () ->
             { scopeProvider = scopeProvider
             , lookupTable = lookupTable
             , imports = ast.imports
             , typesDefinedInModule = collectTypesDefinedInModule ast.declarations
-            , importedTypes = List.foldl (collectImportedTypes projectContext.exposedTypes) projectContext.preludeImportedTypes ast.imports
             }
         )
         |> Rule.withScopes
         |> Rule.withModuleNameLookupTable
         |> Rule.withFullAst
-
-
-fromModuleToProject : Rule.ContextCreator ModuleContext ProjectContext
-fromModuleToProject =
-    Rule.initContextCreator
-        (\moduleName ast moduleContext ->
-            { exposedTypes = collectExposedFromModule moduleName ast moduleContext
-            , preludeImportedTypes = Dict.empty
-            }
-        )
-        |> Rule.withModuleName
-        |> Rule.withFullAst
-
-
-collectExposedFromModule : ModuleName -> Elm.Syntax.File.File -> ModuleContext -> Dict ModuleName (Set String)
-collectExposedFromModule moduleName ast moduleContext =
-    let
-        exposedTypes : Set String
-        exposedTypes =
-            case Module.exposingList (Node.value ast.moduleDefinition) of
-                Exposing.All _ ->
-                    moduleContext.typesDefinedInModule
-
-                Explicit nodes ->
-                    List.foldl
-                        (\(Node _ topLevelExposeNode) acc ->
-                            case topLevelExposeNode of
-                                Exposing.FunctionExpose _ ->
-                                    acc
-
-                                Exposing.InfixExpose _ ->
-                                    acc
-
-                                Exposing.TypeOrAliasExpose name ->
-                                    Set.insert name acc
-
-                                Exposing.TypeExpose { name } ->
-                                    Set.insert name acc
-                        )
-                        Set.empty
-                        nodes
-    in
-    if Set.isEmpty exposedTypes then
-        Dict.empty
-
-    else
-        Dict.singleton moduleName exposedTypes
-
-
-foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext
-foldProjectContexts newContext previousContext =
-    { exposedTypes = Dict.union newContext.exposedTypes previousContext.exposedTypes
-    , preludeImportedTypes = previousContext.preludeImportedTypes
-    }
-
-
-dependenciesVisitor : Dict String Review.Project.Dependency.Dependency -> ProjectContext -> ( List nothing, ProjectContext )
-dependenciesVisitor dependencies projectContext =
-    let
-        exposedTypes : Dict ModuleName (Set String)
-        exposedTypes =
-            Dict.foldl
-                (\_ dep acc ->
-                    collectModuleTypes (Review.Project.Dependency.modules dep) acc
-                )
-                projectContext.exposedTypes
-                dependencies
-    in
-    ( []
-    , { exposedTypes = exposedTypes
-      , preludeImportedTypes = List.foldl (collectImportedTypes exposedTypes) Dict.empty elmCorePrelude
-      }
-    )
-
-
-collectModuleTypes : List Elm.Docs.Module -> Dict ModuleName (Set String) -> Dict ModuleName (Set String)
-collectModuleTypes modules acc =
-    List.foldl
-        (\{ name, unions, aliases } subAcc ->
-            let
-                accWithUnions : Set String
-                accWithUnions =
-                    List.foldl
-                        (\union subSubAcc -> Set.insert union.name subSubAcc)
-                        Set.empty
-                        unions
-
-                accWithUnionsAndAliases : Set String
-                accWithUnionsAndAliases =
-                    List.foldl
-                        (\alias_ subSubAcc -> Set.insert alias_.name subSubAcc)
-                        accWithUnions
-                        aliases
-            in
-            Dict.insert (String.split "." name) accWithUnionsAndAliases subAcc
-        )
-        acc
-        modules
 
 
 collectTypesDefinedInModule : List (Node Declaration) -> Set String
@@ -254,7 +119,7 @@ collectTypesDefinedInModule list =
         list
 
 
-declarationVisitor : Node Declaration -> ModuleContext -> List (Rule.Error {})
+declarationVisitor : Node Declaration -> Context -> List (Rule.Error {})
 declarationVisitor (Node _ decl) context =
     case decl of
         FunctionDeclaration function ->
@@ -278,7 +143,7 @@ declarationVisitor (Node _ decl) context =
             []
 
 
-letDeclarationEnterVisitor : Node Expression.LetDeclaration -> ModuleContext -> List (Rule.Error {})
+letDeclarationEnterVisitor : Node Expression.LetDeclaration -> Context -> List (Rule.Error {})
 letDeclarationEnterVisitor (Node _ letDeclaration) context =
     case letDeclaration of
         LetFunction function ->
@@ -288,7 +153,7 @@ letDeclarationEnterVisitor (Node _ letDeclaration) context =
             []
 
 
-doFunction : ModuleContext -> Function -> List (Rule.Error {})
+doFunction : Context -> Function -> List (Rule.Error {})
 doFunction context function =
     case function.signature of
         Just (Node _ signature) ->
@@ -298,7 +163,7 @@ doFunction context function =
             []
 
 
-doTypeAnnotation : ModuleContext -> Node TypeAnnotation -> List (Rule.Error {})
+doTypeAnnotation : Context -> Node TypeAnnotation -> List (Rule.Error {})
 doTypeAnnotation context (Node _ typeAnnotation) =
     case typeAnnotation of
         GenericType _ ->
@@ -323,7 +188,7 @@ doTypeAnnotation context (Node _ typeAnnotation) =
             doTypeAnnotation context left ++ doTypeAnnotation context right
 
 
-doRecordDefinition : List (Node RecordField) -> ModuleContext -> List (Rule.Error {})
+doRecordDefinition : List (Node RecordField) -> Context -> List (Rule.Error {})
 doRecordDefinition recordDefinition context =
     List.concatMap
         (\(Node _ ( _, typeAnnotation )) ->
@@ -332,7 +197,7 @@ doRecordDefinition recordDefinition context =
         recordDefinition
 
 
-doConstructor : ModuleContext -> Node ( ModuleName, String ) -> List (Rule.Error {})
+doConstructor : Context -> Node ( ModuleName, String ) -> List (Rule.Error {})
 doConstructor context (Node range constructor) =
     case constructor of
         ( [ qualifier ], name ) ->
@@ -352,21 +217,18 @@ doConstructor context (Node range constructor) =
             []
 
 
-reportErrorBasedOnImportedTypes : ModuleContext -> ModuleName -> Range -> String -> List (Rule.Error {})
+reportErrorBasedOnImportedTypes : Context -> ModuleName -> Range -> String -> List (Rule.Error {})
 reportErrorBasedOnImportedTypes context moduleName range name =
-    case Dict.get name context.importedTypes of
+    case ScopeProvider.importTypeBinding context.scopeProvider name of
         Nothing ->
             [ reportError name range (importFix moduleName name context.imports) ]
 
-        Just (FromSingleModule moduleNameWhichExposesType) ->
-            if moduleName == moduleNameWhichExposesType then
+        Just binding ->
+            if moduleName == ImportBinding.moduleName binding then
                 [ reportError name range [] ]
 
             else
                 []
-
-        Just FromMultipleModules ->
-            []
 
 
 reportError : String -> Range -> List Fix -> Rule.Error {}
@@ -387,63 +249,6 @@ reportError name range additionalFixes =
             }
             :: additionalFixes
         )
-
-
-collectImportedTypes : Dict ModuleName (Set String) -> Node Import -> Dict String ImportedType -> Dict String ImportedType
-collectImportedTypes exposedTypes (Node _ importNode) set =
-    case importNode.exposingList of
-        Just (Node _ exposing_) ->
-            let
-                (Node _ moduleName) =
-                    importNode.moduleName
-            in
-            case exposing_ of
-                Exposing.All _ ->
-                    case Dict.get moduleName exposedTypes of
-                        Nothing ->
-                            set
-
-                        Just typesInImportedModule ->
-                            Set.foldl (\name acc -> collectType moduleName name acc) set typesInImportedModule
-
-                Exposing.Explicit nodes ->
-                    List.foldl
-                        (\(Node _ topLevelExposeNode) acc ->
-                            case topLevelExposeNode of
-                                Exposing.FunctionExpose _ ->
-                                    set
-
-                                Exposing.InfixExpose _ ->
-                                    set
-
-                                Exposing.TypeOrAliasExpose name ->
-                                    collectType moduleName name acc
-
-                                Exposing.TypeExpose { name } ->
-                                    collectType moduleName name acc
-                        )
-                        set
-                        nodes
-
-        Nothing ->
-            set
-
-
-collectType : ModuleName -> String -> Dict String ImportedType -> Dict String ImportedType
-collectType moduleName name dict =
-    case Dict.get name dict of
-        Nothing ->
-            Dict.insert name (FromSingleModule moduleName) dict
-
-        Just (FromSingleModule previousModuleName) ->
-            if previousModuleName == moduleName then
-                dict
-
-            else
-                Dict.insert name FromMultipleModules dict
-
-        Just FromMultipleModules ->
-            dict
 
 
 importFix : ModuleName -> String -> List (Node Import) -> List Fix
@@ -468,110 +273,6 @@ importFix moduleName name imports =
         Nothing ->
             -- If no matching imports, assume it is part of the default imports.
             []
-
-
-elmCorePrelude : List (Node Import)
-elmCorePrelude =
-    let
-        explicit : List Exposing.TopLevelExpose -> Maybe Exposing
-        explicit exposed =
-            exposed
-                |> List.map (Node Range.emptyRange)
-                |> Exposing.Explicit
-                |> Just
-    in
-    -- These are the default imports implicitly added by the Elm compiler
-    -- https://package.elm-lang.org/packages/elm/core/latest
-    [ createFakeImport
-        { moduleName = [ "Basics" ]
-        , moduleAlias = Nothing
-        , exposingList = Just <| Exposing.All Range.emptyRange
-        }
-    , createFakeImport
-        { moduleName = [ "List" ]
-        , moduleAlias = Nothing
-        , exposingList =
-            explicit
-                [ Exposing.TypeExpose { name = "List", open = Nothing }
-                , Exposing.InfixExpose "::"
-                ]
-        }
-    , createFakeImport
-        { moduleName = [ "Maybe" ]
-        , moduleAlias = Nothing
-        , exposingList =
-            explicit
-                [ Exposing.TypeExpose { name = "Maybe", open = Just Range.emptyRange }
-                ]
-        }
-    , createFakeImport
-        { moduleName = [ "Result" ]
-        , moduleAlias = Nothing
-        , exposingList =
-            explicit
-                [ Exposing.TypeExpose { name = "Result", open = Just Range.emptyRange }
-                ]
-        }
-    , createFakeImport
-        { moduleName = [ "String" ]
-        , moduleAlias = Nothing
-        , exposingList =
-            explicit
-                [ Exposing.TypeExpose { name = "String", open = Nothing }
-                ]
-        }
-    , createFakeImport
-        { moduleName = [ "Char" ]
-        , moduleAlias = Nothing
-        , exposingList =
-            explicit
-                [ Exposing.TypeExpose { name = "Char", open = Nothing }
-                ]
-        }
-    , createFakeImport
-        { moduleName = [ "Tuple" ]
-        , moduleAlias = Nothing
-        , exposingList = Nothing
-        }
-    , createFakeImport
-        { moduleName = [ "Debug" ]
-        , moduleAlias = Nothing
-        , exposingList = Nothing
-        }
-    , createFakeImport
-        { moduleName = [ "Platform" ]
-        , moduleAlias = Nothing
-        , exposingList =
-            explicit
-                [ Exposing.TypeExpose { name = "Program", open = Nothing }
-                ]
-        }
-    , createFakeImport
-        { moduleName = [ "Platform", "Cmd" ]
-        , moduleAlias = Just "Cmd"
-        , exposingList =
-            explicit
-                [ Exposing.TypeExpose { name = "Cmd", open = Nothing }
-                ]
-        }
-    , createFakeImport
-        { moduleName = [ "Platform", "Sub" ]
-        , moduleAlias = Just "Sub"
-        , exposingList =
-            explicit
-                [ Exposing.TypeExpose { name = "Sub", open = Nothing }
-                ]
-        }
-    ]
-
-
-createFakeImport : { moduleName : ModuleName, exposingList : Maybe Exposing, moduleAlias : Maybe String } -> Node Import
-createFakeImport { moduleName, moduleAlias, exposingList } =
-    Node Range.emptyRange
-        { moduleName = Node Range.emptyRange moduleName
-        , moduleAlias = moduleAlias |> Maybe.map (List.singleton >> Node Range.emptyRange)
-        , exposingList = exposingList |> Maybe.map (Node Range.emptyRange)
-        }
 
 
 find : (a -> Bool) -> List a -> Maybe a
