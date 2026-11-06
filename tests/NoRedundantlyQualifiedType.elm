@@ -15,7 +15,6 @@ import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Range exposing (Range)
 import Elm.Syntax.TypeAnnotation exposing (RecordField, TypeAnnotation(..))
 import Review.Fix as Fix exposing (Fix)
-import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Resources.ImportBinding as ImportBinding
 import Review.Resources.ScopeProvider as ScopeProvider exposing (ScopeProvider)
 import Review.Rule as Rule exposing (Rule)
@@ -80,7 +79,6 @@ rule =
 
 type alias Context =
     { scopeProvider : ScopeProvider
-    , lookupTable : ModuleNameLookupTable
     , imports : List (Node Import)
     , typesDefinedInModule : Set String
     }
@@ -89,15 +87,13 @@ type alias Context =
 initialContext : Rule.ContextCreator () Context
 initialContext =
     Rule.initContextCreator
-        (\scopeProvider lookupTable ast () ->
+        (\scopeProvider ast () ->
             { scopeProvider = scopeProvider
-            , lookupTable = lookupTable
             , imports = ast.imports
             , typesDefinedInModule = collectTypesDefinedInModule ast.declarations
             }
         )
         |> Rule.withScopes
-        |> Rule.withModuleNameLookupTable
         |> Rule.withFullAst
 
 
@@ -205,13 +201,11 @@ doConstructor context (Node range constructor) =
                 []
 
             else
-                case ModuleNameLookupTable.moduleNameAt context.lookupTable range of
-                    Just moduleName ->
-                        reportErrorBasedOnImportedTypes context moduleName range name
-
-                    -- Should not happen.
-                    Nothing ->
-                        []
+                reportErrorBasedOnImportedTypes
+                    context
+                    (ScopeProvider.moduleNameForType context.scopeProvider [ qualifier ] name)
+                    range
+                    name
 
         _ ->
             []
