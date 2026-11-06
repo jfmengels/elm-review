@@ -7,6 +7,7 @@ module NoRedundantlyQualifiedType exposing (rule)
 -}
 
 import Dict exposing (Dict)
+import Elm.Docs
 import Elm.Syntax.Declaration exposing (Declaration(..))
 import Elm.Syntax.Exposing as Exposing exposing (Exposing(..))
 import Elm.Syntax.Expression as Expression exposing (Function, LetDeclaration(..))
@@ -194,27 +195,7 @@ dependenciesVisitor dependencies projectContext =
         exposedTypes =
             Dict.foldl
                 (\_ dep acc ->
-                    List.foldl
-                        (\{ name, unions, aliases } subAcc ->
-                            let
-                                accWithUnions : Set String
-                                accWithUnions =
-                                    List.foldl
-                                        (\union subSubAcc -> Set.insert union.name subSubAcc)
-                                        Set.empty
-                                        unions
-
-                                accWithUnionsAndAliases : Set String
-                                accWithUnionsAndAliases =
-                                    List.foldl
-                                        (\alias_ subSubAcc -> Set.insert alias_.name subSubAcc)
-                                        accWithUnions
-                                        aliases
-                            in
-                            Dict.insert (String.split "." name) accWithUnionsAndAliases subAcc
-                        )
-                        acc
-                        (Review.Project.Dependency.modules dep)
+                    collectModuleTypes (Review.Project.Dependency.modules dep) acc
                 )
                 projectContext.exposedTypes
                 dependencies
@@ -224,6 +205,31 @@ dependenciesVisitor dependencies projectContext =
       , preludeImportedTypes = List.foldl (collectImportedTypes exposedTypes) Dict.empty elmCorePrelude
       }
     )
+
+
+collectModuleTypes : List Elm.Docs.Module -> Dict ModuleName (Set String) -> Dict ModuleName (Set String)
+collectModuleTypes modules acc =
+    List.foldl
+        (\{ name, unions, aliases } subAcc ->
+            let
+                accWithUnions : Set String
+                accWithUnions =
+                    List.foldl
+                        (\union subSubAcc -> Set.insert union.name subSubAcc)
+                        Set.empty
+                        unions
+
+                accWithUnionsAndAliases : Set String
+                accWithUnionsAndAliases =
+                    List.foldl
+                        (\alias_ subSubAcc -> Set.insert alias_.name subSubAcc)
+                        accWithUnions
+                        aliases
+            in
+            Dict.insert (String.split "." name) accWithUnionsAndAliases subAcc
+        )
+        acc
+        modules
 
 
 collectTypesDefinedInModule : List (Node Declaration) -> Set String
