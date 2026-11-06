@@ -17,6 +17,7 @@ import Review.Fix.Edit exposing (Edit)
 import Review.Options
 import Review.Project as Project exposing (Project)
 import Review.Rule as Rule exposing (Rule)
+import Review.Test.Dependencies
 import Test exposing (Test, describe, test)
 
 
@@ -28,7 +29,7 @@ all =
                 let
                     project : Project
                     project =
-                        Project.new
+                        Review.Test.Dependencies.projectWithElmCore
                             |> Project.addModule
                                 { path = "A.elm"
                                 , source = """
@@ -48,7 +49,7 @@ b = 1
                 let
                     project : Project
                     project =
-                        Project.new
+                        Review.Test.Dependencies.projectWithElmCore
                             |> Project.addModule
                                 { path = "A.elm"
                                 , source = """
@@ -61,7 +62,7 @@ c = 1
 
                     expectedProjectModules : List Project.ProjectModule
                     expectedProjectModules =
-                        Project.new
+                        Review.Test.Dependencies.projectWithElmCore
                             |> Project.addModule
                                 { path = "A.elm"
                                 , source = """
@@ -79,31 +80,12 @@ a = 1
                 Expect.all
                     [ \() ->
                         results.fixedErrors
+                            |> Dict.map (\_ errors -> errors |> List.map Rule.errorMessage |> List.sort)
                             |> Expect.equal
                                 (Dict.fromList
                                     [ ( "A.elm"
-                                      , [ { message = "Top-level variable `c` is not used"
-                                          , details = [ "You should either use this value somewhere, or remove it at the location I pointed at." ]
-                                          , filePath = "A.elm"
-                                          , fixes = fixForFile (Fix.removeRange { end = { column = 1, row = 5 }, start = { column = 1, row = 4 } })
-                                          , fixProblem = Nothing
-                                          , preventsExtract = False
-                                          , range = { end = { column = 2, row = 4 }, start = { column = 1, row = 4 } }
-                                          , ruleName = "NoUnused.Variables"
-                                          , target = Target.module_ "A.elm"
-                                          }
-                                            |> ReviewError.fromBaseError
-                                        , { message = "Top-level variable `b` is not used"
-                                          , details = [ "You should either use this value somewhere, or remove it at the location I pointed at." ]
-                                          , filePath = "A.elm"
-                                          , fixes = fixForFile (Fix.removeRange { end = { column = 1, row = 5 }, start = { column = 1, row = 4 } })
-                                          , fixProblem = Nothing
-                                          , preventsExtract = False
-                                          , range = { end = { column = 2, row = 4 }, start = { column = 1, row = 4 } }
-                                          , ruleName = "NoUnused.Variables"
-                                          , target = Target.module_ "A.elm"
-                                          }
-                                            |> ReviewError.fromBaseError
+                                      , [ "Top-level variable `b` is not used"
+                                        , "Top-level variable `c` is not used"
                                         ]
                                       )
                                     ]
@@ -118,7 +100,7 @@ a = 1
                 let
                     project : Project
                     project =
-                        Project.new
+                        Review.Test.Dependencies.projectWithElmCore
                             |> Project.addModule
                                 { path = "A.elm"
                                 , source = """
@@ -132,13 +114,13 @@ d = 1
 
                     expectedProjectModules : List Project.ProjectModule
                     expectedProjectModules =
-                        Project.new
+                        Review.Test.Dependencies.projectWithElmCore
                             |> Project.addModule
                                 { path = "A.elm"
                                 , source = """
 module A exposing (a)
 a = 1
-d = 1
+b = 1
 """
                                 }
                             |> Project.modules
@@ -151,31 +133,12 @@ d = 1
                 Expect.all
                     [ \() ->
                         results.fixedErrors
+                            |> Dict.map (\_ errors -> errors |> List.map Rule.errorMessage |> List.sort)
                             |> Expect.equal
                                 (Dict.fromList
                                     [ ( "A.elm"
-                                      , [ { message = "Top-level variable `c` is not used"
-                                          , details = [ "You should either use this value somewhere, or remove it at the location I pointed at." ]
-                                          , filePath = "A.elm"
-                                          , fixes = fixForFile (Fix.removeRange { end = { column = 1, row = 5 }, start = { column = 1, row = 4 } })
-                                          , fixProblem = Nothing
-                                          , preventsExtract = False
-                                          , range = { end = { column = 2, row = 4 }, start = { column = 1, row = 4 } }
-                                          , ruleName = "NoUnused.Variables"
-                                          , target = Target.module_ "A.elm"
-                                          }
-                                            |> ReviewError.fromBaseError
-                                        , { message = "Top-level variable `b` is not used"
-                                          , details = [ "You should either use this value somewhere, or remove it at the location I pointed at." ]
-                                          , filePath = "A.elm"
-                                          , fixes = fixForFile (Fix.removeRange { end = { column = 1, row = 5 }, start = { column = 1, row = 4 } })
-                                          , fixProblem = Nothing
-                                          , preventsExtract = False
-                                          , range = { end = { column = 2, row = 4 }, start = { column = 1, row = 4 } }
-                                          , ruleName = "NoUnused.Variables"
-                                          , target = Target.module_ "A.elm"
-                                          }
-                                            |> ReviewError.fromBaseError
+                                      , [ "Top-level variable `c` is not used"
+                                        , "Top-level variable `d` is not used"
                                         ]
                                       )
                                     ]
@@ -189,7 +152,7 @@ d = 1
             \() ->
                 let
                     baseProject =
-                        Project.new
+                        Review.Test.Dependencies.projectWithElmCore
                             |> Project.addModule
                                 { path = "A.elm"
                                 , source = """
@@ -261,7 +224,7 @@ a = 1
                 let
                     baseProject : Project
                     baseProject =
-                        Project.new
+                        Review.Test.Dependencies.projectWithElmCore
                             |> Project.addModule
                                 { path = "A.elm"
                                 , source = """
@@ -338,7 +301,7 @@ a = 1
                 let
                     baseProject : Project
                     baseProject =
-                        Project.new
+                        Review.Test.Dependencies.projectWithElmCore
                             |> Project.addElmJson packageElmJson
                             |> Project.addModule
                                 { path = "A.elm"
@@ -387,11 +350,6 @@ a = 1
                     ]
                     ()
         ]
-
-
-fixForFile : Edit -> ErrorFixes
-fixForFile fix =
-    ErrorFixes.edit (FileTarget.Module "A.elm") [ fix ]
 
 
 fixForElmJson : Edit -> ErrorFixes
