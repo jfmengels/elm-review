@@ -541,6 +541,19 @@ createBinding (Node range name) realm bindings bindingIdCounter =
         bindingIdCounter
 
 
+createImportBinding : String -> ModuleName -> BindingId.Counter -> ( ImportBinding, BindingId.Counter )
+createImportBinding name moduleName bindingIdCounter =
+    BindingId.new
+        (\id ->
+            ImportBinding
+                { id = id
+                , name = name
+                , moduleName = moduleName
+                }
+        )
+        bindingIdCounter
+
+
 insertImportBinding :
     String
     -> ModuleName
@@ -680,7 +693,7 @@ registerImportedFunctionsAndTypes modules moduleName exposing_ context =
             registerImportedFunctionsAndTypesWhenExposingAll moduleName module_ context
 
         Exposing.Explicit topLevelExposeList ->
-            registerImportedFunctionsAndTypesWithExplicit moduleName module_ topLevelExposeList context
+            valuesFromExposingList moduleName module_ topLevelExposeList context
 
 
 registerImportedFunctionsAndTypesWhenExposingAll :
@@ -775,46 +788,12 @@ addRecordAliases moduleName list initial =
         list
 
 
-registerImportedFunctionsAndTypesWithExplicit :
-    ModuleName
-    -> Elm.Docs.Module
-    -> List (Node TopLevelExpose)
-    -> ImportContentAcc
-    -> ImportContentAcc
-registerImportedFunctionsAndTypesWithExplicit moduleName module_ topLevelExposeList context =
-    let
-        ( importedFunctions, bindingIdCounter ) =
-            valuesFromExposingList
-                moduleName
-                module_
-                topLevelExposeList
-                ( context.importedFunctions, context.bindingIdCounter )
-
-        ( importedTypes, finalCounter ) =
-            List.foldl
-                (\topLevelExpose acc ->
-                    case typesFromExposingList topLevelExpose of
-                        Just name ->
-                            insertImportBinding name moduleName acc
-
-                        Nothing ->
-                            acc
-                )
-                ( context.importedTypes, bindingIdCounter )
-                topLevelExposeList
-    in
-    { importedFunctions = importedFunctions
-    , bindingIdCounter = finalCounter
-    , importedTypes = importedTypes
-    }
-
-
 valuesFromExposingList :
     ModuleName
     -> Elm.Docs.Module
     -> List (Node TopLevelExpose)
-    -> ( Dict String ImportBinding, BindingId.Counter )
-    -> ( Dict String ImportBinding, BindingId.Counter )
+    -> ImportContentAcc
+    -> ImportContentAcc
 valuesFromExposingList moduleName module_ topLevelExposeList acc =
     case topLevelExposeList of
         [] ->
@@ -823,53 +802,90 @@ valuesFromExposingList moduleName module_ topLevelExposeList acc =
         (Node _ topLevelExpose) :: rest ->
             case topLevelExpose of
                 Exposing.InfixExpose name ->
+                    let
+                        ( importBinding, bindingIdCounter ) =
+                            createImportBinding name moduleName acc.bindingIdCounter
+                    in
                     valuesFromExposingList moduleName
                         module_
                         rest
-                        (insertImportBinding name moduleName acc)
+                        { importedFunctions = Dict.insert name importBinding acc.importedFunctions
+                        , importedTypes = acc.importedTypes
+                        , bindingIdCounter = bindingIdCounter
+                        }
 
                 Exposing.FunctionExpose name ->
+                    let
+                        ( importBinding, bindingIdCounter ) =
+                            createImportBinding name moduleName acc.bindingIdCounter
+                    in
                     valuesFromExposingList moduleName
                         module_
                         rest
-                        (insertImportBinding name moduleName acc)
+                        { importedFunctions = Dict.insert name importBinding acc.importedFunctions
+                        , importedTypes = acc.importedTypes
+                        , bindingIdCounter = bindingIdCounter
+                        }
 
                 Exposing.TypeOrAliasExpose name ->
-                    if
-                        ListExtra.find (\alias -> alias.name == name) module_.aliases
-                            |> Maybe.map (\alias -> isPlainRecordType alias.tipe)
-                            |> Maybe.withDefault False
-                    then
-                        valuesFromExposingList moduleName
-                            module_
-                            rest
-                            (insertImportBinding name moduleName acc)
+                    case ListExtra.find (\alias -> alias.name == name) module_.aliases of
+                        Just alias ->
+                            let
+                                ( importBinding, bindingIdCounter ) =
+                                    createImportBinding name moduleName acc.bindingIdCounter
+                            in
+                            valuesFromExposingList moduleName
+                                module_
+                                rest
+                                { importedFunctions =
+                                    if isPlainRecordType alias.tipe then
+                                        Dict.insert name importBinding acc.importedFunctions
 
-                    else
-                        -- Type is a custom type
-                        valuesFromExposingList moduleName module_ rest acc
-
-                Exposing.TypeExpose { name, open } ->
-                    case open of
-                        Just _ ->
-                            case ListExtra.find (\union -> union.name == name) module_.unions of
-                                Just union ->
-                                    valuesFromExposingList moduleName
-                                        module_
-                                        rest
-                                        (List.foldl
-                                            (\( tag, _ ) subAcc ->
-                                                insertImportBinding tag moduleName subAcc
-                                            )
-                                            acc
-                                            union.tags
-                                        )
-
-                                Nothing ->
-                                    valuesFromExposingList moduleName module_ rest acc
+                                    else
+                                        acc.importedFunctions
+                                , importedTypes = Dict.insert name importBinding acc.importedTypes
+                                , bindingIdCounter = bindingIdCounter
+                                }
 
                         Nothing ->
-                            valuesFromExposingList moduleName module_ rest acc
+                            let
+                                ( importBinding, bindingIdCounter ) =
+                                    createImportBinding name moduleName acc.bindingIdCounter
+                            in
+                            valuesFromExposingList moduleName
+                                module_
+                                rest
+                                { importedFunctions = acc.importedFunctions
+                                , importedTypes = Dict.insert name importBinding acc.importedTypes
+                                , bindingIdCounter = bindingIdCounter
+                                }
+
+                Exposing.TypeExpose { name } ->
+                    let
+                        constructors : List ( String, List Elm.Type.Type )
+                        constructors =
+                            ListExtra.find (\union -> union.name == name) module_.unions
+                                |> Maybe.map .tags
+                                |> Maybe.withDefault []
+
+                        ( importBinding, tmpBindingIdCounter ) =
+                            createImportBinding name moduleName acc.bindingIdCounter
+
+                        ( importedFunctions, bindingIdCounter ) =
+                            List.foldl
+                                (\( tag, _ ) subAcc ->
+                                    insertImportBinding tag moduleName subAcc
+                                )
+                                ( acc.importedFunctions, tmpBindingIdCounter )
+                                constructors
+                    in
+                    valuesFromExposingList moduleName
+                        module_
+                        rest
+                        { importedFunctions = importedFunctions
+                        , importedTypes = Dict.insert name importBinding acc.importedTypes
+                        , bindingIdCounter = bindingIdCounter
+                        }
 
 
 isPlainRecordType : Elm.Type.Type -> Bool
@@ -880,22 +896,6 @@ isPlainRecordType type_ =
 
         _ ->
             False
-
-
-typesFromExposingList : Node TopLevelExpose -> Maybe String
-typesFromExposingList (Node _ topLevelExpose) =
-    case topLevelExpose of
-        Exposing.InfixExpose _ ->
-            Nothing
-
-        Exposing.FunctionExpose _ ->
-            Nothing
-
-        Exposing.TypeOrAliasExpose name ->
-            Just name
-
-        Exposing.TypeExpose { name } ->
-            Just name
 
 
 declarationEnterVisitor : Node Declaration -> Context -> Context
