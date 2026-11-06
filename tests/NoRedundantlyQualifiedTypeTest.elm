@@ -632,6 +632,7 @@ elmJson =
     "dependencies": {
         "direct": {
             "author/package-with-bar": "1.0.0",
+            "author/package-with-set": "1.0.0",
             "elm/core": "1.0.0"
         },
         "indirect": {}
