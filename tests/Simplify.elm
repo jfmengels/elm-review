@@ -21296,8 +21296,8 @@ caseListLiteralOfWithUnreachableCasesError config checkInfo =
         isUnnecessaryListPattern : ListPattern -> Bool
         isUnnecessaryListPattern listPattern =
             case listPattern of
-                ListLiteralPattern listLiteralPatternELements ->
-                    List.length listLiteralPatternELements /= casedListLiteralLength
+                ListLiteralPattern listLiteralPatternElements ->
+                    List.length listLiteralPatternElements /= casedListLiteralLength
 
                 ConsPattern consPattern ->
                     List.length (listFilledToList consPattern.beginningElements) >= (casedListLiteralLength + 1)
