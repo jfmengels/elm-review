@@ -8,15 +8,24 @@ module NoUnnecessaryTrailingUnderscore exposing (rule)
 
 import Dict exposing (Dict)
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
+import Elm.Syntax.Exposing as Exposing
 import Elm.Syntax.Expression as Expression exposing (Expression)
-import Elm.Syntax.Node as Node exposing (Node)
-import Elm.Syntax.Pattern as Pattern
+import Elm.Syntax.File exposing (File)
+import Elm.Syntax.Import exposing (Import)
+import Elm.Syntax.Module as Module
+import Elm.Syntax.ModuleName exposing (ModuleName)
+import Elm.Syntax.Node as Node exposing (Node(..))
+import Elm.Syntax.Pattern as Pattern exposing (Pattern)
 import Elm.Syntax.Range exposing (Range)
+import Review.Fix as Fix exposing (Fix)
+import Review.Project.Dependency as Dependency exposing (Dependency)
 import Review.Rule as Rule exposing (Rule)
 import Set exposing (Set)
 
 
 {-| Reports unnecessary or suboptimal trailing underscores in variable names.
+
+🔧 Running with `--fix` will automatically remove most of the reported errors.
 
     config =
         [ NoUnnecessaryTrailingUnderscore.rule
@@ -137,71 +146,195 @@ elm-review --template jfmengels/elm-review-code-style/example --rules NoUnnecess
 -}
 rule : Rule
 rule =
-    Rule.newModuleRuleSchema "NoUnnecessaryTrailingUnderscore" initialContext
+    Rule.newProjectRuleSchema "NoUnnecessaryTrailingUnderscore" initialProjectContext
+        |> Rule.withDirectDependenciesProjectVisitor dependenciesVisitor
+        |> Rule.withModuleVisitor moduleVisitor
+        |> Rule.withModuleContextUsingContextCreator
+            { fromProjectToModule = fromProjectToModule
+            , fromModuleToProject = fromModuleToProject
+            , foldProjectContexts = Dict.union
+            }
+        |> Rule.withContextFromImportedModules
+        |> Rule.providesFixesForProjectRule
+        |> Rule.fromProjectRuleSchema
+
+
+dependenciesVisitor : Dict String Dependency -> ProjectContext -> ( List nothing, ProjectContext )
+dependenciesVisitor dependencies projectContext =
+    ( []
+    , dependencies
+        |> Dict.values
+        |> List.concatMap Dependency.modules
+        |> List.foldl
+            (\{ name, values } acc ->
+                Dict.insert (String.split "." name)
+                    (List.foldl (\value set -> Set.insert value.name set) Set.empty values)
+                    acc
+            )
+            projectContext
+    )
+
+
+moduleVisitor : Rule.ModuleRuleSchema schemaState ModuleContext -> Rule.ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } ModuleContext
+moduleVisitor schema =
+    schema
+        |> Rule.withImportVisitor importVisitor
         |> Rule.withDeclarationListVisitor declarationListVisitor
         |> Rule.withDeclarationEnterVisitor declarationVisitor
         |> Rule.withExpressionEnterVisitor expressionVisitor
         |> Rule.withExpressionExitVisitor expressionExitVisitor
-        |> Rule.fromModuleRuleSchema
 
 
-type alias Context =
+type alias ProjectContext =
+    Dict ModuleName (Set String)
+
+
+initialProjectContext : ProjectContext
+initialProjectContext =
+    Dict.empty
+
+
+type alias ModuleContext =
     { scopes : Scopes
-    , scopesToAdd : Dict RangeLike (Set String)
+    , scopesToAdd : List ( Range, Scope )
+    , caseToExit : List Range
+    , exposedFunctionsFromModule : Dict ModuleName (Set String)
     }
 
 
 type alias Scopes =
-    ( Set String, List (Set String) )
+    ( Scope, List Scope )
 
 
-type alias RangeLike =
-    List Int
+type alias Scope =
+    Set String
 
 
-initialContext : Context
-initialContext =
-    { scopes = ( Set.empty, [] )
-    , scopesToAdd = Dict.empty
-    }
+fromProjectToModule : Rule.ContextCreator ProjectContext ModuleContext
+fromProjectToModule =
+    Rule.initContextCreator
+        (\projectContext ->
+            { scopes = ( importedFromBasics, [] )
+            , scopesToAdd = []
+            , caseToExit = []
+            , exposedFunctionsFromModule = projectContext
+            }
+        )
 
 
-declarationListVisitor : List (Node Declaration) -> Context -> ( List (Rule.Error {}), Context )
-declarationListVisitor declarations context =
-    let
-        namesToAdd : Set String
-        namesToAdd =
-            List.filterMap
-                (\node ->
-                    case Node.value node of
-                        Declaration.FunctionDeclaration function ->
-                            function.declaration
-                                |> Node.value
-                                |> .name
-                                |> Node.value
-                                |> Just
+fromModuleToProject : Rule.ContextCreator ModuleContext ProjectContext
+fromModuleToProject =
+    Rule.initContextCreator
+        (\moduleName ast _ ->
+            Dict.singleton moduleName (collectExposed ast)
+        )
+        |> Rule.withModuleName
+        |> Rule.withFullAst
+
+
+collectExposed : File -> Set String
+collectExposed ast =
+    case Node.value ast.moduleDefinition |> Module.exposingList of
+        Exposing.Explicit list ->
+            List.foldl
+                (\(Node _ node) set ->
+                    case node of
+                        Exposing.FunctionExpose name ->
+                            Set.insert name set
 
                         _ ->
-                            Nothing
+                            set
                 )
+                Set.empty
+                list
+
+        Exposing.All _ ->
+            List.foldl
+                (\(Node _ node) set ->
+                    case node of
+                        Declaration.FunctionDeclaration { declaration } ->
+                            Set.insert (Node.value (Node.value declaration).name) set
+
+                        _ ->
+                            set
+                )
+                Set.empty
+                ast.declarations
+
+
+importVisitor : Node Import -> ModuleContext -> ( List nothing, ModuleContext )
+importVisitor (Node _ import_) context =
+    case import_.exposingList of
+        Just (Node _ (Exposing.Explicit list)) ->
+            let
+                ( scope, rest ) =
+                    context.scopes
+
+                newScope : Scope
+                newScope =
+                    List.foldl
+                        (\(Node _ node) set ->
+                            case node of
+                                Exposing.FunctionExpose name ->
+                                    Set.insert name set
+
+                                _ ->
+                                    set
+                        )
+                        scope
+                        list
+            in
+            ( []
+            , { context | scopes = ( newScope, rest ) }
+            )
+
+        Just (Node _ (Exposing.All _)) ->
+            case Dict.get (Node.value import_.moduleName) context.exposedFunctionsFromModule of
+                Just names ->
+                    ( []
+                    , { context | scopes = Tuple.mapFirst (\scope -> Set.union names scope) context.scopes }
+                    )
+
+                Nothing ->
+                    ( [], context )
+
+        Nothing ->
+            ( [], context )
+
+
+declarationListVisitor : List (Node Declaration) -> ModuleContext -> ( List (Rule.Error {}), ModuleContext )
+declarationListVisitor declarations context =
+    let
+        ( scope, rest ) =
+            context.scopes
+
+        newScope : Scope
+        newScope =
+            List.foldl
+                (\(Node _ node) set ->
+                    case node of
+                        Declaration.FunctionDeclaration function ->
+                            Set.insert
+                                (function.declaration
+                                    |> Node.value
+                                    |> .name
+                                    |> Node.value
+                                )
+                                set
+
+                        _ ->
+                            set
+                )
+                scope
                 declarations
-                |> Set.fromList
 
         errors : List (Rule.Error {})
         errors =
             List.filterMap
-                (\node ->
-                    case Node.value node of
+                (\(Node _ node) ->
+                    case node of
                         Declaration.FunctionDeclaration function ->
-                            reportFunction
-                                Set.empty
-                                context.scopes
-                                function
-                                { message = "Top-level declaration names should not end with an underscore"
-                                , details =
-                                    [ "A trailing underscore \"_\" is often used to prevent shadowing issues, but top-level declarations should not resolve these issues in that manner."
-                                    ]
-                                }
+                            reportTopLevelFunction context.scopes function
 
                         _ ->
                             Nothing
@@ -209,29 +342,20 @@ declarationListVisitor declarations context =
                 declarations
     in
     ( errors
-    , { context | scopes = Tuple.mapFirst (Set.union namesToAdd) context.scopes }
+    , { context | scopes = ( newScope, rest ) }
     )
 
 
-declarationVisitor : Node Declaration -> Context -> ( List (Rule.Error {}), Context )
-declarationVisitor node context =
-    case Node.value node of
+declarationVisitor : Node Declaration -> ModuleContext -> ( List (Rule.Error {}), ModuleContext )
+declarationVisitor (Node _ node) context =
+    case node of
         Declaration.FunctionDeclaration function ->
             let
-                arguments : List (Node Pattern.Pattern)
-                arguments =
-                    function.declaration
-                        |> Node.value
-                        |> .arguments
-
-                body : Node Expression
-                body =
-                    function.declaration
-                        |> Node.value
-                        |> .expression
+                { arguments, expression } =
+                    Node.value function.declaration
             in
             report
-                [ ( arguments, body ) ]
+                [ ( arguments, expression ) ]
                 context
 
         _ ->
@@ -241,6 +365,7 @@ declarationVisitor node context =
 type alias ScopeNames =
     { name : String
     , range : Range
+    , signatureRange : Maybe Range
     , origin : NameOrigin
     }
 
@@ -250,17 +375,17 @@ type NameOrigin
     | NotFromRecord
 
 
-getDeclaredVariableNames : Node Pattern.Pattern -> List ScopeNames
-getDeclaredVariableNames pattern =
-    case Node.value pattern of
+getDeclaredVariableNames : Node Pattern -> List ScopeNames
+getDeclaredVariableNames (Node patternRange pattern) =
+    case pattern of
         Pattern.VarPattern name ->
-            [ { name = name, range = Node.range pattern, origin = NotFromRecord } ]
+            [ { name = name, range = patternRange, signatureRange = Nothing, origin = NotFromRecord } ]
 
         Pattern.ParenthesizedPattern subPattern ->
             getDeclaredVariableNames subPattern
 
-        Pattern.AsPattern subPattern name ->
-            { name = Node.value name, range = Node.range name, origin = NotFromRecord } :: getDeclaredVariableNames subPattern
+        Pattern.AsPattern subPattern (Node nameRange name) ->
+            { name = name, range = nameRange, signatureRange = Nothing, origin = NotFromRecord } :: getDeclaredVariableNames subPattern
 
         Pattern.TuplePattern patterns ->
             List.concatMap getDeclaredVariableNames patterns
@@ -275,7 +400,7 @@ getDeclaredVariableNames pattern =
             List.concatMap getDeclaredVariableNames patterns
 
         Pattern.RecordPattern fields ->
-            List.map (\field -> { name = Node.value field, range = Node.range field, origin = FromRecord }) fields
+            List.map (\(Node fieldRange field) -> { name = field, range = fieldRange, signatureRange = Nothing, origin = FromRecord }) fields
 
         _ ->
             []
@@ -292,48 +417,59 @@ reservedElmKeywords =
         , "let_"
         , "in_"
         , "type_"
+        , "alias_"
         , "module_"
         , "where_"
         , "import_"
         , "exposing_"
         , "as_"
         , "port_"
-
-        -- Until `elm-format` and `elm-syntax` allow `infix` as an identifier
-        , "infix_"
         ]
 
 
-expressionVisitor : Node Expression -> Context -> ( List (Rule.Error {}), Context )
-expressionVisitor node context =
+expressionVisitor : Node Expression -> ModuleContext -> ( List (Rule.Error {}), ModuleContext )
+expressionVisitor ((Node nodeRange _) as node) context =
     let
-        newContext : Context
+        newContext : ModuleContext
         newContext =
-            case Dict.get (Node.range node |> rangeToRangeLike) context.scopesToAdd of
-                Just scopeToAdd ->
-                    { context | scopes = addNewScope scopeToAdd context.scopes }
-
-                Nothing ->
+            case context.scopesToAdd of
+                [] ->
                     context
+
+                ( scopeRange, scopeToAdd ) :: rest ->
+                    if nodeRange == scopeRange then
+                        { context
+                            | scopes = addNewScope scopeToAdd context.scopes
+                            , caseToExit = scopeRange :: context.caseToExit
+                            , scopesToAdd = rest
+                        }
+
+                    else
+                        context
     in
     expressionVisitorHelp node newContext
 
 
-expressionExitVisitor : Node Expression -> Context -> ( List nothing, Context )
-expressionExitVisitor node context =
-    let
-        newContext : Context
-        newContext =
-            if Dict.member (Node.range node |> rangeToRangeLike) context.scopesToAdd then
-                { context | scopes = popScope context.scopes }
+expressionExitVisitor : Node Expression -> ModuleContext -> ( List nothing, ModuleContext )
+expressionExitVisitor (Node nodeRange _) context =
+    ( []
+    , case context.caseToExit of
+        [] ->
+            context
+
+        scopeRange :: rest ->
+            if nodeRange == scopeRange then
+                { context
+                    | scopes = popScope context.scopes
+                    , caseToExit = rest
+                }
 
             else
                 context
-    in
-    ( [], newContext )
+    )
 
 
-expressionVisitorHelp : Node Expression -> Context -> ( List (Rule.Error {}), Context )
+expressionVisitorHelp : Node Expression -> ModuleContext -> ( List (Rule.Error {}), ModuleContext )
 expressionVisitorHelp node context =
     case Node.value node of
         Expression.CaseExpression { cases } ->
@@ -346,93 +482,82 @@ expressionVisitorHelp node context =
                 [ ( args, expression ) ]
                 context
 
-        Expression.LetExpression { declarations, expression } ->
+        Expression.LetExpression let_ ->
             let
-                namesFromLetDeclarations : Set String
+                namesFromLetDeclarations : Scope
                 namesFromLetDeclarations =
-                    Set.fromList (getNamesFromLetDeclarations declarations)
+                    getNamesFromLetDeclarations let_.declarations
 
                 ( errors, newContext ) =
                     report
                         (List.concatMap
-                            (\declaration ->
-                                case Node.value declaration of
+                            (\(Node _ declaration) ->
+                                case declaration of
                                     Expression.LetFunction function ->
                                         let
-                                            functionImplementation : Expression.FunctionImplementation
-                                            functionImplementation =
+                                            { arguments, expression } =
                                                 Node.value function.declaration
                                         in
-                                        [ ( functionImplementation.arguments
-                                          , functionImplementation.expression
-                                          )
-                                        ]
+                                        [ ( arguments, expression ) ]
 
                                     Expression.LetDestructuring _ _ ->
                                         []
                             )
-                            declarations
+                            let_.declarations
                         )
                         { context | scopes = addNewScope namesFromLetDeclarations context.scopes }
             in
-            ( reportErrorsForLet namesFromLetDeclarations context.scopes declarations ++ errors
-            , { newContext
-                | scopesToAdd =
-                    Dict.insert
-                        (rangeToRangeLike (Node.range expression))
-                        namesFromLetDeclarations
-                        newContext.scopesToAdd
-              }
+            ( reportErrorsForLet node namesFromLetDeclarations context.scopes let_.declarations errors
+            , { newContext | scopesToAdd = ( Node.range let_.expression, namesFromLetDeclarations ) :: newContext.scopesToAdd }
             )
 
         _ ->
             ( [], context )
 
 
-getNamesFromLetDeclarations : List (Node Expression.LetDeclaration) -> List String
+getNamesFromLetDeclarations : List (Node Expression.LetDeclaration) -> Scope
 getNamesFromLetDeclarations declarations =
-    List.concatMap
-        (\declaration ->
-            case Node.value declaration of
-                Expression.LetFunction function ->
-                    [ function.declaration
-                        |> Node.value
-                        |> .name
-                        |> Node.value
-                    ]
-
-                Expression.LetDestructuring pattern _ ->
-                    List.map .name (getDeclaredVariableNames pattern)
-        )
-        declarations
-
-
-reportErrorsForLet : Set String -> Scopes -> List (Node Expression.LetDeclaration) -> List (Rule.Error {})
-reportErrorsForLet namesFromLetDeclarations scopes declarations =
-    List.concatMap
-        (\node ->
-            case Node.value node of
+    List.foldl
+        (\(Node _ declaration) set ->
+            case declaration of
                 Expression.LetFunction function ->
                     let
-                        functionName : String
-                        functionName =
+                        (Node _ name) =
                             function.declaration
                                 |> Node.value
                                 |> .name
-                                |> Node.value
                     in
-                    case
-                        reportFunction
-                            namesFromLetDeclarations
-                            scopes
-                            function
-                            (defaultErrorAndMessage functionName)
-                    of
-                        Just newError ->
-                            [ newError ]
+                    Set.insert name set
 
-                        Nothing ->
-                            []
+                Expression.LetDestructuring pattern _ ->
+                    List.foldl (\{ name } acc -> Set.insert name acc) set (getDeclaredVariableNames pattern)
+        )
+        Set.empty
+        declarations
+
+
+reportErrorsForLet : Node Expression -> Scope -> Scopes -> List (Node Expression.LetDeclaration) -> List (Rule.Error {}) -> List (Rule.Error {})
+reportErrorsForLet letExpression namesFromLetDeclarations scopes declarations initialErrors =
+    List.foldl
+        (\(Node _ node) errors ->
+            case node of
+                Expression.LetFunction function ->
+                    let
+                        (Node range name) =
+                            function.declaration
+                                |> Node.value
+                                |> .name
+                    in
+                    error
+                        letExpression
+                        namesFromLetDeclarations
+                        scopes
+                        { name = name
+                        , range = range
+                        , signatureRange = Maybe.map (\(Node _ signature) -> Node.range signature.name) function.signature
+                        , origin = NotFromRecord
+                        }
+                        errors
 
                 Expression.LetDestructuring pattern _ ->
                     let
@@ -440,29 +565,21 @@ reportErrorsForLet namesFromLetDeclarations scopes declarations =
                         declaredVariables =
                             getDeclaredVariableNames pattern
 
-                        names : Set String
+                        names : Scope
                         names =
-                            declaredVariables
-                                |> List.map .name
-                                |> Set.fromList
+                            List.foldl (\var set -> Set.insert var.name set) Set.empty declaredVariables
                     in
-                    List.filterMap (error (addNewScope names scopes)) declaredVariables
+                    List.foldl (error letExpression namesFromLetDeclarations (addNewScope names scopes)) errors declaredVariables
         )
+        initialErrors
         declarations
 
 
-reportFunction : Set String -> Scopes -> Expression.Function -> { message : String, details : List String } -> Maybe (Rule.Error {})
-reportFunction namesOnTheSameLevel scopes function messageAndDetails =
+reportTopLevelFunction : Scopes -> Expression.Function -> Maybe (Rule.Error {})
+reportTopLevelFunction scopes function =
     let
-        functionNameNode : Node String
-        functionNameNode =
-            function.declaration
-                |> Node.value
-                |> .name
-
-        functionName : String
-        functionName =
-            Node.value functionNameNode
+        (Node nameRange functionName) =
+            (Node.value function.declaration).name
 
         functionNameWithoutUnderscore : String
         functionNameWithoutUnderscore =
@@ -473,69 +590,52 @@ reportFunction namesOnTheSameLevel scopes function messageAndDetails =
             && not (isDefinedInScope scopes functionNameWithoutUnderscore)
             && not (Set.member functionName reservedElmKeywords)
     then
-        if Set.member functionNameWithoutUnderscore namesOnTheSameLevel then
-            Just
-                (Rule.error
-                    { message = functionName ++ " should not end with an underscore"
-                    , details =
-                        [ "It seems that it has been used to prevent shadowing issues with a variable on the same level, but this is confusing. When should \"" ++ functionName ++ "\" be used and when should \"" ++ functionNameWithoutUnderscore ++ "\" be used?"
-                        , "Please rename this variable in a way that makes it more explicit when or how each should be used."
-                        ]
-                    }
-                    (Node.range functionNameNode)
-                )
-
-        else
-            Just
-                (Rule.error
-                    messageAndDetails
-                    (Node.range functionNameNode)
-                )
+        Just
+            (Rule.error
+                { message = "Top-level declaration names should not end with an underscore"
+                , details =
+                    [ "A trailing underscore \"_\" is often used to prevent shadowing issues, but top-level declarations should not resolve these issues in that manner."
+                    ]
+                }
+                nameRange
+            )
 
     else
         Nothing
 
 
-report : List ( List (Node Pattern.Pattern), Node a ) -> Context -> ( List (Rule.Error {}), Context )
+report : List ( List (Node Pattern), Node Expression ) -> ModuleContext -> ( List (Rule.Error {}), ModuleContext )
 report patternsAndBody context =
     let
-        scopesToAdd : List { errors : List (Rule.Error {}), scopesToAdd : ( RangeLike, Set String ) }
-        scopesToAdd =
-            List.map
-                (\( patterns, expression ) ->
+        { errors, scopesToAdd } =
+            List.foldr
+                (\( patterns, (Node range _) as expression ) acc ->
                     let
                         declaredVariables : List ScopeNames
                         declaredVariables =
                             List.concatMap getDeclaredVariableNames patterns
 
-                        names : Set String
+                        names : Scope
                         names =
-                            declaredVariables
-                                |> List.map .name
-                                |> Set.fromList
+                            List.foldl (\var set -> Set.insert var.name set) Set.empty declaredVariables
                     in
-                    { errors = List.filterMap (error (addNewScope names context.scopes)) declaredVariables
-                    , scopesToAdd =
-                        ( rangeToRangeLike (Node.range expression)
-                        , names
-                        )
+                    { errors = List.foldl (error expression Set.empty (addNewScope names context.scopes)) acc.errors declaredVariables
+                    , scopesToAdd = ( range, names ) :: acc.scopesToAdd
                     }
                 )
+                { errors = []
+                , scopesToAdd = context.scopesToAdd
+                }
                 patternsAndBody
     in
-    ( List.concatMap .errors scopesToAdd
-    , { context
-        | scopesToAdd =
-            Dict.union
-                (scopesToAdd |> List.map .scopesToAdd |> Dict.fromList)
-                context.scopesToAdd
-      }
+    ( errors
+    , { context | scopesToAdd = scopesToAdd }
     )
 
 
-addNewScope : Set String -> Scopes -> Scopes
-addNewScope set ( head, tail ) =
-    ( set, head :: tail )
+addNewScope : Scope -> Scopes -> Scopes
+addNewScope scope ( head, tail ) =
+    ( scope, head :: tail )
 
 
 popScope : Scopes -> Scopes
@@ -548,22 +648,138 @@ popScope ( head, tail ) =
             ( newHead, newTail )
 
 
-error : Scopes -> ScopeNames -> Maybe (Rule.Error {})
-error scopes { range, name, origin } =
+error : Node Expression -> Scope -> Scopes -> ScopeNames -> List (Rule.Error {}) -> List (Rule.Error {})
+error expressionToReplaceThingsIn namesOnTheSameLevel scopes { range, name, signatureRange, origin } errors =
+    let
+        nameWithoutUnderscore : String
+        nameWithoutUnderscore =
+            String.dropRight 1 name
+    in
     if
         String.endsWith "_" name
-            && not (isDefinedInScope scopes (String.dropRight 1 name))
+            && not (isDefinedInScope scopes nameWithoutUnderscore)
             && not (Set.member name reservedElmKeywords)
             && shouldNameBeReported origin
     then
-        Just
-            (Rule.error
+        if Set.member nameWithoutUnderscore namesOnTheSameLevel then
+            Rule.error
+                { message = name ++ " should not end with an underscore"
+                , details =
+                    [ "It seems that it has been used to prevent shadowing issues with a variable on the same level, but this is confusing. When should \"" ++ name ++ "\" be used and when should \"" ++ nameWithoutUnderscore ++ "\" be used?"
+                    , "Please rename this variable in a way that makes it more explicit when or how each should be used."
+                    ]
+                }
+                range
+                :: errors
+
+        else
+            Rule.errorWithFix
                 (defaultErrorAndMessage name)
                 range
-            )
+                (case findUsages name nameWithoutUnderscore [ expressionToReplaceThingsIn ] [] of
+                    Just usages ->
+                        List.map removeLastCharacter (addMaybe signatureRange (range :: usages))
+
+                    Nothing ->
+                        []
+                )
+                :: errors
 
     else
-        Nothing
+        errors
+
+
+addMaybe : Maybe a -> List a -> List a
+addMaybe maybe list =
+    case maybe of
+        Just element ->
+            element :: list
+
+        Nothing ->
+            list
+
+
+findUsages : String -> String -> List (Node Expression) -> List Range -> Maybe (List Range)
+findUsages targetName intendedName remainingNodes acc =
+    case remainingNodes of
+        [] ->
+            Just acc
+
+        (Node range node) :: rest ->
+            case node of
+                Expression.FunctionOrValue [] name ->
+                    if name == intendedName then
+                        Nothing
+
+                    else if name == targetName then
+                        findUsages targetName intendedName rest (range :: acc)
+
+                    else
+                        findUsages targetName intendedName rest acc
+
+                Expression.RecordUpdateExpression (Node nameRange name) nodes ->
+                    if name == targetName then
+                        findUsages targetName intendedName (mapAppend (\(Node _ ( _, n )) -> n) nodes rest) (nameRange :: acc)
+
+                    else
+                        findUsages targetName intendedName (mapAppend (\(Node _ ( _, n )) -> n) nodes rest) acc
+
+                Expression.Application nodes ->
+                    findUsages targetName intendedName (nodes ++ rest) acc
+
+                Expression.OperatorApplication _ _ left right ->
+                    findUsages targetName intendedName (left :: right :: rest) acc
+
+                Expression.IfBlock cond then_ else_ ->
+                    findUsages targetName intendedName (cond :: then_ :: else_ :: rest) acc
+
+                Expression.Negation expr ->
+                    findUsages targetName intendedName (expr :: rest) acc
+
+                Expression.TupledExpression nodes ->
+                    findUsages targetName intendedName (nodes ++ rest) acc
+
+                Expression.ParenthesizedExpression expr ->
+                    findUsages targetName intendedName (expr :: rest) acc
+
+                Expression.LetExpression letBlock ->
+                    findUsages targetName intendedName (letBlock.expression :: mapAppend extractExpression letBlock.declarations rest) acc
+
+                Expression.CaseExpression caseBlock ->
+                    findUsages targetName intendedName (caseBlock.expression :: mapAppend Tuple.second caseBlock.cases rest) acc
+
+                Expression.LambdaExpression lambda ->
+                    findUsages targetName intendedName (lambda.expression :: rest) acc
+
+                Expression.RecordExpr nodes ->
+                    findUsages targetName intendedName (mapAppend (\(Node _ ( _, n )) -> n) nodes rest) acc
+
+                Expression.ListExpr nodes ->
+                    findUsages targetName intendedName (nodes ++ rest) acc
+
+                Expression.RecordAccess expr _ ->
+                    findUsages targetName intendedName (expr :: rest) acc
+
+                _ ->
+                    findUsages targetName intendedName rest acc
+
+
+extractExpression : Node Expression.LetDeclaration -> Node Expression
+extractExpression (Node _ letExpr) =
+    case letExpr of
+        Expression.LetFunction { declaration } ->
+            (Node.value declaration).expression
+
+        Expression.LetDestructuring _ expression ->
+            expression
+
+
+removeLastCharacter : Range -> Fix
+removeLastCharacter range =
+    Fix.removeRange
+        { start = { row = range.end.row, column = range.end.column - 1 }
+        , end = range.end
+        }
 
 
 defaultErrorAndMessage : String -> { message : String, details : List String }
@@ -571,7 +787,7 @@ defaultErrorAndMessage name =
     { message = name ++ " should not end with an underscore"
     , details =
         [ "It looks like this was used to avoid a shadowing issue, but the variable it would have clashed with is not present in the scope of where this variable was declared anymore. You should rename the variable and remove the underscore."
-        , "Note that this may not be a safe change, in that renaming may clash with a value declared deeper in the expression, but I think it's less confusing to have the nested variable have a trailing underscore rather than the variable declared higher-up."
+        , "Note that this may not be a safe change, in that renaming may clash with a value declared deeper in the expression, but I think it's less confusing to have the nested variable have a trailing underscore rather than the variable declared higher up."
         ]
     }
 
@@ -588,13 +804,52 @@ shouldNameBeReported origin =
 
 isDefinedInScope : Scopes -> String -> Bool
 isDefinedInScope ( top, rest ) name =
-    List.any (Set.member name) (top :: rest)
+    Set.member name top
+        || List.any (Set.member name) rest
 
 
-rangeToRangeLike : Range -> RangeLike
-rangeToRangeLike range =
-    [ range.start.row
-    , range.start.column
-    , range.end.row
-    , range.end.column
+importedFromBasics : Scope
+importedFromBasics =
+    [ "toFloat"
+    , "round"
+    , "floor"
+    , "ceiling"
+    , "truncate"
+    , "max"
+    , "min"
+    , "compare"
+    , "not"
+    , "xor"
+    , "modBy"
+    , "remainderBy"
+    , "negate"
+    , "abs"
+    , "clamp"
+    , "sqrt"
+    , "logBase"
+    , "e"
+    , "pi"
+    , "cos"
+    , "sin"
+    , "tan"
+    , "acos"
+    , "asin"
+    , "atan"
+    , "atan2"
+    , "degrees"
+    , "radians"
+    , "turns"
+    , "toPolar"
+    , "fromPolar"
+    , "isNaN"
+    , "isInfinite"
+    , "identity"
+    , "always"
+    , "never"
     ]
+        |> Set.fromList
+
+
+mapAppend : (a -> b) -> List a -> List b -> List b
+mapAppend fn list initial =
+    List.foldl (\a acc -> fn a :: acc) initial list
