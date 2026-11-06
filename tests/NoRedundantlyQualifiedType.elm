@@ -21,6 +21,7 @@ import Elm.Syntax.TypeAnnotation exposing (RecordField, TypeAnnotation(..))
 import Review.Fix as Fix exposing (Fix)
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Project.Dependency
+import Review.Resources.ScopeProvider exposing (ScopeProvider)
 import Review.Rule as Rule exposing (Rule)
 import Set exposing (Set)
 
@@ -101,7 +102,8 @@ type alias ProjectContext =
 
 
 type alias ModuleContext =
-    { lookupTable : ModuleNameLookupTable
+    { scopeProvider : ScopeProvider
+    , lookupTable : ModuleNameLookupTable
     , imports : List (Node Import)
     , typesDefinedInModule : Set String
     , importedTypes : Dict String ImportedType
@@ -123,13 +125,15 @@ initialContext =
 fromProjectToModule : Rule.ContextCreator ProjectContext ModuleContext
 fromProjectToModule =
     Rule.initContextCreator
-        (\lookupTable ast projectContext ->
-            { lookupTable = lookupTable
+        (\scopeProvider lookupTable ast projectContext ->
+            { scopeProvider = scopeProvider
+            , lookupTable = lookupTable
             , imports = ast.imports
             , typesDefinedInModule = collectTypesDefinedInModule ast.declarations
             , importedTypes = List.foldl (collectImportedTypes projectContext.exposedTypes) projectContext.preludeImportedTypes ast.imports
             }
         )
+        |> Rule.withScopes
         |> Rule.withModuleNameLookupTable
         |> Rule.withFullAst
 
