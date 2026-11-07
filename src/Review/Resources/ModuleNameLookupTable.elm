@@ -662,7 +662,7 @@ registerImportedFunctionsAndTypes modules moduleName exposing_ context =
     let
         module_ : Elm.Docs.Module
         module_ =
-            case Dict.get moduleName modules of
+            case Dict.get (Debug.log "mod" moduleName) modules of
                 Just mod ->
                     mod
 
