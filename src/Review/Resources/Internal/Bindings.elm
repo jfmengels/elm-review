@@ -2,6 +2,7 @@ module Review.Resources.Internal.Bindings exposing
     ( Binding(..)
     , ImportBinding(..)
     , Realm
+    , bothRealms
     , typeRealm
     , valueRealm
     )
@@ -16,6 +17,7 @@ type ImportBinding
         { id : BindingId.Id
         , name : String
         , moduleName : ModuleName
+        , realm : Realm
         }
 
 
@@ -43,3 +45,8 @@ valueRealm =
 typeRealm : Realm
 typeRealm =
     2
+
+
+bothRealms : Realm
+bothRealms =
+    typeRealm + valueRealm

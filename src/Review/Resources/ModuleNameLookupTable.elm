@@ -541,14 +541,15 @@ createBinding (Node range name) realm bindings bindingIdCounter =
         bindingIdCounter
 
 
-createImportBinding : String -> ModuleName -> BindingId.Counter -> ( ImportBinding, BindingId.Counter )
-createImportBinding name moduleName bindingIdCounter =
+createImportBinding : String -> ModuleName -> Bindings.Realm -> BindingId.Counter -> ( ImportBinding, BindingId.Counter )
+createImportBinding name moduleName realm bindingIdCounter =
     BindingId.new
         (\id ->
             ImportBinding
                 { id = id
                 , name = name
                 , moduleName = moduleName
+                , realm = realm
                 }
         )
         bindingIdCounter
@@ -557,9 +558,10 @@ createImportBinding name moduleName bindingIdCounter =
 insertImportBinding :
     String
     -> ModuleName
+    -> Bindings.Realm
     -> ( Dict String ImportBinding, BindingId.Counter )
     -> ( Dict String ImportBinding, BindingId.Counter )
-insertImportBinding name moduleName ( acc, bindingIdCounter ) =
+insertImportBinding name moduleName realm ( acc, bindingIdCounter ) =
     BindingId.new
         (\id ->
             Dict.insert name
@@ -567,6 +569,7 @@ insertImportBinding name moduleName ( acc, bindingIdCounter ) =
                     { id = id
                     , name = name
                     , moduleName = moduleName
+                    , realm = realm
                     }
                 )
                 acc
@@ -705,13 +708,13 @@ registerImportedFunctionsAndTypesWhenExposingAll moduleName module_ importAcc =
     let
         ( importedTypes, bindingIdCounter ) =
             ( importAcc.importedTypes, importAcc.bindingIdCounter )
-                |> collectBindings moduleName module_.unions
-                |> collectBindings moduleName module_.aliases
+                |> collectBindings moduleName module_.unions Bindings.typeRealm
+                |> collectBindings moduleName module_.aliases Bindings.typeRealm
 
         ( importedFunctions, finalCounter ) =
             ( importAcc.importedFunctions, bindingIdCounter )
-                |> collectBindings moduleName module_.values
-                |> collectBindings moduleName module_.binops
+                |> collectBindings moduleName module_.values Bindings.valueRealm
+                |> collectBindings moduleName module_.binops Bindings.valueRealm
                 |> foldCustomTypesIntoDict moduleName module_.unions
     in
     addRecordAliases moduleName
@@ -725,12 +728,13 @@ registerImportedFunctionsAndTypesWhenExposingAll moduleName module_ importAcc =
 collectBindings :
     ModuleName
     -> List { a | name : String }
+    -> Bindings.Realm
     -> ( Dict String ImportBinding, BindingId.Counter )
     -> ( Dict String ImportBinding, BindingId.Counter )
-collectBindings moduleName list initial =
+collectBindings moduleName list realm initial =
     List.foldl
         (\{ name } acc ->
-            insertImportBinding name moduleName acc
+            insertImportBinding name moduleName realm acc
         )
         initial
         list
@@ -746,7 +750,7 @@ foldCustomTypesIntoDict moduleName unions initial =
         (\union outerAcc ->
             List.foldl
                 (\( name, _ ) acc ->
-                    insertImportBinding name moduleName acc
+                    insertImportBinding name moduleName Bindings.valueRealm acc
                 )
                 outerAcc
                 union.tags
@@ -759,26 +763,40 @@ addRecordAliases : ModuleName -> List Elm.Docs.Alias -> ImportContentAcc -> Impo
 addRecordAliases moduleName list initial =
     List.foldl
         (\{ name, tipe } acc ->
-            let
-                ( typeAliasBinding, bindingIdCounter ) =
-                    BindingId.new
-                        (\id ->
-                            ImportBinding
-                                { id = id
-                                , name = name
-                                , moduleName = moduleName
-                                }
-                        )
-                        acc.bindingIdCounter
-            in
             case tipe of
                 Elm.Type.Record _ Nothing ->
+                    let
+                        ( typeAliasBinding, bindingIdCounter ) =
+                            BindingId.new
+                                (\id ->
+                                    ImportBinding
+                                        { id = id
+                                        , name = name
+                                        , moduleName = moduleName
+                                        , realm = Bindings.bothRealms
+                                        }
+                                )
+                                acc.bindingIdCounter
+                    in
                     { importedFunctions = Dict.insert name typeAliasBinding acc.importedFunctions
                     , importedTypes = Dict.insert name typeAliasBinding acc.importedTypes
                     , bindingIdCounter = bindingIdCounter
                     }
 
                 _ ->
+                    let
+                        ( typeAliasBinding, bindingIdCounter ) =
+                            BindingId.new
+                                (\id ->
+                                    ImportBinding
+                                        { id = id
+                                        , name = name
+                                        , moduleName = moduleName
+                                        , realm = Bindings.typeRealm
+                                        }
+                                )
+                                acc.bindingIdCounter
+                    in
                     { importedFunctions = acc.importedFunctions
                     , importedTypes = Dict.insert name typeAliasBinding acc.importedTypes
                     , bindingIdCounter = bindingIdCounter
@@ -804,7 +822,7 @@ valuesFromExposingList moduleName module_ topLevelExposeList acc =
                 Exposing.InfixExpose name ->
                     let
                         ( importBinding, bindingIdCounter ) =
-                            createImportBinding name moduleName acc.bindingIdCounter
+                            createImportBinding name moduleName Bindings.valueRealm acc.bindingIdCounter
                     in
                     valuesFromExposingList moduleName
                         module_
@@ -817,7 +835,7 @@ valuesFromExposingList moduleName module_ topLevelExposeList acc =
                 Exposing.FunctionExpose name ->
                     let
                         ( importBinding, bindingIdCounter ) =
-                            createImportBinding name moduleName acc.bindingIdCounter
+                            createImportBinding name moduleName Bindings.valueRealm acc.bindingIdCounter
                     in
                     valuesFromExposingList moduleName
                         module_
@@ -835,8 +853,16 @@ valuesFromExposingList moduleName module_ topLevelExposeList acc =
                                 |> Maybe.map (\alias -> isPlainRecordType alias.tipe)
                                 |> Maybe.withDefault False
 
+                        realm : Bindings.Realm
+                        realm =
+                            if hasConstructor then
+                                Bindings.bothRealms
+
+                            else
+                                Bindings.typeRealm
+
                         ( importBinding, bindingIdCounter ) =
-                            createImportBinding name moduleName acc.bindingIdCounter
+                            createImportBinding name moduleName realm acc.bindingIdCounter
                     in
                     valuesFromExposingList moduleName
                         module_
@@ -860,12 +886,12 @@ valuesFromExposingList moduleName module_ topLevelExposeList acc =
                                 |> Maybe.withDefault []
 
                         ( importBinding, tmpBindingIdCounter ) =
-                            createImportBinding name moduleName acc.bindingIdCounter
+                            createImportBinding name moduleName Bindings.typeRealm acc.bindingIdCounter
 
                         ( importedFunctions, bindingIdCounter ) =
                             List.foldl
                                 (\( tag, _ ) subAcc ->
-                                    insertImportBinding tag moduleName subAcc
+                                    insertImportBinding tag moduleName Bindings.valueRealm subAcc
                                 )
                                 ( acc.importedFunctions, tmpBindingIdCounter )
                                 constructors
