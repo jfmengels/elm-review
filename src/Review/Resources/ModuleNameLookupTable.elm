@@ -828,37 +828,28 @@ valuesFromExposingList moduleName module_ topLevelExposeList acc =
                         }
 
                 Exposing.TypeOrAliasExpose name ->
-                    case ListExtra.find (\alias -> alias.name == name) module_.aliases of
-                        Just alias ->
-                            let
-                                ( importBinding, bindingIdCounter ) =
-                                    createImportBinding name moduleName acc.bindingIdCounter
-                            in
-                            valuesFromExposingList moduleName
-                                module_
-                                rest
-                                { importedFunctions =
-                                    if isPlainRecordType alias.tipe then
-                                        Dict.insert name importBinding acc.importedFunctions
+                    let
+                        hasConstructor : Bool
+                        hasConstructor =
+                            ListExtra.find (\alias -> alias.name == name) module_.aliases
+                                |> Maybe.map (\alias -> isPlainRecordType alias.tipe)
+                                |> Maybe.withDefault False
 
-                                    else
-                                        acc.importedFunctions
-                                , importedTypes = Dict.insert name importBinding acc.importedTypes
-                                , bindingIdCounter = bindingIdCounter
-                                }
+                        ( importBinding, bindingIdCounter ) =
+                            createImportBinding name moduleName acc.bindingIdCounter
+                    in
+                    valuesFromExposingList moduleName
+                        module_
+                        rest
+                        { importedFunctions =
+                            if hasConstructor then
+                                Dict.insert name importBinding acc.importedFunctions
 
-                        Nothing ->
-                            let
-                                ( importBinding, bindingIdCounter ) =
-                                    createImportBinding name moduleName acc.bindingIdCounter
-                            in
-                            valuesFromExposingList moduleName
-                                module_
-                                rest
-                                { importedFunctions = acc.importedFunctions
-                                , importedTypes = Dict.insert name importBinding acc.importedTypes
-                                , bindingIdCounter = bindingIdCounter
-                                }
+                            else
+                                acc.importedFunctions
+                        , importedTypes = Dict.insert name importBinding acc.importedTypes
+                        , bindingIdCounter = bindingIdCounter
+                        }
 
                 Exposing.TypeExpose { name } ->
                     let
