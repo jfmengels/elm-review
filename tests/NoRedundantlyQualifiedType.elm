@@ -6,6 +6,8 @@ module NoRedundantlyQualifiedType exposing (rule)
 
 -}
 
+import Dict exposing (Dict)
+import Elm.Docs
 import Elm.Syntax.Declaration exposing (Declaration(..))
 import Elm.Syntax.Exposing as Exposing
 import Elm.Syntax.Expression as Expression exposing (Function, LetDeclaration(..))
@@ -14,8 +16,10 @@ import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Range exposing (Range)
 import Elm.Syntax.TypeAnnotation exposing (RecordField, TypeAnnotation(..))
+import Elm.Type
 import Review.Fix as Fix exposing (Fix)
 import Review.Resources.ImportBinding as ImportBinding
+import Review.Resources.Scope as Scope
 import Review.Resources.ScopeProvider as ScopeProvider exposing (ScopeProvider)
 import Review.Rule as Rule exposing (Rule)
 
@@ -78,6 +82,7 @@ rule =
 
 type alias Context =
     { scopeProvider : ScopeProvider
+    , moduleDocs : Dict ModuleName Elm.Docs.Module
     , imports : List (Node Import)
     }
 
@@ -85,13 +90,15 @@ type alias Context =
 initialContext : Rule.ContextCreator () Context
 initialContext =
     Rule.initContextCreator
-        (\scopeProvider ast () ->
+        (\scopeProvider ast moduleDocs () ->
             { scopeProvider = scopeProvider
+            , moduleDocs = moduleDocs
             , imports = ast.imports
             }
         )
         |> Rule.withScopes
         |> Rule.withFullAst
+        |> Rule.withImportedModuleDocs { implicitImports = True, dependencies = True }
 
 
 declarationVisitor : Node Declaration -> Context -> List (Rule.Error {})
@@ -197,14 +204,55 @@ reportErrorBasedOnImportedTypes : Context -> ModuleName -> Range -> String -> Li
 reportErrorBasedOnImportedTypes context moduleName range name =
     case ScopeProvider.importTypeBinding context.scopeProvider name of
         Nothing ->
-            [ reportError name range (importFix moduleName name context.imports) ]
+            -- No type with this name has been imported
+            -- We have to check whether introducing one would create a conflict
+            if wouldIntroduceValueConflict context moduleName name then
+                []
+
+            else
+                [ reportError name range (importFix moduleName name context.imports) ]
 
         Just binding ->
+            -- A type with this name is already imported
             if moduleName == ImportBinding.moduleName binding then
+                -- and it's the one we're looking for. No need to change the import.
                 [ reportError name range [] ]
 
             else
+                -- and it's for a different module. Importing it would create a compiler error
+                -- so we don't want to report an error
                 []
+
+
+wouldIntroduceValueConflict : Context -> ModuleName -> String -> Bool
+wouldIntroduceValueConflict context moduleName name =
+    -- There is no local value that would shadow an imported constructor
+    (Scope.valueBinding (ScopeProvider.topLevel context.scopeProvider) name == Nothing)
+        -- Another import already imports a constructor with this name
+        -- Importing the constructor would introduce an ambiguity compiler error.
+        && (ScopeProvider.importValueBinding context.scopeProvider name /= Nothing)
+        -- The type introduces a constructor (slower to check than the conditions above)
+        && introducesTypeConstructor context moduleName name
+
+
+introducesTypeConstructor : Context -> ModuleName -> String -> Bool
+introducesTypeConstructor context moduleName name =
+    case Dict.get moduleName context.moduleDocs of
+        Just { aliases } ->
+            case find (\alias -> alias.name == name) aliases of
+                Just alias ->
+                    case alias.tipe of
+                        Elm.Type.Record _ Nothing ->
+                            True
+
+                        _ ->
+                            False
+
+                Nothing ->
+                    False
+
+        Nothing ->
+            False
 
 
 reportError : String -> Range -> List Fix -> Rule.Error {}
