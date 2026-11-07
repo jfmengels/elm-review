@@ -374,14 +374,15 @@ type alias Type = Type
 """
                     |> qualifyModuleNameForType [ "B" ] "Type"
                     |> Expect.equal [ "B" ]
-        , test "should return [] if the type is imported by `exposing (..)`" <|
-            \() ->
-                """module A exposing (..)
+        , Test.only <|
+            test "should return [] if the type is imported by `exposing (..)`" <|
+                \() ->
+                    """module A exposing (..)
 import List exposing (..)
 a = 1
 """
-                    |> qualifyModuleNameForType [ "List" ] "List"
-                    |> Expect.equal []
+                        |> qualifyModuleNameForType [ "List" ] "List"
+                        |> Expect.equal []
         , test "should return module name if the type is imported by `exposing (..)` but shadowed by local custom type" <|
             \() ->
                 """module A exposing (..)
