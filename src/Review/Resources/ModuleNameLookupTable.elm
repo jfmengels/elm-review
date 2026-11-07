@@ -705,10 +705,10 @@ registerImportedFunctionsAndTypesWhenExposingAll moduleName module_ importAcc =
 
         _ =
             if moduleName == [ "List" ] then
-                Debug.log "importedTypes" (List.map .name module_.unions)
+                Debug.log "importedTypes" ( List.map .name module_.aliases, Dict.keys importAcc.importedTypes )
 
             else
-                []
+                ( [], [] )
 
         ( importedFunctions, finalCounter ) =
             ( importAcc.importedFunctions, bindingIdCounter )
