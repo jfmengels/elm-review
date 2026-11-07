@@ -704,7 +704,11 @@ registerImportedFunctionsAndTypesWhenExposingAll moduleName module_ importAcc =
                 |> collectBindings moduleName module_.aliases
 
         _ =
-            Debug.log "importedTypes" (Dict.keys importedTypes)
+            if moduleName == [ "List" ] then
+                Debug.log "importedTypes" (List.map .name module_.unions)
+
+            else
+                []
 
         ( importedFunctions, finalCounter ) =
             ( importAcc.importedFunctions, bindingIdCounter )
