@@ -18,7 +18,6 @@ import Review.Fix as Fix exposing (Fix)
 import Review.Resources.ImportBinding as ImportBinding
 import Review.Resources.ScopeProvider as ScopeProvider exposing (ScopeProvider)
 import Review.Rule as Rule exposing (Rule)
-import Set exposing (Set)
 
 
 {-| Reports when a type is qualified by a module (alias) of the same name.
@@ -80,7 +79,6 @@ rule =
 type alias Context =
     { scopeProvider : ScopeProvider
     , imports : List (Node Import)
-    , typesDefinedInModule : Set String
     }
 
 
@@ -90,29 +88,10 @@ initialContext =
         (\scopeProvider ast () ->
             { scopeProvider = scopeProvider
             , imports = ast.imports
-            , typesDefinedInModule = collectTypesDefinedInModule ast.declarations
             }
         )
         |> Rule.withScopes
         |> Rule.withFullAst
-
-
-collectTypesDefinedInModule : List (Node Declaration) -> Set String
-collectTypesDefinedInModule list =
-    List.foldl
-        (\(Node _ decl) set ->
-            case decl of
-                AliasDeclaration typeAlias ->
-                    Set.insert (Node.value typeAlias.name) set
-
-                CustomTypeDeclaration type_ ->
-                    Set.insert (Node.value type_.name) set
-
-                _ ->
-                    set
-        )
-        Set.empty
-        list
 
 
 declarationVisitor : Node Declaration -> Context -> List (Rule.Error {})
@@ -197,7 +176,10 @@ doConstructor : Context -> Node ( ModuleName, String ) -> List (Rule.Error {})
 doConstructor context (Node range constructor) =
     case constructor of
         ( [ qualifier ], name ) ->
-            if qualifier /= name || Set.member name context.typesDefinedInModule then
+            if
+                (qualifier /= name)
+                    || (ScopeProvider.typeBinding context.scopeProvider name /= Nothing)
+            then
                 []
 
             else
