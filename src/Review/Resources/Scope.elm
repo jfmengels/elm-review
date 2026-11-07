@@ -2,7 +2,7 @@ module Review.Resources.Scope exposing
     ( Scope
     , children, parentId
     , moduleNameForType, moduleNameForValue, fullModuleNameForType, fullModuleNameForValue
-    , qualifyType
+    , qualifyType, qualifyValue
     , canIntroduceName
     , valueBindings, valueBinding
     , names, range, origin
@@ -13,7 +13,7 @@ module Review.Resources.Scope exposing
 @docs Scope
 @docs children, parentId
 @docs moduleNameForType, moduleNameForValue, fullModuleNameForType, fullModuleNameForValue
-@docs qualifyType
+@docs qualifyType, qualifyValue
 @docs canIntroduceName
 @docs valueBindings, valueBinding
 @docs names, range, origin
@@ -217,6 +217,32 @@ isValueInScope : Internal.ScopeInfo -> String -> Bool
 isValueInScope scope name =
     Dict.member name scope.valueBindings
         || List.any (Dict.member name) scope.parentBindings
+
+
+qualifyValue : Scope -> ModuleName -> String -> ModuleName
+qualifyValue (Internal.Scope scope) moduleName valueName =
+    if List.isEmpty moduleName || moduleName == scope.moduleName then
+        []
+
+    else if isValueInScope scope valueName then
+        -- Value is shadowed locally, therefore use a qualified import
+        getModuleQualifier scope moduleName
+
+    else
+        case Dict.get valueName scope.importValueBindings of
+            Just importBinding ->
+                -- Value has been imported
+                if ImportBinding.moduleName importBinding == moduleName then
+                    -- by the target module
+                    []
+
+                else
+                    -- by another module, therefore use a qualified import
+                    getModuleQualifier scope moduleName
+
+            Nothing ->
+                -- Value is not imported through `exposing (..)` or `exposing (value)`, therefore use a qualified import
+                getModuleQualifier scope moduleName
 
 
 qualifyType : Scope -> ModuleName -> String -> ModuleName
