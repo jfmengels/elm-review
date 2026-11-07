@@ -664,9 +664,17 @@ registerImportedFunctionsAndTypes modules moduleName exposing_ context =
         module_ =
             case Dict.get (Debug.log "mod" moduleName) modules of
                 Just mod ->
+                    let
+                        _ =
+                            Debug.log "HAS mod" moduleName
+                    in
                     mod
 
                 Nothing ->
+                    let
+                        _ =
+                            Debug.log "no mod" moduleName
+                    in
                     { name = joinModuleName moduleName
                     , comment = ""
                     , unions = []
