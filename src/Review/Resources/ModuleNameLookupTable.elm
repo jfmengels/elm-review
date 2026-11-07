@@ -146,7 +146,7 @@ computeHelp moduleName moduleAst projectCache =
             computeBaseModule
                 moduleName
                 modules
-                (declarationListVisitor moduleAst.declarations importAcc.bindingIdCounter)
+                (declarationListVisitor moduleAst.declarations importAcc.contents.bindingIdCounter)
                 importAcc
 
         moduleContext : Context
@@ -296,8 +296,8 @@ computeBaseModule moduleName modules { typeBindings, bindings, bindingIdCounter 
             , origin = ScopeOrigin.TopLevel
             , typeBindings = typeBindings
             , valueBindings = bindings
-            , importValueBindings = importAcc.importedFunctions
-            , importTypeBindings = importAcc.importedTypes
+            , importValueBindings = importAcc.contents.importedFunctions
+            , importTypeBindings = importAcc.contents.importedTypes
             , aliasToModuleName = importAcc.aliasToModuleName
             , moduleQualifiers = importAcc.moduleQualifiers
             , modules = modules
@@ -314,8 +314,8 @@ computeBaseModule moduleName modules { typeBindings, bindings, bindingIdCounter 
     , qualifiedReferences = Dict.empty
     , moduleReferences = Dict.empty
     , aliasToModuleName = importAcc.aliasToModuleName
-    , importedFunctions = importedFunctionsFromImportedBindings importAcc.importedFunctions
-    , importedTypes = importAcc.importedTypes
+    , importedFunctions = importedFunctionsFromImportedBindings importAcc.contents.importedFunctions
+    , importedTypes = importAcc.contents.importedTypes
     , modules = modules
     , lookupTable = Builder.empty
     , branches = NonEmpty.fromElement ( Range.empty, topLevelScope )
@@ -566,25 +566,32 @@ insertImportBinding name moduleName ( acc, bindingIdCounter ) =
 
 
 type alias ImportAcc =
+    { aliasToModuleName : Dict String (NonEmpty ModuleName)
+    , moduleQualifiers : Dict ModuleName ModuleName
+    , contents : ImportContentAcc
+    }
+
+
+type alias ImportContentAcc =
     { importedFunctions : Dict String ImportBinding
     , importedTypes : Dict String ImportBinding
-    , aliasToModuleName : Dict String (NonEmpty ModuleName)
-    , moduleQualifiers : Dict ModuleName ModuleName
     , bindingIdCounter : BindingId.Counter
     }
 
 
 collectPreludeImports : Dict ModuleName Elm.Docs.Module -> ImportAcc
 collectPreludeImports dependencies =
-    List.foldl
-        (\import_ acc -> registerImportedFunctionsAndTypes dependencies import_.moduleName import_.exposingList acc)
-        { importedFunctions = Dict.empty
-        , importedTypes = Dict.empty
-        , aliasToModuleName = Review.Resources.ElmCorePrelude.aliasToModuleName
-        , moduleQualifiers = Review.Resources.ElmCorePrelude.moduleQualifiers
-        , bindingIdCounter = BindingId.counter
-        }
-        Review.Resources.ElmCorePrelude.modulesWithExposingList
+    { aliasToModuleName = Review.Resources.ElmCorePrelude.aliasToModuleName
+    , moduleQualifiers = Review.Resources.ElmCorePrelude.moduleQualifiers
+    , contents =
+        List.foldl
+            (\import_ acc -> registerImportedFunctionsAndTypes dependencies import_.moduleName import_.exposingList acc)
+            { importedFunctions = Dict.empty
+            , importedTypes = Dict.empty
+            , bindingIdCounter = BindingId.counter
+            }
+            Review.Resources.ElmCorePrelude.modulesWithExposingList
+    }
 
 
 importVisitor : Dict ModuleName Elm.Docs.Module -> Node Import -> ImportAcc -> ImportAcc
@@ -601,26 +608,20 @@ importVisitor modules (Node _ import_) context =
         moduleQualifiers =
             Dict.insert (Node.value import_.moduleName) qualifier context.moduleQualifiers
     in
-    case import_.exposingList of
-        Nothing ->
-            { importedFunctions = context.importedFunctions
-            , importedTypes = context.importedTypes
-            , aliasToModuleName = aliasToModuleName
-            , moduleQualifiers = moduleQualifiers
-            , bindingIdCounter = context.bindingIdCounter
-            }
+    { aliasToModuleName = aliasToModuleName
+    , moduleQualifiers = moduleQualifiers
+    , contents =
+        case import_.exposingList of
+            Nothing ->
+                context.contents
 
-        Just (Node _ exposing_) ->
-            registerImportedFunctionsAndTypes
-                modules
-                (Node.value import_.moduleName)
-                exposing_
-                { importedFunctions = context.importedFunctions
-                , importedTypes = context.importedTypes
-                , aliasToModuleName = aliasToModuleName
-                , moduleQualifiers = moduleQualifiers
-                , bindingIdCounter = context.bindingIdCounter
-                }
+            Just (Node _ exposing_) ->
+                registerImportedFunctionsAndTypes
+                    modules
+                    (Node.value import_.moduleName)
+                    exposing_
+                    context.contents
+    }
 
 
 registerImportAlias : Import -> Dict String (NonEmpty ModuleName) -> Dict String (NonEmpty ModuleName)
@@ -655,8 +656,8 @@ registerImportedFunctionsAndTypes :
     Dict ModuleName Elm.Docs.Module
     -> ModuleName
     -> Exposing
-    -> ImportAcc
-    -> ImportAcc
+    -> ImportContentAcc
+    -> ImportContentAcc
 registerImportedFunctionsAndTypes modules moduleName exposing_ context =
     let
         module_ : Elm.Docs.Module
@@ -685,8 +686,8 @@ registerImportedFunctionsAndTypes modules moduleName exposing_ context =
 registerImportedFunctionsAndTypesWhenExposingAll :
     ModuleName
     -> Elm.Docs.Module
-    -> ImportAcc
-    -> ImportAcc
+    -> ImportContentAcc
+    -> ImportContentAcc
 registerImportedFunctionsAndTypesWhenExposingAll moduleName module_ importAcc =
     let
         ( importedTypes, bindingIdCounter ) =
@@ -704,8 +705,6 @@ registerImportedFunctionsAndTypesWhenExposingAll moduleName module_ importAcc =
         module_.aliases
         { importedFunctions = importedFunctions
         , importedTypes = importedTypes
-        , aliasToModuleName = importAcc.aliasToModuleName
-        , moduleQualifiers = importAcc.moduleQualifiers
         , bindingIdCounter = finalCounter
         }
 
@@ -743,7 +742,7 @@ foldCustomTypesIntoDict moduleName unions initial =
         unions
 
 
-addRecordAliases : ModuleName -> List Elm.Docs.Alias -> ImportAcc -> ImportAcc
+addRecordAliases : ModuleName -> List Elm.Docs.Alias -> ImportContentAcc -> ImportContentAcc
 addRecordAliases moduleName list initial =
     List.foldl
         (\{ name, tipe } acc ->
@@ -763,16 +762,12 @@ addRecordAliases moduleName list initial =
                 Elm.Type.Record _ Nothing ->
                     { importedFunctions = Dict.insert name typeAliasBinding acc.importedFunctions
                     , importedTypes = Dict.insert name typeAliasBinding acc.importedTypes
-                    , aliasToModuleName = acc.aliasToModuleName
-                    , moduleQualifiers = acc.moduleQualifiers
                     , bindingIdCounter = bindingIdCounter
                     }
 
                 _ ->
                     { importedFunctions = acc.importedFunctions
                     , importedTypes = Dict.insert name typeAliasBinding acc.importedTypes
-                    , aliasToModuleName = acc.aliasToModuleName
-                    , moduleQualifiers = acc.moduleQualifiers
                     , bindingIdCounter = bindingIdCounter
                     }
         )
@@ -784,8 +779,8 @@ registerImportedFunctionsAndTypesWithExplicit :
     ModuleName
     -> Elm.Docs.Module
     -> List (Node TopLevelExpose)
-    -> ImportAcc
-    -> ImportAcc
+    -> ImportContentAcc
+    -> ImportContentAcc
 registerImportedFunctionsAndTypesWithExplicit moduleName module_ topLevelExposeList context =
     let
         ( importedFunctions, bindingIdCounter ) =
@@ -811,8 +806,6 @@ registerImportedFunctionsAndTypesWithExplicit moduleName module_ topLevelExposeL
     { importedFunctions = importedFunctions
     , bindingIdCounter = finalCounter
     , importedTypes = importedTypes
-    , aliasToModuleName = context.aliasToModuleName
-    , moduleQualifiers = context.moduleQualifiers
     }
 
 
