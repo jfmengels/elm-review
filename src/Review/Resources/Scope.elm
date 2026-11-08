@@ -4,7 +4,7 @@ module Review.Resources.Scope exposing
     , moduleNameForType, moduleNameForValue, fullModuleNameForType, fullModuleNameForValue
     , canIntroduceName
     , valueBindings, valueBinding
-    , names, range
+    , names, range, origin
     )
 
 {-| REPLACEME
@@ -14,7 +14,7 @@ module Review.Resources.Scope exposing
 @docs moduleNameForType, moduleNameForValue, fullModuleNameForType, fullModuleNameForValue
 @docs canIntroduceName
 @docs valueBindings, valueBinding
-@docs names, range
+@docs names, range, origin
 
 -}
 
@@ -26,6 +26,7 @@ import NonEmpty
 import Review.Resources.Binding exposing (Binding)
 import Review.Resources.ImportBinding as ImportBinding
 import Review.Resources.ScopeInternal as Internal
+import Review.Resources.ScopeOrigin exposing (ScopeOrigin)
 import Set exposing (Set)
 
 
@@ -46,6 +47,11 @@ valueBindings (Internal.Scope scope) =
 range : Scope -> Range
 range (Internal.Scope scope) =
     scope.range
+
+
+origin : Scope -> ScopeOrigin
+origin (Internal.Scope scope) =
+    scope.origin
 
 
 parentId : Scope -> Maybe Internal.ScopeId

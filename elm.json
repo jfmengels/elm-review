@@ -16,6 +16,7 @@
         "Review.Resources.ImportBinding",
         "Review.Resources.Reference",
         "Review.Resources.Scope",
+        "Review.Resources.ScopeOrigin",
         "Review.Resources.ScopeProvider",
         "Review.Resources.Target",
         "Review.Rule",

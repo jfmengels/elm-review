@@ -27,6 +27,7 @@ import Review.Resources.ModuleNameLookupTableBuilder as Builder exposing (Module
 import Review.Resources.Scope as Scope
 import Review.Resources.ScopeId as ScopeId
 import Review.Resources.ScopeInternal as ScopeInternal exposing (Binding, Reference, ScopeId, ScopeInfo)
+import Review.Resources.ScopeOrigin as ScopeOrigin exposing (ScopeOrigin)
 import Review.Resources.ScopeProvider exposing (ScopeProvider)
 import Vendor.ListExtra as ListExtra
 
@@ -290,6 +291,7 @@ computeBaseModule moduleName modules { typeBindings, bindings, bindingIdCounter 
             , moduleName = moduleName
             , parentId = Nothing
             , range = Range.empty -- TODO Use full range
+            , origin = ScopeOrigin.TopLevel
             , typeBindings = typeBindings
             , valueBindings = bindings
             , importValueBindings = importAcc.importedFunctions
@@ -322,12 +324,13 @@ importedFunctionsFromImportedBindings importedFunctions =
     Dict.foldl (\name importBinding dict -> Dict.insert name (ImportBinding.moduleName importBinding) dict) Dict.empty importedFunctions
 
 
-createScope : { id : ScopeId, parent : ScopeInfo, range : Range, bindings : Dict String Binding } -> ScopeInfo
-createScope { id, parent, range, bindings } =
+createScope : { id : ScopeId, parent : ScopeInfo, range : Range, origin : ScopeOrigin, bindings : Dict String Binding } -> ScopeInfo
+createScope { id, parent, range, origin, bindings } =
     { id = id
     , moduleName = parent.moduleName
     , parentId = Just parent.id
     , range = range
+    , origin = origin
     , valueBindings = bindings
     , typeBindings = parent.typeBindings
     , importValueBindings = parent.importValueBindings
@@ -924,6 +927,7 @@ declarationEnterVisitor (Node nodeRange node) context =
                                 { id = scopeId
                                 , parent = NonEmpty.head newContext.scopeStack
                                 , range = functionRange
+                                , origin = ScopeOrigin.Function (Node nodeRange function)
                                 , bindings = bindings
                                 }
                     in
@@ -1076,6 +1080,7 @@ expressionEnterVisitor ((Node nodeRange expr) as node) context =
                         { id = letScopeId
                         , parent = NonEmpty.head context.scopeStack
                         , range = nodeRange
+                        , origin = ScopeOrigin.LetBlock (Node nodeRange letExpression)
                         , bindings = letBlockBindings
                         }
 
@@ -1103,7 +1108,7 @@ expressionEnterVisitor ((Node nodeRange expr) as node) context =
                     }
                 let_ =
                     List.foldr
-                        (\(Node _ declaration) acc ->
+                        (\(Node declRange declaration) acc ->
                             case declaration of
                                 Expression.LetFunction function ->
                                     let
@@ -1128,6 +1133,7 @@ expressionEnterVisitor ((Node nodeRange expr) as node) context =
                                                         { id = scopeId
                                                         , parent = letScope
                                                         , range = Node.range expression
+                                                        , origin = ScopeOrigin.Function (Node declRange function)
                                                         , bindings = bindings
                                                         }
                                             in
@@ -1182,7 +1188,7 @@ expressionEnterVisitor ((Node nodeRange expr) as node) context =
                     NonEmpty.head context.scopeStack
             in
             List.foldr
-                (\( pattern, Node expressionRange _ ) ctx ->
+                (\(( pattern, Node expressionRange _ ) as caseBranch) ctx ->
                     let
                         ( scopeId, newScopeIdCounter ) =
                             ScopeId.new ctx.scopeIdCounter
@@ -1198,6 +1204,7 @@ expressionEnterVisitor ((Node nodeRange expr) as node) context =
                                     { id = scopeId
                                     , parent = parent
                                     , range = expressionRange
+                                    , origin = ScopeOrigin.CaseBranch caseBranch
                                     , bindings = bindings
                                     }
                                 )
@@ -1230,7 +1237,7 @@ expressionEnterVisitor ((Node nodeRange expr) as node) context =
             }
                 |> addValueReference [] name range (ScopeInternal.Expression node)
 
-        Expression.LambdaExpression { args, expression } ->
+        Expression.LambdaExpression ({ args, expression } as lambda) ->
             let
                 range : Range
                 range =
@@ -1252,6 +1259,7 @@ expressionEnterVisitor ((Node nodeRange expr) as node) context =
                             { id = scopeId
                             , parent = NonEmpty.head context.scopeStack
                             , range = range
+                            , origin = ScopeOrigin.Lambda (Node nodeRange lambda)
                             , bindings = bindings
                             }
                         )

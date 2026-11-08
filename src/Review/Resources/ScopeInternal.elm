@@ -26,6 +26,7 @@ import Elm.Syntax.Range as Range exposing (Range)
 import Elm.Syntax.TypeAnnotation exposing (TypeAnnotation)
 import NonEmpty exposing (NonEmpty)
 import Review.Resources.BindingId as BindingId
+import Review.Resources.ScopeOrigin as ScopeOrigin exposing (ScopeOrigin)
 
 
 type ScopeProvider
@@ -52,6 +53,7 @@ type alias ScopeInfo =
     , moduleName : ModuleName
     , parentId : Maybe ScopeId
     , range : Range
+    , origin : ScopeOrigin
     , valueBindings : Dict String Binding
     , typeBindings : Dict String Binding
     , parentBindings : List (Dict String Binding)
@@ -128,6 +130,7 @@ empty moduleName =
             , moduleName = moduleName
             , parentId = Nothing
             , range = Range.empty
+            , origin = ScopeOrigin.TopLevel
             , valueBindings = Dict.empty
             , typeBindings = Dict.empty
             , importValueBindings = Dict.empty
