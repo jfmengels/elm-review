@@ -21,7 +21,7 @@ module Review.Rule exposing
     , withElmJsonProjectVisitor, withReadmeProjectVisitor, withDirectDependenciesProjectVisitor, withDependenciesProjectVisitor, withExtraFilesProjectVisitor, withFinalProjectEvaluation
     , withContextFromImportedModules, withContextFromImportedModulesIncludingIndirect
     , providesFixesForProjectRule
-    , ContextCreator, initContextCreator
+    , ContextCreator, initContextCreator, applyContextCreator
     , withModuleName, withModuleNameNode
     , withIsInSourceDirectories, withFilePath
     , withIsFileIgnored, withIsFileFixable
@@ -257,7 +257,7 @@ first, as they are in practice a simpler version of project rules.
 
 ## Requesting more information
 
-@docs ContextCreator, initContextCreator
+@docs ContextCreator, initContextCreator, applyContextCreator
 @docs withModuleName, withModuleNameNode
 @docs withIsInSourceDirectories, withFilePath
 @docs withIsFileIgnored, withIsFileFixable
@@ -7442,7 +7442,7 @@ createModuleVisitorFromProjectVisitorHelp schema raise hidden howToCreateModuleC
                         let
                             initialContext : moduleContext
                             initialContext =
-                                applyContextCreator availableData isFileIgnored isFileFixable moduleContextCreator inputProjectContext
+                                runContextCreator availableData isFileIgnored isFileFixable moduleContextCreator inputProjectContext
 
                             ruleData : { ruleName : String, exceptions : Exceptions, filePath : FilePath }
                             ruleData =
@@ -7454,7 +7454,7 @@ createModuleVisitorFromProjectVisitorHelp schema raise hidden howToCreateModuleC
                                     ( fromModuleToProjectErrors, outputProjectContext ) =
                                         case getFolderFromTraversal howToCreateModuleContext of
                                             Just { fromModuleToProject } ->
-                                                applyContextCreator availableData isFileIgnored isFileFixable fromModuleToProject resultModuleContext
+                                                runContextCreator availableData isFileIgnored isFileFixable fromModuleToProject resultModuleContext
 
                                             Nothing ->
                                                 ( [], schema.initialProjectContext )
@@ -7848,8 +7848,74 @@ mapContextCreator mapper (ContextCreator fn requestedData) =
     ContextCreator (\availableData isFileIgnored isFileFixable from -> mapper (fn availableData isFileIgnored isFileFixable from)) requestedData
 
 
-applyContextCreator : AvailableData -> Bool -> Bool -> ContextCreator from to -> from -> to
-applyContextCreator data isFileIgnored isFileFixable (ContextCreator fn _) from =
+applyContextCreator : Project -> ModuleName -> ContextCreator () data -> Result String ( Project, data )
+applyContextCreator project moduleName ((ContextCreator _ requestedData) as contextCreator) =
+    case getValidProject (RequestedData.types requestedData) project of
+        GotValidProject validProject ->
+            case ValidProject.getModuleByModuleName validProject moduleName of
+                Just module_ ->
+                    let
+                        ( newProject, data ) =
+                            applyContextCreatorFromProjectHelp module_ contextCreator validProject
+                    in
+                    Ok ( ValidProject.toRegularProject newProject, data )
+
+                Nothing ->
+                    Err ("Module " ++ String.join "." moduleName ++ " is unknown in this project.")
+
+        GotValidProjectNeedPackageSources packageSources ->
+            Dict.foldl (\packageName files acc -> acc ++ "\n\n" ++ String.join "\n - " (packageName :: files))
+                "More package sources are required:"
+                packageSources
+                |> Err
+
+        GotValidProjectError err ->
+            (errorMessage err :: errorDetails err)
+                |> String.join "\n\n"
+                |> Err
+
+
+applyContextCreatorFromProjectHelp : OpaqueProjectModule -> ContextCreator () data -> ValidProject -> ( ValidProject, data )
+applyContextCreatorFromProjectHelp module_ ((ContextCreator _ requestedData) as contextCreator) initialProject =
+    let
+        { docsModule, project } =
+            if RequestedData.moduleDocsDerivatives requestedData then
+                let
+                    res : { moduleDocs : DocsModule, projectCache : ProjectCache }
+                    res =
+                        Review.Resources.DocsModules.compute
+                            (ProjectModule.moduleName module_)
+                            module_
+                            initialProject
+                            { checkCacheKey = True }
+                in
+                { docsModule = DocsModule.mod res.moduleDocs
+                , project = ValidProject.updateProjectCache res.projectCache initialProject
+                }
+
+            else
+                { docsModule = Review.Resources.DocsModules.dummyModuleDocs (ProjectModule.moduleName module_)
+                , project = initialProject
+                }
+
+        ( newProject, availableData ) =
+            computeAvailableData project docsModule module_ requestedData
+
+        isFileIgnored : Bool
+        isFileIgnored =
+            False
+
+        isFileFixable : Bool
+        isFileFixable =
+            True
+    in
+    ( newProject
+    , runContextCreator availableData isFileIgnored isFileFixable contextCreator ()
+    )
+
+
+runContextCreator : AvailableData -> Bool -> Bool -> ContextCreator from to -> from -> to
+runContextCreator data isFileIgnored isFileFixable (ContextCreator fn _) from =
     fn data isFileIgnored isFileFixable from
 
 
