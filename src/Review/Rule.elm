@@ -848,8 +848,8 @@ getValidProjectAndRules project rules =
                 GotValidProjectNeedPackageSources packageSources ->
                     ValidProjectAndRulesNeedPackageSources packageSources
 
-                GotValidProjectError errors ->
-                    ValidProjectAndRulesError errors
+                GotValidProjectError err ->
+                    ValidProjectAndRulesError [ err ]
 
         Err errors ->
             ValidProjectAndRulesError errors
@@ -905,7 +905,7 @@ collectConfigurationErrors rules =
 
 type GetValidProjectResult
     = GotValidProject ValidProject
-    | GotValidProjectError (List ReviewError)
+    | GotValidProjectError ReviewError
     | GotValidProjectNeedPackageSources (Dict PackageName (List String))
 
 
@@ -913,29 +913,28 @@ getValidProject : Bool -> Project -> GetValidProjectResult
 getValidProject requestsTypeInformation project =
     case ValidProject.parse requestsTypeInformation project of
         Err (InvalidProjectError.SomeModulesFailedToParse pathsThatFailedToParse) ->
-            GotValidProjectError [ parsingError pathsThatFailedToParse ]
+            GotValidProjectError (parsingError pathsThatFailedToParse)
 
         Err (InvalidProjectError.DuplicateModuleNames duplicate) ->
-            GotValidProjectError [ duplicateModulesGlobalError duplicate ]
+            GotValidProjectError (duplicateModulesGlobalError duplicate)
 
         Err (InvalidProjectError.ImportCycleError cycle) ->
-            GotValidProjectError [ importCycleError cycle ]
+            GotValidProjectError (importCycleError cycle)
 
         Err InvalidProjectError.NoModulesError ->
-            GotValidProjectError
-                [ elmReviewGlobalError
-                    { ruleName = "Incorrect project"
-                    , message = "This project does not contain any Elm modules"
-                    , details = [ "I need to look at some Elm modules. Maybe you have specified folders that do not exist?" ]
-                    }
-                    |> errorToReviewError
-                ]
+            elmReviewGlobalError
+                { ruleName = "Incorrect project"
+                , message = "This project does not contain any Elm modules"
+                , details = [ "I need to look at some Elm modules. Maybe you have specified folders that do not exist?" ]
+                }
+                |> errorToReviewError
+                |> GotValidProjectError
 
         Err (InvalidProjectError.NeedPackageSources packageSources) ->
             GotValidProjectNeedPackageSources packageSources
 
         Err (InvalidProjectError.TypeInferenceError err) ->
-            GotValidProjectError [ typeInferenceError err ]
+            GotValidProjectError (typeInferenceError err)
 
         Ok validProject ->
             GotValidProject validProject
