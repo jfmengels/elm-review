@@ -825,7 +825,7 @@ avoidReportingCustomTypes types typeVars acc =
 
         type_ :: rest ->
             case type_ of
-                Type.Named { package, moduleName, name, arguments } ->
+                Type.Named { package, moduleName, name } ->
                     let
                         newAcc : Set ( String, ModuleName )
                         newAcc =
