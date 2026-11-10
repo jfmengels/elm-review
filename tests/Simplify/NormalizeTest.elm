@@ -9,14 +9,16 @@ import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Expression exposing (Expression(..), LetDeclaration(..))
 import Elm.Syntax.File exposing (File)
 import Elm.Syntax.Infix as Infix
-import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Pattern exposing (Pattern(..))
-import Elm.Syntax.Range as Range exposing (Range)
+import Elm.Syntax.Range as Range
 import Expect
-import Review.ModuleNameLookupTable as ModuleNameLookupTable
-import Simplify.Infer as Infer
-import Simplify.Normalize as Normalize
+import Review.Project as Project exposing (Project)
+import Review.Resources.ScopeProvider as ScopeProvider
+import Review.Rule as Rule
+import Review.Test.Dependencies
+import Simplify.Infer as Infer exposing (DeducedValue)
+import Simplify.Normalize as Normalize exposing (Resources)
 import Test exposing (Test, describe, test)
 
 
@@ -35,20 +37,23 @@ simpleNormalizationTests =
         [ test "should remove parentheses" <|
             \() ->
                 "(1)"
-                    |> normalizeAndExpect (Floatable 1)
+                    |> normalizeExpression []
+                    |> Expect.equal (Floatable 1)
         , test "should apply Basics.negate to known number" <|
             \() ->
                 "Basics.negate 1"
-                    |> normalizeAndExpect (Floatable -1)
+                    |> normalizeExpression []
+                    |> Expect.equal (Floatable -1)
         , test "should normalize Basics.negate n to -n" <|
             \() ->
                 "Basics.negate n"
-                    |> normalizeAndExpect
-                        (Negation (Node.empty (FunctionOrValue [] "n")))
+                    |> normalizeExpression []
+                    |> Expect.equal (Negation (n (FunctionOrValue [] "n")))
         , test "should remove ranges of 'f a'" <|
             \() ->
                 "f a"
-                    |> normalizeAndExpect
+                    |> normalizeExpression []
+                    |> Expect.equal
                         (Application
                             [ n (FunctionOrValue [] "f")
                             , n (FunctionOrValue [] "a")
@@ -57,7 +62,8 @@ simpleNormalizationTests =
         , test "should turn '.field a' into 'a.field'" <|
             \() ->
                 ".field a"
-                    |> normalizeAndExpect
+                    |> normalizeExpression []
+                    |> Expect.equal
                         (RecordAccess
                             (n (FunctionOrValue [] "a"))
                             (n "field")
@@ -65,7 +71,8 @@ simpleNormalizationTests =
         , test "should turn '.field <| a' into 'a.field'" <|
             \() ->
                 "(.field) <| (a)"
-                    |> normalizeAndExpect
+                    |> normalizeExpression []
+                    |> Expect.equal
                         (RecordAccess
                             (n (FunctionOrValue [] "a"))
                             (n "field")
@@ -73,7 +80,8 @@ simpleNormalizationTests =
         , test "should turn '(a).field' into 'a.field'" <|
             \() ->
                 "(a).field"
-                    |> normalizeAndExpect
+                    |> normalizeExpression []
+                    |> Expect.equal
                         (RecordAccess
                             (n (FunctionOrValue [] "a"))
                             (n "field")
@@ -81,7 +89,8 @@ simpleNormalizationTests =
         , test "should turn '.field a b' into 'a.field b'" <|
             \() ->
                 ".field a b"
-                    |> normalizeAndExpect
+                    |> normalizeExpression []
+                    |> Expect.equal
                         (Application
                             [ n
                                 (RecordAccess
@@ -94,7 +103,8 @@ simpleNormalizationTests =
         , test "should normalize a function and function arguments" <|
             \() ->
                 "(a) (b) (c)"
-                    |> normalizeAndExpect
+                    |> normalizeExpression []
+                    |> Expect.equal
                         (Application
                             [ n (FunctionOrValue [] "a")
                             , n (FunctionOrValue [] "b")
@@ -104,7 +114,8 @@ simpleNormalizationTests =
         , test "should remove <|" <|
             \() ->
                 "a b <| c"
-                    |> normalizeAndExpect
+                    |> normalizeExpression []
+                    |> Expect.equal
                         (Application
                             [ n (FunctionOrValue [] "a")
                             , n (FunctionOrValue [] "b")
@@ -114,7 +125,8 @@ simpleNormalizationTests =
         , test "should remove |>" <|
             \() ->
                 "c |> a b"
-                    |> normalizeAndExpect
+                    |> normalizeExpression []
+                    |> Expect.equal
                         (Application
                             [ n (FunctionOrValue [] "a")
                             , n (FunctionOrValue [] "b")
@@ -124,7 +136,8 @@ simpleNormalizationTests =
         , test "should directly apply (|>)" <|
             \() ->
                 "(|>) c (a b)"
-                    |> normalizeAndExpect
+                    |> normalizeExpression []
+                    |> Expect.equal
                         (Application
                             [ n (FunctionOrValue [] "a")
                             , n (FunctionOrValue [] "b")
@@ -134,7 +147,8 @@ simpleNormalizationTests =
         , test "should directly apply (<|)" <|
             \() ->
                 "(<|) (a b) c"
-                    |> normalizeAndExpect
+                    |> normalizeExpression []
+                    |> Expect.equal
                         (Application
                             [ n (FunctionOrValue [] "a")
                             , n (FunctionOrValue [] "b")
@@ -144,7 +158,8 @@ simpleNormalizationTests =
         , test "should remove <| when the left is not already an application " <|
             \() ->
                 "(a) <| (b)"
-                    |> normalizeAndExpect
+                    |> normalizeExpression []
+                    |> Expect.equal
                         (Application
                             [ n (FunctionOrValue [] "a")
                             , n (FunctionOrValue [] "b")
@@ -153,7 +168,8 @@ simpleNormalizationTests =
         , test "should remove <| when the left is a let expression" <|
             \() ->
                 "(let a = (fn) in a) <| (b)"
-                    |> normalizeAndExpect
+                    |> normalizeExpression []
+                    |> Expect.equal
                         (LetExpression
                             { declarations =
                                 [ n
@@ -181,7 +197,8 @@ simpleNormalizationTests =
         , test "should remove <| when the left is an if expression" <|
             \() ->
                 "(if (cond) then (fn1) else (fn2)) <| (b)"
-                    |> normalizeAndExpect
+                    |> normalizeExpression []
+                    |> Expect.equal
                         (IfBlock (n (FunctionOrValue [] "cond"))
                             (n
                                 (Application
@@ -206,7 +223,8 @@ simpleNormalizationTests =
      2 -> (fn2)
   ) <| (b)
 """
-                    |> normalizeAndExpect
+                    |> normalizeExpression []
+                    |> Expect.equal
                         (CaseExpression
                             { expression = n (FunctionOrValue [] "x")
                             , cases =
@@ -250,7 +268,8 @@ simpleNormalizationTests =
   , (a) |. (b)
   , (a) |= (b)
   ]"""
-                    |> normalizeAndExpect
+                    |> normalizeExpression []
+                    |> Expect.equal
                         (ListExpr
                             [ n (OperatorApplication "<" Infix.Non (n (FunctionOrValue [] "a")) (n (FunctionOrValue [] "b")))
                             , n (OperatorApplication "<=" Infix.Non (n (FunctionOrValue [] "a")) (n (FunctionOrValue [] "b")))
@@ -281,7 +300,8 @@ simpleNormalizationTests =
   , (b) == (a)
   , (b) /= (a)
   ]"""
-                    |> normalizeAndExpect
+                    |> normalizeExpression []
+                    |> Expect.equal
                         (ListExpr
                             [ n (OperatorApplication "+" Infix.Non (n (FunctionOrValue [] "a")) (n (FunctionOrValue [] "b")))
                             , n (OperatorApplication "*" Infix.Non (n (FunctionOrValue [] "a")) (n (FunctionOrValue [] "b")))
@@ -294,7 +314,8 @@ simpleNormalizationTests =
         , test "should replace > by <" <|
             \() ->
                 "(a) > (b)"
-                    |> normalizeAndExpect
+                    |> normalizeExpression []
+                    |> Expect.equal
                         (OperatorApplication
                             "<"
                             Infix.Non
@@ -304,7 +325,8 @@ simpleNormalizationTests =
         , test "should replace >= by <=" <|
             \() ->
                 "(a) >= (b)"
-                    |> normalizeAndExpect
+                    |> normalizeExpression []
+                    |> Expect.equal
                         (OperatorApplication
                             "<="
                             Infix.Non
@@ -314,7 +336,8 @@ simpleNormalizationTests =
         , test "should normalize prefix operator uncons with a list literal into a list literal" <|
             \() ->
                 "(::) (a) [(b)]"
-                    |> normalizeAndExpect
+                    |> normalizeExpression []
+                    |> Expect.equal
                         (ListExpr
                             [ n (FunctionOrValue [] "a")
                             , n (FunctionOrValue [] "b")
@@ -323,7 +346,8 @@ simpleNormalizationTests =
         , test "should normalize uncons with a list literal into a list literal" <|
             \() ->
                 "(a) :: [(b)]"
-                    |> normalizeAndExpect
+                    |> normalizeExpression []
+                    |> Expect.equal
                         (ListExpr
                             [ n (FunctionOrValue [] "a")
                             , n (FunctionOrValue [] "b")
@@ -332,7 +356,8 @@ simpleNormalizationTests =
         , test "should normalize uncons with a non-list literal into a cons operation still" <|
             \() ->
                 "(a) :: (b)"
-                    |> normalizeAndExpect
+                    |> normalizeExpression []
+                    |> Expect.equal
                         (OperatorApplication
                             "::"
                             Infix.Non
@@ -342,7 +367,8 @@ simpleNormalizationTests =
         , test "should normalize an if expression" <|
             \() ->
                 "if (a) then (b) else (c)"
-                    |> normalizeAndExpect
+                    |> normalizeExpression []
+                    |> Expect.equal
                         (IfBlock
                             (n (FunctionOrValue [] "a"))
                             (n (FunctionOrValue [] "b"))
@@ -351,7 +377,8 @@ simpleNormalizationTests =
         , test "should remove the `not` calls in the condition by switching the branches" <|
             \() ->
                 "if (Basics.not a) then (b) else (c)"
-                    |> normalizeAndExpect
+                    |> normalizeExpression []
+                    |> Expect.equal
                         (IfBlock
                             (n (FunctionOrValue [] "a"))
                             (n (FunctionOrValue [] "c"))
@@ -360,7 +387,8 @@ simpleNormalizationTests =
         , test "should remove the `not` calls in the condition by switching the branches multiple times" <|
             \() ->
                 "if (Basics.not <| Basics.not a) then (b) else (c)"
-                    |> normalizeAndExpect
+                    |> normalizeExpression []
+                    |> Expect.equal
                         (IfBlock
                             (n (FunctionOrValue [] "a"))
                             (n (FunctionOrValue [] "b"))
@@ -369,20 +397,23 @@ simpleNormalizationTests =
         , test "should normalize an integer negation" <|
             \() ->
                 "-1"
-                    |> normalizeAndExpect (Floatable -1)
+                    |> normalizeExpression []
+                    |> Expect.equal (Floatable -1)
         , test "should normalize a float negation" <|
             \() ->
                 "-1.1"
-                    |> normalizeAndExpect (Floatable -1.1)
+                    |> normalizeExpression []
+                    |> Expect.equal (Floatable -1.1)
         , test "should normalize negations of something else" <|
             \() ->
                 "-(a)"
-                    |> normalizeAndExpect
-                        (Negation (n (FunctionOrValue [] "a")))
+                    |> normalizeExpression []
+                    |> Expect.equal (Negation (n (FunctionOrValue [] "a")))
         , test "should normalize tuples" <|
             \() ->
                 "( (a), (b) )"
-                    |> normalizeAndExpect
+                    |> normalizeExpression []
+                    |> Expect.equal
                         (TupledExpression
                             [ n (FunctionOrValue [] "a")
                             , n (FunctionOrValue [] "b")
@@ -391,7 +422,8 @@ simpleNormalizationTests =
         , test "should normalize lists" <|
             \() ->
                 "[ (a), (b) ]"
-                    |> normalizeAndExpect
+                    |> normalizeExpression []
+                    |> Expect.equal
                         (ListExpr
                             [ n (FunctionOrValue [] "a")
                             , n (FunctionOrValue [] "b")
@@ -400,7 +432,8 @@ simpleNormalizationTests =
         , test "should normalize lambdas" <|
             \() ->
                 "\\(a) -> (a)"
-                    |> normalizeAndExpect
+                    |> normalizeExpression []
+                    |> Expect.equal
                         (LambdaExpression
                             { args = [ n (VarPattern "a") ]
                             , expression = n (FunctionOrValue [] "a")
@@ -409,7 +442,8 @@ simpleNormalizationTests =
         , test "should normalize records, and sort fields alphabetically" <|
             \() ->
                 "{ field = (2), a = (1), z = (3) }"
-                    |> normalizeAndExpect
+                    |> normalizeExpression []
+                    |> Expect.equal
                         (RecordExpr
                             [ n ( n "a", n (Floatable 1) )
                             , n ( n "field", n (Floatable 2) )
@@ -419,7 +453,8 @@ simpleNormalizationTests =
         , test "should normalize record updates, and sort fields alphabetically" <|
             \() ->
                 "{ record | field = (2), a = (1), z = (3) }"
-                    |> normalizeAndExpect
+                    |> normalizeExpression []
+                    |> Expect.equal
                         (RecordUpdateExpression
                             (n "record")
                             [ n ( n "a", n (Floatable 1) )
@@ -430,17 +465,18 @@ simpleNormalizationTests =
         , test "should normalize hex literals to number" <|
             \() ->
                 "0x100"
-                    |> normalizeAndExpect
-                        (Floatable 256)
+                    |> normalizeExpression []
+                    |> Expect.equal (Floatable 256)
         , test "should normalize Basics.not (Basics.not bool) to bool" <|
             \() ->
                 "Basics.not (Basics.not bool)"
-                    |> normalizeAndExpect
-                        (FunctionOrValue [] "bool")
+                    |> normalizeExpression []
+                    |> Expect.equal (FunctionOrValue [] "bool")
         , test "should normalize Basics.not (x == y) to x /= y" <|
             \() ->
                 "Basics.not (x == y)"
-                    |> normalizeAndExpect
+                    |> normalizeExpression []
+                    |> Expect.equal
                         (OperatorApplication "/="
                             Infix.Non
                             (n (FunctionOrValue [] "x"))
@@ -449,7 +485,8 @@ simpleNormalizationTests =
         , test "should normalize Basics.not (x /= y) to x == y" <|
             \() ->
                 "Basics.not (x /= y)"
-                    |> normalizeAndExpect
+                    |> normalizeExpression []
+                    |> Expect.equal
                         (OperatorApplication "=="
                             Infix.Non
                             (n (FunctionOrValue [] "x"))
@@ -458,7 +495,8 @@ simpleNormalizationTests =
         , test "should normalize Basics.not (x < y) to y <= x" <|
             \() ->
                 "Basics.not (x < y)"
-                    |> normalizeAndExpect
+                    |> normalizeExpression []
+                    |> Expect.equal
                         (OperatorApplication "<="
                             Infix.Non
                             (n (FunctionOrValue [] "y"))
@@ -467,7 +505,8 @@ simpleNormalizationTests =
         , test "should normalize Basics.not (x <= y) to y < x" <|
             \() ->
                 "Basics.not (x <= y)"
-                    |> normalizeAndExpect
+                    |> normalizeExpression []
+                    |> Expect.equal
                         (OperatorApplication "<"
                             Infix.Non
                             (n (FunctionOrValue [] "y"))
@@ -476,7 +515,8 @@ simpleNormalizationTests =
         , test "should normalize Basics.not (x >= y) to x < y" <|
             \() ->
                 "Basics.not (x >= y)"
-                    |> normalizeAndExpect
+                    |> normalizeExpression []
+                    |> Expect.equal
                         (OperatorApplication "<"
                             Infix.Non
                             (n (FunctionOrValue [] "x"))
@@ -485,7 +525,8 @@ simpleNormalizationTests =
         , test "should normalize Basics.not (x > y) to x <= y" <|
             \() ->
                 "Basics.not (x > y)"
-                    |> normalizeAndExpect
+                    |> normalizeExpression []
+                    |> Expect.equal
                         (OperatorApplication "<="
                             Infix.Non
                             (n (FunctionOrValue [] "x"))
@@ -494,7 +535,8 @@ simpleNormalizationTests =
         , test "should normalize Basics.not (x && y) to Basics.not x || Basics.not y" <|
             \() ->
                 "Basics.not (x && y)"
-                    |> normalizeAndExpect
+                    |> normalizeExpression []
+                    |> Expect.equal
                         (OperatorApplication "||"
                             Infix.Non
                             (n
@@ -515,7 +557,8 @@ simpleNormalizationTests =
         , test "should normalize Basics.not (x || y) to Basics.not x && Basics.not y" <|
             \() ->
                 "Basics.not (x || y)"
-                    |> normalizeAndExpect
+                    |> normalizeExpression []
+                    |> Expect.equal
                         (OperatorApplication "&&"
                             Infix.Non
                             (n
@@ -543,7 +586,8 @@ simpleNormalizationTests =
   in
   (2)
 """
-                    |> normalizeAndExpect
+                    |> normalizeExpression []
+                    |> Expect.equal
                         (LetExpression
                             { declarations =
                                 [ n
@@ -578,7 +622,8 @@ simpleNormalizationTests =
   Basics.Just True -> (4)
   ((a) as b) -> (5)
 """
-                    |> normalizeAndExpect
+                    |> normalizeExpression []
+                    |> Expect.equal
                         (CaseExpression
                             { cases =
                                 [ ( n
@@ -599,7 +644,7 @@ simpleNormalizationTests =
                                             { moduleName = [ "Basics" ]
                                             , name = "Just"
                                             }
-                                            [ n (NamedPattern { moduleName = [], name = "True" } []) ]
+                                            [ n (NamedPattern { moduleName = [ "Basics" ], name = "True" } []) ]
                                         )
                                   , n (Floatable 4)
                                   )
@@ -630,7 +675,8 @@ simpleNormalizationTests =
         , test "should not change anything about >> (except changing to Infix.Non)" <|
             \() ->
                 "a >> b >> c >> d"
-                    |> normalizeAndExpect
+                    |> normalizeExpression []
+                    |> Expect.equal
                         (OperatorApplication ">>"
                             Infix.Non
                             (n (FunctionOrValue [] "a"))
@@ -650,8 +696,9 @@ simpleNormalizationTests =
                         )
         , test "should switch << to use >>" <|
             \() ->
-                normalizeSourceCode [] Infer.empty "d << c << b << a"
-                    |> Expect.equal (normalizeSourceCode [] Infer.empty "a >> b >> c >> d")
+                "d << c << b << a"
+                    |> normalizeExpression []
+                    |> Expect.equal (normalizeExpression [] "a >> b >> c >> d")
         ]
 
 
@@ -660,57 +707,52 @@ moduleNameTests =
     describe "Module name normalization"
         [ test "should normalize module name in expression (unknown)" <|
             \() ->
-                "A.b"
-                    |> normalizeWithModuleNamesAndExpect []
-                        (FunctionOrValue [ "A" ] "b")
+                """module A exposing (..)
+value = B.a
+"""
+                    |> normalizeSourceCode []
+                    |> Expect.equal (FunctionOrValue [ "B" ] "a")
         , test "should normalize module name in expression (unchanged)" <|
             \() ->
-                "A.b"
-                    |> normalizeWithModuleNamesAndExpect
-                        [ ( { start = { row = 2, column = 9 }, end = { row = 2, column = 12 } }
-                          , [ "A" ]
-                          )
-                        ]
-                        (FunctionOrValue [ "A" ] "b")
+                """module A exposing (..)
+import B exposing (a)
+value = B.a
+"""
+                    |> normalizeSourceCode []
+                    |> Expect.equal (FunctionOrValue [ "B" ] "a")
         , test "should normalize module name in expression (aliased)" <|
             \() ->
-                "A.b"
-                    |> normalizeWithModuleNamesAndExpect
-                        [ ( { start = { row = 2, column = 9 }, end = { row = 2, column = 12 } }
-                          , [ "Something", "Else" ]
-                          )
-                        ]
-                        (FunctionOrValue [ "Something", "Else" ] "b")
+                """module A exposing (..)
+import Something.Else as A
+value = A.b
+"""
+                    |> normalizeSourceCode []
+                    |> Expect.equal (FunctionOrValue [ "Something", "Else" ] "b")
         , test "should normalize module name in expression (unqualified)" <|
             \() ->
-                "b"
-                    |> normalizeWithModuleNamesAndExpect
-                        [ ( { start = { row = 2, column = 9 }, end = { row = 2, column = 10 } }
-                          , [ "A" ]
-                          )
-                        ]
-                        (FunctionOrValue [ "A" ] "b")
+                """module A exposing (..)
+import B exposing (a)
+value = a
+"""
+                    |> normalizeSourceCode []
+                    |> Expect.equal (FunctionOrValue [ "B" ] "a")
         , test "should normalize module name in patterns" <|
             \() ->
-                """case x of
+                """module A exposing (..)
+import Basics as B
+value = case x of
   B.Just (a) -> (1)
   Nothing -> (2)
   _ -> (3)
 """
-                    |> normalizeWithModuleNamesAndExpect
-                        [ ( { start = { row = 3, column = 3 }, end = { row = 3, column = 13 } }
-                          , [ "Basics" ]
-                          )
-                        , ( { start = { row = 4, column = 3 }, end = { row = 4, column = 10 } }
-                          , [ "Basics" ]
-                          )
-                        ]
+                    |> normalizeSourceCode []
+                    |> Expect.equal
                         (CaseExpression
                             { cases =
                                 [ ( n (NamedPattern { moduleName = [ "Basics" ], name = "Just" } [ n (VarPattern "a") ])
                                   , n (Floatable 1)
                                   )
-                                , ( n (NamedPattern { moduleName = [ "Basics" ], name = "Nothing" } [])
+                                , ( n (NamedPattern { moduleName = [ "Maybe" ], name = "Nothing" } [])
                                   , n (Floatable 2)
                                   )
                                 , ( n AllPattern
@@ -728,38 +770,31 @@ inferTests =
     describe "Normalization through inferred values"
         [ test "should not replace anything when nothing has been inferred" <|
             \() ->
-                "a"
-                    |> normalizeWithInferredAndExpect
-                        []
-                        []
-                        (FunctionOrValue [] "a")
+                """module A exposing (..)
+import B exposing (a)
+value = a"""
+                    |> normalizeSourceCode []
+                    |> Expect.equal (FunctionOrValue [ "B" ] "a")
         , test "should replace reference when its value is known" <|
             \() ->
-                "a"
-                    |> normalizeWithInferredAndExpect
-                        [ ( { start = { row = 2, column = 9 }, end = { row = 2, column = 10 } }
-                          , [ "A" ]
-                          )
-                        ]
-                        [ ( FunctionOrValue [ "A" ] "a", Infer.DTrue ) ]
-                        (FunctionOrValue [ "Basics" ] "True")
+                """module A exposing (..)
+import B exposing (a)
+value = a"""
+                    |> normalizeSourceCode [ ( FunctionOrValue [ "B" ] "a", Infer.DTrue ) ]
+                    |> Expect.equal (FunctionOrValue [ "Basics" ] "True")
         , test "should not replace reference when module name is unknown" <|
             \() ->
-                "a"
-                    |> normalizeWithInferredAndExpect
-                        []
-                        [ ( FunctionOrValue [ "A" ] "a", Infer.DTrue ) ]
-                        (FunctionOrValue [] "a")
+                "c"
+                    |> normalizeExpression [ ( FunctionOrValue [ "B" ] "a", Infer.DTrue ) ]
+                    |> Expect.equal (FunctionOrValue [] "c")
         , test "should not replace reference when module name is not the same" <|
             \() ->
-                "a"
-                    |> normalizeWithInferredAndExpect
-                        [ ( { start = { row = 2, column = 9 }, end = { row = 2, column = 10 } }
-                          , [ "B" ]
-                          )
-                        ]
-                        [ ( FunctionOrValue [ "A" ] "a", Infer.DTrue ) ]
-                        (FunctionOrValue [ "B" ] "a")
+                """module A exposing (..)
+import B
+import C exposing (a)
+value = a"""
+                    |> normalizeSourceCode [ ( FunctionOrValue [ "B" ] "a", Infer.DTrue ) ]
+                    |> Expect.equal (FunctionOrValue [ "C" ] "a")
         ]
 
 
@@ -768,38 +803,57 @@ n =
     Node.empty
 
 
-normalizeAndExpect : Expression -> String -> Expect.Expectation
-normalizeAndExpect expected source =
-    normalizeBase [] Infer.empty expected source
+normalizeExpression : List ( Expression, DeducedValue ) -> String -> Expression
+normalizeExpression inferred expression =
+    normalizeSourceCode
+        inferred
+        ("""module A exposing (..)
+value = """ ++ expression)
 
 
-normalizeWithModuleNamesAndExpect : List ( Range, ModuleName ) -> Expression -> String -> Expect.Expectation
-normalizeWithModuleNamesAndExpect moduleNames expected source =
-    normalizeBase moduleNames Infer.empty expected source
+normalizeSourceCode : List ( Expression, DeducedValue ) -> String -> Expression
+normalizeSourceCode inferred source =
+    let
+        project : Project
+        project =
+            Review.Test.Dependencies.projectWithElmCore
+                |> Project.addModule
+                    { path = "src/A.elm"
+                    , source = source
+                    }
+                |> Project.addModule
+                    { path = "src/B.elm"
+                    , source = """module B exposing (..)
+a = True"""
+                    }
 
+        resources : Resources {}
+        resources =
+            case
+                Rule.applyContextCreator project
+                    [ "A" ]
+                    (Rule.initContextCreator
+                        (\lookupTable () ->
+                            { lookupTable = lookupTable
+                            , inferredConstants = ( Infer.fromList inferred, [] )
+                            , moduleCustomTypes = Dict.empty
+                            , importCustomTypes = Dict.empty
+                            }
+                        )
+                        |> Rule.withModuleNameLookupTable
+                    )
+            of
+                Ok ( _, resources_ ) ->
+                    resources_
 
-normalizeWithInferredAndExpect : List ( Range, ModuleName ) -> List ( Expression, Infer.DeducedValue ) -> Expression -> String -> Expect.Expectation
-normalizeWithInferredAndExpect moduleNames inferredList expected source =
-    normalizeBase moduleNames (Infer.fromList inferredList) expected source
+                Err error ->
+                    Debug.todo error
 
-
-normalizeBase : List ( Range, ModuleName ) -> Infer.Inferred -> Expression -> String -> Expect.Expectation
-normalizeBase moduleNames inferred expected source =
-    normalizeSourceCode moduleNames inferred source
-        |> Expect.equal expected
-
-
-normalizeSourceCode : List ( Range, ModuleName ) -> Infer.Inferred -> String -> Expression
-normalizeSourceCode moduleNames inferred source =
-    ("module A exposing (..)\nvalue = " ++ source)
-        |> parse
-        |> getValue
-        |> Normalize.normalizeExpression
-            { lookupTable = ModuleNameLookupTable.createForTests [ "A" ] moduleNames
-            , inferredConstants = ( inferred, [] )
-            , moduleCustomTypes = Dict.empty
-            , importCustomTypes = Dict.empty
-            }
+        expression : Node Expression
+        expression =
+            getValue (parse source)
+    in
+    Normalize.normalizeExpression resources expression
 
 
 {-| Parse source code into a AST.
