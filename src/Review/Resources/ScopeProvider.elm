@@ -97,17 +97,17 @@ parent (Internal.ScopeProvider scopeProvider) ((Internal.Scope scope) as untouch
 
 typeBinding : ScopeProvider -> String -> Maybe Binding
 typeBinding (Internal.ScopeProvider scopeProvider) name =
-    Dict.get name scopeProvider.topLevel.typeBindings
+    Dict.get name scopeProvider.topLevel.shared.typeBindings
 
 
 importValueBinding : ScopeProvider -> String -> Maybe ImportBinding
 importValueBinding (Internal.ScopeProvider scopeProvider) name =
-    Dict.get name scopeProvider.topLevel.importValueBindings
+    Dict.get name scopeProvider.topLevel.shared.importValueBindings
 
 
 importTypeBinding : ScopeProvider -> String -> Maybe ImportBinding
 importTypeBinding (Internal.ScopeProvider scopeProvider) name =
-    Dict.get name scopeProvider.topLevel.importTypeBindings
+    Dict.get name scopeProvider.topLevel.shared.importTypeBindings
 
 
 {-| All references to a value.

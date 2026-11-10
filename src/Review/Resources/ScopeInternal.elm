@@ -5,6 +5,7 @@ module Review.Resources.ScopeInternal exposing
     , ScopeId
     , ScopeInfo
     , ScopeProvider(..)
+    , SharedScopeInfo
     , create
     , empty
     )
@@ -50,14 +51,19 @@ type alias ScopeInfo =
     , range : Range
     , origin : ScopeOrigin
     , valueBindings : Dict String Binding
-    , typeBindings : Dict String Binding
     , parentBindings : List (Dict String Binding)
+    , children : List Scope
+    , shared : SharedScopeInfo
+    }
+
+
+type alias SharedScopeInfo =
+    { typeBindings : Dict String Binding
     , importValueBindings : Dict String ImportBinding
     , importTypeBindings : Dict String ImportBinding
     , aliasToModuleName : Dict String (NonEmpty ModuleName)
     , moduleQualifiers : Dict ModuleName ModuleName
     , modules : Dict ModuleName Elm.Docs.Module
-    , children : List Scope
     }
 
 
@@ -80,6 +86,16 @@ type Kind
 empty : ModuleName -> ScopeProvider
 empty moduleName =
     let
+        shared : SharedScopeInfo
+        shared =
+            { typeBindings = Dict.empty
+            , importValueBindings = Dict.empty
+            , importTypeBindings = Dict.empty
+            , aliasToModuleName = Dict.empty
+            , moduleQualifiers = Dict.empty
+            , modules = Dict.empty
+            }
+
         topLevel : ScopeInfo
         topLevel =
             { id = 0
@@ -88,14 +104,9 @@ empty moduleName =
             , range = Range.empty
             , origin = ScopeOrigin.TopLevel
             , valueBindings = Dict.empty
-            , typeBindings = Dict.empty
-            , importValueBindings = Dict.empty
-            , importTypeBindings = Dict.empty
             , parentBindings = []
-            , aliasToModuleName = Dict.empty
-            , moduleQualifiers = Dict.empty
-            , modules = Dict.empty
             , children = []
+            , shared = shared
             }
     in
     ScopeProvider

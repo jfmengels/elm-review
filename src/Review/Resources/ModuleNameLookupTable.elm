@@ -27,7 +27,7 @@ import Review.Resources.Internal.Bindings as Bindings exposing (Binding(..), Imp
 import Review.Resources.ModuleNameLookupTableBuilder as Builder exposing (ModuleNameLookupTableBuilder)
 import Review.Resources.Scope as Scope
 import Review.Resources.ScopeId as ScopeId
-import Review.Resources.ScopeInternal as ScopeInternal exposing (Reference, ScopeId, ScopeInfo)
+import Review.Resources.ScopeInternal as ScopeInternal exposing (Reference, ScopeId, ScopeInfo, SharedScopeInfo)
 import Review.Resources.ScopeOrigin as ScopeOrigin exposing (ScopeOrigin)
 import Review.Resources.ScopeProvider exposing (ScopeProvider)
 import Review.Resources.Target as Target exposing (Target)
@@ -287,6 +287,16 @@ computeBaseModule :
     -> Context
 computeBaseModule moduleName modules { typeBindings, bindings, bindingIdCounter } importAcc =
     let
+        shared : SharedScopeInfo
+        shared =
+            { typeBindings = typeBindings
+            , importValueBindings = importAcc.contents.importedFunctions
+            , importTypeBindings = importAcc.contents.importedTypes
+            , aliasToModuleName = importAcc.aliasToModuleName
+            , moduleQualifiers = importAcc.moduleQualifiers
+            , modules = modules
+            }
+
         topLevelScope : ScopeInfo
         topLevelScope =
             { id = ScopeId.topLevel
@@ -294,15 +304,10 @@ computeBaseModule moduleName modules { typeBindings, bindings, bindingIdCounter 
             , parentId = Nothing
             , range = Range.empty -- TODO Use full range
             , origin = ScopeOrigin.TopLevel
-            , typeBindings = typeBindings
             , valueBindings = bindings
-            , importValueBindings = importAcc.contents.importedFunctions
-            , importTypeBindings = importAcc.contents.importedTypes
-            , aliasToModuleName = importAcc.aliasToModuleName
-            , moduleQualifiers = importAcc.moduleQualifiers
-            , modules = modules
             , parentBindings = []
             , children = []
+            , shared = shared
             }
     in
     { scopeStack = NonEmpty.fromElement topLevelScope
@@ -335,14 +340,9 @@ createScope { id, parent, range, origin, bindings } =
     , range = range
     , origin = origin
     , valueBindings = bindings
-    , typeBindings = parent.typeBindings
-    , importValueBindings = parent.importValueBindings
-    , importTypeBindings = parent.importTypeBindings
-    , aliasToModuleName = parent.aliasToModuleName
-    , moduleQualifiers = parent.moduleQualifiers
-    , modules = parent.modules
-    , children = []
     , parentBindings = parent.valueBindings :: parent.parentBindings
+    , children = []
+    , shared = parent.shared
     }
 
 
@@ -1443,7 +1443,7 @@ addValueReference moduleName valueName range kind context =
                     { context | valueReferences = dictInsertCons bindingId reference context.valueReferences }
 
                 Nothing ->
-                    case Dict.get valueName scope.importValueBindings of
+                    case Dict.get valueName scope.shared.importValueBindings of
                         Just importBinding ->
                             let
                                 (BindingId.Id bindingId) =
@@ -1554,7 +1554,7 @@ moduleNameForType : Context -> String -> ModuleName -> ModuleName
 moduleNameForType context typeName moduleName =
     case moduleName of
         [] ->
-            if Dict.member typeName (NonEmpty.head context.scopeStack).typeBindings then
+            if Dict.member typeName (NonEmpty.head context.scopeStack).shared.typeBindings then
                 []
 
             else
@@ -1590,12 +1590,12 @@ getTarget : Context -> String -> ModuleName -> Maybe ( Target, Maybe BindingId.I
 getTarget context typeName moduleName =
     case moduleName of
         [] ->
-            case Dict.get typeName (NonEmpty.head context.scopeStack).typeBindings of
+            case Dict.get typeName (NonEmpty.head context.scopeStack).shared.typeBindings of
                 Just binding ->
                     Just ( Target.LocalBinding binding, Just (Binding.id binding) )
 
                 Nothing ->
-                    case Dict.get typeName (NonEmpty.head context.scopeStack).importTypeBindings of
+                    case Dict.get typeName (NonEmpty.head context.scopeStack).shared.importTypeBindings of
                         Just importBinding ->
                             Just ( Target.ImportBinding_ importBinding, Just (ImportBinding.id importBinding) )
 
