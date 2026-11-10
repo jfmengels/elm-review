@@ -5886,66 +5886,10 @@ computeWhatsRequiredToAnalyze project module_ ruleProjectVisitors =
 
 
 computeModuleWithRuleVisitors : ValidProject -> Elm.Docs.Module -> OpaqueProjectModule -> List (AvailableData -> RuleModuleVisitor) -> RequestedData -> ( ValidProject, List RuleProjectVisitor )
-computeModuleWithRuleVisitors project docsModule module_ inputRuleModuleVisitors (RequestedData requestedData) =
+computeModuleWithRuleVisitors project docsModule module_ inputRuleModuleVisitors requestedData =
     let
-        moduleName : ModuleName
-        moduleName =
-            ProjectModule.moduleName module_
-
-        ast : File
-        ast =
-            ProjectModule.ast module_
-
-        typeInferenceProject : ( TypeInference.Project, () )
-        typeInferenceProject =
-            ( ValidProject.typeInferenceProject project, () )
-
-        projectCache : ProjectCache
-        projectCache =
-            ValidProject.projectCache project
-
-        ( moduleNameLookupTable, scopeProvider, newProjectCache ) =
-            if requestedData.moduleNameLookupTable then
-                Review.Resources.ModuleNameLookupTable.compute moduleName module_ projectCache
-
-            else
-                ( ModuleNameLookupTableInternal.empty moduleName
-                , ScopeInternal.empty moduleName
-                , projectCache
-                )
-
-        availableData : AvailableData
-        availableData =
-            { ast = ast
-            , moduleNameLookupTable = moduleNameLookupTable
-            , getType = \range -> TypeInference.getType moduleName range (Tuple.first typeInferenceProject) |> getTypeMarker typeInferenceProject
-            , scopeProvider = scopeProvider
-            , moduleDocumentation = Review.Resources.DocsModules.findModuleDocumentation ast
-            , isModuleExposed = ValidProject.isModuleExposed project moduleName
-            , exposed =
-                if requestedData.exposed then
-                    { exposesAll = exposesAll ast
-                    , exposed = collectExposed docsModule
-                    }
-
-                else
-                    dummyExposed
-            , importedModuleDocs = \params -> filterModuleDocs params ast.imports projectCache
-            , constructorToType = \params -> computeConstructorToType params requestedData.constructorToType moduleName ast projectCache
-            , extractSourceCode =
-                if requestedData.sourceCodeExtractor then
-                    let
-                        lines : List String
-                        lines =
-                            String.lines (ProjectModule.source module_)
-                    in
-                    \range -> extractSourceCode lines range
-
-                else
-                    always ""
-            , filePath = ProjectModule.path module_
-            , isInSourceDirectories = ProjectModule.isInSourceDirectories module_
-            }
+        ( newProject, availableData ) =
+            computeAvailableData project docsModule module_ requestedData
 
         outputRuleProjectVisitors : List RuleProjectVisitor
         outputRuleProjectVisitors =
@@ -5959,9 +5903,7 @@ computeModuleWithRuleVisitors project docsModule module_ inputRuleModuleVisitors
                 )
                 inputRuleModuleVisitors
     in
-    ( ValidProject.updateProjectCache
-        (ProjectCache.setTypes (Tuple.first typeInferenceProject) newProjectCache)
-        project
+    ( newProject
     , outputRuleProjectVisitors
     )
 
@@ -8549,6 +8491,75 @@ type alias Exposed =
     { exposesAll : Bool
     , exposed : Dict String Bool
     }
+
+
+computeAvailableData : ValidProject -> Elm.Docs.Module -> OpaqueProjectModule -> RequestedData -> ( ValidProject, AvailableData )
+computeAvailableData project docsModule module_ (RequestedData requestedData) =
+    let
+        moduleName : ModuleName
+        moduleName =
+            ProjectModule.moduleName module_
+
+        ast : File
+        ast =
+            ProjectModule.ast module_
+
+        typeInferenceProject : ( TypeInference.Project, () )
+        typeInferenceProject =
+            ( ValidProject.typeInferenceProject project, () )
+
+        projectCache : ProjectCache
+        projectCache =
+            ValidProject.projectCache project
+
+        ( moduleNameLookupTable, scopeProvider, newProjectCache ) =
+            if requestedData.moduleNameLookupTable then
+                Review.Resources.ModuleNameLookupTable.compute moduleName module_ projectCache
+
+            else
+                ( ModuleNameLookupTableInternal.empty moduleName
+                , ScopeInternal.empty moduleName
+                , projectCache
+                )
+
+        availableData : AvailableData
+        availableData =
+            { ast = ast
+            , moduleNameLookupTable = moduleNameLookupTable
+            , getType = \range -> TypeInference.getType moduleName range (Tuple.first typeInferenceProject) |> getTypeMarker typeInferenceProject
+            , scopeProvider = scopeProvider
+            , moduleDocumentation = Review.Resources.DocsModules.findModuleDocumentation ast
+            , isModuleExposed = ValidProject.isModuleExposed project moduleName
+            , exposed =
+                if requestedData.exposed then
+                    { exposesAll = exposesAll ast
+                    , exposed = collectExposed docsModule
+                    }
+
+                else
+                    dummyExposed
+            , importedModuleDocs = \params -> filterModuleDocs params ast.imports projectCache
+            , constructorToType = \params -> computeConstructorToType params requestedData.constructorToType moduleName ast projectCache
+            , extractSourceCode =
+                if requestedData.sourceCodeExtractor then
+                    let
+                        lines : List String
+                        lines =
+                            String.lines (ProjectModule.source module_)
+                    in
+                    \range -> extractSourceCode lines range
+
+                else
+                    always ""
+            , filePath = ProjectModule.path module_
+            , isInSourceDirectories = ProjectModule.isInSourceDirectories module_
+            }
+    in
+    ( ValidProject.updateProjectCache
+        (ProjectCache.setTypes (Tuple.first typeInferenceProject) newProjectCache)
+        project
+    , availableData
+    )
 
 
 
