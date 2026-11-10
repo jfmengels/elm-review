@@ -94,7 +94,7 @@ moduleNameForValue (Internal.Scope scope) moduleName name =
                 []
 
             else
-                case Dict.get name scope.importValueBindings of
+                case Dict.get name scope.shared.importValueBindings of
                     Just importBinding ->
                         ImportBinding.moduleName importBinding
 
@@ -102,11 +102,11 @@ moduleNameForValue (Internal.Scope scope) moduleName name =
                         []
 
         [ moduleNameOrAlias ] ->
-            case Dict.get moduleNameOrAlias scope.aliasToModuleName of
+            case Dict.get moduleNameOrAlias scope.shared.aliasToModuleName of
                 Just aliases ->
                     NonEmpty.findWithHeadAsDefault
                         (\aliasedModuleName ->
-                            case Dict.get aliasedModuleName scope.modules of
+                            case Dict.get aliasedModuleName scope.shared.modules of
                                 Just module_ ->
                                     isValueDeclaredInModule name module_
 
@@ -145,11 +145,11 @@ moduleNameForType : Scope -> ModuleName -> String -> ModuleName
 moduleNameForType (Internal.Scope scope) moduleName typeName =
     case moduleName of
         [] ->
-            if Dict.member typeName scope.typeBindings then
+            if Dict.member typeName scope.shared.typeBindings then
                 []
 
             else
-                case Dict.get typeName scope.importTypeBindings of
+                case Dict.get typeName scope.shared.importTypeBindings of
                     Just importBinding ->
                         ImportBinding.moduleName importBinding
 
@@ -157,11 +157,11 @@ moduleNameForType (Internal.Scope scope) moduleName typeName =
                         []
 
         [ moduleNameOrAlias ] ->
-            case Dict.get moduleNameOrAlias scope.aliasToModuleName of
+            case Dict.get moduleNameOrAlias scope.shared.aliasToModuleName of
                 Just aliases ->
                     NonEmpty.findWithHeadAsDefault
                         (\aliasedModuleName ->
-                            case Dict.get aliasedModuleName scope.modules of
+                            case Dict.get aliasedModuleName scope.shared.modules of
                                 Just module_ ->
                                     isTypeDeclaredInModule typeName module_
 
@@ -230,7 +230,7 @@ qualifyValue (Internal.Scope scope) moduleName valueName =
         getModuleQualifier scope moduleName
 
     else
-        case Dict.get valueName scope.importValueBindings of
+        case Dict.get valueName scope.shared.importValueBindings of
             Just importBinding ->
                 -- Value has been imported
                 if ImportBinding.moduleName importBinding == moduleName then
@@ -252,13 +252,13 @@ qualifyType (Internal.Scope scope) moduleName typeName =
         []
 
     else
-        case Dict.get typeName scope.typeBindings of
+        case Dict.get typeName scope.shared.typeBindings of
             Just _ ->
                 -- Type is shadowed locally, therefore use a qualified import
                 getModuleQualifier scope moduleName
 
             Nothing ->
-                case Dict.get typeName scope.importTypeBindings of
+                case Dict.get typeName scope.shared.importTypeBindings of
                     Just importBinding ->
                         -- Type has been imported
                         if ImportBinding.moduleName importBinding == moduleName then
@@ -276,5 +276,5 @@ qualifyType (Internal.Scope scope) moduleName typeName =
 
 getModuleQualifier : Internal.ScopeInfo -> ModuleName -> ModuleName
 getModuleQualifier scope moduleName =
-    Dict.get moduleName scope.moduleQualifiers
+    Dict.get moduleName scope.shared.moduleQualifiers
         |> Maybe.withDefault moduleName
