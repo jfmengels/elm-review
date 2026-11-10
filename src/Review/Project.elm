@@ -86,7 +86,7 @@ import Review.Cache.ContentHash as ContentHash
 import Review.FileParser as FileParser
 import Review.FilePath exposing (FilePath)
 import Review.Project.Dependency as Dependency exposing (Dependency)
-import Review.Project.Internal as Internal exposing (Project, ProjectInternals)
+import Review.Project.Internal as Internal exposing (ProjectInternals)
 import Review.Project.ModuleIds as ModuleIds exposing (ModuleId, ModuleIds)
 import Review.Project.ProjectCache as ProjectCache
 import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModule)
