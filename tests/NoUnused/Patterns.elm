@@ -111,8 +111,8 @@ initialContext =
 
 
 declarationEnterVisitor : Node Declaration -> Context -> ( List (Rule.Error {}), Context )
-declarationEnterVisitor node context =
-    case Node.value node of
+declarationEnterVisitor (Node _ decl) context =
+    case decl of
         Declaration.FunctionDeclaration { declaration } ->
             ( findAsPatternsErrors (Node.value declaration).arguments []
             , context
@@ -123,13 +123,13 @@ declarationEnterVisitor node context =
 
 
 expressionEnterVisitor : Node Expression -> Context -> ( List (Rule.Error {}), Context )
-expressionEnterVisitor node context =
-    case Node.value node of
+expressionEnterVisitor (Node _ expr) context =
+    case expr of
         Expression.LetExpression { declarations } ->
             let
                 findPatternsInLetDeclaration : Node Expression.LetDeclaration -> List FoundPattern -> List FoundPattern
-                findPatternsInLetDeclaration letDeclaration foundPatterns =
-                    case Node.value letDeclaration of
+                findPatternsInLetDeclaration (Node _ letDeclaration) foundPatterns =
+                    case letDeclaration of
                         Expression.LetFunction _ ->
                             foundPatterns
 
@@ -137,8 +137,8 @@ expressionEnterVisitor node context =
                             findPatterns Destructuring [ pattern ] foundPatterns
 
                 asPatternsErrors : Node Expression.LetDeclaration -> List (Rule.Error {}) -> List (Rule.Error {})
-                asPatternsErrors letDeclaration errors =
-                    case Node.value letDeclaration of
+                asPatternsErrors (Node _ letDeclaration) errors =
+                    case letDeclaration of
                         Expression.LetFunction { declaration } ->
                             findAsPatternsErrors (Node.value declaration).arguments errors
 
@@ -160,8 +160,8 @@ expressionEnterVisitor node context =
 
 
 expressionExitVisitor : Node Expression -> Context -> ( List (Rule.Error {}), Context )
-expressionExitVisitor node context =
-    case Node.value node of
+expressionExitVisitor (Node _ expr) context =
+    case expr of
         Expression.LetExpression _ ->
             report context
 
@@ -203,9 +203,9 @@ report context =
             ( [], context )
 
 
-removeFromSet : (a -> comparable) -> List a -> Set comparable -> Set comparable
-removeFromSet mapper list initial =
-    List.foldl (\a acc -> Set.remove (mapper a) acc) initial list
+removeFromSet : List (Node comparable) -> Set comparable -> Set comparable
+removeFromSet list initial =
+    List.foldl (\(Node _ a) acc -> Set.remove a acc) initial list
 
 
 singleError : SingleValueData -> Rule.Error {}
@@ -285,7 +285,7 @@ findDeclaredPatterns context scope =
 
                             Nothing ->
                                 acc.errors
-                    , used = removeFromSet Node.value v.fields acc.used
+                    , used = removeFromSet v.fields acc.used
                     }
 
                 SimplifiablePattern simplifiablePatternError ->
@@ -664,13 +664,13 @@ findAsPatternsErrors patterns acc =
         [] ->
             acc
 
-        pattern :: rest ->
-            case Node.value pattern of
+        (Node patternRange pattern) :: rest ->
+            case pattern of
                 Pattern.AsPattern inner name ->
                     let
                         newAcc : List (Rule.Error {})
                         newAcc =
-                            case findPatternForAsPattern (Node.range pattern) inner name of
+                            case findPatternForAsPattern patternRange inner name of
                                 SimplifiablePattern error ->
                                     error :: acc
 
@@ -863,8 +863,8 @@ writePattern pattern =
             in
             List.foldl (\(Node _ p) acc -> acc ++ " " ++ writePattern p) reference others
 
-        Pattern.AsPattern (Node _ innerPattern) asName ->
-            writePattern innerPattern ++ " as " ++ Node.value asName
+        Pattern.AsPattern (Node _ innerPattern) (Node _ asName) ->
+            writePattern innerPattern ++ " as " ++ asName
 
         Pattern.ParenthesizedPattern (Node _ innerPattern) ->
             "(" ++ writePattern innerPattern ++ ")"
