@@ -144,6 +144,7 @@ moduleVisitor schema =
         |> Rule.withExpressionEnterVisitor (\node context -> ( [], expressionEnterVisitor node context ))
         |> Rule.withLetDeclarationEnterVisitor (\_ letDeclaration context -> ( [], letDeclarationEnterVisitor letDeclaration context ))
         |> Rule.withLetDeclarationExitVisitor letDeclarationExitVisitor
+        |> Rule.withScopeVisitor scopeVisitor
         |> Rule.withScopeExitVisitor scopeExitVisitor
 
 
@@ -529,6 +530,39 @@ declarationExitVisitor (Node _ node) context =
             ( [], context )
 
 
+scopeVisitor : { s | scopeProvider : ScopeProvider, child : Scope, node : Node Expression } -> ModuleContext -> ( List (Rule.Error {}), ModuleContext )
+scopeVisitor { scopeProvider, child, node } context =
+    case Scope.origin child of
+        ScopeOrigin.Lambda _ ->
+            ( [], context )
+
+        ScopeOrigin.Function _ ->
+            ( [], context )
+
+        ScopeOrigin.LetBlock _ ->
+            ( []
+            , { context
+                | scopes =
+                    NonemptyList.cons
+                        { functionName = "$"
+                        , declared = []
+                        , functionsDeclaredInSubScope = Set.empty
+                        , used = Set.empty
+                        , usedRecursively = Set.empty
+                        , toReport = []
+                        , locationsToIgnoreForFunctionCalls = []
+                        }
+                        context.scopes
+              }
+            )
+
+        ScopeOrigin.CaseBranch _ ->
+            ( [], context )
+
+        ScopeOrigin.TopLevel ->
+            ( [], context )
+
+
 scopeExitVisitor : { s | scopeProvider : ScopeProvider, child : Scope, node : Node Expression } -> ModuleContext -> ( List (Rule.Error {}), ModuleContext )
 scopeExitVisitor { scopeProvider, child, node } context =
     case Scope.origin child of
@@ -543,7 +577,7 @@ scopeExitVisitor { scopeProvider, child, node } context =
                 ( [], context )
 
         ScopeOrigin.LetBlock _ ->
-            ( [], context )
+            report context
 
         ScopeOrigin.CaseBranch _ ->
             ( [], context )
