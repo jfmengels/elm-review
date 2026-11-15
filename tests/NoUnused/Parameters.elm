@@ -535,8 +535,12 @@ scopeExitVisitor { scopeProvider, child, node } context =
         ScopeOrigin.Lambda _ ->
             report context
 
-        ScopeOrigin.Function _ ->
-            ( [], context )
+        ScopeOrigin.Function (Node range _) ->
+            if range.start.column == 1 then
+                ( [], context )
+
+            else
+                ( [], context )
 
         ScopeOrigin.LetBlock _ ->
             ( [], context )
