@@ -496,25 +496,37 @@ declarationEnterVisitor (Node _ node) context =
                 declared =
                     findDeclared functionName NamedFunction functionNameRange.end declaration.arguments f.signature
             in
-            { lookupTable = context.lookupTable
-            , scopes =
-                NonemptyList.cons
-                    { functionName = functionName
-                    , declared = List.concat declared
-                    , functionsDeclaredInSubScope = Set.empty
-                    , used = Set.empty
-                    , usedRecursively = Set.empty
-                    , toReport = []
-                    , locationsToIgnoreForFunctionCalls = []
-                    }
-                    context.scopes
-            , recursiveFunctions = Dict.singleton functionName (getArgNames declared)
-            , locationsToIgnoreForRecursiveArguments = Dict.empty
-            , functionCallsWithArguments = context.functionCallsWithArguments
-            , functionCallsWithArgumentsForOtherModules = context.functionCallsWithArgumentsForOtherModules
-            , functionsFromOtherModulesToFix = context.functionsFromOtherModulesToFix
-            , locationsToIgnoreFunctionCalls = []
-            }
+            if List.isEmpty declaration.arguments then
+                { lookupTable = context.lookupTable
+                , scopes = context.scopes
+                , recursiveFunctions = Dict.singleton functionName (getArgNames declared)
+                , locationsToIgnoreForRecursiveArguments = Dict.empty
+                , functionCallsWithArguments = context.functionCallsWithArguments
+                , functionCallsWithArgumentsForOtherModules = context.functionCallsWithArgumentsForOtherModules
+                , functionsFromOtherModulesToFix = context.functionsFromOtherModulesToFix
+                , locationsToIgnoreFunctionCalls = []
+                }
+
+            else
+                { lookupTable = context.lookupTable
+                , scopes =
+                    NonemptyList.cons
+                        { functionName = functionName
+                        , declared = List.concat declared
+                        , functionsDeclaredInSubScope = Set.empty
+                        , used = Set.empty
+                        , usedRecursively = Set.empty
+                        , toReport = []
+                        , locationsToIgnoreForFunctionCalls = []
+                        }
+                        context.scopes
+                , recursiveFunctions = Dict.singleton functionName (getArgNames declared)
+                , locationsToIgnoreForRecursiveArguments = Dict.empty
+                , functionCallsWithArguments = context.functionCallsWithArguments
+                , functionCallsWithArgumentsForOtherModules = context.functionCallsWithArgumentsForOtherModules
+                , functionsFromOtherModulesToFix = context.functionsFromOtherModulesToFix
+                , locationsToIgnoreFunctionCalls = []
+                }
 
         _ ->
             context
@@ -523,8 +535,17 @@ declarationEnterVisitor (Node _ node) context =
 declarationExitVisitor : Node Declaration -> ModuleContext -> ( List (Rule.Error {}), ModuleContext )
 declarationExitVisitor (Node _ node) context =
     case node of
-        Declaration.FunctionDeclaration _ ->
-            report context
+        Declaration.FunctionDeclaration f ->
+            let
+                declaration : Expression.FunctionImplementation
+                declaration =
+                    Node.value f.declaration
+            in
+            if List.isEmpty declaration.arguments then
+                ( [], context )
+
+            else
+                report context
 
         _ ->
             ( [], context )
