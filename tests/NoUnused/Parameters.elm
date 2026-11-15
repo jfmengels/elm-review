@@ -142,7 +142,6 @@ moduleVisitor schema =
         |> Rule.withDeclarationEnterVisitor (\node context -> ( [], declarationEnterVisitor node context ))
         |> Rule.withExpressionEnterVisitor (\node context -> ( [], expressionEnterVisitor node context ))
         |> Rule.withLetDeclarationEnterVisitor (\_ letDeclaration context -> ( [], letDeclarationEnterVisitor letDeclaration context ))
-        |> Rule.withLetDeclarationExitVisitor letDeclarationExitVisitor
         |> Rule.withScopeVisitor scopeVisitor
         |> Rule.withScopeExitVisitor scopeExitVisitor
 
@@ -570,12 +569,15 @@ scopeExitVisitor { scopeProvider, child, node } context =
         ScopeOrigin.Lambda _ ->
             report context
 
-        ScopeOrigin.Function (Node range _) ->
+        ScopeOrigin.Function (Node range { declaration }) ->
             if range.start.column == 1 then
                 report context
 
-            else
+            else if List.isEmpty (Node.value declaration).arguments then
                 ( [], context )
+
+            else
+                report context
 
         ScopeOrigin.LetBlock _ ->
             report context
@@ -906,25 +908,6 @@ letDeclarationEnterVisitor (Node _ letDeclaration) context =
 
         Expression.LetDestructuring _ _ ->
             context
-
-
-letDeclarationExitVisitor : a -> Node Expression.LetDeclaration -> ModuleContext -> ( List (Rule.Error {}), ModuleContext )
-letDeclarationExitVisitor _ (Node _ letDeclaration) context =
-    case letDeclaration of
-        Expression.LetFunction function ->
-            let
-                declaration : Expression.FunctionImplementation
-                declaration =
-                    Node.value function.declaration
-            in
-            if List.isEmpty declaration.arguments then
-                ( [], context )
-
-            else
-                report context
-
-        Expression.LetDestructuring _ _ ->
-            ( [], context )
 
 
 registerFunctionCallReference : FunctionName -> Range -> List (Node Expression) -> ModuleContext -> ModuleContext
