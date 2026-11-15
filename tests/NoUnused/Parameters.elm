@@ -531,17 +531,28 @@ scopeVisitor { scopeProvider, child, node } context =
                 isUsed =
                     isUsedPredicate scopeProvider child
 
-                used : Set String
-                used =
+                usage : { used : Set String, usedRecursively : Set String }
+                usage =
                     List.foldl
-                        (\d set ->
-                            if d.name /= "" && isUsed d.name then
-                                Set.insert d.name set
+                        (\{ name } ({ used, usedRecursively } as acc) ->
+                            if name /= "" then
+                                acc
+
+                            else if isUsed name then
+                                if Debug.todo "isUsedRecursively" name then
+                                    { used = used
+                                    , usedRecursively = Set.insert name usedRecursively
+                                    }
+
+                                else
+                                    { used = Set.insert name used
+                                    , usedRecursively = usedRecursively
+                                    }
 
                             else
-                                set
+                                acc
                         )
-                        Set.empty
+                        { used = Set.empty, usedRecursively = Set.empty }
                         (List.concat declared)
             in
             if List.isEmpty declaration.arguments then
@@ -555,8 +566,8 @@ scopeVisitor { scopeProvider, child, node } context =
                             { functionName = functionName
                             , declared = List.concat declared
                             , functionsDeclaredInSubScope = Set.empty
-                            , used = Set.empty
-                            , usedRecursively = Set.empty
+                            , used = usage.used
+                            , usedRecursively = usage.usedRecursively
                             , toReport = []
                             , locationsToIgnoreForFunctionCalls = []
                             }
