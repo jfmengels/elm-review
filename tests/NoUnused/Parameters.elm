@@ -20,6 +20,9 @@ import NoUnused.NonemptyList as NonemptyList exposing (Nonempty)
 import NoUnused.Parameters.ParameterPath as ParameterPath exposing (Nesting, Path)
 import Review.Fix as Fix exposing (Fix)
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
+import Review.Resources.Scope as Scope exposing (Scope)
+import Review.Resources.ScopeOrigin as ScopeOrigin
+import Review.Resources.ScopeProvider exposing (ScopeProvider)
 import Review.Rule as Rule exposing (FixV2, ModuleKey, Rule)
 import Set exposing (Set)
 
@@ -139,9 +142,9 @@ moduleVisitor schema =
         |> Rule.withDeclarationEnterVisitor (\node context -> ( [], declarationEnterVisitor node context ))
         |> Rule.withDeclarationExitVisitor declarationExitVisitor
         |> Rule.withExpressionEnterVisitor (\node context -> ( [], expressionEnterVisitor node context ))
-        |> Rule.withExpressionExitVisitor expressionExitVisitor
         |> Rule.withLetDeclarationEnterVisitor (\_ letDeclaration context -> ( [], letDeclarationEnterVisitor letDeclaration context ))
         |> Rule.withLetDeclarationExitVisitor letDeclarationExitVisitor
+        |> Rule.withScopeExitVisitor scopeExitVisitor
 
 
 
@@ -526,6 +529,25 @@ declarationExitVisitor (Node _ node) context =
             ( [], context )
 
 
+scopeExitVisitor : { s | scopeProvider : ScopeProvider, child : Scope, node : Node Expression } -> ModuleContext -> ( List (Rule.Error {}), ModuleContext )
+scopeExitVisitor { scopeProvider, child, node } context =
+    case Scope.origin child of
+        ScopeOrigin.Lambda _ ->
+            report context
+
+        ScopeOrigin.Function _ ->
+            ( [], context )
+
+        ScopeOrigin.LetBlock _ ->
+            ( [], context )
+
+        ScopeOrigin.CaseBranch _ ->
+            ( [], context )
+
+        ScopeOrigin.TopLevel ->
+            ( [], context )
+
+
 getArgNames : List (List Declared) -> FunctionArgs
 getArgNames declared =
     getArgNamesHelp declared 0 Dict.empty
@@ -804,20 +826,6 @@ expressionEnterVisitor (Node range node) context =
 
         _ ->
             context
-
-
-
--- EXPRESSION EXIT VISITOR
-
-
-expressionExitVisitor : Node Expression -> ModuleContext -> ( List (Rule.Error {}), ModuleContext )
-expressionExitVisitor (Node _ node) context =
-    case node of
-        Expression.LambdaExpression _ ->
-            report context
-
-        _ ->
-            ( [], context )
 
 
 letDeclarationEnterVisitor : Node Expression.LetDeclaration -> ModuleContext -> ModuleContext
