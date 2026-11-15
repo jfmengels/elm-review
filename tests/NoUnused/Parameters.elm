@@ -169,7 +169,7 @@ initialContext =
 
 type alias ModuleContext =
     { lookupTable : ModuleNameLookupTable
-    , scopes : Nonempty Scope
+    , scopes : Nonempty CustomScope
     , recursiveFunctions : Dict FunctionName FunctionArgs
     , locationsToIgnoreForRecursiveArguments : LocationsToIgnore
     , functionCallsWithArguments : Dict FunctionName (List CallSite)
@@ -179,7 +179,7 @@ type alias ModuleContext =
     }
 
 
-type alias Scope =
+type alias CustomScope =
     { functionName : FunctionName
     , declared : List Declared
     , functionsDeclaredInSubScope : Set String
@@ -841,7 +841,7 @@ letDeclarationEnterVisitor (Node _ letDeclaration) context =
                     declared =
                         findDeclared functionName NamedFunction functionNameRange.end declaration.arguments function.signature
 
-                    newScope : Scope
+                    newScope : CustomScope
                     newScope =
                         { functionName = functionName
                         , declared = List.concat declared
@@ -1016,7 +1016,7 @@ isRangeIncluded inner outer =
         && (Range.compareLocations inner.end outer.end /= GT)
 
 
-markAllAsUsed : Scope -> Set String -> List ArgumentToReport -> Nonempty Scope -> Nonempty Scope
+markAllAsUsed : CustomScope -> Set String -> List ArgumentToReport -> Nonempty CustomScope -> Nonempty CustomScope
 markAllAsUsed subScope names toReport scopes =
     NonemptyList.mapHead
         (\scope ->
@@ -1155,7 +1155,7 @@ prettyRemovalRange range position callSite =
 
 
 findErrorsAndVariablesNotPartOfScope :
-    Scope
+    CustomScope
     -> Declared
     -> { reportLater : List ArgumentToReport, reportNow : List (Rule.Error {}), remainingUsed : Set String }
     -> { reportLater : List ArgumentToReport, reportNow : List (Rule.Error {}), remainingUsed : Set String }
