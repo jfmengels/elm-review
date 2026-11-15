@@ -20,9 +20,10 @@ import NoUnused.NonemptyList as NonemptyList exposing (Nonempty)
 import NoUnused.Parameters.ParameterPath as ParameterPath exposing (Nesting, Path)
 import Review.Fix as Fix exposing (Fix)
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
+import Review.Resources.Binding as Binding
 import Review.Resources.Scope as Scope exposing (Scope)
 import Review.Resources.ScopeOrigin as ScopeOrigin
-import Review.Resources.ScopeProvider exposing (ScopeProvider)
+import Review.Resources.ScopeProvider as ScopeProvider exposing (ScopeProvider)
 import Review.Rule as Rule exposing (FixV2, ModuleKey, Rule)
 import Set exposing (Set)
 
@@ -534,21 +535,43 @@ scopeVisitor : { s | scopeProvider : ScopeProvider, child : Scope, node : Node E
 scopeVisitor { scopeProvider, child, node } context =
     case Scope.origin child of
         ScopeOrigin.Lambda (Node range { args }) ->
-            ( []
-            , { context
-                | scopes =
-                    NonemptyList.cons
-                        { functionName = "dummy lambda"
-                        , declared = findDeclared "dummy lambda" Lambda { row = range.start.row, column = range.start.column + 1 } args Nothing |> List.concat
-                        , functionsDeclaredInSubScope = Set.empty
-                        , used = Set.empty
-                        , usedRecursively = Set.empty
-                        , toReport = []
-                        , locationsToIgnoreForFunctionCalls = []
-                        }
-                        context.scopes
-              }
-            )
+            let
+                declared : List Declared
+                declared =
+                    findDeclared "dummy lambda" Lambda { row = range.start.row, column = range.start.column + 1 } args Nothing
+                        |> List.concat
+
+                isUsed : String -> Bool
+                isUsed =
+                    isUsedPredicate scopeProvider child
+
+                used : Set String
+                used =
+                    List.foldl
+                        (\d set ->
+                            if d.name /= "" && isUsed d.name then
+                                Set.insert d.name set
+
+                            else
+                                set
+                        )
+                        Set.empty
+                        declared
+            in
+            report
+                { context
+                    | scopes =
+                        NonemptyList.cons
+                            { functionName = "dummy lambda"
+                            , declared = declared
+                            , functionsDeclaredInSubScope = Set.empty
+                            , used = used
+                            , usedRecursively = Set.empty
+                            , toReport = []
+                            , locationsToIgnoreForFunctionCalls = []
+                            }
+                            context.scopes
+                }
 
         ScopeOrigin.Function _ ->
             ( [], context )
@@ -581,7 +604,7 @@ scopeExitVisitor : { s | scopeProvider : ScopeProvider, child : Scope, node : No
 scopeExitVisitor { scopeProvider, child, node } context =
     case Scope.origin child of
         ScopeOrigin.Lambda _ ->
-            report context
+            ( [], context )
 
         ScopeOrigin.Function (Node range { declaration }) ->
             if range.start.column == 1 then
@@ -601,6 +624,22 @@ scopeExitVisitor { scopeProvider, child, node } context =
 
         ScopeOrigin.TopLevel ->
             ( [], context )
+
+
+isUsedPredicate : ScopeProvider -> Scope -> String -> Bool
+isUsedPredicate scopeProvider scope =
+    \name ->
+        case Scope.valueBinding scope name of
+            Just binding ->
+                case ScopeProvider.valueReferences scopeProvider (Binding.id binding) of
+                    [] ->
+                        False
+
+                    _ :: _ ->
+                        True
+
+            Nothing ->
+                True
 
 
 getArgNames : List (List Declared) -> FunctionArgs
