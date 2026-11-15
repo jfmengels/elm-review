@@ -526,6 +526,23 @@ scopeVisitor { scopeProvider, child, node } context =
                 declared : List (List Declared)
                 declared =
                     findDeclared functionName NamedFunction functionNameRange.end declaration.arguments f.signature
+
+                isUsed : String -> Bool
+                isUsed =
+                    isUsedPredicate scopeProvider child
+
+                used : Set String
+                used =
+                    List.foldl
+                        (\d set ->
+                            if d.name /= "" && isUsed d.name then
+                                Set.insert d.name set
+
+                            else
+                                set
+                        )
+                        Set.empty
+                        (List.concat declared)
             in
             if List.isEmpty declaration.arguments then
                 ( [], { context | locationsToIgnoreFunctionCalls = [] } )
