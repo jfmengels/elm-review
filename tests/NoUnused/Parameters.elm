@@ -496,15 +496,7 @@ declarationEnterVisitor (Node _ node) context =
                     findDeclared functionName NamedFunction functionNameRange.end declaration.arguments f.signature
             in
             if List.isEmpty declaration.arguments then
-                { lookupTable = context.lookupTable
-                , scopes = context.scopes
-                , recursiveFunctions = Dict.singleton functionName (getArgNames declared)
-                , locationsToIgnoreForRecursiveArguments = Dict.empty
-                , functionCallsWithArguments = context.functionCallsWithArguments
-                , functionCallsWithArgumentsForOtherModules = context.functionCallsWithArgumentsForOtherModules
-                , functionsFromOtherModulesToFix = context.functionsFromOtherModulesToFix
-                , locationsToIgnoreFunctionCalls = []
-                }
+                { context | locationsToIgnoreFunctionCalls = [] }
 
             else
                 { lookupTable = context.lookupTable
