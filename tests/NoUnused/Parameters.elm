@@ -8,7 +8,6 @@ module NoUnused.Parameters exposing (rule)
 
 import Array exposing (Array)
 import Dict exposing (Dict)
-import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node(..))
@@ -140,9 +139,7 @@ rule =
 moduleVisitor : Rule.ModuleRuleSchema schemaState ModuleContext -> Rule.ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } ModuleContext
 moduleVisitor schema =
     schema
-        |> Rule.withDeclarationEnterVisitor (\node context -> ( [], declarationEnterVisitor node context ))
         |> Rule.withExpressionEnterVisitor (\node context -> ( [], expressionEnterVisitor node context ))
-        |> Rule.withLetDeclarationEnterVisitor (\_ letDeclaration context -> ( [], letDeclarationEnterVisitor letDeclaration context ))
         |> Rule.withScopeVisitor scopeVisitor
         |> Rule.withScopeExitVisitor scopeExitVisitor
 
@@ -475,54 +472,6 @@ applyFixesAcrossModules arg callSitesPerFile fixesSoFar =
                 Nothing
 
 
-
--- DECLARATION VISITOR
-
-
-declarationEnterVisitor : Node Declaration -> ModuleContext -> ModuleContext
-declarationEnterVisitor (Node _ node) context =
-    case node of
-        Declaration.FunctionDeclaration f ->
-            let
-                declaration : Expression.FunctionImplementation
-                declaration =
-                    Node.value f.declaration
-
-                (Node functionNameRange functionName) =
-                    declaration.name
-
-                declared : List (List Declared)
-                declared =
-                    findDeclared functionName NamedFunction functionNameRange.end declaration.arguments f.signature
-            in
-            if List.isEmpty declaration.arguments then
-                { context | locationsToIgnoreFunctionCalls = [] }
-
-            else
-                { lookupTable = context.lookupTable
-                , scopes =
-                    NonemptyList.cons
-                        { functionName = functionName
-                        , declared = List.concat declared
-                        , functionsDeclaredInSubScope = Set.empty
-                        , used = Set.empty
-                        , usedRecursively = Set.empty
-                        , toReport = []
-                        , locationsToIgnoreForFunctionCalls = []
-                        }
-                        context.scopes
-                , recursiveFunctions = Dict.singleton functionName (getArgNames declared)
-                , locationsToIgnoreForRecursiveArguments = Dict.empty
-                , functionCallsWithArguments = context.functionCallsWithArguments
-                , functionCallsWithArgumentsForOtherModules = context.functionCallsWithArgumentsForOtherModules
-                , functionsFromOtherModulesToFix = context.functionsFromOtherModulesToFix
-                , locationsToIgnoreFunctionCalls = []
-                }
-
-        _ ->
-            context
-
-
 scopeVisitor : { s | scopeProvider : ScopeProvider, child : Scope, node : Node Expression } -> ModuleContext -> ( List (Rule.Error {}), ModuleContext )
 scopeVisitor { scopeProvider, child, node } context =
     case Scope.origin child of
@@ -565,8 +514,44 @@ scopeVisitor { scopeProvider, child, node } context =
                             context.scopes
                 }
 
-        ScopeOrigin.Function _ ->
-            ( [], context )
+        ScopeOrigin.Function (Node _ f) ->
+            let
+                declaration : Expression.FunctionImplementation
+                declaration =
+                    Node.value f.declaration
+
+                (Node functionNameRange functionName) =
+                    declaration.name
+
+                declared : List (List Declared)
+                declared =
+                    findDeclared functionName NamedFunction functionNameRange.end declaration.arguments f.signature
+            in
+            if List.isEmpty declaration.arguments then
+                ( [], { context | locationsToIgnoreFunctionCalls = [] } )
+
+            else
+                ( []
+                , { lookupTable = context.lookupTable
+                  , scopes =
+                        NonemptyList.cons
+                            { functionName = functionName
+                            , declared = List.concat declared
+                            , functionsDeclaredInSubScope = Set.empty
+                            , used = Set.empty
+                            , usedRecursively = Set.empty
+                            , toReport = []
+                            , locationsToIgnoreForFunctionCalls = []
+                            }
+                            context.scopes
+                  , recursiveFunctions = Dict.singleton functionName (getArgNames declared)
+                  , locationsToIgnoreForRecursiveArguments = Dict.empty
+                  , functionCallsWithArguments = context.functionCallsWithArguments
+                  , functionCallsWithArgumentsForOtherModules = context.functionCallsWithArgumentsForOtherModules
+                  , functionsFromOtherModulesToFix = context.functionsFromOtherModulesToFix
+                  , locationsToIgnoreFunctionCalls = context.locationsToIgnoreFunctionCalls
+                  }
+                )
 
         ScopeOrigin.LetBlock _ ->
             ( []
@@ -891,47 +876,6 @@ expressionEnterVisitor (Node range node) context =
                 context
 
         _ ->
-            context
-
-
-letDeclarationEnterVisitor : Node Expression.LetDeclaration -> ModuleContext -> ModuleContext
-letDeclarationEnterVisitor (Node _ letDeclaration) context =
-    case letDeclaration of
-        Expression.LetFunction function ->
-            let
-                declaration : Expression.FunctionImplementation
-                declaration =
-                    Node.value function.declaration
-            in
-            if List.isEmpty declaration.arguments then
-                context
-
-            else
-                let
-                    (Node functionNameRange functionName) =
-                        declaration.name
-
-                    declared : List (List Declared)
-                    declared =
-                        findDeclared functionName NamedFunction functionNameRange.end declaration.arguments function.signature
-
-                    newScope : CustomScope
-                    newScope =
-                        { functionName = functionName
-                        , declared = List.concat declared
-                        , functionsDeclaredInSubScope = Set.empty
-                        , used = Set.empty
-                        , usedRecursively = Set.empty
-                        , toReport = []
-                        , locationsToIgnoreForFunctionCalls = []
-                        }
-                in
-                { context
-                    | scopes = NonemptyList.cons newScope context.scopes
-                    , recursiveFunctions = Dict.insert functionName (getArgNames declared) context.recursiveFunctions
-                }
-
-        Expression.LetDestructuring _ _ ->
             context
 
 
