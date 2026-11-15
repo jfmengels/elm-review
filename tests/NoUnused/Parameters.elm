@@ -533,8 +533,22 @@ declarationEnterVisitor (Node _ node) context =
 scopeVisitor : { s | scopeProvider : ScopeProvider, child : Scope, node : Node Expression } -> ModuleContext -> ( List (Rule.Error {}), ModuleContext )
 scopeVisitor { scopeProvider, child, node } context =
     case Scope.origin child of
-        ScopeOrigin.Lambda _ ->
-            ( [], context )
+        ScopeOrigin.Lambda (Node range { args }) ->
+            ( []
+            , { context
+                | scopes =
+                    NonemptyList.cons
+                        { functionName = "dummy lambda"
+                        , declared = findDeclared "dummy lambda" Lambda { row = range.start.row, column = range.start.column + 1 } args Nothing |> List.concat
+                        , functionsDeclaredInSubScope = Set.empty
+                        , used = Set.empty
+                        , usedRecursively = Set.empty
+                        , toReport = []
+                        , locationsToIgnoreForFunctionCalls = []
+                        }
+                        context.scopes
+              }
+            )
 
         ScopeOrigin.Function _ ->
             ( [], context )
@@ -813,26 +827,6 @@ expressionEnterVisitor (Node range node) context =
 
         Expression.RecordUpdateExpression (Node nameRange name) _ ->
             markValueAsUsed nameRange name context
-
-        Expression.LambdaExpression { args } ->
-            let
-                start : Location
-                start =
-                    range.start
-            in
-            { context
-                | scopes =
-                    NonemptyList.cons
-                        { functionName = "dummy lambda"
-                        , declared = findDeclared "dummy lambda" Lambda { row = start.row, column = start.column + 1 } args Nothing |> List.concat
-                        , functionsDeclaredInSubScope = Set.empty
-                        , used = Set.empty
-                        , usedRecursively = Set.empty
-                        , toReport = []
-                        , locationsToIgnoreForFunctionCalls = []
-                        }
-                        context.scopes
-            }
 
         Expression.Application ((Node fnRange (Expression.FunctionOrValue _ fnName)) :: arguments) ->
             registerFunctionCallReference fnName fnRange arguments context
