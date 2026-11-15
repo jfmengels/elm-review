@@ -140,7 +140,6 @@ moduleVisitor : Rule.ModuleRuleSchema schemaState ModuleContext -> Rule.ModuleRu
 moduleVisitor schema =
     schema
         |> Rule.withDeclarationEnterVisitor (\node context -> ( [], declarationEnterVisitor node context ))
-        |> Rule.withDeclarationExitVisitor declarationExitVisitor
         |> Rule.withExpressionEnterVisitor (\node context -> ( [], expressionEnterVisitor node context ))
         |> Rule.withLetDeclarationEnterVisitor (\_ letDeclaration context -> ( [], letDeclarationEnterVisitor letDeclaration context ))
         |> Rule.withLetDeclarationExitVisitor letDeclarationExitVisitor
@@ -532,25 +531,6 @@ declarationEnterVisitor (Node _ node) context =
             context
 
 
-declarationExitVisitor : Node Declaration -> ModuleContext -> ( List (Rule.Error {}), ModuleContext )
-declarationExitVisitor (Node _ node) context =
-    case node of
-        Declaration.FunctionDeclaration f ->
-            let
-                declaration : Expression.FunctionImplementation
-                declaration =
-                    Node.value f.declaration
-            in
-            if List.isEmpty declaration.arguments then
-                ( [], context )
-
-            else
-                report context
-
-        _ ->
-            ( [], context )
-
-
 scopeVisitor : { s | scopeProvider : ScopeProvider, child : Scope, node : Node Expression } -> ModuleContext -> ( List (Rule.Error {}), ModuleContext )
 scopeVisitor { scopeProvider, child, node } context =
     case Scope.origin child of
@@ -592,7 +572,7 @@ scopeExitVisitor { scopeProvider, child, node } context =
 
         ScopeOrigin.Function (Node range _) ->
             if range.start.column == 1 then
-                ( [], context )
+                report context
 
             else
                 ( [], context )
