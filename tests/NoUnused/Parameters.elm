@@ -20,6 +20,7 @@ import NoUnused.Parameters.ParameterPath as ParameterPath exposing (Nesting, Pat
 import Review.Fix as Fix exposing (Fix)
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Resources.Binding as Binding
+import Review.Resources.Reference exposing (Reference)
 import Review.Resources.Scope as Scope exposing (Scope)
 import Review.Resources.ScopeOrigin as ScopeOrigin
 import Review.Resources.ScopeProvider as ScopeProvider exposing (ScopeProvider)
@@ -538,19 +539,33 @@ scopeVisitor { scopeProvider, child, node } context =
                             if name /= "" then
                                 acc
 
-                            else if isUsed name then
-                                if Debug.todo "isUsedRecursively" name then
-                                    { used = used
-                                    , usedRecursively = Set.insert name usedRecursively
-                                    }
-
-                                else
-                                    { used = Set.insert name used
-                                    , usedRecursively = usedRecursively
-                                    }
-
                             else
-                                acc
+                                case referencesToName scopeProvider child name of
+                                    [] ->
+                                        acc
+
+                                    references ->
+                                        let
+                                            locationsToIgnoreForRecursiveArguments =
+                                                referencesToName
+
+                                            isUsedRecursively =
+                                                case Dict.get name locationsToIgnoreForRecursiveArguments of
+                                                    Just ranges ->
+                                                        List.any (isRangeIncluded range) ranges
+
+                                                    Nothing ->
+                                                        False
+                                        in
+                                        if isUsedRecursively then
+                                            { used = used
+                                            , usedRecursively = Set.insert name usedRecursively
+                                            }
+
+                                        else
+                                            { used = Set.insert name used
+                                            , usedRecursively = usedRecursively
+                                            }
                         )
                         { used = Set.empty, usedRecursively = Set.empty }
                         (List.concat declared)
@@ -645,6 +660,16 @@ isUsedPredicate scopeProvider scope =
 
             Nothing ->
                 True
+
+
+referencesToName : ScopeProvider -> Scope -> String -> List Reference
+referencesToName scopeProvider scope name =
+    case Scope.valueBinding scope name of
+        Just binding ->
+            ScopeProvider.valueReferences scopeProvider (Binding.id binding)
+
+        Nothing ->
+            []
 
 
 getArgNames : List (List Declared) -> FunctionArgs
