@@ -73,7 +73,7 @@ scopeVisitor : { s | child : Scope, scopeProvider : ScopeProvider } -> List (Rul
 scopeVisitor { child, scopeProvider } =
     case Scope.origin child of
         ScopeOrigin.Function (Node _ { declaration }) ->
-            findAsPatternsErrors (isUsedPredicate scopeProvider child) (Node.value declaration).arguments []
+            findUnusedAsPatterns (isUsedPredicate scopeProvider child) (Node.value declaration).arguments []
 
         ScopeOrigin.CaseBranch ( pattern, _ ) ->
             findPatterns (isUsedPredicate scopeProvider child) Matching [ pattern ] []
@@ -92,7 +92,7 @@ scopeVisitor { child, scopeProvider } =
             List.foldl findPatternsInLetDeclaration [] declarations
 
         ScopeOrigin.Lambda (Node _ { args }) ->
-            findAsPatternsErrors (isUsedPredicate scopeProvider child) args []
+            findUnusedAsPatterns (isUsedPredicate scopeProvider child) args []
 
         _ ->
             []
@@ -314,8 +314,13 @@ listToDetails rest =
             pluralDetails
 
 
-findAsPatternsErrors : (String -> Bool) -> List (Node Pattern) -> List (Rule.Error {}) -> List (Rule.Error {})
-findAsPatternsErrors isUsed patterns acc =
+{-| Find and report `... as unused` patterns in function arguments.
+
+We only want to report these because removing anything else is handled by `NoUnused.Parameters`.
+
+-}
+findUnusedAsPatterns : (String -> Bool) -> List (Node Pattern) -> List (Rule.Error {}) -> List (Rule.Error {})
+findUnusedAsPatterns isUsed patterns acc =
     case patterns of
         [] ->
             acc
@@ -323,7 +328,7 @@ findAsPatternsErrors isUsed patterns acc =
         (Node patternRange pattern) :: rest ->
             case pattern of
                 Pattern.AsPattern inner name ->
-                    findAsPatternsErrors
+                    findUnusedAsPatterns
                         isUsed
                         (inner :: rest)
                         (findPatternForAsPattern
@@ -338,22 +343,22 @@ findAsPatternsErrors isUsed patterns acc =
                         )
 
                 Pattern.TuplePattern subPatterns ->
-                    findAsPatternsErrors isUsed (subPatterns ++ rest) acc
+                    findUnusedAsPatterns isUsed (subPatterns ++ rest) acc
 
                 Pattern.UnConsPattern first second ->
-                    findAsPatternsErrors isUsed (first :: second :: rest) acc
+                    findUnusedAsPatterns isUsed (first :: second :: rest) acc
 
                 Pattern.ListPattern subPatterns ->
-                    findAsPatternsErrors isUsed (subPatterns ++ rest) acc
+                    findUnusedAsPatterns isUsed (subPatterns ++ rest) acc
 
                 Pattern.NamedPattern _ subPatterns ->
-                    findAsPatternsErrors isUsed (subPatterns ++ rest) acc
+                    findUnusedAsPatterns isUsed (subPatterns ++ rest) acc
 
                 Pattern.ParenthesizedPattern inner ->
-                    findAsPatternsErrors isUsed (inner :: rest) acc
+                    findUnusedAsPatterns isUsed (inner :: rest) acc
 
                 _ ->
-                    findAsPatternsErrors isUsed rest acc
+                    findUnusedAsPatterns isUsed rest acc
 
 
 findPatternForAsPattern :
