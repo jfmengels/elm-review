@@ -339,7 +339,7 @@ findAsPatternsErrors isUsed patterns acc =
 
 
 findPatternForAsPattern : { include : Bool } -> (String -> Bool) -> Range -> Node Pattern -> Node String -> List (Rule.Error {}) -> List (Rule.Error {})
-findPatternForAsPattern ({ include } as params) isUsed fullPatternRange (Node patternRange pattern) ((Node range name) as nameNode) errors =
+findPatternForAsPattern ({ include } as params) isUsed fullPatternRange (Node patternRange pattern) ((Node aliasRange aliasName) as nameNode) errors =
     case pattern of
         Pattern.ParenthesizedPattern subPattern ->
             findPatternForAsPattern params isUsed fullPatternRange subPattern nameNode errors
@@ -350,27 +350,27 @@ findPatternForAsPattern ({ include } as params) isUsed fullPatternRange (Node pa
                 , details = removeDetails
                 }
                 patternRange
-                [ Fix.replaceRangeBy fullPatternRange name ]
+                [ Fix.removeRange { start = fullPatternRange.start, end = aliasRange.start } ]
                 :: errors
 
         Pattern.VarPattern innerName ->
             Rule.error
-                { message = "Unnecessary duplicate alias `" ++ name ++ "`"
+                { message = "Unnecessary duplicate alias `" ++ aliasName ++ "`"
                 , details = [ "This alias is redundant because the value is already named `" ++ innerName ++ "`. I suggest you remove one of them." ]
                 }
-                range
+                aliasRange
                 :: errors
 
         Pattern.AsPattern _ (Node innerRange innerName) ->
             Rule.error
                 { message = "Unnecessary duplicate alias `" ++ innerName ++ "`"
-                , details = [ "This name is redundant because the value is already aliased as `" ++ name ++ "`. I suggest you remove one of them." ]
+                , details = [ "This name is redundant because the value is already aliased as `" ++ aliasName ++ "`. I suggest you remove one of them." ]
                 }
                 innerRange
                 :: errors
 
         _ ->
-            if include && not (isUsed name) then
+            if include && not (isUsed aliasName) then
                 let
                     fix : List Fix
                     fix =
@@ -380,10 +380,10 @@ findPatternForAsPattern ({ include } as params) isUsed fullPatternRange (Node pa
                         ]
                 in
                 Rule.errorWithFix
-                    { message = "Pattern alias `" ++ name ++ "` is not used"
+                    { message = "Pattern alias `" ++ aliasName ++ "` is not used"
                     , details = singularRemoveDetails
                     }
-                    range
+                    aliasRange
                     fix
                     :: errors
 
