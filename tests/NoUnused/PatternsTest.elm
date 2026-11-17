@@ -994,17 +994,17 @@ recordPatternTests =
 module A exposing (..)
 foo =
     let
-        { bish, bash } =
+        { bish, bash, bosh } =
             bar
     in
-    bosh
+    1
 """
                 |> Review.Test.run rule
                 |> Review.Test.expectErrors
                     [ Review.Test.error
-                        { message = "Values `bish` and `bash` are not used"
+                        { message = "Values `bish`, `bash` and `bosh` are not used"
                         , details = [ "You should either use these values somewhere or remove them." ]
-                        , under = "{ bish, bash }"
+                        , under = "{ bish, bash, bosh }"
                         }
                         |> Review.Test.whenFixed
                             """
@@ -1014,7 +1014,7 @@ foo =
         _ =
             bar
     in
-    bosh
+    1
 """
                     ]
     , test "should report unused record values" <|

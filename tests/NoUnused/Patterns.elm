@@ -299,8 +299,22 @@ listToMessage first rest =
         [] ->
             "Value `" ++ first ++ "` is not used"
 
-        (Node _ last) :: middle ->
-            "Values `" ++ String.join "`, `" (first :: List.map Node.value middle) ++ "` and `" ++ last ++ "` are not used"
+        _ :: _ ->
+            listToMessageHelp ("Values `" ++ first) rest ++ "` are not used"
+
+
+listToMessageHelp : String -> List (Node String) -> String
+listToMessageHelp stringSoFar list =
+    case list of
+        (Node _ last) :: [] ->
+            stringSoFar ++ "` and `" ++ last
+
+        (Node _ item) :: rest ->
+            listToMessageHelp (stringSoFar ++ "`, `" ++ item) rest
+
+        [] ->
+            -- should not happen
+            ""
 
 
 listToDetails : List a -> List String
