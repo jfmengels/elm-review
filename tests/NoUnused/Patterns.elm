@@ -9,7 +9,7 @@ module NoUnused.Patterns exposing (rule)
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern as Pattern exposing (Pattern)
-import Elm.Syntax.Range as Range exposing (Range)
+import Elm.Syntax.Range as Range exposing (Location, Range)
 import Review.Fix as Fix exposing (Fix)
 import Review.Resources.Binding as Binding
 import Review.Resources.Scope as Scope exposing (Scope)
@@ -246,7 +246,16 @@ findPatterns isUsed use patterns errors =
                         isUsed
                         use
                         (inner :: rest)
-                        (findPatternForAsPattern { include = True } isUsed range inner name errors)
+                        (findPatternForAsPattern
+                            { include = True
+                            , isUsed = isUsed
+                            , fullPatternStart = range.start
+                            , patternWithParens = inner
+                            , errors = errors
+                            }
+                            inner
+                            name
+                        )
 
                 Pattern.ParenthesizedPattern inner ->
                     findPatterns isUsed use (inner :: rest) errors
@@ -318,7 +327,16 @@ findAsPatternsErrors isUsed patterns acc =
                     findAsPatternsErrors
                         isUsed
                         (inner :: rest)
-                        (findPatternForAsPattern { include = False } isUsed patternRange inner name acc)
+                        (findPatternForAsPattern
+                            { include = False
+                            , isUsed = isUsed
+                            , fullPatternStart = patternRange.start
+                            , patternWithParens = inner
+                            , errors = acc
+                            }
+                            inner
+                            name
+                        )
 
                 Pattern.TuplePattern subPatterns ->
                     findAsPatternsErrors isUsed (subPatterns ++ rest) acc
@@ -339,11 +357,20 @@ findAsPatternsErrors isUsed patterns acc =
                     findAsPatternsErrors isUsed rest acc
 
 
-findPatternForAsPattern : { include : Bool } -> (String -> Bool) -> Range -> Node Pattern -> Node String -> List (Rule.Error {}) -> List (Rule.Error {})
-findPatternForAsPattern ({ include } as params) isUsed fullPatternRange (Node patternRange pattern) ((Node aliasRange aliasName) as nameNode) errors =
+findPatternForAsPattern :
+    { include : Bool
+    , isUsed : String -> Bool
+    , fullPatternStart : Location
+    , patternWithParens : Node Pattern
+    , errors : List (Rule.Error {})
+    }
+    -> Node Pattern
+    -> Node String
+    -> List (Rule.Error {})
+findPatternForAsPattern params (Node patternRange pattern) ((Node aliasRange aliasName) as nameNode) =
     case pattern of
         Pattern.ParenthesizedPattern subPattern ->
-            findPatternForAsPattern params isUsed fullPatternRange subPattern nameNode errors
+            findPatternForAsPattern params subPattern nameNode
 
         Pattern.AllPattern ->
             Rule.errorWithFix
@@ -351,8 +378,8 @@ findPatternForAsPattern ({ include } as params) isUsed fullPatternRange (Node pa
                 , details = removeDetails
                 }
                 patternRange
-                [ Fix.removeRange { start = fullPatternRange.start, end = aliasRange.start } ]
-                :: errors
+                [ Fix.removeRange { start = params.fullPatternStart, end = aliasRange.start } ]
+                :: params.errors
 
         Pattern.VarPattern innerName ->
             Rule.error
@@ -360,7 +387,7 @@ findPatternForAsPattern ({ include } as params) isUsed fullPatternRange (Node pa
                 , details = [ "This alias is redundant because the value is already named `" ++ innerName ++ "`. I suggest you remove one of them." ]
                 }
                 aliasRange
-                :: errors
+                :: params.errors
 
         Pattern.AsPattern _ (Node innerRange innerName) ->
             Rule.error
@@ -368,28 +395,22 @@ findPatternForAsPattern ({ include } as params) isUsed fullPatternRange (Node pa
                 , details = [ "This name is redundant because the value is already aliased as `" ++ aliasName ++ "`. I suggest you remove one of them." ]
                 }
                 innerRange
-                :: errors
+                :: params.errors
 
         _ ->
-            if include && not (isUsed aliasName) then
-                let
-                    fix : List Fix
-                    fix =
-                        [ pattern
-                            |> writePattern
-                            |> Fix.replaceRangeBy fullPatternRange
-                        ]
-                in
+            if params.include && not (params.isUsed aliasName) then
                 Rule.errorWithFix
                     { message = "Pattern alias `" ++ aliasName ++ "` is not used"
                     , details = singularRemoveDetails
                     }
                     aliasRange
-                    fix
-                    :: errors
+                    [ Fix.removeRange { start = (Node.range params.patternWithParens).start, end = patternRange.start }
+                    , Fix.removeRange { start = patternRange.end, end = aliasRange.end }
+                    ]
+                    :: params.errors
 
             else
-                errors
+                params.errors
 
 
 isAllPattern : Pattern -> Bool
